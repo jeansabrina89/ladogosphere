@@ -42,7 +42,9 @@ export default async function PlanningPage({
       if (jour >= occ.date_debut && jour <= occ.date_fin) {
         if (!index[occ.box_id][jour]) index[occ.box_id][jour] = [];
         if (occ.chiens) {
-          const existe = index[occ.box_id][jour].find((o: any) => o.chiens?.id === occ.chiens?.id);
+          const existe = index[occ.box_id][jour].find(
+  (o: any) => JSON.stringify(o.chiens) === JSON.stringify(occ.chiens)
+);
           if (!existe) index[occ.box_id][jour].push(occ);
         }
       }
