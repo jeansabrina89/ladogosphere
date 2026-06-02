@@ -1,0 +1,146 @@
+import Link from "next/link";
+import { supabase } from "../../src/lib/supabase";
+import { formatDate } from "../../src/lib/dates";
+import FiltresReservations from "./FiltresReservations";
+import BoutonPaiementRapide from "./BoutonPaiementRapide";
+
+export default async function ReservationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filtre?: string; paiement?: string }>;
+}) {
+  const params = await searchParams;
+  const filtre = params.filtre || "toutes";
+  const paiement = params.paiement || "tous";
+  const aujourd_hui = new Date().toISOString().split("T")[0];
+
+  let query = supabase
+    .from("reservations")
+    .select(`
+      *,
+      clients (prenom, nom, membre),
+      boxes (numero),
+      reservation_chiens (
+        chiens (id, nom, race, categorie_poids)
+      )
+    `)
+    .order("date_debut", { ascending: true });
+
+  if (filtre === "en_cours") {
+    query = query.lte("date_debut", aujourd_hui).gte("date_fin", aujourd_hui);
+  } else if (filtre === "futures") {
+    query = query.gt("date_debut", aujourd_hui);
+  } else if (filtre === "passees") {
+    query = query.lt("date_fin", aujourd_hui);
+  }
+
+  if (paiement !== "tous") {
+    query = query.eq("statut_paiement", paiement);
+  }
+
+  const { data: reservations } = await query;
+
+  return (
+    <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
+      <div className="max-w-7xl mx-auto">
+
+        <h1 className="text-4xl font-bold mb-2" style={{ color: "#1B2B5E" }}>📅 Réservations</h1>
+        <p className="text-gray-600 mb-6">Liste de toutes les réservations</p>
+
+        <div className="mb-6">
+          <Link href="/reservations/nouvelle"
+            className="px-4 py-2 rounded-xl font-semibold text-white"
+            style={{ backgroundColor: "#4AAEA0" }}>
+            ➕ Nouvelle réservation
+          </Link>
+        </div>
+
+        <FiltresReservations />
+
+        <p className="font-semibold mb-4" style={{ color: "#1B2B5E" }}>
+          {reservations?.length ?? 0} réservation(s)
+        </p>
+
+        <div className="grid gap-4">
+          {reservations?.length === 0 && (
+            <p className="text-gray-400">Aucune réservation pour ce filtre.</p>
+          )}
+          {reservations?.map((res) => {
+            const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens).filter(Boolean) ?? [];
+            return (
+              <div key={res.id} className="bg-white rounded-xl p-6 shadow-sm">
+                <div className="flex justify-between items-start gap-4">
+
+                  {/* Infos principales — cliquables */}
+                  <Link href={`/reservations/${res.id}`} className="flex-1 min-w-0">
+                    <p className="text-xl font-bold" style={{ color: "#1B2B5E" }}>
+                      {res.clients?.prenom} {res.clients?.nom}
+                      {res.clients?.membre && <span className="ml-2 text-sm text-green-600">⭐ Membre</span>}
+                    </p>
+                    <p className="text-gray-500 text-sm mt-1">
+                      🐶 {chiens.map((c: any) => c.nom).join(", ") || "—"}
+                    </p>
+                    <p className="text-gray-500 text-sm">
+                      🏠 Box {res.boxes?.numero ?? "—"} ·{" "}
+                      {res.type_reservation === "journee" ? "Journée" : "Séjour"}
+                    </p>
+                    <p className="text-gray-500 text-sm">
+                      📅 {formatDate(res.date_debut)} → {formatDate(res.date_fin)}
+                    </p>
+                  </Link>
+
+                  {/* Statuts + paiement rapide */}
+                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
+
+                    {/* Statut réservation */}
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      res.statut === "validee" ? "bg-green-100 text-green-700" :
+                      res.statut === "en_attente" ? "bg-yellow-100 text-yellow-700" :
+                      res.statut === "annulee" ? "bg-red-100 text-red-700" :
+                      res.statut === "terminee" ? "bg-gray-100 text-gray-600" :
+                      "bg-gray-100 text-gray-600"
+                    }`}>
+                      {res.statut === "validee" ? "✅ Validée" :
+                       res.statut === "en_attente" ? "⏳ En attente" :
+                       res.statut === "annulee" ? "❌ Annulée" :
+                       res.statut === "terminee" ? "🏁 Terminée" : res.statut}
+                    </span>
+
+                    {/* Statut paiement */}
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      res.statut_paiement === "paye" ? "bg-green-100 text-green-700" :
+                      res.statut_paiement === "partiel" ? "bg-orange-100 text-orange-700" :
+                      "bg-red-100 text-red-700"
+                    }`}>
+                      {res.statut_paiement === "paye" ? "💰 Payé" :
+                       res.statut_paiement === "partiel" ? "💰 Partiel" :
+                       "💰 Impayé"}
+                    </span>
+
+                    {/* Montant */}
+                    {res.montant_final && (
+                      <p className="font-bold text-sm" style={{ color: "#1B2B5E" }}>
+                        {res.montant_final} CHF
+                      </p>
+                    )}
+
+                    {/* Bouton paiement rapide */}
+                    {res.statut_paiement !== "paye" && res.statut !== "annulee" && (
+                      <BoutonPaiementRapide
+                        reservation_id={res.id}
+                        montant_final={res.montant_final}
+                        statut_paiement={res.statut_paiement}
+                      />
+                    )}
+
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+      </div>
+    </main>
+  );
+}

@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+:root {
+  --bleu-marine: #1B2B5E;
+  --or: #C9A84C;
+  --teal: #4AAEA0;
+  --rose: #E8847A;
+  --creme: #F5F0E8;
+  --creme-fonce: #EDE8DF;
+  --texte: #1B2B5E;
+  --texte-leger: #6B7280;
+}
+
+body {
+  background-color: var(--creme);
+  color: var(--texte);
+  font-family: 'Georgia', serif;
+}
