@@ -59,33 +59,39 @@ export default function FormReservation({
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!verifierHoraires()) return;
+  // Vérifier que la date de fin n'est pas avant la date de début
+  if (type === "sejour" && dateFin && dateDebut && dateFin < dateDebut) {
+    alert("❌ La date de départ ne peut pas être avant la date d'arrivée.");
+    return;
+  }
 
-    setLoading(true);
+  if (!verifierHoraires()) return;
 
-    const form = e.currentTarget;
-    const formData = new FormData(form);
+  setLoading(true);
 
-    if (type === "journee") {
-      formData.set("date_fin", dateDebut);
-    }
+  const form = e.currentTarget;
+  const formData = new FormData(form);
 
-    const response = await fetch("/api/reservations", {
-      method: "POST",
-      body: formData,
-    });
+  if (type === "journee") {
+    formData.set("date_fin", dateDebut);
+  }
 
-    if (response.ok) {
-      const { id } = await response.json();
-      window.location.href = `/reservations/${id}`;
-    } else {
-      const { error } = await response.json();
-      alert("Erreur : " + error);
-      setLoading(false);
-    }
-  };
+  const response = await fetch("/api/reservations", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (response.ok) {
+    const { id } = await response.json();
+    window.location.href = `/reservations/${id}`;
+  } else {
+    const { error } = await response.json();
+    alert("Erreur : " + error);
+    setLoading(false);
+  }
+};
 
   return (
     <main className="min-h-screen bg-slate-100 p-8">

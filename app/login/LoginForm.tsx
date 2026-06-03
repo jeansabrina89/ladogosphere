@@ -17,7 +17,7 @@ export default function LoginForm() {
     setError("");
 
     const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -25,10 +25,22 @@ export default function LoginForm() {
     if (error) {
       setError("Email ou mot de passe incorrect.");
       setLoading(false);
+      return;
+    }
+
+    // Vérifier le rôle et rediriger
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .single();
+
+    if (profile?.role === "client") {
+      router.push("/mon-compte");
     } else {
       router.push("/");
-      router.refresh();
     }
+    router.refresh();
   };
 
   return (
@@ -41,7 +53,7 @@ export default function LoginForm() {
       )}
 
       <div>
-        <label className="block font-semibold mb-1">Email</label>
+        <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Email</label>
         <input type="email" required
           value={email}
           onChange={e => setEmail(e.target.value)}
@@ -50,7 +62,7 @@ export default function LoginForm() {
       </div>
 
       <div>
-        <label className="block font-semibold mb-1">Mot de passe</label>
+        <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Mot de passe</label>
         <input type="password" required
           value={password}
           onChange={e => setPassword(e.target.value)}
@@ -59,7 +71,8 @@ export default function LoginForm() {
       </div>
 
       <button type="submit" disabled={loading}
-        className="w-full bg-blue-600 text-white py-3 rounded-xl hover:bg-blue-700 disabled:opacity-50 font-semibold">
+        className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50"
+        style={{ backgroundColor: "#4AAEA0" }}>
         {loading ? "Connexion..." : "Se connecter"}
       </button>
 

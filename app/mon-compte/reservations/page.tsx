@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
 import { supabase } from "../../../src/lib/supabase";
 import Link from "next/link";
+import { formatDate } from "../../../src/lib/dates";
+import BoutonPaiementClient from "./BoutonPaiementClient";
 
 export default async function MesReservationsPage() {
   const supabaseServer = await createSupabaseServerClient();
@@ -17,11 +19,7 @@ export default async function MesReservationsPage() {
 
   const { data: reservations } = await supabase
     .from("reservations")
-    .select(`
-      *,
-      boxes (numero),
-      reservation_chiens (chiens (nom))
-    `)
+    .select(`*, boxes (numero), reservation_chiens (chiens (nom))`)
     .eq("client_id", client.id)
     .order("date_debut", { ascending: false });
 
@@ -46,37 +44,65 @@ export default async function MesReservationsPage() {
           )}
           {reservations?.map((res: any) => {
             const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens?.nom).filter(Boolean) ?? [];
+            const impayee = res.statut !== "annulee" &&
+              (!res.statut_paiement || res.statut_paiement === "impaye" || res.statut_paiement === "partiel");
+            const resteAPayer = (res.montant_final || 0) - (res.montant_paye || 0);
+
             return (
               <div key={res.id} className="bg-white rounded-xl p-6 shadow-sm">
-                <div className="flex justify-between items-start">
-                  <div>
+                <div className="flex justify-between items-start gap-4">
+                  <div className="flex-1">
                     <p className="font-bold text-lg" style={{ color: "#1B2B5E" }}>
-                      {chiens.join(", ") || "—"}
+                      🐶 {chiens.join(", ") || "—"}
                     </p>
                     <p className="text-sm text-gray-500 mt-1">
-                      📅 {res.date_debut} → {res.date_fin}
+                      📅 {formatDate(res.date_debut)} → {formatDate(res.date_fin)}
                     </p>
                     <p className="text-sm text-gray-500">
                       🏠 Box {res.boxes?.numero ?? "—"} · {res.type_reservation === "journee" ? "Journée" : "Séjour"}
                     </p>
-                    {res.montant_final && (
+                    {res.montant_final > 0 && (
                       <p className="text-sm font-semibold mt-1" style={{ color: "#4AAEA0" }}>
                         💰 {res.montant_final} CHF
+                        {res.statut_paiement === "partiel" && res.montant_paye > 0 && (
+                          <span className="text-gray-400 font-normal ml-1">
+                            (payé : {res.montant_paye} CHF · reste : {resteAPayer.toFixed(2)} CHF)
+                          </span>
+                        )}
                       </p>
                     )}
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                    res.statut === "validee" ? "bg-green-100 text-green-700" :
-                    res.statut === "en_attente" ? "bg-yellow-100 text-yellow-700" :
-                    res.statut === "annulee" ? "bg-red-100 text-red-700" :
-                    res.statut === "terminee" ? "bg-gray-100 text-gray-600" :
-                    "bg-gray-100 text-gray-600"
-                  }`}>
-                    {res.statut === "validee" ? "✅ Validée" :
-                     res.statut === "en_attente" ? "⏳ En attente de confirmation" :
-                     res.statut === "annulee" ? "❌ Annulée" :
-                     res.statut === "terminee" ? "🏁 Terminée" : res.statut}
-                  </span>
+                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      res.statut === "validee" ? "bg-green-100 text-green-700" :
+                      res.statut === "en_attente" ? "bg-yellow-100 text-yellow-700" :
+                      res.statut === "annulee" ? "bg-red-100 text-red-700" :
+                      res.statut === "terminee" ? "bg-gray-100 text-gray-600" :
+                      "bg-gray-100 text-gray-600"
+                    }`}>
+                      {res.statut === "validee" ? "✅ Validée" :
+                       res.statut === "en_attente" ? "⏳ En attente" :
+                       res.statut === "annulee" ? "❌ Annulée" :
+                       res.statut === "terminee" ? "🏁 Terminée" : res.statut}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      res.statut_paiement === "paye" ? "bg-green-100 text-green-700" :
+                      res.statut_paiement === "partiel" ? "bg-orange-100 text-orange-700" :
+                      "bg-red-100 text-red-700"
+                    }`}>
+                      {res.statut_paiement === "paye" ? "💰 Payé" :
+                       res.statut_paiement === "partiel" ? "💰 Partiel" :
+                       "💰 Impayé"}
+                    </span>
+                    {impayee && (
+                      <BoutonPaiementClient
+                        reservation_id={res.id}
+                        montant_final={res.montant_final || 0}
+                        montant_paye={res.montant_paye || 0}
+                        statut_paiement={res.statut_paiement || "impaye"}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             );
