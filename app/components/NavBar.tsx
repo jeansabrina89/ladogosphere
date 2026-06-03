@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "../../src/lib/supabase-browser";
+import { useEffect, useState } from "react";
 
 const liensAdmin = [
   { href: "/", label: "🏠 Tableau de bord" },
@@ -31,9 +32,15 @@ const liensClient = [
   { href: "/mon-compte/profil", label: "👤 Mon profil", exact: false },
 ];
 
-export default function NavBar({ role }: { role: string }) {
+export default function NavBar({ role: roleInitial }: { role: string }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [role, setRole] = useState(roleInitial);
+
+  // Synchroniser si le rôle change (switch de compte)
+  useEffect(() => {
+    setRole(roleInitial);
+  }, [roleInitial]);
 
   if (pathname === "/login" || pathname === "/inscription") return null;
 

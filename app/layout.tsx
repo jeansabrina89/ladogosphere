@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import NavBar from "./components/NavBar";
+import NavBarServeur from "./components/NavBarServeur";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "La Dogosphère — Pension Canine",
@@ -15,7 +17,7 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body>
-        <NavBar />
+        <NavBarServeur />
         {children}
       </body>
     </html>
