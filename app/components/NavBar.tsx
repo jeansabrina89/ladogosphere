@@ -2,7 +2,6 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "../../src/lib/supabase-browser";
-import { useEffect, useState } from "react";
 
 const liensAdmin = [
   { href: "/", label: "🏠 Tableau de bord" },
@@ -25,23 +24,16 @@ const liensEmploye = [
   { href: "/employes/mon-espace", label: "👤 Mon espace RH" },
 ];
 
-export default function NavBar() {
+const liensClient = [
+  { href: "/mon-compte", label: "🏠 Mon compte", exact: true },
+  { href: "/mon-compte/chiens", label: "🐶 Mes chiens", exact: false },
+  { href: "/mon-compte/reservations", label: "📅 Mes réservations", exact: false },
+  { href: "/mon-compte/profil", label: "👤 Mon profil", exact: false },
+];
+
+export default function NavBar({ role }: { role: string }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [role, setRole] = useState<string | null>(null);
-
-  useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) return;
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-      setRole(profile?.role ?? "client");
-    });
-  }, []);
 
   if (pathname === "/login" || pathname === "/inscription") return null;
 
@@ -58,8 +50,8 @@ export default function NavBar() {
 
   const liens = estAdmin ? liensAdmin : estEmploye ? liensEmploye : [];
 
-  const isActive = (href: string) => {
-    if (href === "/") return pathname === "/";
+  const isActive = (href: string, exact = false) => {
+    if (exact || href === "/") return pathname === href;
     return pathname.startsWith(href);
   };
 
@@ -68,7 +60,6 @@ export default function NavBar() {
       style={{ backgroundColor: "#4AAEA0", borderBottom: "2px solid #3d9690" }}>
       <div className="max-w-7xl mx-auto px-6">
 
-        {/* Ligne 1 — Logo + Déconnexion */}
         <div className="flex items-center justify-between h-16">
           <a href={estPersonnel ? "/" : "/mon-compte"} className="flex items-center gap-3">
             <img src="/Logo.png" alt="La Dogosphère"
@@ -84,7 +75,6 @@ export default function NavBar() {
           </button>
         </div>
 
-        {/* Ligne 2 — Navigation */}
         <div className="flex flex-wrap gap-1 pb-3">
           {estPersonnel ? (
             liens.map(({ href, label }) => (
@@ -99,27 +89,17 @@ export default function NavBar() {
               </a>
             ))
           ) : (
-            <>
-              {[
-                { href: "/mon-compte", label: "🏠 Mon compte", exact: true },
-                { href: "/mon-compte/chiens", label: "🐶 Mes chiens", exact: false },
-                { href: "/mon-compte/reservations", label: "📅 Mes réservations", exact: false },
-                { href: "/mon-compte/profil", label: "👤 Mon profil", exact: false },
-              ].map(({ href, label, exact }) => {
-                const active = exact ? pathname === href : pathname.startsWith(href);
-                return (
-                  <a key={href} href={href}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap"
-                    style={{
-                      color: active ? "#E8847A" : "#1B2B5E",
-                      backgroundColor: active ? "rgba(255,255,255,0.2)" : "transparent",
-                      fontWeight: active ? 700 : 500,
-                    }}>
-                    {label}
-                  </a>
-                );
-              })}
-            </>
+            liensClient.map(({ href, label, exact }) => (
+              <a key={href} href={href}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap"
+                style={{
+                  color: isActive(href, exact) ? "#E8847A" : "#1B2B5E",
+                  backgroundColor: isActive(href, exact) ? "rgba(255,255,255,0.2)" : "transparent",
+                  fontWeight: isActive(href, exact) ? 700 : 500,
+                }}>
+                {label}
+              </a>
+            ))
           )}
         </div>
 
