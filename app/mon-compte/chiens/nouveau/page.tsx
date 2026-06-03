@@ -1,5 +1,5 @@
-import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
-import { supabase } from "../../../src/lib/supabase";
+import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
+import { supabase } from "../../../../src/lib/supabase";
 import { creerChienClient } from "./actions";
 
 export default async function NouveauChienClientPage() {
@@ -11,9 +11,26 @@ export default async function NouveauChienClientPage() {
     .from("clients")
     .select("id")
     .eq("auth_user_id", user.id)
-    .single();
+    .maybeSingle();
 
-  if (!client) return <div>Profil introuvable</div>;
+  if (!client) return (
+    <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
+      <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm text-center">
+        <p className="text-4xl mb-4">🐾</p>
+        <h1 className="text-2xl font-bold mb-3" style={{ color: "#1B2B5E" }}>
+          Profil en cours de création
+        </h1>
+        <p className="text-gray-600 mb-4">
+          Votre profil est en cours de validation. Revenez dans quelques instants.
+        </p>
+        <a href="/mon-compte"
+          className="inline-block mt-4 px-6 py-3 rounded-xl font-semibold text-white"
+          style={{ backgroundColor: "#4AAEA0" }}>
+          ← Retour
+        </a>
+      </div>
+    </main>
+  );
 
   const action = creerChienClient.bind(null, client.id);
 
