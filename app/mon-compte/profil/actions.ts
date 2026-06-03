@@ -11,6 +11,9 @@ export async function modifierProfil(id: string, formData: FormData) {
       nom: formData.get("nom") as string,
       telephone: formData.get("telephone") as string || null,
       adresse: formData.get("adresse") as string || null,
+      contact_urgence_prenom: formData.get("contact_urgence_prenom") as string || null,
+      contact_urgence_nom: formData.get("contact_urgence_nom") as string || null,
+      contact_urgence_telephone: formData.get("contact_urgence_telephone") as string || null,
     })
     .eq("id", id);
 

@@ -19,10 +19,10 @@ export default async function ModifierClientPage({
   const actionModifier = modifierClient.bind(null, id);
 
   return (
-    <main className="min-h-screen bg-slate-100 p-8">
-      <div className="max-w-3xl mx-auto bg-white rounded-xl p-8 shadow">
+    <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
+      <div className="max-w-3xl mx-auto bg-white rounded-xl p-8 shadow-sm">
 
-        <h1 className="text-4xl font-bold mb-6">
+        <h1 className="text-4xl font-bold mb-6" style={{ color: "#1B2B5E" }}>
           ✏️ Modifier {client.prenom} {client.nom}
         </h1>
 
@@ -72,13 +72,45 @@ export default async function ModifierClientPage({
             </label>
           </div>
 
+          {/* Contact d'urgence */}
+          <div className="border-t pt-4">
+            <h2 className="font-bold mb-3" style={{ color: "#1B2B5E" }}>
+              🚨 Contact d'urgence
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block font-semibold mb-1">Prénom</label>
+                <input name="contact_urgence_prenom" type="text"
+                  defaultValue={client.contact_urgence_prenom || ""}
+                  className="w-full border rounded-xl p-3"
+                  placeholder="Prénom" />
+              </div>
+              <div>
+                <label className="block font-semibold mb-1">Nom</label>
+                <input name="contact_urgence_nom" type="text"
+                  defaultValue={client.contact_urgence_nom || ""}
+                  className="w-full border rounded-xl p-3"
+                  placeholder="Nom" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <label className="block font-semibold mb-1">Téléphone</label>
+              <input name="contact_urgence_telephone" type="text"
+                defaultValue={client.contact_urgence_telephone || ""}
+                className="w-full border rounded-xl p-3"
+                placeholder="+41 XX XXX XX XX" />
+            </div>
+          </div>
+
           <div className="flex gap-3 pt-4 border-t">
             <button type="submit"
-              className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700">
+              className="px-6 py-3 rounded-xl font-semibold text-white"
+              style={{ backgroundColor: "#4AAEA0" }}>
               💾 Enregistrer
             </button>
             <a href={`/clients/${id}`}
-              className="bg-gray-200 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-300">
+              className="px-6 py-3 rounded-xl font-semibold"
+              style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
               ✖ Annuler
             </a>
           </div>

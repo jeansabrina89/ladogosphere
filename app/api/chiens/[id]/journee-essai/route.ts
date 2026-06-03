@@ -1,0 +1,26 @@
+import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "../../../../../src/lib/supabase";
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const data = await req.json();
+
+  const updateData: any = {};
+  if (data.journee_essai_effectuee !== undefined)
+    updateData.journee_essai_effectuee = data.journee_essai_effectuee;
+  if (data.journee_essai_invalide !== undefined)
+    updateData.journee_essai_invalide = data.journee_essai_invalide;
+  if (data.journee_essai_note !== undefined)
+    updateData.journee_essai_note = data.journee_essai_note;
+
+  const { error } = await supabase
+    .from("chiens")
+    .update(updateData)
+    .eq("id", id);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

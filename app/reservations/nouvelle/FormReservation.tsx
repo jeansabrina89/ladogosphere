@@ -24,12 +24,14 @@ export default function FormReservation({
 
   const handleTypeChange = (val: string) => {
     setType(val);
-    if (val === "journee" && dateDebut) setDateFin(dateDebut);
+    if (val === "journee" || val === "essai") {
+      if (dateDebut) setDateFin(dateDebut);
+    }
   };
 
   const handleDateDebutChange = (val: string) => {
     setDateDebut(val);
-    if (type === "journee") setDateFin(val);
+    if (type === "journee" || type === "essai") setDateFin(val);
   };
 
   const verifierHoraires = (): boolean => {
@@ -44,13 +46,28 @@ export default function FormReservation({
         );
       }
     }
-    if (type === "sejour") {
-      const arriveeOk = !heureArrivee || (heureArrivee >= "09:00" && heureArrivee <= "10:00");
+    if (type === "essai") {
+      const arriveeOk = !heureArrivee || heureArrivee === "10:00";
       const departOk = !heureDepart || (heureDepart >= "17:00" && heureDepart <= "18:00");
       if (!arriveeOk || !departOk) {
         return confirm(
           "⚠️ Horaire hors plage habituelle !\n" +
-          "Séjour : arrivée 9h00–10h00 · départ 17h00–18h00\n\n" +
+          "Journée d'essai : arrivée 10h00 · départ 17h00–18h00\n\n" +
+          "Confirmer quand même ?"
+        );
+      }
+    }
+    if (type === "sejour") {
+      const arriveeOk = !heureArrivee ||
+        (heureArrivee >= "09:00" && heureArrivee <= "10:00") ||
+        (heureArrivee >= "17:00" && heureArrivee <= "18:00");
+      const departOk = !heureDepart ||
+        (heureDepart >= "09:00" && heureDepart <= "10:00") ||
+        (heureDepart >= "17:00" && heureDepart <= "18:00");
+      if (!arriveeOk || !departOk) {
+        return confirm(
+          "⚠️ Horaire hors plage habituelle !\n" +
+          "Séjour : arrivée/départ entre 9h00–10h00 ou 17h00–18h00\n\n" +
           "Confirmer quand même ?"
         );
       }
@@ -59,45 +76,46 @@ export default function FormReservation({
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  // Vérifier que la date de fin n'est pas avant la date de début
-  if (type === "sejour" && dateFin && dateDebut && dateFin < dateDebut) {
-    alert("❌ La date de départ ne peut pas être avant la date d'arrivée.");
-    return;
-  }
+    if (type === "sejour" && dateFin && dateDebut && dateFin < dateDebut) {
+      alert("❌ La date de départ ne peut pas être avant la date d'arrivée.");
+      return;
+    }
 
-  if (!verifierHoraires()) return;
+    if (!verifierHoraires()) return;
 
-  setLoading(true);
+    setLoading(true);
 
-  const form = e.currentTarget;
-  const formData = new FormData(form);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
 
-  if (type === "journee") {
-    formData.set("date_fin", dateDebut);
-  }
+    if (type === "journee" || type === "essai") {
+      formData.set("date_fin", dateDebut);
+    }
 
-  const response = await fetch("/api/reservations", {
-    method: "POST",
-    body: formData,
-  });
+    const response = await fetch("/api/reservations", {
+      method: "POST",
+      body: formData,
+    });
 
-  if (response.ok) {
-    const { id } = await response.json();
-    window.location.href = `/reservations/${id}`;
-  } else {
-    const { error } = await response.json();
-    alert("Erreur : " + error);
-    setLoading(false);
-  }
-};
+    if (response.ok) {
+      const { id } = await response.json();
+      window.location.href = `/reservations/${id}`;
+    } else {
+      const { error } = await response.json();
+      alert("Erreur : " + error);
+      setLoading(false);
+    }
+  };
 
   return (
-    <main className="min-h-screen bg-slate-100 p-8">
-      <div className="max-w-3xl mx-auto bg-white rounded-xl p-8 shadow">
+    <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
+      <div className="max-w-3xl mx-auto bg-white rounded-xl p-8 shadow-sm">
 
-        <h1 className="text-4xl font-bold mb-6">➕ Nouvelle réservation</h1>
+        <h1 className="text-4xl font-bold mb-6" style={{ color: "#1B2B5E" }}>
+          ➕ Nouvelle réservation
+        </h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
 
@@ -151,7 +169,13 @@ export default function FormReservation({
               value={type} onChange={e => handleTypeChange(e.target.value)}>
               <option value="journee">Journée</option>
               <option value="sejour">Séjour</option>
+              <option value="essai">🧪 Journée d'essai</option>
             </select>
+            {type === "essai" && (
+              <p className="text-xs text-gray-500 mt-1">
+                ℹ️ Tarif journée membre. Arrivée à 10h00 · Départ 17h–18h. La journée d'essai sera cochée automatiquement lors du check-in.
+              </p>
+            )}
           </div>
 
           {/* Dates */}
@@ -165,7 +189,7 @@ export default function FormReservation({
             </div>
             <div>
               <label className="block font-semibold mb-1">Date fin *</label>
-              {type === "journee" ? (
+              {type === "journee" || type === "essai" ? (
                 <>
                   <input name="date_fin" type="date"
                     value={dateDebut}
@@ -189,7 +213,8 @@ export default function FormReservation({
               <label className="block font-semibold mb-1">
                 Heure arrivée
                 <span className="text-gray-400 font-normal text-xs ml-1">
-                  {type === "journee" ? "(7h35–10h00)" : "(9h00–10h00)"}
+                  {type === "sejour" ? "(9h–10h ou 17h–18h)" :
+                   type === "essai" ? "(10h00)" : "(7h35–10h00)"}
                 </span>
               </label>
               <input name="heure_arrivee" type="time"
@@ -222,7 +247,7 @@ export default function FormReservation({
             <label className="block font-semibold mb-1">Statut</label>
             <select name="statut" className="w-full border rounded-xl p-3">
               <option value="en_attente">⏳ En attente</option>
-              <option value="confirmee">✅ Confirmée</option>
+              <option value="validee">✅ Validée</option>
             </select>
           </div>
 
@@ -236,11 +261,13 @@ export default function FormReservation({
           {/* Boutons */}
           <div className="flex gap-3 pt-4 border-t">
             <button type="submit" disabled={loading}
-              className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700 disabled:opacity-50">
+              className="px-6 py-3 rounded-xl font-semibold text-white disabled:opacity-50"
+              style={{ backgroundColor: "#4AAEA0" }}>
               {loading ? "Enregistrement..." : "💾 Enregistrer"}
             </button>
             <a href="/reservations"
-              className="bg-gray-200 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-300">
+              className="px-6 py-3 rounded-xl font-semibold"
+              style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
               ✖ Annuler
             </a>
           </div>

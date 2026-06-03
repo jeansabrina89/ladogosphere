@@ -5,7 +5,6 @@ import { modifierProfil } from "./actions";
 export default async function MonProfilPage() {
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
-
   if (!user) return null;
 
   const { data: client } = await supabase
@@ -59,6 +58,36 @@ export default async function MonProfilPage() {
             <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Adresse</label>
             <textarea name="adresse" rows={3} defaultValue={client.adresse || ""}
               className="w-full border rounded-xl p-3" />
+          </div>
+
+          {/* Contact d'urgence */}
+          <div className="border-t pt-4">
+            <h2 className="font-bold mb-3" style={{ color: "#1B2B5E" }}>
+              🚨 Contact d'urgence
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Prénom</label>
+                <input name="contact_urgence_prenom" type="text"
+                  defaultValue={client.contact_urgence_prenom || ""}
+                  className="w-full border rounded-xl p-3"
+                  placeholder="Prénom" />
+              </div>
+              <div>
+                <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Nom</label>
+                <input name="contact_urgence_nom" type="text"
+                  defaultValue={client.contact_urgence_nom || ""}
+                  className="w-full border rounded-xl p-3"
+                  placeholder="Nom" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Téléphone</label>
+              <input name="contact_urgence_telephone" type="text"
+                defaultValue={client.contact_urgence_telephone || ""}
+                className="w-full border rounded-xl p-3"
+                placeholder="+41 XX XXX XX XX" />
+            </div>
           </div>
 
           <div className="flex gap-3 pt-4 border-t">
