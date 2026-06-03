@@ -4,7 +4,12 @@ import { supabase } from "../../../src/lib/supabase";
 function getJoursFeries(annee: number): string[] {
   const feries: string[] = [];
 
-  const fmt = (d: Date) => d.toISOString().split("T")[0];
+const fmt = (d: Date) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
   // Calcul de Pâques (algorithme de Butcher)
   const a = annee % 19;
