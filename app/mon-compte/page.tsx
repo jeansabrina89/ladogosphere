@@ -12,7 +12,9 @@ export default async function MonComptePage() {
     .from("clients")
     .select(`*, chiens (id, nom, race, poids, categorie_poids, sexe, sterilise)`)
     .eq("auth_user_id", user.id)
-    .single();
+    .maybeSingle();
+
+  const aujourd_hui = new Date().toISOString().split("T")[0];
 
   const { data: reservations } = client ? await supabase
     .from("reservations")
@@ -20,14 +22,16 @@ export default async function MonComptePage() {
     .eq("client_id", client.id)
     .order("date_debut", { ascending: true }) : { data: [] };
 
-  const aujourd_hui = new Date().toISOString().split("T")[0];
-
   const resAttente = reservations?.filter(r => r.statut === "en_attente") ?? [];
   const resFutures = reservations?.filter(r => r.statut === "validee" && r.date_debut > aujourd_hui) ?? [];
   const resImpayees = reservations?.filter(r =>
     r.statut !== "annulee" &&
     (!r.statut_paiement || r.statut_paiement === "impaye" || r.statut_paiement === "partiel")
+    && r.montant_final > 0
   ) ?? [];
+
+  // Client sans profil complet (prénom/nom vides)
+  const profilIncomplet = !client || (!client.prenom && !client.nom);
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -38,19 +42,60 @@ export default async function MonComptePage() {
         </h1>
         <p className="text-gray-500 mb-8">Bienvenue dans votre espace client</p>
 
-        {!client && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 mb-8">
-            <p className="font-semibold text-amber-800">
-              ⚠️ Votre compte n'est pas encore lié à un profil client.
+        {profilIncomplet && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
+            <p className="font-semibold text-blue-800 mb-1">
+              👋 Bienvenue à La Dogosphère !
             </p>
-            <p className="text-amber-700 text-sm mt-1">
-              Contactez-nous à ladogosphere@gmail.com pour lier votre compte.
+            <p className="text-blue-700 text-sm mb-3">
+              Votre profil est en cours de validation par notre équipe. En attendant, vous pouvez déjà compléter votre profil, ajouter vos chiens et faire une demande de journée d'essai.
             </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <Link href="/mon-compte/profil"
+                className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition text-center"
+                style={{ borderTop: "3px solid #4AAEA0" }}>
+                <p className="font-bold text-sm" style={{ color: "#1B2B5E" }}>👤 Compléter mon profil</p>
+              </Link>
+              <Link href="/mon-compte/chiens/nouveau"
+                className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition text-center"
+                style={{ borderTop: "3px solid #C9A84C" }}>
+                <p className="font-bold text-sm" style={{ color: "#1B2B5E" }}>🐶 Ajouter un chien</p>
+              </Link>
+              <Link href="/mon-compte/reservations/nouvelle"
+                className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition text-center"
+                style={{ borderTop: "3px solid #E8847A" }}>
+                <p className="font-bold text-sm" style={{ color: "#1B2B5E" }}>🧪 Journée d'essai</p>
+              </Link>
+            </div>
           </div>
         )}
 
         {client && (
           <>
+            {/* Statut membre */}
+            {!profilIncomplet && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+                  <p className="text-3xl font-bold" style={{ color: "#4AAEA0" }}>
+                    {client.chiens?.length ?? 0}
+                  </p>
+                  <p className="text-gray-500 text-sm mt-1">Chien(s) enregistré(s)</p>
+                </div>
+                <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+                  <p className="text-3xl font-bold" style={{ color: "#4AAEA0" }}>
+                    {reservations?.length ?? 0}
+                  </p>
+                  <p className="text-gray-500 text-sm mt-1">Réservation(s)</p>
+                </div>
+                <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+                  <p className="text-2xl font-bold" style={{ color: client.membre ? "#4AAEA0" : "#6B7280" }}>
+                    {client.membre ? "⭐ Membre" : "Standard"}
+                  </p>
+                  <p className="text-gray-500 text-sm mt-1">Statut</p>
+                </div>
+              </div>
+            )}
+
             {/* Mes chiens */}
             <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
               <div className="flex justify-between items-center mb-4">
@@ -89,7 +134,7 @@ export default async function MonComptePage() {
               </div>
             </div>
 
-            {/* Réservations en attente de validation */}
+            {/* Réservations en attente */}
             {resAttente.length > 0 && (
               <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
                 <h2 className="text-xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
@@ -110,7 +155,8 @@ export default async function MonComptePage() {
                           📅 {formatDate(res.date_debut)} → {formatDate(res.date_fin)}
                         </p>
                         <p className="text-sm text-gray-500">
-                          {res.type_reservation === "journee" ? "Journée" : "Séjour"}
+                          {res.type_reservation === "essai" ? "🧪 Journée d'essai" :
+                           res.type_reservation === "journee" ? "Journée" : "Séjour"}
                         </p>
                         <p className="text-xs text-yellow-700 font-semibold mt-1">
                           ⏳ En attente de confirmation par notre équipe
@@ -156,7 +202,7 @@ export default async function MonComptePage() {
               </div>
             )}
 
-            {/* Réservations en attente de paiement */}
+            {/* Réservations impayées */}
             {resImpayees.length > 0 && (
               <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
                 <h2 className="text-xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
@@ -190,11 +236,6 @@ export default async function MonComptePage() {
                             </span>
                           </div>
                         </div>
-                        {res.statut_paiement === "partiel" && res.montant_paye && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            Payé : {res.montant_paye} CHF · Reste : {((res.montant_final || 0) - res.montant_paye).toFixed(2)} CHF
-                          </p>
-                        )}
                       </div>
                     );
                   })}
