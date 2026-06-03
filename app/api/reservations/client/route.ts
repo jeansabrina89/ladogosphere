@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "../../../../src/lib/supabase";
+import { envoyerEmailConfirmationDemande } from "../../../../src/lib/email";
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
@@ -21,7 +22,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Veuillez sélectionner au moins un chien." }, { status: 400 });
   }
 
-  // Créer la réservation en attente — sans box assigné pour l'instant
   const { data: reservation, error } = await supabase
     .from("reservations")
     .insert({
@@ -41,10 +41,29 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Lier les chiens
-  if (chien_ids.length > 0) {
-    await supabase.from("reservation_chiens").insert(
-      chien_ids.map(chien_id => ({ reservation_id: reservation.id, chien_id }))
-    );
+  await supabase.from("reservation_chiens").insert(
+    chien_ids.map(chien_id => ({ reservation_id: reservation.id, chien_id }))
+  );
+
+  // Envoyer email de confirmation au client
+  try {
+    const { data: client } = await supabase
+      .from("clients")
+      .select("email, prenom")
+      .eq("id", client_id)
+      .single();
+
+    if (client?.email) {
+      await envoyerEmailConfirmationDemande({
+        email: client.email,
+        prenom: client.prenom || "Client",
+        date_debut,
+        date_fin,
+        type: type_reservation,
+      });
+    }
+  } catch (emailError) {
+    console.error("Erreur envoi email:", emailError);
   }
 
   return NextResponse.json({ id: reservation.id });
