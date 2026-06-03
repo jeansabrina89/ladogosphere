@@ -23,12 +23,13 @@ export async function POST(
   if (statut === "arrive") {
     const { data: cc } = await supabase
       .from("checkin_checkout")
-      .select(`reservation_id, reservations (type_reservation, reservation_chiens (chien_id))`)
+      .select(`reservation_id, reservations!inner (type_reservation, reservation_chiens (chien_id))`)
       .eq("id", id)
       .single();
 
-    if (cc?.reservations?.type_reservation === "essai") {
-      const chienIds = cc.reservations.reservation_chiens?.map((rc: any) => rc.chien_id) ?? [];
+    const reservation = cc?.reservations as any;
+    if (reservation?.type_reservation === "essai") {
+      const chienIds = reservation.reservation_chiens?.map((rc: any) => rc.chien_id) ?? [];
       if (chienIds.length > 0) {
         await supabase
           .from("chiens")
