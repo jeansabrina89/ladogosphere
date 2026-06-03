@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 type Chien = {
@@ -41,7 +41,7 @@ export default function FormDemandeReservation({
   chiens: Chien[];
   est_membre: boolean;
   acces_complet: boolean;
-}) { 
+}) {
   const [type, setType] = useState(acces_complet ? "journee" : "essai");
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
@@ -49,25 +49,56 @@ export default function FormDemandeReservation({
   const [heureDepart, setHeureDepart] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [joursFeries, setJoursFeries] = useState<string[]>([]);
+  const [datesPleine, setDatesPleine] = useState<string[]>([]);
   const router = useRouter();
 
   const chiensInvalides = chiens.filter(c => c.journee_essai_invalide);
   const chiensDisponibles = chiens.filter(c => !c.journee_essai_invalide);
 
+  // Charger les dates indisponibles
+  useEffect(() => {
+    const annee = new Date().getFullYear();
+    fetch(`/api/dates-indisponibles?annee=${annee}`)
+      .then(r => r.json())
+      .then(data => {
+        setJoursFeries(data.jours_feries || []);
+        setDatesPleine(data.dates_pleines || []);
+      });
+  }, []);
+
+  const estDateInvalide = (dateStr: string): boolean => {
+    if (!dateStr) return false;
+    const date = new Date(dateStr + "T12:00:00");
+    const jour = date.getDay(); // 0=dim, 6=sam
+    if (jour === 0 || jour === 6) return true;
+    if (joursFeries.includes(dateStr)) return true;
+    if (type === "essai" && datesPleine.includes(dateStr)) return true;
+    return false;
+  };
+
   const handleTypeChange = (val: string) => {
     setType(val);
+    setDateDebut("");
+    setDateFin("");
     if (val === "essai") {
       setHeureArrivee("10:00");
-      if (dateDebut) setDateFin(dateDebut);
-    } else if (val === "journee") {
-      setHeureArrivee("");
-      if (dateDebut) setDateFin(dateDebut);
     } else {
       setHeureArrivee("");
     }
   };
 
   const handleDateDebutChange = (val: string) => {
+    if (estDateInvalide(val)) {
+      setError(
+        joursFeries.includes(val) ? "Ce jour est férié en Valais." :
+        new Date(val + "T12:00:00").getDay() === 0 || new Date(val + "T12:00:00").getDay() === 6
+          ? "Les weekends ne sont pas disponibles pour la journée d'essai." :
+          "Toutes les places sont prises ce jour."
+      );
+      return;
+    }
+    setError("");
     setDateDebut(val);
     if (type === "journee" || type === "essai") setDateFin(val);
   };
@@ -76,7 +107,7 @@ export default function FormDemandeReservation({
     ? creneauxArriveeJournee
     : type === "sejour"
     ? creneauxArriveeSeJour
-    : ["10:00"]; // essai fixe
+    : ["10:00"];
 
   const creneauxDepartActuels = type === "sejour" ? creneauxDepartSejour : creneauxDepart;
 
@@ -105,6 +136,11 @@ export default function FormDemandeReservation({
     }
   };
 
+  // Calculer la date min (demain)
+  const demain = new Date();
+  demain.setDate(demain.getDate() + 1);
+  const dateMin = demain.toISOString().split("T")[0];
+
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
 
@@ -112,10 +148,9 @@ export default function FormDemandeReservation({
         <div className="bg-red-100 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
       )}
 
-      {/* Avertissement chiens invalides */}
       {chiensInvalides.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
-          ⚠️ {chiensInvalides.map(c => c.nom).join(", ")} — journée d'essai invalide, ne peut pas être réservé.
+          ⚠️ {chiensInvalides.map(c => c.nom).join(", ")} — journée d'essai invalide.
         </div>
       )}
 
@@ -176,14 +211,20 @@ export default function FormDemandeReservation({
         )}
       </div>
 
-      {/* Dates */}
+      {/* Date */}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>
             Date arrivée *
+            {type === "essai" && (
+              <span className="text-xs text-gray-400 font-normal ml-1">
+                (lun–ven, hors jours fériés)
+              </span>
+            )}
           </label>
           <input name="date_debut" type="date" required
             value={dateDebut}
+            min={dateMin}
             onChange={e => handleDateDebutChange(e.target.value)}
             className="w-full border rounded-xl p-3" />
         </div>
@@ -205,6 +246,13 @@ export default function FormDemandeReservation({
           )}
         </div>
       </div>
+
+      {/* Info dates invalides */}
+      {type === "essai" && (
+        <div className="text-xs text-gray-500 bg-gray-50 rounded-xl p-3">
+          ℹ️ Les weekends et jours fériés valaisans ne sont pas disponibles pour la journée d'essai.
+        </div>
+      )}
 
       {/* Heures */}
       <div className="grid grid-cols-2 gap-4">
@@ -274,7 +322,7 @@ export default function FormDemandeReservation({
           </>
         ) : (
           <>
-            ℹ️ Votre demande sera traitée par notre équipe. Vous recevrez une confirmation sous 24h.
+            ℹ️ Votre demande sera traitée par notre équipe sous 24h.
             {est_membre && <span className="block mt-1 font-semibold">⭐ Tarifs membres appliqués.</span>}
           </>
         )}
