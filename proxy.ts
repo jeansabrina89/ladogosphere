@@ -4,13 +4,16 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-if (pathname.startsWith('/login') ||
-    pathname.startsWith('/inscription') ||  // ← ajoute cette ligne
+  if (
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/inscription') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
-    pathname.includes('.')) {
-  return NextResponse.next()
-}
+    pathname.includes('.')
+  ) {
+    return NextResponse.next()
+  }
+
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -18,9 +21,13 @@ if (pathname.startsWith('/login') ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return request.cookies.getAll() },
+        getAll() {
+          return request.cookies.getAll()
+        },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value)
+            response = NextResponse.next({ request })
             response.cookies.set(name, value, options)
           })
         },
