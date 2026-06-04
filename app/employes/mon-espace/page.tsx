@@ -41,6 +41,15 @@ export default async function MonEspaceRHPage() {
     .eq("date", aujourd_hui)
     .maybeSingle();
 
+  // Heures sup cumulées sur toute l'année
+  const { data: timbragesAnnee } = await supabase
+    .from("timbrage")
+    .select("*")
+    .eq("employe_id", employe.id)
+    .gte("date", `${anneeActuelle}-01-01`)
+    .lte("date", aujourd_hui);
+
+  // Heures sup du mois en cours
   const { data: timbragesMois } = await supabase
     .from("timbrage")
     .select("*")
@@ -48,18 +57,34 @@ export default async function MonEspaceRHPage() {
     .gte("date", `${anneeActuelle}-${String(moisActuel).padStart(2, "0")}-01`)
     .lte("date", aujourd_hui);
 
-  let heuresTravaillees = 0;
+  let heuresTravailleesMois = 0;
   timbragesMois?.forEach((t: any) => {
     if (!t.type_absence) {
-      const matin = calculerDuree(t.heure_debut_matin, t.heure_fin_matin);
-      const aprem = calculerDuree(t.heure_debut_aprem, t.heure_fin_aprem);
-      heuresTravaillees += matin + aprem;
+      heuresTravailleesMois += calculerDuree(t.heure_debut_matin, t.heure_fin_matin);
+      heuresTravailleesMois += calculerDuree(t.heure_debut_aprem, t.heure_fin_aprem);
     }
   });
 
-  const joursOuvrables = compterJoursOuvrables(anneeActuelle, moisActuel);
-  const heuresTheoMois = joursOuvrables * (42 / 5) * (employe.taux_travail / 100);
-  const heuresSup = heuresTravaillees - heuresTheoMois;
+  let heuresTravailleesAnnee = 0;
+  timbragesAnnee?.forEach((t: any) => {
+    if (!t.type_absence) {
+      heuresTravailleesAnnee += calculerDuree(t.heure_debut_matin, t.heure_fin_matin);
+      heuresTravailleesAnnee += calculerDuree(t.heure_debut_aprem, t.heure_fin_aprem);
+    }
+  });
+
+  // Heures théoriques ce mois
+  const joursOuvrablesMois = compterJoursOuvrables(anneeActuelle, moisActuel);
+  const heuresTheoMois = joursOuvrablesMois * (42 / 5) * (employe.taux_travail / 100);
+  const heuresSupMois = heuresTravailleesMois - heuresTheoMois;
+
+  // Heures théoriques cette année (jusqu'au mois actuel)
+  let heuresTheoAnnee = 0;
+  for (let m = 1; m <= moisActuel; m++) {
+    const jo = compterJoursOuvrables(anneeActuelle, m);
+    heuresTheoAnnee += jo * (42 / 5) * (employe.taux_travail / 100);
+  }
+  const heuresSupAnnee = heuresTravailleesAnnee - heuresTheoAnnee;
 
   const { data: demandesVacances } = await supabase
     .from("demandes_vacances")
@@ -68,7 +93,6 @@ export default async function MonEspaceRHPage() {
     .order("date_debut", { ascending: false })
     .limit(5);
 
-  // Jours fériés travaillés → +1j de vacances chacun
   const { data: feriesTravailles } = await supabase
     .from("planning_employes")
     .select("id")
@@ -99,19 +123,37 @@ export default async function MonEspaceRHPage() {
         </h1>
         <p className="text-gray-500 mb-6">{employe.prenom} {employe.nom} — {employe.taux_travail}%</p>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {/* Stats mois */}
+        <h2 className="font-bold mb-3 text-sm uppercase tracking-wide text-gray-400">Ce mois</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
           <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p className="text-2xl font-bold" style={{ color: heuresSup >= 0 ? "#4AAEA0" : "#E8847A" }}>
-              {heuresSup >= 0 ? "+" : ""}{heuresSup.toFixed(1)}h
+            <p className="text-2xl font-bold" style={{ color: heuresSupMois >= 0 ? "#4AAEA0" : "#E8847A" }}>
+              {heuresSupMois >= 0 ? "+" : ""}{heuresSupMois.toFixed(1)}h
             </p>
-            <p className="text-xs text-gray-500 mt-1">Heures {heuresSup >= 0 ? "sup" : "neg"}</p>
+            <p className="text-xs text-gray-500 mt-1">H.sup ce mois</p>
           </div>
           <div className="bg-white rounded-xl p-4 shadow-sm text-center">
             <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
-              {heuresTravaillees.toFixed(1)}h
+              {heuresTravailleesMois.toFixed(1)}h
             </p>
-            <p className="text-xs text-gray-500 mt-1">Heures ce mois</p>
+            <p className="text-xs text-gray-500 mt-1">Heures travaillées</p>
+          </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+            <p className="text-2xl font-bold" style={{ color: heuresTheoMois >= 0 ? "#6B7280" : "#E8847A" }}>
+              {heuresTheoMois.toFixed(1)}h
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Heures théoriques</p>
+          </div>
+        </div>
+
+        {/* Stats année */}
+        <h2 className="font-bold mb-3 text-sm uppercase tracking-wide text-gray-400">Cette année</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+            <p className="text-2xl font-bold" style={{ color: heuresSupAnnee >= 0 ? "#4AAEA0" : "#E8847A" }}>
+              {heuresSupAnnee >= 0 ? "+" : ""}{heuresSupAnnee.toFixed(1)}h
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Solde h.sup annuel</p>
           </div>
           <div className="bg-white rounded-xl p-4 shadow-sm text-center">
             <p className="text-2xl font-bold" style={{ color: "#C9A84C" }}>
@@ -127,6 +169,12 @@ export default async function MonEspaceRHPage() {
               )}
             </p>
             <p className="text-xs text-gray-500 mt-1">Droit annuel</p>
+          </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+            <p className="text-2xl font-bold" style={{ color: "#E8847A" }}>
+              {joursVacancesPris}j
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Vacances prises</p>
           </div>
         </div>
 
