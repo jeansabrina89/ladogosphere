@@ -10,11 +10,10 @@ export default async function TimbrageePage() {
 
   const { data: profile } = await supabase
     .from("profiles").select("role, email").eq("id", user.id).single();
-  if (!["admin", "employe"].includes(profile?.role)) redirect("/");
+  if (!profile || !["admin", "employe"].includes(profile.role)) redirect("/");
 
   const { data: employe } = await supabase
-    .from("employes_rh").select("*").eq("email", profile.email).single();
-  if (!employe) redirect("/employes/mon-espace");
+.from("employes_rh").select("*").eq("email", profile?.email ?? "").single();  if (!employe) redirect("/employes/mon-espace");
 
   const aujourd_hui = new Date().toISOString().split("T")[0];
   const moisActuel = new Date().getMonth() + 1;
