@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   // 3. Chercher les boxes actifs
   const { data: tousBoxes } = await supabase
     .from("boxes")
-    .select("id, numero, capacite")
+    .select("id, numero, capacite_standard")
     .eq("actif", true)
     .order("numero");
 
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   for (const box of tousBoxes) {
     const occupantsBox = boxesOccupes.filter(o => o.box_id === box.id);
     const chiensDansBox = occupantsBox.map(o => o.chien_id);
-    const capacite = box.capacite || 2;
+    const capacite = box.capacite_standard || 2;
 
     // Vérifier si un ami box_compatible est dans ce box
     const amiDansBox = chiensDansBox.some(id => tousAmis.includes(id));
