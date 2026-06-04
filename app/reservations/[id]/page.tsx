@@ -142,35 +142,41 @@ export default async function ReservationPage({
         />
 
         {/* Boutons */}
-        <div className="border-t pt-6 flex flex-wrap gap-4">
+<div className="border-t pt-6 flex flex-wrap gap-4">
 
-          <Link href={`/reservations/${res.id}/modifier`}
-            className="px-4 py-2 rounded-xl font-semibold text-white"
-            style={{ backgroundColor: "#4AAEA0" }}>
-            ✏️ Modifier
-          </Link>
+  <Link href={`/reservations/${res.id}/modifier`}
+    className="px-4 py-2 rounded-xl font-semibold text-white"
+    style={{ backgroundColor: "#4AAEA0" }}>
+    ✏️ Modifier
+  </Link>
 
-          {res.statut === "en_attente" && (
-  <BoutonValiderReservation
-    id={res.id}
-    chien_ids={chiens.map((c: any) => c.id)}
-    date_debut={res.date_debut}
-    date_fin={res.date_fin}
-    box_id={res.box_id}
-  />
-)}
+  {res.statut === "en_attente" && (
+    <BoutonValiderReservation
+      id={res.id}
+      chien_ids={chiens.map((c: any) => c.id)}
+      date_debut={res.date_debut}
+      date_fin={res.date_fin}
+      box_id={res.box_id}
+    />
+  )}
 
-          {res.statut !== "annulee" && (
-            <BoutonAnnuler id={res.id} />
-          )}
+  {res.statut !== "annulee" && (
+    <BoutonAnnuler id={res.id} />
+  )}
 
-          <Link href="/reservations"
-            className="px-4 py-2 rounded-xl font-semibold"
-            style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
-            ← Retour à la liste
-          </Link>
+  <Link href={`/reservations/${res.id}/facture`}
+    className="px-4 py-2 rounded-xl font-semibold text-white"
+    style={{ backgroundColor: "#C9A84C" }}>
+    🧾 Facture
+  </Link>
 
-        </div>
+  <Link href="/reservations"
+    className="px-4 py-2 rounded-xl font-semibold"
+    style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
+    ← Retour à la liste
+  </Link>
+
+</div>
 
       </div>
     </main>
