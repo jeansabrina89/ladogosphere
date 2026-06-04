@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type Client = { id: string; prenom: string; nom: string; membre: boolean };
 type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string };
@@ -21,6 +21,10 @@ export default function FormReservation({
   const [heureArrivee, setHeureArrivee] = useState("");
   const [heureDepart, setHeureDepart] = useState("");
   const [loading, setLoading] = useState(false);
+  const [chiensSelectionnes, setChiensSelectionnes] = useState<string[]>([]);
+  const [boxId, setBoxId] = useState("");
+  const [suggestionBox, setSuggestionBox] = useState<{ message: string; raison: string } | null>(null);
+  const [chargementSuggestion, setChargementSuggestion] = useState(false);
 
   const handleTypeChange = (val: string) => {
     setType(val);
@@ -33,6 +37,49 @@ export default function FormReservation({
     setDateDebut(val);
     if (type === "journee" || type === "essai") setDateFin(val);
   };
+
+  const handleChienToggle = (id: string) => {
+    setChiensSelectionnes(prev =>
+      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+    );
+  };
+
+  // Chercher suggestion automatique quand chiens + dates sont sélectionnés
+  useEffect(() => {
+    const dateF = type === "journee" || type === "essai" ? dateDebut : dateFin;
+    if (chiensSelectionnes.length === 0 || !dateDebut || !dateF) {
+      setSuggestionBox(null);
+      return;
+    }
+
+    const chercher = async () => {
+      setChargementSuggestion(true);
+      try {
+        const res = await fetch("/api/boxes/suggestion", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chien_ids: chiensSelectionnes,
+            date_debut: dateDebut,
+            date_fin: dateF,
+          }),
+        });
+        const data = await res.json();
+        if (data.box_id) {
+          setBoxId(data.box_id);
+          setSuggestionBox({ message: data.message, raison: data.raison });
+        } else {
+          setSuggestionBox({ message: "⚠️ Aucun box suggéré — choisissez manuellement", raison: "none" });
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      setChargementSuggestion(false);
+    };
+
+    const timeout = setTimeout(chercher, 500);
+    return () => clearTimeout(timeout);
+  }, [chiensSelectionnes, dateDebut, dateFin, type]);
 
   const verifierHoraires = (): boolean => {
     if (type === "journee") {
@@ -78,6 +125,11 @@ export default function FormReservation({
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    if (!boxId) {
+      alert("❌ Veuillez sélectionner un box.");
+      return;
+    }
+
     if (type === "sejour" && dateFin && dateDebut && dateFin < dateDebut) {
       alert("❌ La date de départ ne peut pas être avant la date d'arrivée.");
       return;
@@ -89,6 +141,13 @@ export default function FormReservation({
 
     const form = e.currentTarget;
     const formData = new FormData(form);
+
+    // Ajouter le box_id depuis le state
+    formData.set("box_id", boxId);
+
+    // Ajouter les chiens sélectionnés
+    formData.delete("chien_ids");
+    chiensSelectionnes.forEach(id => formData.append("chien_ids", id));
 
     if (type === "journee" || type === "essai") {
       formData.set("date_fin", dateDebut);
@@ -137,8 +196,10 @@ export default function FormReservation({
             <label className="block font-semibold mb-1">Chien(s) *</label>
             <div className="border rounded-xl p-3 space-y-2 max-h-48 overflow-y-auto">
               {chiens.map(c => (
-                <label key={c.id} className="flex items-center gap-2">
-                  <input type="checkbox" name="chien_ids" value={c.id} />
+                <label key={c.id} className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" name="chien_ids" value={c.id}
+                    checked={chiensSelectionnes.includes(c.id)}
+                    onChange={() => handleChienToggle(c.id)} />
                   <span>
                     {c.nom} — {c.race || "—"} —{" "}
                     {c.poids ? `${c.poids} kg` : "?"} —{" "}
@@ -149,17 +210,6 @@ export default function FormReservation({
                 </label>
               ))}
             </div>
-          </div>
-
-          {/* Box */}
-          <div>
-            <label className="block font-semibold mb-1">Box *</label>
-            <select name="box_id" required className="w-full border rounded-xl p-3">
-              <option value="">-- Sélectionner un box --</option>
-              {boxes.map(b => (
-                <option key={b.id} value={b.id}>Box {b.numero}</option>
-              ))}
-            </select>
           </div>
 
           {/* Type */}
@@ -173,7 +223,7 @@ export default function FormReservation({
             </select>
             {type === "essai" && (
               <p className="text-xs text-gray-500 mt-1">
-                ℹ️ Tarif journée membre. Arrivée à 10h00 · Départ 17h–18h. La journée d'essai sera cochée automatiquement lors du check-in.
+                ℹ️ Tarif journée membre. Arrivée à 10h00 · Départ 17h–18h.
               </p>
             )}
           </div>
@@ -205,6 +255,37 @@ export default function FormReservation({
                   className="w-full border rounded-xl p-3" />
               )}
             </div>
+          </div>
+
+          {/* Box — suggestion automatique */}
+          <div>
+            <label className="block font-semibold mb-1">Box *</label>
+            {chargementSuggestion && (
+              <p className="text-xs text-gray-400 mb-2">🔍 Recherche du meilleur box...</p>
+            )}
+            {suggestionBox && !chargementSuggestion && (
+              <div className={`mb-2 px-3 py-2 rounded-xl text-sm font-semibold ${
+                suggestionBox.raison === "box_compatible" ? "bg-blue-50 text-blue-700" :
+                suggestionBox.raison === "vide" ? "bg-green-50 text-green-700" :
+                suggestionBox.raison === "ami_ok" ? "bg-green-50 text-green-700" :
+                "bg-orange-50 text-orange-700"
+              }`}>
+                {suggestionBox.message}
+              </div>
+            )}
+            <select
+              value={boxId}
+              onChange={e => { setBoxId(e.target.value); setSuggestionBox(null); }}
+              className="w-full border rounded-xl p-3"
+              required>
+              <option value="">-- Sélectionner un box --</option>
+              {boxes.map(b => (
+                <option key={b.id} value={b.id}>
+                  Box {b.numero}
+                  {b.id === boxId && suggestionBox ? " ← suggéré" : ""}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Heures */}

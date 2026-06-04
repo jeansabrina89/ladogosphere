@@ -66,6 +66,15 @@ export default function Ententes({
     c.id !== chien_id && !ententes.find(e => e.chien_cible_id === c.id)
   );
 
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case "ok": return { emoji: "✅", label: "S'entend bien", color: "text-green-600", bg: "bg-green-50", border: "border-green-200" };
+      case "interdit": return { emoji: "❌", label: "Incompatibles", color: "text-red-600", bg: "bg-red-50", border: "border-red-200" };
+      case "box_compatible": return { emoji: "🏠", label: "Peut aller au box avec", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" };
+      default: return { emoji: "🏠", label: "Famille", color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200" };
+    }
+  };
+
   return (
     <div className="border-t pt-6 mb-6">
       <h2 className="text-2xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
@@ -87,27 +96,33 @@ export default function Ententes({
         </label>
       </div>
 
+      {/* Explication box_compatible */}
+      <div className="mb-4 p-3 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-700">
+        💡 <strong>Peut aller au box avec</strong> — prioritaire sur les restrictions générales de compatibilité. 
+        Si ce chien et l'autre sont marqués ainsi, ils seront mis ensemble même si leurs profils semblent incompatibles.
+      </div>
+
       {/* Liste des ententes */}
       {ententes.length > 0 && (
         <div className="space-y-2 mb-4">
-          {ententes.map(e => (
-            <div key={e.id} className="flex justify-between items-center border rounded-xl p-3">
-              <div>
-                <span className={`font-semibold ${
-                  e.type === "ok" ? "text-green-600" :
-                  e.type === "interdit" ? "text-red-600" : "text-orange-600"
-                }`}>
-                  {e.type === "ok" ? "✅" : e.type === "interdit" ? "❌" : "🏠"}{" "}
-                  {e.chien_cible?.nom}
-                </span>
-                {e.note && <p className="text-xs text-gray-500 mt-0.5">{e.note}</p>}
+          {ententes.map(e => {
+            const style = getTypeLabel(e.type);
+            return (
+              <div key={e.id} className={`flex justify-between items-center border rounded-xl p-3 ${style.bg} ${style.border}`}>
+                <div>
+                  <span className={`font-semibold ${style.color}`}>
+                    {style.emoji} {e.chien_cible?.nom}
+                    <span className="ml-2 text-xs font-normal opacity-70">— {style.label}</span>
+                  </span>
+                  {e.note && <p className="text-xs text-gray-500 mt-0.5">{e.note}</p>}
+                </div>
+                <button onClick={() => handleSupprimer(e.id)}
+                  className="text-xs text-red-400 hover:text-red-600">
+                  Supprimer
+                </button>
               </div>
-              <button onClick={() => handleSupprimer(e.id)}
-                className="text-xs text-red-400 hover:text-red-600">
-                Supprimer
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -128,6 +143,7 @@ export default function Ententes({
             <select value={type} onChange={e => setType(e.target.value)}
               className="border rounded-xl p-2 text-sm">
               <option value="ok">✅ S'entend bien</option>
+              <option value="box_compatible">🏠 Peut aller au box avec</option>
               <option value="interdit">❌ Incompatibles</option>
             </select>
           </div>
