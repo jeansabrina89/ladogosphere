@@ -23,6 +23,12 @@ export default async function EmployesPage() {
     .select("*")
     .eq("actif", true);
 
+  // Demandes en attente
+  const { data: demandesEnAttente } = await supabase
+    .from("demandes_vacances")
+    .select("id")
+    .eq("statut", "en_attente");
+
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-5xl mx-auto">
@@ -32,11 +38,21 @@ export default async function EmployesPage() {
             <h1 className="text-4xl font-bold" style={{ color: "#1B2B5E" }}>👥 Équipe</h1>
             <p className="text-gray-500 mt-1">Gestion des comptes et module RH</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <Link href="/employes/nouveau"
               className="px-4 py-2 rounded-xl font-semibold text-white text-sm"
               style={{ backgroundColor: "#4AAEA0" }}>
               ➕ Ajouter un employé
+            </Link>
+            <Link href="/employes/vacances"
+              className="px-4 py-2 rounded-xl font-semibold text-white text-sm relative"
+              style={{ backgroundColor: "#C9A84C" }}>
+              🏖️ Vacances
+              {demandesEnAttente && demandesEnAttente.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {demandesEnAttente.length}
+                </span>
+              )}
             </Link>
             <Link href="/employes/planning"
               className="px-4 py-2 rounded-xl font-semibold text-white text-sm"
