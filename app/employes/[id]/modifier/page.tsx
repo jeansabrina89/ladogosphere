@@ -1,5 +1,5 @@
 import { supabase } from "../../../../src/lib/supabase";
-import { modifierEmploye, supprimerEmploye } from "./actions";
+import { modifierEmploye } from "./actions";
 import BoutonSupprimerEmploye from "./BoutonSupprimerEmploye";
 
 export default async function ModifierEmployePage({
@@ -9,101 +9,183 @@ export default async function ModifierEmployePage({
 }) {
   const { id } = await params;
 
+  // Chercher dans profiles ET employes_rh
   const { data: emp } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
-  if (!emp) return <div>Employé introuvable</div>;
+  const { data: rh } = await supabase
+    .from("employes_rh")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
 
-  const actionModifier = modifierEmploye.bind(null, id);
+  // Si pas dans profiles, chercher par email dans employes_rh
+  const { data: rhParEmail } = !rh && emp ? await supabase
+    .from("employes_rh")
+    .select("*")
+    .eq("email", emp?.email || "")
+    .maybeSingle() : { data: null };
+
+  const rhData = rh || rhParEmail;
+
+  if (!emp && !rhData) return <div>Employé introuvable</div>;
+
+  const actionModifier = modifierEmploye.bind(null, id, rhData?.id || null);
 
   return (
-    <main className="min-h-screen bg-slate-100 p-8">
-      <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow">
+    <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
+      <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm">
 
-        <h1 className="text-4xl font-bold mb-2">✏️ Modifier l'employé</h1>
-        <p className="text-gray-600 mb-6">{emp.email}</p>
+        <h1 className="text-3xl font-bold mb-2" style={{ color: "#1B2B5E" }}>
+          ✏️ Modifier l'employé
+        </h1>
+        <p className="text-gray-500 mb-6">{rhData?.prenom || emp?.prenom} {rhData?.nom || emp?.nom}</p>
 
-        <form action={actionModifier} className="space-y-4">
+        <form action={actionModifier} className="space-y-6">
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block font-semibold mb-1">Prénom</label>
-              <input name="prenom" defaultValue={emp.prenom || ""}
+          {/* Infos personnelles */}
+          <div>
+            <h2 className="font-bold mb-3 text-sm uppercase tracking-wide text-gray-400">
+              Informations personnelles
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block font-semibold mb-1 text-sm">Prénom</label>
+                <input name="prenom" type="text"
+                  defaultValue={rhData?.prenom || emp?.prenom || ""}
+                  className="w-full border rounded-xl p-3" />
+              </div>
+              <div>
+                <label className="block font-semibold mb-1 text-sm">Nom</label>
+                <input name="nom" type="text"
+                  defaultValue={rhData?.nom || emp?.nom || ""}
+                  className="w-full border rounded-xl p-3" />
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className="block font-semibold mb-1 text-sm">Email</label>
+              <input name="email" type="email"
+                defaultValue={rhData?.email || emp?.email || ""}
                 className="w-full border rounded-xl p-3" />
             </div>
-            <div>
-              <label className="block font-semibold mb-1">Nom</label>
-              <input name="nom" defaultValue={emp.nom || ""}
+            <div className="mt-4">
+              <label className="block font-semibold mb-1 text-sm">Téléphone</label>
+              <input name="telephone" type="tel"
+                defaultValue={emp?.telephone || ""}
+                placeholder="+41 79 000 00 00"
                 className="w-full border rounded-xl p-3" />
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <input type="checkbox" name="actif" id="actif"
-              defaultChecked={emp.actif} />
-            <label htmlFor="actif" className="font-semibold">
-              Compte actif
-            </label>
-          </div>
+          {/* Infos RH */}
+          {rhData && (
+            <div>
+              <h2 className="font-bold mb-3 text-sm uppercase tracking-wide text-gray-400">
+                Informations RH
+              </h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-semibold mb-1 text-sm">Taux de travail</label>
+                  <select name="taux_travail" defaultValue={rhData.taux_travail}
+                    className="w-full border rounded-xl p-3">
+                    <option value="100">100% — 5j/semaine</option>
+                    <option value="80">80% — 4j/semaine</option>
+                    <option value="60">60% — 3j/semaine</option>
+                    <option value="40">40% — 2j/semaine</option>
+                    <option value="20">20% — 1j/semaine</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1 text-sm">Salaire base 100% (CHF)</label>
+                  <input name="salaire_base" type="number" step="50"
+                    defaultValue={rhData.salaire_base}
+                    className="w-full border rounded-xl p-3" />
+                </div>
+              </div>
+              <div className="mt-4">
+                <label className="block font-semibold mb-1 text-sm">Date d'entrée</label>
+                <input name="date_entree" type="date"
+                  defaultValue={rhData.date_entree}
+                  className="w-full border rounded-xl p-3" />
+              </div>
+              <div className="mt-4 flex items-center gap-2">
+                <input type="checkbox" name="actif" id="actif"
+                  defaultChecked={rhData.actif} />
+                <label htmlFor="actif" className="font-semibold text-sm">Employé actif</label>
+              </div>
+            </div>
+          )}
 
-          {/* Nouveau mot de passe */}
-          <div className="border rounded-xl p-4 bg-slate-50">
-            <label className="block font-semibold mb-1">
-              Nouveau mot de passe
-              <span className="text-gray-400 font-normal text-sm ml-2">
-                — laisser vide pour ne pas changer
-              </span>
-            </label>
-            <input name="nouveau_mdp" type="password" minLength={6}
-              placeholder="minimum 6 caractères"
-              className="w-full border rounded-xl p-3 bg-white" />
-          </div>
+          {/* Mot de passe */}
+          {emp && (
+            <div>
+              <h2 className="font-bold mb-3 text-sm uppercase tracking-wide text-gray-400">
+                Sécurité
+              </h2>
+              <div className="border rounded-xl p-4" style={{ backgroundColor: "#F8FAFC" }}>
+                <label className="block font-semibold mb-1 text-sm">
+                  Nouveau mot de passe
+                  <span className="text-gray-400 font-normal ml-2">— laisser vide pour ne pas changer</span>
+                </label>
+                <input name="nouveau_mdp" type="password" minLength={6}
+                  placeholder="minimum 6 caractères"
+                  className="w-full border rounded-xl p-3 bg-white" />
+              </div>
+            </div>
+          )}
 
           {/* Permissions */}
-          <div className="border-t pt-4">
-            <p className="font-bold mb-3">🔐 Permissions</p>
-            <div className="space-y-2">
-              {[
-                { key: "perm_checkin", label: "Check-in / Check-out" },
-                { key: "perm_reservations_creer", label: "Créer des réservations" },
-                { key: "perm_reservations_modifier", label: "Modifier des réservations" },
-                { key: "perm_reservations_annuler", label: "Annuler des réservations" },
-                { key: "perm_clients_creer", label: "Créer des clients" },
-                { key: "perm_clients_modifier", label: "Modifier des clients" },
-                { key: "perm_chiens_modifier", label: "Modifier des chiens" },
-                { key: "perm_planning", label: "Voir le planning" },
-                { key: "perm_tarifs_urgence", label: "Appliquer tarifs urgence" },
-              ].map(({ key, label }) => (
-                <label key={key} className="flex items-center gap-2">
-                  <input type="checkbox" name={key}
-                    defaultChecked={(emp as any)[key]} />
-                  {label}
-                </label>
-              ))}
+          {emp && emp.role === "employe" && (
+            <div>
+              <h2 className="font-bold mb-3 text-sm uppercase tracking-wide text-gray-400">
+                Permissions
+              </h2>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { key: "perm_checkin", label: "✅ Check-in/out" },
+                  { key: "perm_reservations_creer", label: "➕ Créer réservations" },
+                  { key: "perm_reservations_modifier", label: "✏️ Modifier réservations" },
+                  { key: "perm_reservations_annuler", label: "❌ Annuler réservations" },
+                  { key: "perm_clients_creer", label: "👤 Créer clients" },
+                  { key: "perm_clients_modifier", label: "✏️ Modifier clients" },
+                  { key: "perm_chiens_modifier", label: "🐕 Modifier chiens" },
+                  { key: "perm_planning", label: "📅 Planning" },
+                  { key: "perm_tarifs_urgence", label: "🚨 Tarifs urgence" },
+                ].map(({ key, label }) => (
+                  <label key={key} className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name={key}
+                      defaultChecked={(emp as any)[key] || false} />
+                    <span className="text-sm">{label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          <div className="flex flex-wrap gap-3 pt-4 border-t">
+          <div className="flex gap-3 pt-4 border-t">
             <button type="submit"
-              className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700">
+              className="px-6 py-3 rounded-xl font-semibold text-white"
+              style={{ backgroundColor: "#4AAEA0" }}>
               💾 Enregistrer
             </button>
             <a href="/employes"
-              className="bg-gray-200 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-300">
+              className="px-6 py-3 rounded-xl font-semibold"
+              style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
               ✖ Annuler
             </a>
           </div>
-
         </form>
 
         {/* Suppression */}
-        <div className="border-t mt-8 pt-6">
-          <h2 className="font-bold text-red-600 mb-3">⚠️ Zone dangereuse</h2>
-          <BoutonSupprimerEmploye id={id} nom={`${emp.prenom} ${emp.nom}`} />
-        </div>
+        {emp && (
+          <div className="border-t mt-8 pt-6">
+            <h2 className="font-bold mb-3" style={{ color: "#E8847A" }}>⚠️ Zone dangereuse</h2>
+            <BoutonSupprimerEmploye id={id} nom={`${emp.prenom} ${emp.nom}`} />
+          </div>
+        )}
 
       </div>
     </main>

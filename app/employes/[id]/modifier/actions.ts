@@ -4,34 +4,60 @@ import { redirect } from "next/navigation";
 import { supabase } from "../../../../src/lib/supabase";
 import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 
-export async function modifierEmploye(id: string, formData: FormData) {
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      prenom: formData.get("prenom") as string,
-      nom: formData.get("nom") as string,
-      actif: formData.get("actif") === "on",
-      perm_checkin: formData.get("perm_checkin") === "on",
-      perm_reservations_creer: formData.get("perm_reservations_creer") === "on",
-      perm_reservations_modifier: formData.get("perm_reservations_modifier") === "on",
-      perm_reservations_annuler: formData.get("perm_reservations_annuler") === "on",
-      perm_clients_creer: formData.get("perm_clients_creer") === "on",
-      perm_clients_modifier: formData.get("perm_clients_modifier") === "on",
-      perm_chiens_modifier: formData.get("perm_chiens_modifier") === "on",
-      perm_planning: formData.get("perm_planning") === "on",
-      perm_tarifs_urgence: formData.get("perm_tarifs_urgence") === "on",
-    })
-    .eq("id", id);
+export async function modifierEmploye(
+  profil_id: string,
+  rh_id: string | null,
+  formData: FormData
+) {
+  const prenom = formData.get("prenom") as string;
+  const nom = formData.get("nom") as string;
+  const email = formData.get("email") as string;
 
-  if (error) throw new Error(error.message);
+  // Mettre à jour fiche RH
+  if (rh_id) {
+    await supabase
+      .from("employes_rh")
+      .update({
+        prenom,
+        nom,
+        email,
+        taux_travail: parseInt(formData.get("taux_travail") as string),
+        salaire_base: parseFloat(formData.get("salaire_base") as string),
+        date_entree: formData.get("date_entree") as string,
+        actif: formData.get("actif") === "on",
+      })
+      .eq("id", rh_id);
+  }
+
+  // Mettre à jour profil auth
+  if (profil_id) {
+    await supabase
+      .from("profiles")
+      .update({
+        prenom,
+        nom,
+        email,
+        telephone: formData.get("telephone") as string || null,
+        actif: formData.get("actif") === "on",
+        perm_checkin: formData.get("perm_checkin") === "on",
+        perm_reservations_creer: formData.get("perm_reservations_creer") === "on",
+        perm_reservations_modifier: formData.get("perm_reservations_modifier") === "on",
+        perm_reservations_annuler: formData.get("perm_reservations_annuler") === "on",
+        perm_clients_creer: formData.get("perm_clients_creer") === "on",
+        perm_clients_modifier: formData.get("perm_clients_modifier") === "on",
+        perm_chiens_modifier: formData.get("perm_chiens_modifier") === "on",
+        perm_planning: formData.get("perm_planning") === "on",
+        perm_tarifs_urgence: formData.get("perm_tarifs_urgence") === "on",
+      })
+      .eq("id", profil_id);
+  }
 
   // Changer le mot de passe si rempli
   const nouveau_mdp = formData.get("nouveau_mdp") as string;
-  if (nouveau_mdp && nouveau_mdp.length >= 6) {
-    const { error: mdpError } = await supabaseAdmin.auth.admin.updateUserById(id, {
+  if (nouveau_mdp && nouveau_mdp.length >= 6 && profil_id) {
+    await supabaseAdmin.auth.admin.updateUserById(profil_id, {
       password: nouveau_mdp,
     });
-    if (mdpError) throw new Error(mdpError.message);
   }
 
   redirect("/employes");
@@ -39,12 +65,7 @@ export async function modifierEmploye(id: string, formData: FormData) {
 
 export async function supprimerEmploye(formData: FormData) {
   const id = formData.get("id") as string;
-
-  // Supprimer le profil
   await supabase.from("profiles").delete().eq("id", id);
-
-  // Supprimer le compte Auth
   await supabaseAdmin.auth.admin.deleteUser(id);
-
   redirect("/employes");
 }
