@@ -46,7 +46,11 @@ export default async function FacturePage({
     body { background: white !important; }
     .facture { box-shadow: none !important; border: none !important; }
   }
-  @page { margin: 1.5cm; size: A4; }
+  @page { 
+    margin: 1cm;
+    size: A4;
+  }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 `}} />
 
       {/* Bouton imprimer */}
@@ -63,33 +67,31 @@ export default async function FacturePage({
       <div className="facture max-w-3xl mx-auto bg-white p-10 shadow-sm mb-8">
 
         {/* En-tête */}
-        <div className="flex justify-between items-start mb-10">
-          <div>
-            <h1 className="text-3xl font-bold mb-1" style={{ color: "#1B2B5E" }}>
-              🐾 La Dogosphère
-            </h1>
-            <p className="text-sm text-gray-500">Pension canine</p>
-            <p className="text-sm text-gray-500">Sion, Valais</p>
-            <p className="text-sm text-gray-500">ladogosphere@gmail.com</p>
-          </div>
-          <div className="text-right">
-            <h2 className="text-2xl font-bold mb-2" style={{ color: "#1B2B5E" }}>FACTURE</h2>
-            <p className="text-sm"><strong>N° :</strong> {numeroFacture}</p>
-            <p className="text-sm"><strong>Date :</strong> {dateFacture}</p>
-            <p className="text-sm">
-              <strong>Statut paiement :</strong>{" "}
-              <span className={
-                res.statut_paiement === "paye" ? "text-green-600 font-semibold" :
-                res.statut_paiement === "partiel" ? "text-orange-600 font-semibold" :
-                "text-red-600 font-semibold"
-              }>
-                {res.statut_paiement === "paye" ? "✅ Payé" :
-                 res.statut_paiement === "partiel" ? "⚠️ Partiellement payé" :
-                 "❌ Impayé"}
-              </span>
-            </p>
-          </div>
-        </div>
+<div className="flex justify-between items-start mb-10">
+  <div>
+    <img src="/Logo.png" alt="La Dogosphère" style={{ height: "80px", marginBottom: "8px" }} />
+    <p className="text-sm text-gray-500">Pension canine</p>
+    <p className="text-sm text-gray-500">Sion, Valais</p>
+    <p className="text-sm text-gray-500">ladogosphere@gmail.com</p>
+  </div>
+  <div className="text-right">
+    <h2 className="text-2xl font-bold mb-2" style={{ color: "#1B2B5E" }}>FACTURE</h2>
+    <p className="text-sm"><strong>N° :</strong> {numeroFacture}</p>
+    <p className="text-sm"><strong>Date :</strong> {dateFacture}</p>
+    <p className="text-sm">
+      <strong>Statut paiement :</strong>{" "}
+      <span className={
+        res.statut_paiement === "paye" ? "text-green-600 font-semibold" :
+        res.statut_paiement === "partiel" ? "text-orange-600 font-semibold" :
+        "text-red-600 font-semibold"
+      }>
+        {res.statut_paiement === "paye" ? "✅ Payé" :
+         res.statut_paiement === "partiel" ? "⚠️ Partiellement payé" :
+         "❌ Impayé"}
+      </span>
+    </p>
+  </div>
+</div>
 
         {/* Ligne séparatrice */}
         <div className="border-t-2 mb-8" style={{ borderColor: "#1B2B5E" }} />
