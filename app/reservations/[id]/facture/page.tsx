@@ -39,13 +39,15 @@ export default async function FacturePage({
     <>
       {/* Styles d'impression */}
       <style dangerouslySetInnerHTML={{ __html: `
-        @media print {
-          .no-print { display: none !important; }
-          body { background: white !important; }
-          .facture { box-shadow: none !important; border: none !important; }
-        }
-        @page { margin: 1.5cm; size: A4; }
-      `}} />
+  @media print {
+    .no-print { display: none !important; }
+    nav { display: none !important; }
+    header { display: none !important; }
+    body { background: white !important; }
+    .facture { box-shadow: none !important; border: none !important; }
+  }
+  @page { margin: 1.5cm; size: A4; }
+`}} />
 
       {/* Bouton imprimer */}
       <div className="no-print p-4 flex gap-3">
