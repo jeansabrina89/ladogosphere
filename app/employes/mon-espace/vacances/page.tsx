@@ -22,7 +22,6 @@ export default async function VacancesPage() {
     .eq("employe_id", employe.id)
     .order("date_debut", { ascending: false });
 
-  // Jours fériés travaillés → +1j de vacances chacun
   const { data: feriesTravailles } = await supabase
     .from("planning_employes")
     .select("id")
@@ -80,6 +79,7 @@ export default async function VacancesPage() {
           <FormDemandeVacances
             employe_id={employe.id}
             jours_restants={joursVacancesRestants}
+            taux_travail={employe.taux_travail}
           />
         </div>
 

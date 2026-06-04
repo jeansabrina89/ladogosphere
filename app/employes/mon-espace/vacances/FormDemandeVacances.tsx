@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 export default function FormDemandeVacances({
   employe_id,
   jours_restants,
+  taux_travail,
 }: {
   employe_id: string;
   jours_restants: number;
+  taux_travail: number;
 }) {
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
@@ -18,25 +20,48 @@ export default function FormDemandeVacances({
   const [success, setSuccess] = useState(false);
   const router = useRouter();
 
-  const calculerJoursOuvrables = (debut: string, fin: string): number => {
+  // Jours travaillés par semaine selon le taux
+  const joursParSemaine = Math.round(taux_travail / 100 * 5);
+
+  const calculerJoursVacances = (debut: string, fin: string): number => {
     if (!debut || !fin) return 0;
-    let count = 0;
+    // Compter les semaines complètes et partielles
+    let totalJours = 0;
     const d = new Date(debut + "T12:00:00");
     const f = new Date(fin + "T12:00:00");
+
+    // Compter les semaines entre les deux dates
     while (d <= f) {
-      const jour = d.getDay();
-      if (jour !== 0 && jour !== 6) count++;
+      const jourSemaine = d.getDay();
+      // On compte les jours ouvrables (lun-ven)
+      if (jourSemaine !== 0 && jourSemaine !== 6) {
+        totalJours++;
+      }
       d.setDate(d.getDate() + 1);
     }
-    return count;
+
+    // Calculer le nombre de semaines pleines et le reste
+    const nbSemainesCompletes = Math.floor(totalJours / 5);
+    const joursRestants = totalJours % 5;
+
+    // Pour chaque semaine complète : joursParSemaine jours déduits
+    // Pour les jours restants : prorata
+    const joursDeduitsComplets = nbSemainesCompletes * joursParSemaine;
+    const joursDeduitsReste = Math.round(joursRestants * joursParSemaine / 5);
+
+    return joursDeduitsComplets + joursDeduitsReste;
   };
 
-  const nbJours = calculerJoursOuvrables(dateDebut, dateFin);
+  const nbJours = calculerJoursVacances(dateDebut, dateFin);
   const depasseSolde = nbJours > jours_restants;
 
   const handleSubmit = async () => {
     if (!dateDebut || !dateFin) {
       setError("Veuillez sélectionner les dates.");
+      return;
+    }
+    if (nbJours <= 0) {
+      setError("La période sélectionnée ne contient aucun jour travaillé.");
       return;
     }
     if (depasseSolde) {
@@ -86,6 +111,11 @@ export default function FormDemandeVacances({
         </div>
       )}
 
+      <div className="bg-blue-50 rounded-xl p-3 text-xs text-blue-600">
+        ℹ️ À {taux_travail}% vous travaillez {joursParSemaine}j/semaine —
+        1 semaine de vacances = {joursParSemaine}j déduits
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>
@@ -109,7 +139,7 @@ export default function FormDemandeVacances({
         <div className={`rounded-xl p-3 text-sm font-semibold ${
           depasseSolde ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"
         }`}>
-          {nbJours}j ouvrables · {jours_restants}j restants
+          {nbJours}j déduits · {jours_restants}j restants
           {depasseSolde && " ⚠️ Solde insuffisant"}
         </div>
       )}
@@ -123,7 +153,7 @@ export default function FormDemandeVacances({
           className="w-full border rounded-xl p-3 text-sm" />
       </div>
 
-      <button onClick={handleSubmit} disabled={loading || depasseSolde}
+      <button onClick={handleSubmit} disabled={loading || depasseSolde || nbJours <= 0}
         className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50"
         style={{ backgroundColor: "#C9A84C" }}>
         {loading ? "Envoi..." : "📤 Envoyer la demande"}
