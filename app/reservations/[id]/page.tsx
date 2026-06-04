@@ -151,8 +151,14 @@ export default async function ReservationPage({
           </Link>
 
           {res.statut === "en_attente" && (
-            <BoutonValiderReservation id={res.id} />
-          )}
+  <BoutonValiderReservation
+    id={res.id}
+    chien_ids={chiens.map((c: any) => c.id)}
+    date_debut={res.date_debut}
+    date_fin={res.date_fin}
+    box_id={res.box_id}
+  />
+)}
 
           {res.statut !== "annulee" && (
             <BoutonAnnuler id={res.id} />
