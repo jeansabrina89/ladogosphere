@@ -11,6 +11,7 @@ export default async function MonEspaceRHPage() {
   const { data: profile } = await supabase
     .from("profiles").select("role, email").eq("id", user.id).single();
   if (!profile || !["admin", "employe"].includes(profile.role)) redirect("/");
+
   const { data: employe } = await supabase
     .from("employes_rh")
     .select("*")
@@ -33,7 +34,6 @@ export default async function MonEspaceRHPage() {
   const moisActuel = new Date().getMonth() + 1;
   const anneeActuelle = new Date().getFullYear();
 
-  // Timbrage aujourd'hui
   const { data: timbrageAujourdhui } = await supabase
     .from("timbrage")
     .select("*")
@@ -41,7 +41,6 @@ export default async function MonEspaceRHPage() {
     .eq("date", aujourd_hui)
     .maybeSingle();
 
-  // Stats du mois
   const { data: timbragesMois } = await supabase
     .from("timbrage")
     .select("*")
@@ -49,7 +48,6 @@ export default async function MonEspaceRHPage() {
     .gte("date", `${anneeActuelle}-${String(moisActuel).padStart(2, "0")}-01`)
     .lte("date", aujourd_hui);
 
-  // Calcul heures travaillées ce mois
   let heuresTravaillees = 0;
   timbragesMois?.forEach((t: any) => {
     if (!t.type_absence) {
@@ -59,13 +57,10 @@ export default async function MonEspaceRHPage() {
     }
   });
 
-  // Heures théoriques ce mois (jours ouvrables * heures/jour)
   const joursOuvrables = compterJoursOuvrables(anneeActuelle, moisActuel);
-  const heuresParJour = 42 / 5;
-  const heuresTheoMois = joursOuvrables * heuresParJour * (employe.taux_travail / 100);
+  const heuresTheoMois = joursOuvrables * (42 / 5) * (employe.taux_travail / 100);
   const heuresSup = heuresTravaillees - heuresTheoMois;
 
-  // Vacances
   const { data: demandesVacances } = await supabase
     .from("demandes_vacances")
     .select("*")
@@ -78,6 +73,14 @@ export default async function MonEspaceRHPage() {
     ?.filter((d: any) => d.statut === "acceptee")
     .reduce((acc: number, d: any) => acc + d.nb_jours, 0) ?? 0;
   const joursVacancesRestants = joursVacancesTotal - joursVacancesPris;
+
+  const { data: indisponibilites } = await supabase
+    .from("indisponibilites")
+    .select("*")
+    .eq("employe_id", employe.id)
+    .gte("date", aujourd_hui)
+    .order("date", { ascending: true })
+    .limit(3);
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -117,7 +120,7 @@ export default async function MonEspaceRHPage() {
         </div>
 
         {/* Actions rapides */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <Link href="/employes/mon-espace/timbrage"
             className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition"
             style={{ borderLeft: "4px solid #4AAEA0" }}>
@@ -138,6 +141,17 @@ export default async function MonEspaceRHPage() {
             style={{ borderLeft: "4px solid #1B2B5E" }}>
             <p className="font-bold" style={{ color: "#1B2B5E" }}>📅 Mon planning</p>
             <p className="text-xs text-gray-400 mt-1">Voir mes jours de travail</p>
+          </Link>
+          <Link href="/employes/mon-espace/indisponibilites"
+            className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition"
+            style={{ borderLeft: "4px solid #E8847A" }}>
+            <p className="font-bold" style={{ color: "#1B2B5E" }}>🚫 Indisponibilités</p>
+            <p className="text-xs text-gray-400 mt-1">Indiquer mes jours indisponibles</p>
+            {indisponibilites && indisponibilites.length > 0 && (
+              <p className="text-xs text-orange-500 mt-1 font-semibold">
+                {indisponibilites.length} jour(s) enregistré(s)
+              </p>
+            )}
           </Link>
         </div>
 

@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 import { supabase } from "../../../../src/lib/supabase";
 import FormTimbrage from "./FormTimbrage";
 
-export default async function TimbrageePage() {
+export default async function TimbrageePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string }>;
+}) {
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
   if (!user) redirect("/login");
@@ -13,22 +17,31 @@ export default async function TimbrageePage() {
   if (!profile || !["admin", "employe"].includes(profile.role)) redirect("/");
 
   const { data: employe } = await supabase
-.from("employes_rh").select("*").eq("email", profile?.email ?? "").single();  if (!employe) redirect("/employes/mon-espace");
+    .from("employes_rh").select("*").eq("email", profile?.email ?? "").single();
+  if (!employe) redirect("/employes/mon-espace");
 
+  const params = await searchParams;
   const aujourd_hui = new Date().toISOString().split("T")[0];
+  const dateSelectionnee = params.date || aujourd_hui;
+
   const moisActuel = new Date().getMonth() + 1;
   const anneeActuelle = new Date().getFullYear();
 
-  // Timbrage du mois
+  // Timbrage pour la date sélectionnée
+  const { data: timbrageDate } = await supabase
+    .from("timbrage")
+    .select("*")
+    .eq("employe_id", employe.id)
+    .eq("date", dateSelectionnee)
+    .maybeSingle();
+
+  // Timbrages du mois
   const { data: timbrages } = await supabase
     .from("timbrage")
     .select("*")
     .eq("employe_id", employe.id)
     .gte("date", `${anneeActuelle}-${String(moisActuel).padStart(2, "0")}-01`)
     .order("date", { ascending: false });
-
-  // Timbrage aujourd'hui
-  const timbrageAujourdhui = timbrages?.find(t => t.date === aujourd_hui) ?? null;
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -37,19 +50,46 @@ export default async function TimbrageePage() {
         <h1 className="text-3xl font-bold mb-2" style={{ color: "#1B2B5E" }}>
           ⏱️ Timbrage
         </h1>
-        <p className="text-gray-500 mb-6">
-          {new Date().toLocaleDateString("fr-CH", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-        </p>
 
-        {/* Formulaire timbrage aujourd'hui */}
+        {/* Sélecteur de date */}
         <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
           <h2 className="font-bold mb-4" style={{ color: "#1B2B5E" }}>
-            📅 Aujourd'hui
+            📅 Sélectionner une date
+          </h2>
+          <form method="GET">
+            <div className="flex gap-3 items-end">
+              <div className="flex-1">
+                <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+                  Date
+                </label>
+                <input type="date" name="date"
+                  defaultValue={dateSelectionnee}
+                  max={aujourd_hui}
+                  className="w-full border rounded-xl p-3" />
+              </div>
+              <button type="submit"
+                className="px-6 py-3 rounded-xl font-semibold text-white"
+                style={{ backgroundColor: "#4AAEA0" }}>
+                Charger
+              </button>
+            </div>
+          </form>
+          {dateSelectionnee !== aujourd_hui && (
+            <p className="text-xs text-orange-500 mt-2">
+              ⚠️ Vous timbrez pour le {new Date(dateSelectionnee + "T12:00:00").toLocaleDateString("fr-CH")}
+            </p>
+          )}
+        </div>
+
+        {/* Formulaire timbrage */}
+        <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
+          <h2 className="font-bold mb-4" style={{ color: "#1B2B5E" }}>
+            {dateSelectionnee === aujourd_hui ? "📅 Aujourd'hui" : `📅 ${new Date(dateSelectionnee + "T12:00:00").toLocaleDateString("fr-CH", { weekday: "long", day: "numeric", month: "long" })}`}
           </h2>
           <FormTimbrage
             employe_id={employe.id}
-            date={aujourd_hui}
-            timbrage={timbrageAujourdhui}
+            date={dateSelectionnee}
+            timbrage={timbrageDate}
           />
         </div>
 
@@ -59,13 +99,14 @@ export default async function TimbrageePage() {
             📋 Historique du mois
           </h2>
           <div className="space-y-2">
-            {timbrages?.filter(t => t.date !== aujourd_hui).map((t: any) => {
-              const matin = t.type_absence ? null : `${t.heure_debut_matin}–${t.heure_fin_matin}`;
-              const aprem = t.type_absence ? null : `${t.heure_debut_aprem}–${t.heure_fin_aprem}`;
-              const heures = t.type_absence ? null : calculerDuree(t.heure_debut_matin, t.heure_fin_matin) + calculerDuree(t.heure_debut_aprem, t.heure_fin_aprem);
+            {timbrages?.filter(t => t.date !== dateSelectionnee).map((t: any) => {
+              const heures = t.type_absence ? null :
+                calculerDuree(t.heure_debut_matin, t.heure_fin_matin) +
+                calculerDuree(t.heure_debut_aprem, t.heure_fin_aprem);
 
               return (
-                <div key={t.id} className="flex justify-between items-center border rounded-xl p-3">
+                <a key={t.id} href={`/employes/mon-espace/timbrage?date=${t.date}`}
+                  className="flex justify-between items-center border rounded-xl p-3 hover:bg-slate-50 transition">
                   <div>
                     <p className="text-sm font-semibold" style={{ color: "#1B2B5E" }}>
                       {new Date(t.date + "T12:00:00").toLocaleDateString("fr-CH", { weekday: "short", day: "numeric", month: "short" })}
@@ -73,7 +114,9 @@ export default async function TimbrageePage() {
                     {t.type_absence ? (
                       <p className="text-xs text-orange-500 font-semibold capitalize">{t.type_absence}</p>
                     ) : (
-                      <p className="text-xs text-gray-500">{matin} · {aprem}</p>
+                      <p className="text-xs text-gray-500">
+                        {t.heure_debut_matin?.slice(0,5)}–{t.heure_fin_matin?.slice(0,5)} · {t.heure_debut_aprem?.slice(0,5)}–{t.heure_fin_aprem?.slice(0,5)}
+                      </p>
                     )}
                   </div>
                   <div className="text-right">
@@ -88,10 +131,10 @@ export default async function TimbrageePage() {
                       </span>
                     )}
                   </div>
-                </div>
+                </a>
               );
             })}
-            {timbrages?.filter(t => t.date !== aujourd_hui).length === 0 && (
+            {timbrages?.length === 0 && (
               <p className="text-gray-400 text-sm">Aucun timbrage ce mois.</p>
             )}
           </div>
