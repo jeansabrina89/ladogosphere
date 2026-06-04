@@ -28,6 +28,38 @@ export default function SuggestionBox({
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [ouvert, setOuvert] = useState(false);
+  const [autoSelectMessage, setAutoSelectMessage] = useState<string | null>(null);
+
+  // Sélection automatique au chargement
+  useEffect(() => {
+    if (chien_ids.length === 0 || !date_debut || !date_fin) return;
+
+    const chercher = async () => {
+      setLoading(true);
+      try {
+        // D'abord essayer la suggestion rapide (box_compatible en priorité)
+        const res = await fetch("/api/boxes/suggestion", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chien_ids,
+            date_debut,
+            date_fin,
+          }),
+        });
+        const data = await res.json();
+        if (data.box_id) {
+          onSelectBox(data.box_id);
+          setAutoSelectMessage(data.message);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      setLoading(false);
+    };
+
+    chercher();
+  }, []);
 
   const chargerSuggestions = async () => {
     if (chien_ids.length === 0) return;
@@ -51,10 +83,21 @@ export default function SuggestionBox({
 
   return (
     <div className="mb-4">
+      {/* Message de sélection automatique */}
+      {autoSelectMessage && (
+        <div className="mb-2 px-3 py-2 rounded-xl text-sm font-semibold bg-blue-50 text-blue-700">
+          🤖 {autoSelectMessage}
+        </div>
+      )}
+
+      {loading && (
+        <p className="text-xs text-gray-400 mb-2">🔍 Recherche du meilleur box...</p>
+      )}
+
       <button type="button" onClick={chargerSuggestions} disabled={loading}
         className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
         style={{ backgroundColor: "#C9A84C" }}>
-        {loading ? "Calcul en cours..." : "🤝 Voir les suggestions de box"}
+        {loading ? "Calcul en cours..." : "🤝 Voir toutes les suggestions de box"}
       </button>
 
       {ouvert && suggestions.length > 0 && (
@@ -68,7 +111,7 @@ export default function SuggestionBox({
               <div key={s.box_id}
                 className="rounded-xl p-3 border-2 cursor-pointer hover:opacity-80 transition"
                 style={{ backgroundColor: couleur.bg, borderColor: couleur.border }}
-                onClick={() => { onSelectBox(s.box_id); setOuvert(false); }}>
+                onClick={() => { onSelectBox(s.box_id); setOuvert(false); setAutoSelectMessage(`Box ${s.numero} sélectionné`); }}>
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-bold" style={{ color: couleur.text }}>
