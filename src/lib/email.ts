@@ -228,3 +228,87 @@ export async function envoyerEmailReservationAnnulee({
     `),
   });
 }
+export async function envoyerEmailPaiement({
+  email, prenom, montant, date_debut, date_fin, type,
+}: {
+  email: string; prenom: string; montant: number;
+  date_debut: string; date_fin: string; type: string;
+}) {
+  await resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: "💰 Règlement de votre séjour à La Dogosphère",
+    html: emailTemplate(`
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom},</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">Voici le récapitulatif de votre séjour et les informations de paiement.</p>
+
+      <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
+        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Votre séjour</h3>
+        <table cellpadding="0" cellspacing="0" style="width:100%;">
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Type</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${typeLabel(type)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Arrivée</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${formatDate(date_debut)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Départ</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${formatDate(date_fin)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Montant</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">CHF ${montant.toFixed(2)}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="background-color:#FFF8E1; border-left:4px solid #C9A84C; border-radius:8px; padding:16px; margin:0 0 24px 0;">
+        <p style="margin:0 0 8px 0; color:#7A5C00; font-size:14px; font-weight:bold;">💳 Moyens de paiement</p>
+        <p style="margin:0 0 6px 0; color:#7A5C00; font-size:13px;">
+          <strong>Virement bancaire :</strong> IBAN CH00 0000 0000 0000 0000 0<br/>
+          <strong>Titulaire :</strong> La Dogosphère Sàrl<br/>
+          <strong>Référence :</strong> Votre nom + date du séjour
+        </p>
+        <p style="margin:8px 0 0 0; color:#7A5C00; font-size:13px;">
+          <strong>Twint :</strong> disponible sur demande
+        </p>
+      </div>
+
+      <p style="color:#6B7280; font-size:14px; margin:0;">
+        Merci de procéder au règlement dans les meilleurs délais. N'hésitez pas à nous contacter pour toute question. 🐾
+      </p>
+    `),
+  });
+}
+
+export async function envoyerEmailSatisfactionEssai({
+  email, prenom, nom_chien,
+}: {
+  email: string; prenom: string; nom_chien: string;
+}) {
+  await resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: "🐾 Comment s'est passée la journée d'essai ?",
+    html: emailTemplate(`
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom} ! 🐶</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">
+        Nous espérons que <strong>${nom_chien}</strong> est bien rentré à la maison !
+        Toute l'équipe a été ravie de l'avoir avec nous.
+      </p>
+
+      <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">
+        <p style="margin:0; color:#1B5E4F; font-size:14px;">
+          Votre avis nous tient à cœur — si vous avez quelques minutes, nous serions très reconnaissants de recevoir votre retour. 
+          Cela nous aide à nous améliorer et à faire connaître La Dogosphère.
+        </p>
+      </div>
+
+      <p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">
+        À très bientôt pour un prochain séjour ! 🐾
+      </p>
+    `),
+  });
+}
