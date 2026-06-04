@@ -10,12 +10,11 @@ export default async function MonEspaceRHPage() {
 
   const { data: profile } = await supabase
     .from("profiles").select("role, email").eq("id", user.id).single();
-  if (!["admin", "employe"].includes(profile?.role)) redirect("/");
-
+  if (!profile || !["admin", "employe"].includes(profile.role)) redirect("/");
   const { data: employe } = await supabase
     .from("employes_rh")
     .select("*")
-    .eq("email", profile.email)
+    .eq("email", profile?.email ?? "")
     .single();
 
   if (!employe) return (
