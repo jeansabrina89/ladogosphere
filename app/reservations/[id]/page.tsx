@@ -162,7 +162,7 @@ export default async function ReservationPage({
   )}
 
 {/* Bouton paiement — seulement si pas payé */}
-{res.statut_paiement !== "paye" && res.montant_final && (
+{res.statut_paiement !== "paye" && res.montant_final !== null && (
   <BoutonEmail
     type="paiement"
     reservation_id={res.id}
@@ -172,7 +172,7 @@ export default async function ReservationPage({
 )}
 
 {/* Bouton satisfaction — seulement après journée d'essai terminée */}
-{res.type_reservation === "essai" && res.statut === "terminee" && (
+{res.type_reservation === "essai" && (
   <BoutonEmail
     type="satisfaction_essai"
     reservation_id={res.id}
