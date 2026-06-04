@@ -12,19 +12,16 @@ export default async function EmployesPage() {
     .from("profiles").select("role").eq("id", user.id).single();
   if (profile?.role !== "admin") redirect("/");
 
-  // Source principale : employes_rh
   const { data: employesRh } = await supabase
     .from("employes_rh")
     .select("*")
     .order("nom");
 
-  // Profils auth pour voir qui a un compte
   const { data: profiles } = await supabase
     .from("profiles")
     .select("*")
     .in("role", ["admin", "employe"]);
 
-  // Demandes en attente
   const { data: demandesEnAttente } = await supabase
     .from("demandes_vacances")
     .select("id")
@@ -110,18 +107,11 @@ export default async function EmployesPage() {
                   </div>
 
                   <div className="flex gap-2 ml-4">
-                    <Link href={`/employes/${emp.id}/rh`}
-                      className="px-3 py-2 rounded-xl text-sm font-semibold text-white"
-                      style={{ backgroundColor: "#C9A84C" }}>
-                      📊 RH
+                    <Link href={`/employes/${emp.id}/modifier`}
+                      className="px-3 py-2 rounded-xl text-sm font-semibold"
+                      style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
+                      ✏️ Modifier
                     </Link>
-                    {profil && profil.role !== "admin" && (
-                      <Link href={`/employes/${emp.id}/modifier`}
-  className="px-3 py-2 rounded-xl text-sm font-semibold"
-  style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
-  ✏️
-</Link>
-                    )}
                   </div>
                 </div>
 
