@@ -140,105 +140,129 @@ export default function GenerateurPlanning({
   };
 
   const generer = async () => {
-    setLoading(true);
-    const dates = getDates();
-    const nouveauPlanning: Record<string, Record<string, JourPlanning>> = {};
-    const nbEmployesActifs = employes.filter(e => e.actif).length;
+  setLoading(true);
+  const dates = getDates();
+  const nouveauPlanning: Record<string, Record<string, JourPlanning>> = {};
+  const nbEmployesActifs = employes.filter(e => e.actif).length;
 
-    // Initialiser avec planning existant
+  employes.forEach(emp => {
+    nouveauPlanning[emp.id] = { ...planning[emp.id] };
+  });
+
+  const weekendsTravailles: Record<string, number> = {};
+  employes.forEach(emp => { weekendsTravailles[emp.id] = 0; });
+
+  // Jours à travailler par semaine selon le taux
+  const joursParSemaine: Record<string, number> = {};
+  employes.forEach(emp => {
+    joursParSemaine[emp.id] = Math.round(emp.taux_travail / 100 * 5);
+  });
+
+  // Grouper les dates par semaine (lundi au dimanche)
+  const semaines: string[][] = [];
+  let semaineCourante: string[] = [];
+
+  dates.forEach(dateStr => {
+    const jourSemaine = new Date(dateStr + "T12:00:00").getDay();
+    if (jourSemaine === 1 && semaineCourante.length > 0) {
+      semaines.push(semaineCourante);
+      semaineCourante = [];
+    }
+    semaineCourante.push(dateStr);
+  });
+  if (semaineCourante.length > 0) semaines.push(semaineCourante);
+
+  // Traiter semaine par semaine
+  semaines.forEach(semaine => {
+    // Pour chaque employé, combien de jours doit-il travailler cette semaine ?
+    const joursATravailler: Record<string, number> = {};
     employes.forEach(emp => {
-      nouveauPlanning[emp.id] = { ...planning[emp.id] };
+      if (!emp.actif) { joursATravailler[emp.id] = 0; return; }
+
+      // Jours déjà définis cette semaine (manuellement)
+      const dejaDefinis = semaine.filter(d =>
+        nouveauPlanning[emp.id][d]?.statut === "travail"
+      ).length;
+
+      // Jours indisponibles ou en vacances cette semaine
+      const joursIndispos = semaine.filter(d =>
+        estEnVacances(emp.id, d) || estIndispo(emp.id, d)
+      ).length;
+
+      const joursRestants = Math.max(0, joursParSemaine[emp.id] - dejaDefinis);
+      joursATravailler[emp.id] = joursRestants;
     });
 
-    // Compteurs weekends pour équilibrage
-    const weekendsTravailles: Record<string, number> = {};
-    employes.forEach(emp => { weekendsTravailles[emp.id] = 0; });
-
-    // Jours théoriques par semaine par employé
-    const joursParSemaine: Record<string, number> = {};
-    employes.forEach(emp => {
-      joursParSemaine[emp.id] = Math.round(emp.taux_travail / 100 * 5);
-    });
-
-    // Traiter jour par jour
-    dates.forEach(dateStr => {
+    // Traiter chaque jour de la semaine
+    semaine.forEach(dateStr => {
       const jourSemaine = new Date(dateStr + "T12:00:00").getDay();
       const estWE = jourSemaine === 0 || jourSemaine === 6;
 
-      // Nombre de personnes requises
-      // 1-3 employés: 1 personne toujours présente (2 en semaine si possible)
-      // 4+ employés: 2 personnes toujours présentes
-      const nbRequis = nbEmployesActifs >= 4 ? 2 : (estWE ? 1 : Math.min(2, nbEmployesActifs));
-
-      // Compter jours déjà planifiés
-      const joursDejaPlanifies: Record<string, number> = {};
+      // Assigner vacances et indispos d'abord
       employes.forEach(emp => {
-        joursDejaPlanifies[emp.id] = Object.values(nouveauPlanning[emp.id] || {})
-          .filter(j => j.statut === "travail").length;
-      });
-
-      // D'abord assigner les statuts fixes (vacances, indispo)
-      employes.forEach(emp => {
-        if (nouveauPlanning[emp.id][dateStr]) return;
         if (!emp.actif) return;
+        if (nouveauPlanning[emp.id][dateStr]) return;
 
         if (estEnVacances(emp.id, dateStr)) {
           nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "vacances" };
+          joursATravailler[emp.id] = Math.max(0, joursATravailler[emp.id]);
         } else if (estIndispo(emp.id, dateStr)) {
           nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "absent" };
         }
       });
 
-      // Disponibles = actifs, pas en vacances, pas indispo, pas encore définis
-      const dispos = employes.filter(emp => {
-        if (!emp.actif) return false;
-        const statut = nouveauPlanning[emp.id][dateStr]?.statut;
-        if (statut) return false; // déjà défini
-        return true;
-      });
+      // Couverture minimale requise
+      const nbRequis = nbEmployesActifs >= 4 ? 2 : (estWE ? 1 : Math.min(2, nbEmployesActifs));
 
-      // Déjà en travail
+      // Qui travaille déjà aujourd'hui ?
       const dejaTravaillent = employes.filter(emp =>
         nouveauPlanning[emp.id][dateStr]?.statut === "travail"
       );
 
       let placesRestantes = Math.max(0, nbRequis - dejaTravaillent.length);
 
+      // Disponibles = actifs, pas encore définis ce jour, ont encore des jours à travailler
+      const dispos = employes.filter(emp => {
+        if (!emp.actif) return false;
+        if (nouveauPlanning[emp.id][dateStr]) return false;
+        return true;
+      });
+
       // Trier par priorité
       const disponiblesTries = [...dispos].sort((a, b) => {
-        const aRestants = joursParSemaine[a.id] * 4 - joursDejaPlanifies[a.id];
-        const bRestants = joursParSemaine[b.id] * 4 - joursDejaPlanifies[b.id];
         if (estWE) {
-          // Weekend : favoriser ceux qui ont le moins de weekends
           return weekendsTravailles[a.id] - weekendsTravailles[b.id];
         }
-        // Semaine : favoriser ceux qui ont le plus de jours restants
-        return bRestants - aRestants;
+        // En semaine : favoriser ceux qui ont encore le plus de jours à travailler
+        return joursATravailler[b.id] - joursATravailler[a.id];
       });
 
       disponiblesTries.forEach(emp => {
-        const restants = joursParSemaine[emp.id] * 4 - joursDejaPlanifies[emp.id];
+        if (nouveauPlanning[emp.id][dateStr]) return;
 
-        if (placesRestantes > 0 && restants > 0) {
-          nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "travail" };
-          joursDejaPlanifies[emp.id]++;
-          if (estWE) weekendsTravailles[emp.id]++;
-          placesRestantes--;
+        const doitTravailler = joursATravailler[emp.id] > 0;
+        const estNecessairePourCouverture = placesRestantes > 0;
+
+        if (doitTravailler || estNecessairePourCouverture) {
+          if (doitTravailler || estNecessairePourCouverture) {
+            nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "travail" };
+            if (doitTravailler) joursATravailler[emp.id]--;
+            if (estWE) weekendsTravailles[emp.id]++;
+            if (estNecessairePourCouverture) placesRestantes--;
+          }
         } else {
           nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "repos" };
         }
       });
 
-      // Si personne n'est disponible mais il faut quand même quelqu'un
-      // → forcer le premier actif disponible (hors vacances)
+      // Forcer couverture minimale si personne ne travaille
       const travaillentAuj = employes.filter(emp =>
         nouveauPlanning[emp.id][dateStr]?.statut === "travail"
       );
       if (travaillentAuj.length === 0) {
-        const forceable = employes.find(emp =>
-          emp.actif &&
-          nouveauPlanning[emp.id][dateStr]?.statut === "repos"
-        );
+        const forceable = employes
+          .filter(emp => emp.actif && nouveauPlanning[emp.id][dateStr]?.statut === "repos")
+          .sort((a, b) => weekendsTravailles[a.id] - weekendsTravailles[b.id])[0];
         if (forceable) {
           nouveauPlanning[forceable.id][dateStr] = {
             employe_id: forceable.id, date: dateStr, statut: "travail"
@@ -247,10 +271,11 @@ export default function GenerateurPlanning({
         }
       }
     });
+  });
 
-    setPlanning(nouveauPlanning);
-    setLoading(false);
-  };
+  setPlanning(nouveauPlanning);
+  setLoading(false);
+};
 
   const sauvegarder = async () => {
     setSaving(true);
