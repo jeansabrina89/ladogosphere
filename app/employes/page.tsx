@@ -116,11 +116,11 @@ export default async function EmployesPage() {
                       📊 RH
                     </Link>
                     {profil && profil.role !== "admin" && (
-                      <Link href={`/employes/${profil.id}/modifier`}
-                        className="px-3 py-2 rounded-xl text-sm font-semibold"
-                        style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
-                        ✏️
-                      </Link>
+                      <Link href={`/employes/${emp.id}/modifier`}
+  className="px-3 py-2 rounded-xl text-sm font-semibold"
+  style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
+  ✏️
+</Link>
                     )}
                   </div>
                 </div>
