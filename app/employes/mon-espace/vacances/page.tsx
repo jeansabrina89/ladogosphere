@@ -109,6 +109,3 @@ export default async function VacancesPage() {
     </main>
   );
 }
- 
-
-
