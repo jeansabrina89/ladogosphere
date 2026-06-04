@@ -9,6 +9,7 @@ type Employe = {
   nom: string;
   taux_travail: number;
   email: string;
+  actif: boolean;
 };
 
 type JourPlanning = {
@@ -72,7 +73,6 @@ export default function GenerateurPlanning({
   const joursParMois = new Date(annee, mois, 0).getDate();
   const joursFeries = getJoursFeries(annee);
 
-  // Initialiser le planning depuis la DB
   const [planning, setPlanning] = useState<Record<string, Record<string, JourPlanning>>>(() => {
     const init: Record<string, Record<string, JourPlanning>> = {};
     employes.forEach(emp => {
@@ -139,84 +139,119 @@ export default function GenerateurPlanning({
     setCelluleActive(null);
   };
 
-  // Générer automatiquement
   const generer = async () => {
     setLoading(true);
     const dates = getDates();
     const nouveauPlanning: Record<string, Record<string, JourPlanning>> = {};
+    const nbEmployesActifs = employes.filter(e => e.actif).length;
 
+    // Initialiser avec planning existant
     employes.forEach(emp => {
       nouveauPlanning[emp.id] = { ...planning[emp.id] };
-      const joursParSemaine = Math.round(emp.taux_travail / 100 * 5);
+    });
 
-      // Grouper par semaine
-      const semaines: string[][] = [];
-      let semaineCourante: string[] = [];
+    // Compteurs weekends pour équilibrage
+    const weekendsTravailles: Record<string, number> = {};
+    employes.forEach(emp => { weekendsTravailles[emp.id] = 0; });
 
-      dates.forEach(dateStr => {
-        const jourSemaine = new Date(dateStr + "T12:00:00").getDay();
-        if (jourSemaine === 1 && semaineCourante.length > 0) {
-          semaines.push(semaineCourante);
-          semaineCourante = [];
-        }
-        semaineCourante.push(dateStr);
+    // Jours théoriques par semaine par employé
+    const joursParSemaine: Record<string, number> = {};
+    employes.forEach(emp => {
+      joursParSemaine[emp.id] = Math.round(emp.taux_travail / 100 * 5);
+    });
+
+    // Traiter jour par jour
+    dates.forEach(dateStr => {
+      const jourSemaine = new Date(dateStr + "T12:00:00").getDay();
+      const estWE = jourSemaine === 0 || jourSemaine === 6;
+
+      // Nombre de personnes requises
+      // 1-3 employés: 1 personne toujours présente (2 en semaine si possible)
+      // 4+ employés: 2 personnes toujours présentes
+      const nbRequis = nbEmployesActifs >= 4 ? 2 : (estWE ? 1 : Math.min(2, nbEmployesActifs));
+
+      // Compter jours déjà planifiés
+      const joursDejaPlanifies: Record<string, number> = {};
+      employes.forEach(emp => {
+        joursDejaPlanifies[emp.id] = Object.values(nouveauPlanning[emp.id] || {})
+          .filter(j => j.statut === "travail").length;
       });
-      if (semaineCourante.length > 0) semaines.push(semaineCourante);
 
-      let dernierJourTravaille: string | null = null;
+      // D'abord assigner les statuts fixes (vacances, indispo)
+      employes.forEach(emp => {
+        if (nouveauPlanning[emp.id][dateStr]) return;
+        if (!emp.actif) return;
 
-      semaines.forEach((semaine, idxSemaine) => {
-        const joursDispos = semaine.filter(d => {
-          if (estEnVacances(emp.id, d)) return false;
-          if (estIndispo(emp.id, d)) return false;
-          return true;
-        });
-
-        // Jours déjà définis
-        const dejaDefinis = joursDispos.filter(d => nouveauPlanning[emp.id][d]);
-        const aRemplir = joursDispos.filter(d => !nouveauPlanning[emp.id][d]);
-
-        let joursRestants = joursParSemaine - dejaDefinis.filter(d =>
-          nouveauPlanning[emp.id][d]?.statut === "travail"
-        ).length;
-
-        // Éviter chevauchement: vérifier dernier jour de semaine précédente
-        let joursConsecutifs = 0;
-        if (dernierJourTravaille) {
-          const diff = new Date(aRemplir[0] + "T12:00:00").getTime() -
-            new Date(dernierJourTravaille + "T12:00:00").getTime();
-          if (diff <= 86400000 * 2) joursConsecutifs = 1;
+        if (estEnVacances(emp.id, dateStr)) {
+          nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "vacances" };
+        } else if (estIndispo(emp.id, dateStr)) {
+          nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "absent" };
         }
-
-        aRemplir.forEach((dateStr, idx) => {
-          const jourSemaine = new Date(dateStr + "T12:00:00").getDay();
-          const estWE = jourSemaine === 0 || jourSemaine === 6;
-
-          if (estEnVacances(emp.id, dateStr)) {
-            nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "vacances" };
-          } else if (estIndispo(emp.id, dateStr)) {
-            nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "absent" };
-          } else if (joursRestants > 0 && !estWE) {
-            nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "travail" };
-            joursRestants--;
-            dernierJourTravaille = dateStr;
-          } else if (joursRestants > 0 && estWE && idx >= aRemplir.length - 2) {
-            // Weekend si pas assez de jours en semaine
-            nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "travail" };
-            joursRestants--;
-            dernierJourTravaille = dateStr;
-          } else {
-            nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "repos" };
-          }
-        });
       });
+
+      // Disponibles = actifs, pas en vacances, pas indispo, pas encore définis
+      const dispos = employes.filter(emp => {
+        if (!emp.actif) return false;
+        const statut = nouveauPlanning[emp.id][dateStr]?.statut;
+        if (statut) return false; // déjà défini
+        return true;
+      });
+
+      // Déjà en travail
+      const dejaTravaillent = employes.filter(emp =>
+        nouveauPlanning[emp.id][dateStr]?.statut === "travail"
+      );
+
+      let placesRestantes = Math.max(0, nbRequis - dejaTravaillent.length);
+
+      // Trier par priorité
+      const disponiblesTries = [...dispos].sort((a, b) => {
+        const aRestants = joursParSemaine[a.id] * 4 - joursDejaPlanifies[a.id];
+        const bRestants = joursParSemaine[b.id] * 4 - joursDejaPlanifies[b.id];
+        if (estWE) {
+          // Weekend : favoriser ceux qui ont le moins de weekends
+          return weekendsTravailles[a.id] - weekendsTravailles[b.id];
+        }
+        // Semaine : favoriser ceux qui ont le plus de jours restants
+        return bRestants - aRestants;
+      });
+
+      disponiblesTries.forEach(emp => {
+        const restants = joursParSemaine[emp.id] * 4 - joursDejaPlanifies[emp.id];
+
+        if (placesRestantes > 0 && restants > 0) {
+          nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "travail" };
+          joursDejaPlanifies[emp.id]++;
+          if (estWE) weekendsTravailles[emp.id]++;
+          placesRestantes--;
+        } else {
+          nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "repos" };
+        }
+      });
+
+      // Si personne n'est disponible mais il faut quand même quelqu'un
+      // → forcer le premier actif disponible (hors vacances)
+      const travaillentAuj = employes.filter(emp =>
+        nouveauPlanning[emp.id][dateStr]?.statut === "travail"
+      );
+      if (travaillentAuj.length === 0) {
+        const forceable = employes.find(emp =>
+          emp.actif &&
+          nouveauPlanning[emp.id][dateStr]?.statut === "repos"
+        );
+        if (forceable) {
+          nouveauPlanning[forceable.id][dateStr] = {
+            employe_id: forceable.id, date: dateStr, statut: "travail"
+          };
+          if (estWE) weekendsTravailles[forceable.id]++;
+        }
+      }
     });
 
     setPlanning(nouveauPlanning);
     setLoading(false);
   };
 
-  // Sauvegarder
   const sauvegarder = async () => {
     setSaving(true);
     const lignes: JourPlanning[] = [];
@@ -238,15 +273,13 @@ export default function GenerateurPlanning({
 
   const dates = getDates();
 
-  // Stats par employé
   const getStats = (emp: Employe) => {
     const p = planning[emp.id] || {};
     const joursT = Object.values(p).filter(j => j.statut === "travail").length;
     const joursV = Object.values(p).filter(j => j.statut === "vacances").length;
     const joursHS = Object.values(p).filter(j => j.statut === "heures_sup").length;
     const joursFT = Object.values(p).filter(j => j.statut === "ferie_travaille").length;
-    const joursTheo = Math.round(emp.taux_travail / 100 * 5) * 4;
-    return { joursT, joursV, joursHS, joursFT, joursTheo };
+    return { joursT, joursV, joursHS, joursFT };
   };
 
   return (
@@ -323,7 +356,7 @@ export default function GenerateurPlanning({
             </tr>
           </thead>
           <tbody>
-            {employes.map((emp, idx) => {
+            {employes.filter(e => e.actif).map((emp, idx) => {
               const stats = getStats(emp);
               return (
                 <tr key={emp.id} style={{ borderBottom: "1px solid #E2E8F0" }}
@@ -354,7 +387,6 @@ export default function GenerateurPlanning({
                           {statut ? STATUTS.find(s => s.val === statut)?.label.split(" ")[0] : estF ? "🎉" : ""}
                         </button>
 
-                        {/* Popup sélection statut */}
                         {estActif && (
                           <div className="absolute z-50 top-9 left-0 bg-white rounded-xl shadow-xl border p-2"
                             style={{ minWidth: "160px" }}>
@@ -384,7 +416,6 @@ export default function GenerateurPlanning({
         </table>
       </div>
 
-      {/* Fermer popup si clic ailleurs */}
       {celluleActive && (
         <div className="fixed inset-0 z-40" onClick={() => setCelluleActive(null)} />
       )}
