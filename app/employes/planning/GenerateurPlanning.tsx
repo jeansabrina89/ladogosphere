@@ -50,13 +50,42 @@ function getJoursFeries(annee: number): string[] {
 const NOMS_MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
+// Modèles de repos rotatifs pour chaque taux
+// Index = numéro de semaine % nb_rotations
+// Valeur = jour de repos (1=Lun, 2=Mar, 3=Mer, 4=Jeu, 5=Ven, 6=Sam, 0=Dim)
+const ROTATIONS: Record<number, number[][]> = {
+  // 100% = 5j travail / 2j repos → rotation des 2j de repos
+  100: [
+    [6, 0], // Sem 1: repos Sam+Dim
+    [5, 6], // Sem 2: repos Ven+Sam
+    [0, 1], // Sem 3: repos Dim+Lun
+    [4, 5], // Sem 4: repos Jeu+Ven
+  ],
+  // 80% = 4j travail / 3j repos → rotation des 3j de repos
+  80: [
+    [5, 6, 0], // Sem 1: repos Ven+Sam+Dim
+    [0, 1, 2], // Sem 2: repos Dim+Lun+Mar
+    [3, 4, 5], // Sem 3: repos Mer+Jeu+Ven
+    [6, 0, 1], // Sem 4: repos Sam+Dim+Lun
+  ],
+  // 40% = 2j travail / 5j repos → rotation des 2j de travail
+  40: [
+    [6, 0], // Sem 1: travail Sam+Dim
+    [1, 2], // Sem 2: travail Lun+Mar
+    [4, 5], // Sem 3: travail Jeu+Ven
+    [6, 0], // Sem 4: travail Sam+Dim
+  ],
+  // 60% = 3j travail / 4j repos
+  60: [
+    [1, 2, 3], // Sem 1: travail Lun+Mar+Mer
+    [3, 4, 5], // Sem 2: travail Mer+Jeu+Ven
+    [5, 6, 0], // Sem 3: travail Ven+Sam+Dim
+    [1, 2, 6], // Sem 4: travail Lun+Mar+Sam
+  ],
+};
+
 export default function GenerateurPlanning({
-  employes,
-  mois,
-  annee,
-  planningExistant,
-  vacancesAcceptees,
-  indisponibilites,
+  employes, mois, annee, planningExistant, vacancesAcceptees, indisponibilites,
 }: {
   employes: Employe[];
   mois: number;
@@ -77,8 +106,7 @@ export default function GenerateurPlanning({
     const init: Record<string, Record<string, JourPlanning>> = {};
     employes.forEach(emp => {
       init[emp.id] = {};
-      planningExistant
-        .filter(p => p.employe_id === emp.id)
+      planningExistant.filter(p => p.employe_id === emp.id)
         .forEach(p => { init[emp.id][p.date] = p; });
     });
     return init;
@@ -92,36 +120,19 @@ export default function GenerateurPlanning({
   const getDates = () => {
     const dates = [];
     for (let d = 1; d <= joursParMois; d++) {
-      const dateStr = `${annee}-${String(mois).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-      dates.push(dateStr);
+      dates.push(`${annee}-${String(mois).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
     }
     return dates;
   };
 
-  const estWeekend = (dateStr: string) => {
-    const j = new Date(dateStr + "T12:00:00").getDay();
-    return j === 0 || j === 6;
-  };
+  const estWeekend = (d: string) => [0, 6].includes(new Date(d + "T12:00:00").getDay());
+  const estFerie = (d: string) => joursFeries.includes(d);
+  const estEnVacances = (id: string, d: string) =>
+    vacancesAcceptees.some(v => v.employes_rh?.id === id && d >= v.date_debut && d <= v.date_fin);
+  const estIndispo = (id: string, d: string) =>
+    indisponibilites.some(i => i.employe_id === id && i.date === d);
 
-  const estFerie = (dateStr: string) => joursFeries.includes(dateStr);
-
-  const estEnVacances = (employe_id: string, dateStr: string) => {
-    return vacancesAcceptees.some(v =>
-      v.employes_rh?.id === employe_id &&
-      dateStr >= v.date_debut && dateStr <= v.date_fin
-    );
-  };
-
-  const estIndispo = (employe_id: string, dateStr: string) => {
-    return indisponibilites.some(i =>
-      i.employe_id === employe_id && i.date === dateStr
-    );
-  };
-
-  const getStatut = (employe_id: string, dateStr: string) => {
-    return planning[employe_id]?.[dateStr]?.statut || null;
-  };
-
+  const getStatut = (id: string, d: string) => planning[id]?.[d]?.statut || null;
   const getStyle = (statut: string | null, estWE: boolean) => {
     if (!statut) return { bg: estWE ? "#F8FAFC" : "white", text: "#CBD5E1" };
     const s = STATUTS.find(x => x.val === statut);
@@ -131,10 +142,7 @@ export default function GenerateurPlanning({
   const changerStatut = (employe_id: string, date: string, statut: string) => {
     setPlanning(prev => ({
       ...prev,
-      [employe_id]: {
-        ...prev[employe_id],
-        [date]: { employe_id, date, statut },
-      }
+      [employe_id]: { ...prev[employe_id], [date]: { employe_id, date, statut } }
     }));
     setCelluleActive(null);
   };
@@ -144,221 +152,91 @@ export default function GenerateurPlanning({
     const dates = getDates();
     const nouveauPlanning: Record<string, Record<string, JourPlanning>> = {};
     const employesActifs = employes.filter(e => e.actif);
-    const nbEmployesActifs = employesActifs.length;
 
     employes.forEach(emp => { nouveauPlanning[emp.id] = {}; });
 
-    // Compteur weekends et jours consécutifs par employé
-    const weekendsTravailles: Record<string, number> = {};
-    const dernierJourTravaille: Record<string, string | null> = {};
-    const joursConsecutifs: Record<string, number> = {};
-    employesActifs.forEach(emp => {
-      weekendsTravailles[emp.id] = 0;
-      dernierJourTravaille[emp.id] = null;
-      joursConsecutifs[emp.id] = 0;
-    });
-
-    // Grouper par semaine lundi→dimanche
+    // Grouper par semaine
     const semaines: string[][] = [];
     let semaineCourante: string[] = [];
     dates.forEach(dateStr => {
       const j = new Date(dateStr + "T12:00:00").getDay();
-      if (j === 1 && semaineCourante.length > 0) {
-        semaines.push(semaineCourante);
-        semaineCourante = [];
-      }
+      if (j === 1 && semaineCourante.length > 0) { semaines.push(semaineCourante); semaineCourante = []; }
       semaineCourante.push(dateStr);
     });
     if (semaineCourante.length > 0) semaines.push(semaineCourante);
 
-    // Traiter semaine par semaine
-    semaines.forEach(semaine => {
+    semaines.forEach((semaine, idxSemaine) => {
 
-      // ÉTAPE 1 : Statuts fixes (vacances, indispo)
-      const statutsFixes: Record<string, Record<string, string>> = {};
+      // ÉTAPE 1 : Statuts fixes
+      const fixes: Record<string, Record<string, string>> = {};
       employesActifs.forEach(emp => {
-        statutsFixes[emp.id] = {};
+        fixes[emp.id] = {};
         semaine.forEach(d => {
-          if (estEnVacances(emp.id, d)) statutsFixes[emp.id][d] = "vacances";
-          else if (estIndispo(emp.id, d)) statutsFixes[emp.id][d] = "absent";
+          if (estEnVacances(emp.id, d)) fixes[emp.id][d] = "vacances";
+          else if (estIndispo(emp.id, d)) fixes[emp.id][d] = "absent";
         });
       });
 
-      // ÉTAPE 2 : Calculer les jours de travail de chaque employé
+      // ÉTAPE 2 : Appliquer le modèle rotatif
       const joursChoisis: Record<string, Set<string>> = {};
+      employesActifs.forEach(emp => { joursChoisis[emp.id] = new Set(); });
 
       employesActifs.forEach(emp => {
-        joursChoisis[emp.id] = new Set();
+        const taux = emp.taux_travail;
+        const rotation = ROTATIONS[taux] || ROTATIONS[100];
+        const modele = rotation[idxSemaine % rotation.length];
 
-        // Jours disponibles (pas fixés)
-        const dispo = semaine.filter(d => !statutsFixes[emp.id][d]);
+        // Pour 40% et 60% : modele = jours de TRAVAIL
+        // Pour 80% et 100% : modele = jours de REPOS
+        const estRepos = taux >= 60;
 
-        // Jours à travailler selon le taux (sur 7 jours)
-        const joursAFaire = Math.round(emp.taux_travail / 100 * 7);
-        // Mais limité aux jours disponibles
-        const nbTravail = Math.min(joursAFaire, dispo.length);
-        const nbRepos = dispo.length - nbTravail;
+        semaine.forEach(dateStr => {
+          if (fixes[emp.id][dateStr]) return;
 
-        if (nbRepos <= 0) {
-          // Tout travailler
-          dispo.forEach(d => joursChoisis[emp.id].add(d));
-          return;
-        }
+          const jourSemaine = new Date(dateStr + "T12:00:00").getDay();
 
-        // Trouver le meilleur bloc de repos consécutifs
-        // Essayer de mettre les repos en bloc
-        let meilleurBloc: string[] = [];
-        let meilleurScore = -1;
-
-        for (let debut = 0; debut <= dispo.length - nbRepos; debut++) {
-          const bloc = dispo.slice(debut, debut + nbRepos);
-
-          // Vérifier que le bloc est consécutif
-          let estConsecutif = true;
-          for (let i = 0; i < bloc.length - 1; i++) {
-            const diff = (new Date(bloc[i + 1] + "T12:00:00").getTime() -
-              new Date(bloc[i] + "T12:00:00").getTime()) / 86400000;
-            if (diff > 1) { estConsecutif = false; break; }
-          }
-
-          if (estConsecutif) {
-            // Score: préférer que les jours de travail soient en semaine
-            const joursRestants = dispo.filter(d => !bloc.includes(d));
-            const travailSemaine = joursRestants.filter(d => {
-              const j = new Date(d + "T12:00:00").getDay();
-              return j !== 0 && j !== 6;
-            }).length;
-            const score = travailSemaine;
-
-            if (score > meilleurScore) {
-              meilleurScore = score;
-              meilleurBloc = bloc;
+          if (estRepos) {
+            // Travailler sauf les jours de repos du modèle
+            if (!modele.includes(jourSemaine)) {
+              joursChoisis[emp.id].add(dateStr);
+            }
+          } else {
+            // Travailler seulement les jours du modèle
+            if (modele.includes(jourSemaine)) {
+              joursChoisis[emp.id].add(dateStr);
             }
           }
-        }
-
-        if (meilleurBloc.length === nbRepos) {
-          // Travailler tout sauf le bloc de repos
-          dispo.filter(d => !meilleurBloc.includes(d)).forEach(d => {
-            joursChoisis[emp.id].add(d);
-          });
-        } else {
-          // Pas de bloc consécutif possible → prendre les jours ouvrables d'abord
-          const ouvrables = dispo.filter(d => {
-            const j = new Date(d + "T12:00:00").getDay();
-            return j !== 0 && j !== 6;
-          });
-          const we = dispo.filter(d => {
-            const j = new Date(d + "T12:00:00").getDay();
-            return j === 0 || j === 6;
-          });
-          ouvrables.slice(0, nbTravail).forEach(d => joursChoisis[emp.id].add(d));
-          const reste = nbTravail - Math.min(ouvrables.length, nbTravail);
-          if (reste > 0) we.slice(0, reste).forEach(d => joursChoisis[emp.id].add(d));
-        }
+        });
       });
 
       // ÉTAPE 3 : Vérifier couverture minimale
       semaine.forEach(dateStr => {
-        const jourSemaine = new Date(dateStr + "T12:00:00").getDay();
-        const estWE = jourSemaine === 0 || jourSemaine === 6;
-        const nbRequis = nbEmployesActifs >= 4 ? 2 : (estWE ? 1 : Math.min(2, nbEmployesActifs));
+        if (fixes[employesActifs[0]?.id]?.[dateStr]) return;
+        const travaillent = employesActifs.filter(emp =>
+          joursChoisis[emp.id].has(dateStr) || fixes[emp.id][dateStr] === "travail"
+        );
 
-        const travaillent = employesActifs.filter(emp => joursChoisis[emp.id].has(dateStr));
+        if (travaillent.length === 0) {
+          // Forcer le 100% s'il est disponible
+          const forceable = employesActifs.find(emp =>
+            emp.taux_travail === 100 && !fixes[emp.id][dateStr]
+          ) || employesActifs.find(emp => !fixes[emp.id][dateStr]);
 
-        if (travaillent.length < nbRequis) {
-          const manque = nbRequis - travaillent.length;
-          // Forcer en priorité les employés avec le plus haut taux
-          const candidats = employesActifs
-            .filter(emp =>
-              !joursChoisis[emp.id].has(dateStr) &&
-              !statutsFixes[emp.id][dateStr]
-            )
-            .sort((a, b) => b.taux_travail - a.taux_travail);
-
-          candidats.slice(0, manque).forEach(emp => {
-            joursChoisis[emp.id].add(dateStr);
-            if (estWE) weekendsTravailles[emp.id]++;
-          });
+          if (forceable) joursChoisis[forceable.id].add(dateStr);
         }
       });
 
-      // ÉTAPE 4 : Vérifier max 6j consécutifs (en tenant compte des semaines précédentes)
+      // ÉTAPE 4 : Appliquer
       employesActifs.forEach(emp => {
         semaine.forEach(dateStr => {
-          if (!joursChoisis[emp.id].has(dateStr)) return;
-
-          const prev = dernierJourTravaille[emp.id];
-          if (prev) {
-            const diff = (new Date(dateStr + "T12:00:00").getTime() -
-              new Date(prev + "T12:00:00").getTime()) / 86400000;
-            if (diff === 1) {
-              joursConsecutifs[emp.id]++;
-            } else {
-              joursConsecutifs[emp.id] = 1;
-            }
-          } else {
-            joursConsecutifs[emp.id] = 1;
-          }
-
-          // Si trop de jours consécutifs → forcer un repos
-          if (joursConsecutifs[emp.id] > 6) {
-            joursChoisis[emp.id].delete(dateStr);
-            joursConsecutifs[emp.id] = 0;
-            // Vérifier couverture après suppression
-            const jourSemaine = new Date(dateStr + "T12:00:00").getDay();
-            const estWE = jourSemaine === 0 || jourSemaine === 6;
-            const nbRequis = nbEmployesActifs >= 4 ? 2 : (estWE ? 1 : Math.min(2, nbEmployesActifs));
-            const travaillent = employesActifs.filter(e => joursChoisis[e.id].has(dateStr));
-            if (travaillent.length < nbRequis) {
-              // Remplacer par quelqu'un d'autre
-              const remplacant = employesActifs
-                .filter(e =>
-                  e.id !== emp.id &&
-                  !joursChoisis[e.id].has(dateStr) &&
-                  !statutsFixes[e.id][dateStr] &&
-                  joursConsecutifs[e.id] < 6
-                )
-                .sort((a, b) => b.taux_travail - a.taux_travail)[0];
-              if (remplacant) {
-                joursChoisis[remplacant.id].add(dateStr);
-              }
-            }
-            dernierJourTravaille[emp.id] = null;
-          } else {
-            dernierJourTravaille[emp.id] = dateStr;
-          }
-        });
-
-        // Mettre à jour dernier jour si repos
-        semaine.forEach(dateStr => {
-          if (!joursChoisis[emp.id].has(dateStr) && !statutsFixes[emp.id][dateStr]) {
-            joursConsecutifs[emp.id] = 0;
-            dernierJourTravaille[emp.id] = null;
-          }
-        });
-      });
-
-      // ÉTAPE 5 : Appliquer le planning
-      employesActifs.forEach(emp => {
-        semaine.forEach(dateStr => {
-          if (statutsFixes[emp.id][dateStr]) {
+          if (fixes[emp.id][dateStr]) {
             nouveauPlanning[emp.id][dateStr] = {
-              employe_id: emp.id, date: dateStr,
-              statut: statutsFixes[emp.id][dateStr]
+              employe_id: emp.id, date: dateStr, statut: fixes[emp.id][dateStr]
             };
-            joursConsecutifs[emp.id] = 0;
-            dernierJourTravaille[emp.id] = null;
           } else if (joursChoisis[emp.id].has(dateStr)) {
-            nouveauPlanning[emp.id][dateStr] = {
-              employe_id: emp.id, date: dateStr, statut: "travail"
-            };
+            nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "travail" };
           } else {
-            nouveauPlanning[emp.id][dateStr] = {
-              employe_id: emp.id, date: dateStr, statut: "repos"
-            };
-            joursConsecutifs[emp.id] = 0;
-            dernierJourTravaille[emp.id] = null;
+            nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "repos" };
           }
         });
       });
@@ -371,18 +249,12 @@ export default function GenerateurPlanning({
   const sauvegarder = async () => {
     setSaving(true);
     const lignes: JourPlanning[] = [];
-    Object.values(planning).forEach(empPlanning => {
-      Object.values(empPlanning).forEach(jour => {
-        if (jour.statut) lignes.push(jour);
-      });
-    });
-
+    Object.values(planning).forEach(p => Object.values(p).forEach(j => { if (j.statut) lignes.push(j); }));
     await fetch("/api/rh/planning", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ lignes }),
     });
-
     setSaving(false);
     router.refresh();
   };
@@ -391,11 +263,12 @@ export default function GenerateurPlanning({
 
   const getStats = (emp: Employe) => {
     const p = planning[emp.id] || {};
-    const joursT = Object.values(p).filter(j => j.statut === "travail").length;
-    const joursV = Object.values(p).filter(j => j.statut === "vacances").length;
-    const joursHS = Object.values(p).filter(j => j.statut === "heures_sup").length;
-    const joursFT = Object.values(p).filter(j => j.statut === "ferie_travaille").length;
-    return { joursT, joursV, joursHS, joursFT };
+    return {
+      joursT: Object.values(p).filter(j => j.statut === "travail").length,
+      joursV: Object.values(p).filter(j => j.statut === "vacances").length,
+      joursHS: Object.values(p).filter(j => j.statut === "heures_sup").length,
+      joursFT: Object.values(p).filter(j => j.statut === "ferie_travaille").length,
+    };
   };
 
   return (
@@ -445,20 +318,14 @@ export default function GenerateurPlanning({
           <thead>
             <tr style={{ backgroundColor: "#1B2B5E" }}>
               <th className="px-4 py-3 text-left text-sm font-semibold text-white sticky left-0"
-                style={{ backgroundColor: "#1B2B5E", minWidth: "150px" }}>
-                Employé
-              </th>
+                style={{ backgroundColor: "#1B2B5E", minWidth: "150px" }}>Employé</th>
               {dates.map(dateStr => {
                 const d = new Date(dateStr + "T12:00:00");
-                const estWE = d.getDay() === 0 || d.getDay() === 6;
+                const estWE = [0, 6].includes(d.getDay());
                 const estF = estFerie(dateStr);
                 return (
-                  <th key={dateStr}
-                    className="px-1 py-2 text-center text-xs font-semibold text-white"
-                    style={{
-                      minWidth: "36px",
-                      backgroundColor: estWE ? "#0f1d3e" : estF ? "#2d4a8a" : "#1B2B5E"
-                    }}>
+                  <th key={dateStr} className="px-1 py-2 text-center text-xs font-semibold text-white"
+                    style={{ minWidth: "36px", backgroundColor: estWE ? "#0f1d3e" : estF ? "#2d4a8a" : "#1B2B5E" }}>
                     <div>{["Di", "Lu", "Ma", "Me", "Je", "Ve", "Sa"][d.getDay()]}</div>
                     <div>{d.getDate()}</div>
                   </th>
@@ -484,26 +351,22 @@ export default function GenerateurPlanning({
                     const estF = estFerie(dateStr);
                     const style = getStyle(statut, estWE);
                     const estActif = celluleActive?.employe_id === emp.id && celluleActive?.date === dateStr;
-
                     return (
                       <td key={dateStr} className="p-0.5 relative">
                         <button
                           onClick={() => setCelluleActive(estActif ? null : { employe_id: emp.id, date: dateStr })}
                           className="w-full h-8 rounded text-xs font-semibold transition"
                           style={{
-                            backgroundColor: style.bg,
-                            color: style.text,
+                            backgroundColor: style.bg, color: style.text,
                             border: estActif ? "2px solid #4AAEA0" : estF ? "1px dashed #D97706" : "1px solid #E2E8F0",
                           }}>
                           {statut ? STATUTS.find(s => s.val === statut)?.label.split(" ")[0] : estF ? "🎉" : ""}
                         </button>
-
                         {estActif && (
                           <div className="absolute z-50 top-9 left-0 bg-white rounded-xl shadow-xl border p-2"
                             style={{ minWidth: "160px" }}>
                             {STATUTS.map(s => (
-                              <button key={s.val}
-                                onClick={() => changerStatut(emp.id, dateStr, s.val)}
+                              <button key={s.val} onClick={() => changerStatut(emp.id, dateStr, s.val)}
                                 className="w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-80 mb-1"
                                 style={{ backgroundColor: s.bg, color: s.text }}>
                                 {s.label}
