@@ -12,16 +12,17 @@ export default async function EmployesPage() {
     .from("profiles").select("role").eq("id", user.id).single();
   if (profile?.role !== "admin") redirect("/");
 
-  const { data: employes } = await supabase
-    .from("profiles")
-    .select("*")
-    .in("role", ["admin", "employe"])
-    .order("created_at");
-
+  // Source principale : employes_rh
   const { data: employesRh } = await supabase
     .from("employes_rh")
     .select("*")
-    .eq("actif", true);
+    .order("nom");
+
+  // Profils auth pour voir qui a un compte
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("*")
+    .in("role", ["admin", "employe"]);
 
   // Demandes en attente
   const { data: demandesEnAttente } = await supabase
@@ -39,7 +40,7 @@ export default async function EmployesPage() {
             <p className="text-gray-500 mt-1">Gestion des comptes et module RH</p>
           </div>
           <div className="flex gap-3 flex-wrap">
-            <Link href="/employes/nouveau"
+            <Link href="/employes/nouveau-rh"
               className="px-4 py-2 rounded-xl font-semibold text-white text-sm"
               style={{ backgroundColor: "#4AAEA0" }}>
               ➕ Ajouter un employé
@@ -63,11 +64,11 @@ export default async function EmployesPage() {
         </div>
 
         <div className="grid gap-4">
-          {employes?.map((emp: any) => {
-            const rh = employesRh?.find(r => r.email === emp.email);
-            const salaireBrut = rh ? (rh.salaire_base * rh.taux_travail / 100).toFixed(2) : null;
-            const joursParSemaine = rh ? Math.round(rh.taux_travail / 100 * 5) : null;
-            const joursVacances = rh ? Math.round(20 * rh.taux_travail / 100) : null;
+          {employesRh?.map((emp: any) => {
+            const profil = profiles?.find(p => p.email === emp.email);
+            const salaireBrut = (emp.salaire_base * emp.taux_travail / 100).toFixed(2);
+            const joursParSemaine = Math.round(emp.taux_travail / 100 * 5);
+            const joursVacances = Math.round(20 * emp.taux_travail / 100);
 
             return (
               <div key={emp.id} className="bg-white rounded-xl p-6 shadow-sm">
@@ -75,55 +76,47 @@ export default async function EmployesPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-xl font-bold" style={{ color: "#1B2B5E" }}>
-                        {emp.prenom || rh?.prenom || "—"} {emp.nom || rh?.nom || ""}
+                        {emp.prenom} {emp.nom}
                       </p>
-                      {emp.role === "admin" && (
+                      {profil?.role === "admin" && (
                         <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
                           Admin
                         </span>
                       )}
                       <span className={`text-xs px-2 py-1 rounded-full ${
-                        emp.actif ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                        emp.actif ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
                       }`}>
-                        {emp.actif ? "🟢 Actif" : "🔴 Inactif"}
+                        {emp.actif ? "🟢 Actif" : "⚪ Inactif"}
                       </span>
+                      {!profil && (
+                        <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full">
+                          Sans compte
+                        </span>
+                      )}
                     </div>
                     <p className="text-gray-500 text-sm mt-1">{emp.email}</p>
 
-                    {/* Infos RH */}
-                    {rh && (
-                      <div className="flex gap-3 mt-3 flex-wrap">
-                        <span className="px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-700">
-                          {rh.taux_travail}% — {joursParSemaine}j/semaine
-                        </span>
-                        <span className="px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700">
-                          💰 {salaireBrut} CHF/mois
-                        </span>
-                        <span className="px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-700">
-                          🏖️ {joursVacances}j vacances/an
-                        </span>
-                      </div>
-                    )}
-                    {!rh && (
-                      <p className="text-xs text-orange-500 mt-2">
-                        ⚠️ Pas encore de fiche RH —{" "}
-                        <Link href="/employes/nouveau-rh" style={{ color: "#4AAEA0" }}>
-                          créer la fiche RH
-                        </Link>
-                      </p>
-                    )}
+                    <div className="flex gap-3 mt-3 flex-wrap">
+                      <span className="px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-700">
+                        {emp.taux_travail}% — {joursParSemaine}j/semaine
+                      </span>
+                      <span className="px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700">
+                        💰 {salaireBrut} CHF/mois
+                      </span>
+                      <span className="px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-700">
+                        🏖️ {joursVacances}j vacances/an
+                      </span>
+                    </div>
                   </div>
 
                   <div className="flex gap-2 ml-4">
-                    {rh && (
-                      <Link href={`/employes/${rh.id}/rh`}
-                        className="px-3 py-2 rounded-xl text-sm font-semibold text-white"
-                        style={{ backgroundColor: "#C9A84C" }}>
-                        📊 RH
-                      </Link>
-                    )}
-                    {emp.role !== "admin" && (
-                      <Link href={`/employes/${emp.id}/modifier`}
+                    <Link href={`/employes/${emp.id}/rh`}
+                      className="px-3 py-2 rounded-xl text-sm font-semibold text-white"
+                      style={{ backgroundColor: "#C9A84C" }}>
+                      📊 RH
+                    </Link>
+                    {profil && profil.role !== "admin" && (
+                      <Link href={`/employes/${profil.id}/modifier`}
                         className="px-3 py-2 rounded-xl text-sm font-semibold"
                         style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
                         ✏️
@@ -132,8 +125,8 @@ export default async function EmployesPage() {
                   </div>
                 </div>
 
-                {/* Permissions */}
-                {emp.role === "employe" && (
+                {/* Permissions si compte existant */}
+                {profil && profil.role === "employe" && (
                   <div className="mt-4 border-t pt-4">
                     <p className="text-sm font-semibold mb-2 text-gray-600">Permissions :</p>
                     <div className="flex flex-wrap gap-2">
@@ -149,9 +142,9 @@ export default async function EmployesPage() {
                         { key: "perm_tarifs_urgence", label: "Tarifs urgence" },
                       ].map(({ key, label }) => (
                         <span key={key} className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          emp[key] ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                          profil[key] ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                         }`}>
-                          {emp[key] ? "✅" : "❌"} {label}
+                          {profil[key] ? "✅" : "❌"} {label}
                         </span>
                       ))}
                     </div>
