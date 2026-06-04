@@ -1,0 +1,133 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+export default function FormDemandeVacances({
+  employe_id,
+  jours_restants,
+}: {
+  employe_id: string;
+  jours_restants: number;
+}) {
+  const [dateDebut, setDateDebut] = useState("");
+  const [dateFin, setDateFin] = useState("");
+  const [note, setNote] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const router = useRouter();
+
+  const calculerJoursOuvrables = (debut: string, fin: string): number => {
+    if (!debut || !fin) return 0;
+    let count = 0;
+    const d = new Date(debut + "T12:00:00");
+    const f = new Date(fin + "T12:00:00");
+    while (d <= f) {
+      const jour = d.getDay();
+      if (jour !== 0 && jour !== 6) count++;
+      d.setDate(d.getDate() + 1);
+    }
+    return count;
+  };
+
+  const nbJours = calculerJoursOuvrables(dateDebut, dateFin);
+  const depasseSolde = nbJours > jours_restants;
+
+  const handleSubmit = async () => {
+    if (!dateDebut || !dateFin) {
+      setError("Veuillez sélectionner les dates.");
+      return;
+    }
+    if (depasseSolde) {
+      setError("Vous n'avez pas assez de jours de vacances.");
+      return;
+    }
+    setError("");
+    setLoading(true);
+
+    const res = await fetch("/api/rh/vacances", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        employe_id,
+        date_debut: dateDebut,
+        date_fin: dateFin,
+        nb_jours: nbJours,
+        note_employe: note || null,
+      }),
+    });
+
+    if (res.ok) {
+      setSuccess(true);
+      setDateDebut("");
+      setDateFin("");
+      setNote("");
+      router.refresh();
+    } else {
+      const data = await res.json();
+      setError(data.error || "Erreur lors de la demande.");
+    }
+    setLoading(false);
+  };
+
+  const demain = new Date();
+  demain.setDate(demain.getDate() + 1);
+  const dateMin = demain.toISOString().split("T")[0];
+
+  return (
+    <div className="space-y-4">
+      {error && (
+        <div className="bg-red-100 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
+      )}
+      {success && (
+        <div className="bg-green-100 text-green-700 px-4 py-3 rounded-xl text-sm font-semibold">
+          ✅ Demande envoyée ! En attente de validation.
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+            Date début *
+          </label>
+          <input type="date" value={dateDebut} min={dateMin}
+            onChange={e => setDateDebut(e.target.value)}
+            className="w-full border rounded-xl p-3" />
+        </div>
+        <div>
+          <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+            Date fin *
+          </label>
+          <input type="date" value={dateFin} min={dateDebut || dateMin}
+            onChange={e => setDateFin(e.target.value)}
+            className="w-full border rounded-xl p-3" />
+        </div>
+      </div>
+
+      {nbJours > 0 && (
+        <div className={`rounded-xl p-3 text-sm font-semibold ${
+          depasseSolde ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"
+        }`}>
+          {nbJours}j ouvrables · {jours_restants}j restants
+          {depasseSolde && " ⚠️ Solde insuffisant"}
+        </div>
+      )}
+
+      <div>
+        <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+          Note (optionnel)
+        </label>
+        <textarea value={note} onChange={e => setNote(e.target.value)}
+          rows={2} placeholder="Motif, commentaire..."
+          className="w-full border rounded-xl p-3 text-sm" />
+      </div>
+
+      <button onClick={handleSubmit} disabled={loading || depasseSolde}
+        className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50"
+        style={{ backgroundColor: "#C9A84C" }}>
+        {loading ? "Envoi..." : "📤 Envoyer la demande"}
+      </button>
+    </div>
+  );
+}
