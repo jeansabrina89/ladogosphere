@@ -143,18 +143,22 @@ export default function GenerateurPlanning({
     setLoading(true);
     const dates = getDates();
     const nouveauPlanning: Record<string, Record<string, JourPlanning>> = {};
-    const nbEmployesActifs = employes.filter(e => e.actif).length;
     const employesActifs = employes.filter(e => e.actif);
+    const nbEmployesActifs = employesActifs.length;
 
-    employes.forEach(emp => {
-      nouveauPlanning[emp.id] = {};
+    employes.forEach(emp => { nouveauPlanning[emp.id] = {}; });
+
+    // Compteur weekends et jours consécutifs par employé
+    const weekendsTravailles: Record<string, number> = {};
+    const dernierJourTravaille: Record<string, string | null> = {};
+    const joursConsecutifs: Record<string, number> = {};
+    employesActifs.forEach(emp => {
+      weekendsTravailles[emp.id] = 0;
+      dernierJourTravaille[emp.id] = null;
+      joursConsecutifs[emp.id] = 0;
     });
 
-    // Compteur weekends par employé pour équilibrage
-    const weekendsTravailles: Record<string, number> = {};
-    employesActifs.forEach(emp => { weekendsTravailles[emp.id] = 0; });
-
-    // Grouper par semaine
+    // Grouper par semaine lundi→dimanche
     const semaines: string[][] = [];
     let semaineCourante: string[] = [];
     dates.forEach(dateStr => {
@@ -169,120 +173,108 @@ export default function GenerateurPlanning({
 
     // Traiter semaine par semaine
     semaines.forEach(semaine => {
-      // ÉTAPE 1: Pré-calculer les statuts fixes (vacances, indispo)
-      const statutsFixesSemaine: Record<string, Record<string, string>> = {};
+
+      // ÉTAPE 1 : Statuts fixes (vacances, indispo)
+      const statutsFixes: Record<string, Record<string, string>> = {};
       employesActifs.forEach(emp => {
-        statutsFixesSemaine[emp.id] = {};
-        semaine.forEach(dateStr => {
-          if (estEnVacances(emp.id, dateStr)) {
-            statutsFixesSemaine[emp.id][dateStr] = "vacances";
-          } else if (estIndispo(emp.id, dateStr)) {
-            statutsFixesSemaine[emp.id][dateStr] = "absent";
-          }
+        statutsFixes[emp.id] = {};
+        semaine.forEach(d => {
+          if (estEnVacances(emp.id, d)) statutsFixes[emp.id][d] = "vacances";
+          else if (estIndispo(emp.id, d)) statutsFixes[emp.id][d] = "absent";
         });
       });
 
-      // ÉTAPE 2: Pour chaque employé, choisir ses jours de travail cette semaine
-const joursChoisis: Record<string, Set<string>> = {};
+      // ÉTAPE 2 : Calculer les jours de travail de chaque employé
+      const joursChoisis: Record<string, Set<string>> = {};
 
-employesActifs.forEach(emp => {
-  joursChoisis[emp.id] = new Set();
-  const joursAFaire = Math.round(emp.taux_travail / 100 * 5);
+      employesActifs.forEach(emp => {
+        joursChoisis[emp.id] = new Set();
 
-  // Jours disponibles cette semaine (pas fixés)
-  const joursDispo = semaine.filter(d => !statutsFixesSemaine[emp.id][d]);
+        // Jours disponibles (pas fixés)
+        const dispo = semaine.filter(d => !statutsFixes[emp.id][d]);
 
-  // Séparer jours de semaine et weekends
-  const joursOuvrables = joursDispo.filter(d => {
-    const j = new Date(d + "T12:00:00").getDay();
-    return j !== 0 && j !== 6;
-  });
-  const joursWE = joursDispo.filter(d => {
-    const j = new Date(d + "T12:00:00").getDay();
-    return j === 0 || j === 6;
-  });
+        // Jours à travailler selon le taux (sur 7 jours)
+        const joursAFaire = Math.round(emp.taux_travail / 100 * 7);
+        // Mais limité aux jours disponibles
+        const nbTravail = Math.min(joursAFaire, dispo.length);
+        const nbRepos = dispo.length - nbTravail;
 
-  const nbConges = joursDispo.length - joursAFaire;
-
-  // Si les jours de congé peuvent être consécutifs, les regrouper
-  // Chercher le meilleur bloc de jours de repos consécutifs
-  if (nbConges > 0 && nbConges <= joursDispo.length) {
-    let meilleurBloc: string[] = [];
-
-    // Essayer chaque position de départ pour un bloc de congés consécutifs
-    for (let debut = 0; debut <= joursDispo.length - nbConges; debut++) {
-      const bloc = joursDispo.slice(debut, debut + nbConges);
-      // Vérifier que le bloc est bien consécutif (jours adjacents)
-      let estConsecutif = true;
-      for (let i = 0; i < bloc.length - 1; i++) {
-        const diff = new Date(bloc[i + 1] + "T12:00:00").getTime() -
-          new Date(bloc[i] + "T12:00:00").getTime();
-        if (diff > 86400000 * 2) { // plus d'1 jour d'écart (tolérance pour WE)
-          estConsecutif = false;
-          break;
+        if (nbRepos <= 0) {
+          // Tout travailler
+          dispo.forEach(d => joursChoisis[emp.id].add(d));
+          return;
         }
-      }
-      if (estConsecutif) {
-        meilleurBloc = bloc;
-        break;
-      }
-    }
 
-    if (meilleurBloc.length === nbConges) {
-      // Jours de travail = tous sauf le bloc de congés
-      joursDispo
-        .filter(d => !meilleurBloc.includes(d))
-        .forEach(d => {
-          joursChoisis[emp.id].add(d);
-          const j = new Date(d + "T12:00:00").getDay();
-          if (j === 0 || j === 6) weekendsTravailles[emp.id]++;
-        });
-    } else {
-      // Pas possible de regrouper → répartir normalement
-      joursOuvrables.slice(0, joursAFaire).forEach(d => {
-        joursChoisis[emp.id].add(d);
+        // Trouver le meilleur bloc de repos consécutifs
+        // Essayer de mettre les repos en bloc
+        let meilleurBloc: string[] = [];
+        let meilleurScore = -1;
+
+        for (let debut = 0; debut <= dispo.length - nbRepos; debut++) {
+          const bloc = dispo.slice(debut, debut + nbRepos);
+
+          // Vérifier que le bloc est consécutif
+          let estConsecutif = true;
+          for (let i = 0; i < bloc.length - 1; i++) {
+            const diff = (new Date(bloc[i + 1] + "T12:00:00").getTime() -
+              new Date(bloc[i] + "T12:00:00").getTime()) / 86400000;
+            if (diff > 1) { estConsecutif = false; break; }
+          }
+
+          if (estConsecutif) {
+            // Score: préférer que les jours de travail soient en semaine
+            const joursRestants = dispo.filter(d => !bloc.includes(d));
+            const travailSemaine = joursRestants.filter(d => {
+              const j = new Date(d + "T12:00:00").getDay();
+              return j !== 0 && j !== 6;
+            }).length;
+            const score = travailSemaine;
+
+            if (score > meilleurScore) {
+              meilleurScore = score;
+              meilleurBloc = bloc;
+            }
+          }
+        }
+
+        if (meilleurBloc.length === nbRepos) {
+          // Travailler tout sauf le bloc de repos
+          dispo.filter(d => !meilleurBloc.includes(d)).forEach(d => {
+            joursChoisis[emp.id].add(d);
+          });
+        } else {
+          // Pas de bloc consécutif possible → prendre les jours ouvrables d'abord
+          const ouvrables = dispo.filter(d => {
+            const j = new Date(d + "T12:00:00").getDay();
+            return j !== 0 && j !== 6;
+          });
+          const we = dispo.filter(d => {
+            const j = new Date(d + "T12:00:00").getDay();
+            return j === 0 || j === 6;
+          });
+          ouvrables.slice(0, nbTravail).forEach(d => joursChoisis[emp.id].add(d));
+          const reste = nbTravail - Math.min(ouvrables.length, nbTravail);
+          if (reste > 0) we.slice(0, reste).forEach(d => joursChoisis[emp.id].add(d));
+        }
       });
-      let reste = joursAFaire - Math.min(joursOuvrables.length, joursAFaire);
-      if (reste > 0) {
-        joursWE.slice(0, reste).forEach(d => {
-          joursChoisis[emp.id].add(d);
-          weekendsTravailles[emp.id]++;
-        });
-      }
-    }
-  } else {
-    // Pas de congés cette semaine → tout travailler
-    joursDispo.forEach(d => {
-      joursChoisis[emp.id].add(d);
-      const j = new Date(d + "T12:00:00").getDay();
-      if (j === 0 || j === 6) weekendsTravailles[emp.id]++;
-    });
-  }
-});
 
-      // ÉTAPE 3: Vérifier la couverture minimale et ajuster
+      // ÉTAPE 3 : Vérifier couverture minimale
       semaine.forEach(dateStr => {
         const jourSemaine = new Date(dateStr + "T12:00:00").getDay();
         const estWE = jourSemaine === 0 || jourSemaine === 6;
         const nbRequis = nbEmployesActifs >= 4 ? 2 : (estWE ? 1 : Math.min(2, nbEmployesActifs));
 
-        // Compter combien travaillent ce jour
-        const travaillent = employesActifs.filter(emp =>
-          joursChoisis[emp.id].has(dateStr)
-        );
+        const travaillent = employesActifs.filter(emp => joursChoisis[emp.id].has(dateStr));
 
-        // Si pas assez, forcer le moins chargé en weekends (pour WE) ou disponible
         if (travaillent.length < nbRequis) {
           const manque = nbRequis - travaillent.length;
+          // Forcer en priorité les employés avec le plus haut taux
           const candidats = employesActifs
             .filter(emp =>
               !joursChoisis[emp.id].has(dateStr) &&
-              !statutsFixesSemaine[emp.id][dateStr]
+              !statutsFixes[emp.id][dateStr]
             )
-            .sort((a, b) => {
-              if (estWE) return weekendsTravailles[a.id] - weekendsTravailles[b.id];
-              return joursChoisis[a.id].size - joursChoisis[b.id].size;
-            });
+            .sort((a, b) => b.taux_travail - a.taux_travail);
 
           candidats.slice(0, manque).forEach(emp => {
             joursChoisis[emp.id].add(dateStr);
@@ -291,27 +283,82 @@ employesActifs.forEach(emp => {
         }
       });
 
-      // ÉTAPE 4: Appliquer le planning
+      // ÉTAPE 4 : Vérifier max 6j consécutifs (en tenant compte des semaines précédentes)
       employesActifs.forEach(emp => {
         semaine.forEach(dateStr => {
-          if (statutsFixesSemaine[emp.id][dateStr]) {
+          if (!joursChoisis[emp.id].has(dateStr)) return;
+
+          const prev = dernierJourTravaille[emp.id];
+          if (prev) {
+            const diff = (new Date(dateStr + "T12:00:00").getTime() -
+              new Date(prev + "T12:00:00").getTime()) / 86400000;
+            if (diff === 1) {
+              joursConsecutifs[emp.id]++;
+            } else {
+              joursConsecutifs[emp.id] = 1;
+            }
+          } else {
+            joursConsecutifs[emp.id] = 1;
+          }
+
+          // Si trop de jours consécutifs → forcer un repos
+          if (joursConsecutifs[emp.id] > 6) {
+            joursChoisis[emp.id].delete(dateStr);
+            joursConsecutifs[emp.id] = 0;
+            // Vérifier couverture après suppression
+            const jourSemaine = new Date(dateStr + "T12:00:00").getDay();
+            const estWE = jourSemaine === 0 || jourSemaine === 6;
+            const nbRequis = nbEmployesActifs >= 4 ? 2 : (estWE ? 1 : Math.min(2, nbEmployesActifs));
+            const travaillent = employesActifs.filter(e => joursChoisis[e.id].has(dateStr));
+            if (travaillent.length < nbRequis) {
+              // Remplacer par quelqu'un d'autre
+              const remplacant = employesActifs
+                .filter(e =>
+                  e.id !== emp.id &&
+                  !joursChoisis[e.id].has(dateStr) &&
+                  !statutsFixes[e.id][dateStr] &&
+                  joursConsecutifs[e.id] < 6
+                )
+                .sort((a, b) => b.taux_travail - a.taux_travail)[0];
+              if (remplacant) {
+                joursChoisis[remplacant.id].add(dateStr);
+              }
+            }
+            dernierJourTravaille[emp.id] = null;
+          } else {
+            dernierJourTravaille[emp.id] = dateStr;
+          }
+        });
+
+        // Mettre à jour dernier jour si repos
+        semaine.forEach(dateStr => {
+          if (!joursChoisis[emp.id].has(dateStr) && !statutsFixes[emp.id][dateStr]) {
+            joursConsecutifs[emp.id] = 0;
+            dernierJourTravaille[emp.id] = null;
+          }
+        });
+      });
+
+      // ÉTAPE 5 : Appliquer le planning
+      employesActifs.forEach(emp => {
+        semaine.forEach(dateStr => {
+          if (statutsFixes[emp.id][dateStr]) {
             nouveauPlanning[emp.id][dateStr] = {
-              employe_id: emp.id,
-              date: dateStr,
-              statut: statutsFixesSemaine[emp.id][dateStr]
+              employe_id: emp.id, date: dateStr,
+              statut: statutsFixes[emp.id][dateStr]
             };
+            joursConsecutifs[emp.id] = 0;
+            dernierJourTravaille[emp.id] = null;
           } else if (joursChoisis[emp.id].has(dateStr)) {
             nouveauPlanning[emp.id][dateStr] = {
-              employe_id: emp.id,
-              date: dateStr,
-              statut: "travail"
+              employe_id: emp.id, date: dateStr, statut: "travail"
             };
           } else {
             nouveauPlanning[emp.id][dateStr] = {
-              employe_id: emp.id,
-              date: dateStr,
-              statut: "repos"
+              employe_id: emp.id, date: dateStr, statut: "repos"
             };
+            joursConsecutifs[emp.id] = 0;
+            dernierJourTravaille[emp.id] = null;
           }
         });
       });
