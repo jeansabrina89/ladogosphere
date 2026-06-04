@@ -4,145 +4,227 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM = "La Dogosphère <noreply@ladogosphere.ch>";
 
+// Template de base commun à tous les emails
+const emailTemplate = (contenu: string) => `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0; padding:0; background-color:#F5F0E8; font-family: Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#F5F0E8; padding: 30px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px; width:100%; background-color:white; border-radius:16px; overflow:hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+          
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#1B2B5E; padding:30px 40px; text-align:center;">
+              <img src="https://ladogosphere.ch/Logo.png" alt="La Dogosphère" style="height:70px; margin-bottom:10px;" />
+              <p style="color:#9CA3AF; margin:0; font-size:13px; letter-spacing:1px; text-transform:uppercase;">Pension Canine — Sion, Valais</p>
+            </td>
+          </tr>
+
+          <!-- Contenu -->
+          <tr>
+            <td style="padding:40px;">
+              ${contenu}
+            </td>
+          </tr>
+
+          <!-- Signature -->
+          <tr>
+            <td style="padding:0 40px 30px 40px;">
+              <table cellpadding="0" cellspacing="0" style="border-top:2px solid #F5F0E8; padding-top:20px; width:100%;">
+                <tr>
+                  <td>
+                    <p style="margin:0 0 4px 0; font-weight:bold; color:#1B2B5E; font-size:14px;">Sabrina Jean</p>
+                    <p style="margin:0 0 4px 0; color:#6B7280; font-size:13px;">La Dogosphère Sàrl — Responsable</p>
+                    <p style="margin:0 0 4px 0; color:#6B7280; font-size:13px;">📍 Sion, Valais, Suisse</p>
+                    <p style="margin:0 0 4px 0; font-size:13px;">
+                      <a href="mailto:ladogosphere@gmail.com" style="color:#4AAEA0; text-decoration:none;">✉️ ladogosphere@gmail.com</a>
+                    </p>
+                    <p style="margin:0; font-size:13px;">
+                      <a href="https://ladogosphere.ch" style="color:#4AAEA0; text-decoration:none;">🌐 ladogosphere.ch</a>
+                    </p>
+                  </td>
+                  <td style="text-align:right; vertical-align:top;">
+                    <img src="https://ladogosphere.ch/Logo.png" alt="Logo" style="height:50px; opacity:0.3;" />
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#1B2B5E; padding:16px 40px; text-align:center;">
+              <p style="color:#6B7280; font-size:11px; margin:0;">
+                © ${new Date().getFullYear()} La Dogosphère Sàrl — Tous droits réservés
+              </p>
+              <p style="color:#4B5563; font-size:11px; margin:4px 0 0 0;">
+                Vous recevez cet email car vous avez effectué une réservation chez nous.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+`;
+
+const formatDate = (date: string) =>
+  new Date(date + "T12:00:00").toLocaleDateString("fr-CH", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric"
+  });
+
+const typeLabel = (type: string) => {
+  if (type === "essai") return "🧪 Journée d'essai";
+  if (type === "journee") return "☀️ Journée";
+  return "🏠 Séjour";
+};
+
 export async function envoyerEmailConfirmationDemande({
-  email,
-  prenom,
-  date_debut,
-  date_fin,
-  type,
+  email, prenom, date_debut, date_fin, type,
 }: {
-  email: string;
-  prenom: string;
-  date_debut: string;
-  date_fin: string;
-  type: string;
+  email: string; prenom: string; date_debut: string; date_fin: string; type: string;
 }) {
   await resend.emails.send({
     from: FROM,
     to: email,
-    subject: "Votre demande de réservation a été reçue",
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background-color: #1B2B5E; padding: 20px; text-align: center;">
-          <h1 style="color: white; margin: 0;">La Dogosphère</h1>
-        </div>
-        <div style="padding: 30px; background-color: #F5F0E8;">
-          <h2 style="color: #1B2B5E;">Bonjour ${prenom} ! 👋</h2>
-          <p>Nous avons bien reçu votre demande de réservation.</p>
-          <div style="background-color: white; border-radius: 12px; padding: 20px; margin: 20px 0;">
-            <p><strong>Type :</strong> ${
-              type === "essai" ? "🧪 Journée d'essai" :
-              type === "journee" ? "☀️ Journée" : "🏠 Séjour"
-            }</p>
-            <p><strong>Arrivée :</strong> ${new Date(date_debut).toLocaleDateString("fr-CH")}</p>
-            <p><strong>Départ :</strong> ${new Date(date_fin).toLocaleDateString("fr-CH")}</p>
-          </div>
-          <p>Notre équipe va traiter votre demande et vous confirmer sous 24h.</p>
-          <p style="color: #4AAEA0; font-weight: bold;">À bientôt à La Dogosphère ! 🐶</p>
-        </div>
-        <div style="background-color: #1B2B5E; padding: 15px; text-align: center;">
-          <p style="color: #9CA3AF; font-size: 12px; margin: 0;">
-            La Dogosphère Sàrl — Sion, Valais
-          </p>
-        </div>
+    subject: "🐾 Votre demande de réservation a été reçue",
+    html: emailTemplate(`
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom} ! 👋</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">Nous avons bien reçu votre demande de réservation et nous vous en remercions.</p>
+
+      <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
+        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Récapitulatif</h3>
+        <table cellpadding="0" cellspacing="0" style="width:100%;">
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Type</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${typeLabel(type)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Arrivée</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${formatDate(date_debut)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Départ</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${formatDate(date_fin)}</td>
+          </tr>
+        </table>
       </div>
-    `,
+
+      <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">
+        <p style="margin:0; color:#1B5E4F; font-size:14px;">
+          ⏳ Notre équipe va traiter votre demande et vous confirmera sous <strong>24 heures</strong>.
+        </p>
+      </div>
+
+      <p style="color:#6B7280; font-size:14px; margin:0;">
+        Pour toute question, n'hésitez pas à nous contacter directement par email ou téléphone.
+      </p>
+    `),
   });
 }
 
 export async function envoyerEmailReservationValidee({
-  email,
-  prenom,
-  date_debut,
-  date_fin,
-  type,
-  box_numero,
-  heure_arrivee,
-  heure_depart,
+  email, prenom, date_debut, date_fin, type, box_numero, heure_arrivee, heure_depart,
 }: {
-  email: string;
-  prenom: string;
-  date_debut: string;
-  date_fin: string;
-  type: string;
-  box_numero?: number;
-  heure_arrivee?: string;
-  heure_depart?: string;
+  email: string; prenom: string; date_debut: string; date_fin: string;
+  type: string; box_numero?: number; heure_arrivee?: string; heure_depart?: string;
 }) {
   await resend.emails.send({
     from: FROM,
     to: email,
     subject: "✅ Votre réservation est confirmée !",
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background-color: #1B2B5E; padding: 20px; text-align: center;">
-          <h1 style="color: white; margin: 0;">La Dogosphère</h1>
-        </div>
-        <div style="padding: 30px; background-color: #F5F0E8;">
-          <h2 style="color: #1B2B5E;">Bonjour ${prenom} ! 🎉</h2>
-          <p>Votre réservation a été <strong style="color: #4AAEA0;">confirmée</strong> par notre équipe.</p>
-          <div style="background-color: white; border-radius: 12px; padding: 20px; margin: 20px 0;">
-            <p><strong>Type :</strong> ${
-              type === "essai" ? "🧪 Journée d'essai" :
-              type === "journee" ? "☀️ Journée" : "🏠 Séjour"
-            }</p>
-            <p><strong>Arrivée :</strong> ${new Date(date_debut).toLocaleDateString("fr-CH")}${heure_arrivee ? ` à ${heure_arrivee}` : ""}</p>
-            <p><strong>Départ :</strong> ${new Date(date_fin).toLocaleDateString("fr-CH")}${heure_depart ? ` à ${heure_depart}` : ""}</p>
-            ${box_numero ? `<p><strong>Box :</strong> ${box_numero}</p>` : ""}
-          </div>
-          <p style="color: #4AAEA0; font-weight: bold;">À bientôt à La Dogosphère ! 🐶</p>
-        </div>
-        <div style="background-color: #1B2B5E; padding: 15px; text-align: center;">
-          <p style="color: #9CA3AF; font-size: 12px; margin: 0;">
-            La Dogosphère Sàrl — Sion, Valais
-          </p>
-        </div>
+    html: emailTemplate(`
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom} ! 🎉</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">Excellente nouvelle ! Votre réservation a été <strong style="color:#4AAEA0;">confirmée</strong> par notre équipe.</p>
+
+      <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
+        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Détails de votre séjour</h3>
+        <table cellpadding="0" cellspacing="0" style="width:100%;">
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Type</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${typeLabel(type)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Arrivée</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${formatDate(date_debut)}${heure_arrivee ? ` à ${heure_arrivee}` : ""}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Départ</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${formatDate(date_fin)}${heure_depart ? ` à ${heure_depart}` : ""}</td>
+          </tr>
+          ${box_numero ? `
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Box assigné</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">Box ${box_numero}</td>
+          </tr>` : ""}
+        </table>
       </div>
-    `,
+
+      <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">
+        <p style="margin:0 0 8px 0; color:#1B5E4F; font-size:14px; font-weight:bold;">📍 Informations pratiques</p>
+        <p style="margin:0; color:#1B5E4F; font-size:13px;">
+          Arrivée journée : 7h35 – 10h00<br/>
+          Départ journée : 17h00 – 18h00<br/>
+          Arrivée/départ séjour : 9h00 – 10h00 ou 17h00 – 18h00
+        </p>
+      </div>
+
+      <p style="color:#6B7280; font-size:14px; margin:0;">
+        Nous sommes impatients d'accueillir votre compagnon ! 🐶
+      </p>
+    `),
   });
 }
 
 export async function envoyerEmailReservationAnnulee({
-  email,
-  prenom,
-  date_debut,
-  date_fin,
-  type,
+  email, prenom, date_debut, date_fin, type,
 }: {
-  email: string;
-  prenom: string;
-  date_debut: string;
-  date_fin: string;
-  type: string;
+  email: string; prenom: string; date_debut: string; date_fin: string; type: string;
 }) {
   await resend.emails.send({
     from: FROM,
     to: email,
     subject: "❌ Votre réservation a été annulée",
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background-color: #1B2B5E; padding: 20px; text-align: center;">
-          <h1 style="color: white; margin: 0;">La Dogosphère</h1>
-        </div>
-        <div style="padding: 30px; background-color: #F5F0E8;">
-          <h2 style="color: #1B2B5E;">Bonjour ${prenom},</h2>
-          <p>Nous vous informons que votre réservation a été <strong style="color: #E8847A;">annulée</strong>.</p>
-          <div style="background-color: white; border-radius: 12px; padding: 20px; margin: 20px 0;">
-            <p><strong>Type :</strong> ${
-              type === "essai" ? "🧪 Journée d'essai" :
-              type === "journee" ? "☀️ Journée" : "🏠 Séjour"
-            }</p>
-            <p><strong>Arrivée :</strong> ${new Date(date_debut).toLocaleDateString("fr-CH")}</p>
-            <p><strong>Départ :</strong> ${new Date(date_fin).toLocaleDateString("fr-CH")}</p>
-          </div>
-          <p>Pour toute question, contactez-nous à <a href="mailto:ladogosphere@gmail.com" style="color: #4AAEA0;">ladogosphere@gmail.com</a></p>
-        </div>
-        <div style="background-color: #1B2B5E; padding: 15px; text-align: center;">
-          <p style="color: #9CA3AF; font-size: 12px; margin: 0;">
-            La Dogosphère Sàrl — Sion, Valais
-          </p>
-        </div>
+    html: emailTemplate(`
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom},</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">Nous vous informons que votre réservation a été <strong style="color:#E8847A;">annulée</strong>.</p>
+
+      <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
+        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Réservation annulée</h3>
+        <table cellpadding="0" cellspacing="0" style="width:100%;">
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Type</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${typeLabel(type)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Arrivée</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${formatDate(date_debut)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Départ</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${formatDate(date_fin)}</td>
+          </tr>
+        </table>
       </div>
-    `,
+
+      <div style="background-color:#FEF2F2; border-left:4px solid #E8847A; border-radius:8px; padding:16px; margin:0 0 24px 0;">
+        <p style="margin:0; color:#7F1D1D; font-size:14px;">
+          Si vous n'êtes pas à l'origine de cette annulation ou si vous souhaitez faire une nouvelle réservation, contactez-nous directement.
+        </p>
+      </div>
+
+      <p style="color:#6B7280; font-size:14px; margin:0;">
+        Nous espérons vous revoir bientôt à La Dogosphère ! 🐾
+      </p>
+    `),
   });
 }

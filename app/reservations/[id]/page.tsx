@@ -3,6 +3,7 @@ import { supabase } from "../../../src/lib/supabase";
 import BoutonAnnuler from "./BoutonAnnuler";
 import CalculFacture from "./CalculFacture";
 import BoutonValiderReservation from "../../components/BoutonValiderReservation";
+import BoutonEmail from "./BoutonEmail";
 import GestionPaiement from "./GestionPaiement";
 import { formatDate } from "../../../src/lib/dates";
 
@@ -159,6 +160,26 @@ export default async function ReservationPage({
       box_id={res.box_id}
     />
   )}
+
+{/* Bouton paiement — seulement si pas payé */}
+{res.statut_paiement !== "paye" && res.montant_final && (
+  <BoutonEmail
+    type="paiement"
+    reservation_id={res.id}
+    label="💰 Demande de paiement"
+    couleur="#C9A84C"
+  />
+)}
+
+{/* Bouton satisfaction — seulement après journée d'essai terminée */}
+{res.type_reservation === "essai" && res.statut === "terminee" && (
+  <BoutonEmail
+    type="satisfaction_essai"
+    reservation_id={res.id}
+    label="⭐ Email satisfaction"
+    couleur="#4AAEA0"
+  />
+)}
 
   {res.statut !== "annulee" && (
     <BoutonAnnuler id={res.id} />
