@@ -234,7 +234,12 @@ export default function GenerateurPlanning({
               employe_id: emp.id, date: dateStr, statut: fixes[emp.id][dateStr]
             };
           } else if (joursChoisis[emp.id].has(dateStr)) {
-            nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "travail" };
+  const estJourFerie = joursFeries.includes(dateStr);
+  nouveauPlanning[emp.id][dateStr] = {
+    employe_id: emp.id,
+    date: dateStr,
+    statut: estJourFerie ? "ferie_travaille" : "travail"
+  };
           } else {
             nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "repos" };
           }
