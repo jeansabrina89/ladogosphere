@@ -68,11 +68,19 @@ export default async function MonEspaceRHPage() {
     .order("date_debut", { ascending: false })
     .limit(5);
 
+  // Jours fériés travaillés → +1j de vacances chacun
+  const { data: feriesTravailles } = await supabase
+    .from("planning_employes")
+    .select("id")
+    .eq("employe_id", employe.id)
+    .eq("statut", "ferie_travaille");
+
+  const bonusFeriers = feriesTravailles?.length ?? 0;
   const joursVacancesTotal = 20 * employe.taux_travail / 100;
   const joursVacancesPris = demandesVacances
     ?.filter((d: any) => d.statut === "acceptee")
     .reduce((acc: number, d: any) => acc + d.nb_jours, 0) ?? 0;
-  const joursVacancesRestants = joursVacancesTotal - joursVacancesPris;
+  const joursVacancesRestants = joursVacancesTotal + bonusFeriers - joursVacancesPris;
 
   const { data: indisponibilites } = await supabase
     .from("indisponibilites")
@@ -114,6 +122,9 @@ export default async function MonEspaceRHPage() {
           <div className="bg-white rounded-xl p-4 shadow-sm text-center">
             <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
               {joursVacancesTotal}j
+              {bonusFeriers > 0 && (
+                <span className="text-sm text-orange-500 ml-1">+{bonusFeriers}🎉</span>
+              )}
             </p>
             <p className="text-xs text-gray-500 mt-1">Droit annuel</p>
           </div>

@@ -13,7 +13,7 @@ export default async function VacancesPage() {
   if (!["admin", "employe"].includes(profile?.role)) redirect("/");
 
   const { data: employe } = await supabase
-    .from("employes_rh").select("*").eq("email", profile.email).single();
+    .from("employes_rh").select("*").eq("email", profile?.email ?? "").single();
   if (!employe) redirect("/employes/mon-espace");
 
   const { data: demandes } = await supabase
@@ -22,11 +22,19 @@ export default async function VacancesPage() {
     .eq("employe_id", employe.id)
     .order("date_debut", { ascending: false });
 
+  // Jours fériés travaillés → +1j de vacances chacun
+  const { data: feriesTravailles } = await supabase
+    .from("planning_employes")
+    .select("id")
+    .eq("employe_id", employe.id)
+    .eq("statut", "ferie_travaille");
+
+  const bonusFeriers = feriesTravailles?.length ?? 0;
   const joursVacancesTotal = 20 * employe.taux_travail / 100;
   const joursVacancesPris = demandes
     ?.filter((d: any) => d.statut === "acceptee")
     .reduce((acc: number, d: any) => acc + d.nb_jours, 0) ?? 0;
-  const joursVacancesRestants = joursVacancesTotal - joursVacancesPris;
+  const joursVacancesRestants = joursVacancesTotal + bonusFeriers - joursVacancesPris;
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -36,13 +44,21 @@ export default async function VacancesPage() {
           🏖️ Mes vacances
         </h1>
 
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-xl p-4 shadow-sm text-center">
             <p className="text-2xl font-bold" style={{ color: "#4AAEA0" }}>
               {joursVacancesTotal}j
             </p>
             <p className="text-xs text-gray-500 mt-1">Droit annuel</p>
           </div>
+          {bonusFeriers > 0 && (
+            <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+              <p className="text-2xl font-bold" style={{ color: "#D97706" }}>
+                +{bonusFeriers}j 🎉
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Fériés travaillés</p>
+            </div>
+          )}
           <div className="bg-white rounded-xl p-4 shadow-sm text-center">
             <p className="text-2xl font-bold" style={{ color: "#E8847A" }}>
               {joursVacancesPris}j

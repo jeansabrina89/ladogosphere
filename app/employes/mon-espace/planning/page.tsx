@@ -24,11 +24,8 @@ export default async function MonPlanningPage({
   const moisActuel = parseInt(params.mois || String(aujourd_hui.getMonth() + 1));
   const anneeActuelle = parseInt(params.annee || String(aujourd_hui.getFullYear()));
 
-  // Mois suivant
   const moisSuivant = moisActuel === 12 ? 1 : moisActuel + 1;
   const anneeSuivante = moisActuel === 12 ? anneeActuelle + 1 : anneeActuelle;
-
-  // Mois précédent
   const moisPrecedent = moisActuel === 1 ? 12 : moisActuel - 1;
   const anneePrecedente = moisActuel === 1 ? anneeActuelle - 1 : anneeActuelle;
 
@@ -64,6 +61,9 @@ export default async function MonPlanningPage({
       case "accident": return { bg: "#FEE2E2", text: "#DC2626", label: "🤕 Accident" };
       case "militaire": return { bg: "#EDE9FE", text: "#7C3AED", label: "🎖️ Militaire" };
       case "ferie": return { bg: "#FEF3C7", text: "#D97706", label: "🎉 Férié" };
+      case "ferie_travaille": return { bg: "#FEF3C7", text: "#D97706", label: "🎉 Férié+1j" };
+      case "absent": return { bg: "#FEE2E2", text: "#DC2626", label: "🚫 Absent" };
+      case "heures_sup": return { bg: "#DBEAFE", text: "#2563EB", label: "⏱️ H.sup" };
       case "autre": return { bg: "#F1F5F9", text: "#6B7280", label: "📋 Autre" };
       default: return { bg: "#F1F5F9", text: "#9CA3AF", label: "—" };
     }
@@ -75,7 +75,8 @@ export default async function MonPlanningPage({
   const indispoParDate: Record<string, any> = {};
   indisponibilites?.forEach(i => { indispoParDate[i.date] = i; });
 
-  const joursOuvres = planning?.filter(p => p.statut === "travail").length ?? 0;
+  const joursOuvres = planning?.filter(p => p.statut === "travail" || p.statut === "ferie_travaille").length ?? 0;
+  const joursFeriesTravailles = planning?.filter(p => p.statut === "ferie_travaille").length ?? 0;
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -114,12 +115,21 @@ export default async function MonPlanningPage({
             </p>
             <p className="text-xs text-gray-500 mt-1">Rythme habituel</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p className="text-2xl font-bold" style={{ color: "#C9A84C" }}>
-              {(joursOuvres * 8.4).toFixed(1)}h
-            </p>
-            <p className="text-xs text-gray-500 mt-1">Heures prévues</p>
-          </div>
+          {joursFeriesTravailles > 0 ? (
+            <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+              <p className="text-2xl font-bold" style={{ color: "#D97706" }}>
+                +{joursFeriesTravailles}j 🎉
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Fériés → vacances</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+              <p className="text-2xl font-bold" style={{ color: "#C9A84C" }}>
+                {(joursOuvres * 8.4).toFixed(1)}h
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Heures prévues</p>
+            </div>
+          )}
         </div>
 
         {/* Planning pas encore généré */}
@@ -144,7 +154,6 @@ export default async function MonPlanningPage({
               ))}
             </div>
             <div className="grid grid-cols-7 gap-1">
-              {/* Cases vides avant le 1er */}
               {Array.from({ length: (new Date(anneeActuelle, moisActuel - 1, 1).getDay() + 6) % 7 }).map((_, i) => (
                 <div key={`empty-${i}`} />
               ))}
@@ -193,7 +202,9 @@ export default async function MonPlanningPage({
               { statut: "repos", label: "Repos" },
               { statut: "vacances", label: "Vacances" },
               { statut: "maladie", label: "Maladie" },
-              { statut: "ferie", label: "Férié" },
+              { statut: "ferie_travaille", label: "Férié+1j" },
+              { statut: "heures_sup", label: "Déd. H.sup" },
+              { statut: "absent", label: "Absent" },
             ].map(({ statut, label }) => {
               const c = couleurStatut(statut);
               return (
