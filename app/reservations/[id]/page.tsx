@@ -42,7 +42,14 @@ export default async function ReservationPage({
       <div className="max-w-4xl mx-auto bg-white rounded-xl p-8 shadow-sm">
 
         <div className="flex justify-between items-start mb-6">
-          <h1 className="text-4xl font-bold" style={{ color: "#1B2B5E" }}>📅 Réservation</h1>
+          <div>
+            <h1 className="text-4xl font-bold" style={{ color: "#1B2B5E" }}>📅 Réservation</h1>
+            {res.numero && (
+              <p className="text-lg font-semibold mt-1" style={{ color: "#4AAEA0" }}>
+                N° {res.numero}
+              </p>
+            )}
+          </div>
           <div className="flex flex-col items-end gap-2">
             <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
               res.statut === "validee" ? "bg-green-100 text-green-700" :
@@ -112,7 +119,11 @@ export default async function ReservationPage({
         {/* Détails */}
         <div className="border-t pt-6 mb-6">
           <h2 className="text-2xl font-bold mb-4" style={{ color: "#1B2B5E" }}>📋 Détails</h2>
-          <p><strong>Type :</strong> {res.type_reservation === "journee" ? "Journée" : "Séjour"}</p>
+          <p><strong>N° réservation :</strong> {res.numero || "—"}</p>
+          <p><strong>Type :</strong> {
+            res.type_reservation === "journee" ? "Journée" :
+            res.type_reservation === "sejour" ? "Séjour" : "Journée d'essai"
+          }</p>
           <p><strong>Box :</strong> {res.boxes?.numero ? `Box ${res.boxes.numero}` : "—"}</p>
           <p><strong>Date début :</strong> {formatDate(res.date_debut)}</p>
           <p><strong>Date fin :</strong> {formatDate(res.date_fin)}</p>
@@ -143,61 +154,59 @@ export default async function ReservationPage({
         />
 
         {/* Boutons */}
-<div className="border-t pt-6 flex flex-wrap gap-4">
+        <div className="border-t pt-6 flex flex-wrap gap-4">
 
-  <Link href={`/reservations/${res.id}/modifier`}
-    className="px-4 py-2 rounded-xl font-semibold text-white"
-    style={{ backgroundColor: "#4AAEA0" }}>
-    ✏️ Modifier
-  </Link>
+          <Link href={`/reservations/${res.id}/modifier`}
+            className="px-4 py-2 rounded-xl font-semibold text-white"
+            style={{ backgroundColor: "#4AAEA0" }}>
+            ✏️ Modifier
+          </Link>
 
-  {res.statut === "en_attente" && (
-    <BoutonValiderReservation
-      id={res.id}
-      chien_ids={chiens.map((c: any) => c.id)}
-      date_debut={res.date_debut}
-      date_fin={res.date_fin}
-      box_id={res.box_id}
-    />
-  )}
+          {res.statut === "en_attente" && (
+            <BoutonValiderReservation
+              id={res.id}
+              chien_ids={chiens.map((c: any) => c.id)}
+              date_debut={res.date_debut}
+              date_fin={res.date_fin}
+              box_id={res.box_id}
+            />
+          )}
 
-{/* Bouton paiement — seulement si pas payé */}
-{res.statut_paiement !== "paye" && res.montant_final !== null && (
-  <BoutonEmail
-    type="paiement"
-    reservation_id={res.id}
-    label="💰 Demande de paiement"
-    couleur="#C9A84C"
-  />
-)}
+          {res.statut_paiement !== "paye" && res.montant_final !== null && (
+            <BoutonEmail
+              type="paiement"
+              reservation_id={res.id}
+              label="💰 Demande de paiement"
+              couleur="#C9A84C"
+            />
+          )}
 
-{/* Bouton satisfaction — seulement après journée d'essai terminée */}
-{res.type_reservation === "essai" && (
-  <BoutonEmail
-    type="satisfaction_essai"
-    reservation_id={res.id}
-    label="⭐ Email satisfaction"
-    couleur="#4AAEA0"
-  />
-)}
+          {res.type_reservation === "essai" && (
+            <BoutonEmail
+              type="satisfaction_essai"
+              reservation_id={res.id}
+              label="⭐ Email satisfaction"
+              couleur="#4AAEA0"
+            />
+          )}
 
-  {res.statut !== "annulee" && (
-    <BoutonAnnuler id={res.id} />
-  )}
+          {res.statut !== "annulee" && (
+            <BoutonAnnuler id={res.id} />
+          )}
 
-  <Link href={`/reservations/${res.id}/facture`}
-    className="px-4 py-2 rounded-xl font-semibold text-white"
-    style={{ backgroundColor: "#C9A84C" }}>
-    🧾 Facture
-  </Link>
+          <Link href={`/reservations/${res.id}/facture`}
+            className="px-4 py-2 rounded-xl font-semibold text-white"
+            style={{ backgroundColor: "#C9A84C" }}>
+            🧾 Facture
+          </Link>
 
-  <Link href="/reservations"
-    className="px-4 py-2 rounded-xl font-semibold"
-    style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
-    ← Retour à la liste
-  </Link>
+          <Link href="/reservations"
+            className="px-4 py-2 rounded-xl font-semibold"
+            style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
+            ← Retour à la liste
+          </Link>
 
-</div>
+        </div>
 
       </div>
     </main>

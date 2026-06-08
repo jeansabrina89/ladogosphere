@@ -3,15 +3,17 @@ import { supabase } from "../../src/lib/supabase";
 import { formatDate } from "../../src/lib/dates";
 import FiltresReservations from "./FiltresReservations";
 import BoutonPaiementRapide from "./BoutonPaiementRapide";
+import RechercheReservation from "./RechercheReservation";
 
 export default async function ReservationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filtre?: string; paiement?: string }>;
+  searchParams: Promise<{ filtre?: string; paiement?: string; recherche?: string }>;
 }) {
   const params = await searchParams;
   const filtre = params.filtre || "toutes";
   const paiement = params.paiement || "tous";
+  const recherche = params.recherche || "";
   const aujourd_hui = new Date().toISOString().split("T")[0];
 
   let query = supabase
@@ -26,16 +28,22 @@ export default async function ReservationsPage({
     `)
     .order("date_debut", { ascending: true });
 
-  if (filtre === "en_cours") {
-    query = query.lte("date_debut", aujourd_hui).gte("date_fin", aujourd_hui);
-  } else if (filtre === "futures") {
-    query = query.gt("date_debut", aujourd_hui);
-  } else if (filtre === "passees") {
-    query = query.lt("date_fin", aujourd_hui);
-  }
-
-  if (paiement !== "tous") {
-    query = query.eq("statut_paiement", paiement);
+  if (recherche) {
+    const numero = parseInt(recherche);
+    if (!isNaN(numero)) {
+      query = query.eq("numero", numero);
+    }
+  } else {
+    if (filtre === "en_cours") {
+      query = query.lte("date_debut", aujourd_hui).gte("date_fin", aujourd_hui);
+    } else if (filtre === "futures") {
+      query = query.gt("date_debut", aujourd_hui);
+    } else if (filtre === "passees") {
+      query = query.lt("date_fin", aujourd_hui);
+    }
+    if (paiement !== "tous") {
+      query = query.eq("statut_paiement", paiement);
+    }
   }
 
   const { data: reservations } = await query;
@@ -55,7 +63,9 @@ export default async function ReservationsPage({
           </Link>
         </div>
 
-        <FiltresReservations />
+        <RechercheReservation valeurInitiale={recherche} />
+
+        {!recherche && <FiltresReservations />}
 
         <p className="font-semibold mb-4" style={{ color: "#1B2B5E" }}>
           {reservations?.length ?? 0} réservation(s)
@@ -63,7 +73,7 @@ export default async function ReservationsPage({
 
         <div className="grid gap-4">
           {reservations?.length === 0 && (
-            <p className="text-gray-400">Aucune réservation pour ce filtre.</p>
+            <p className="text-gray-400">Aucune réservation trouvée.</p>
           )}
           {reservations?.map((res) => {
             const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens).filter(Boolean) ?? [];
@@ -71,28 +81,33 @@ export default async function ReservationsPage({
               <div key={res.id} className="bg-white rounded-xl p-6 shadow-sm">
                 <div className="flex justify-between items-start gap-4">
 
-                  {/* Infos principales — cliquables */}
                   <Link href={`/reservations/${res.id}`} className="flex-1 min-w-0">
-                    <p className="text-xl font-bold" style={{ color: "#1B2B5E" }}>
-                      {res.clients?.prenom} {res.clients?.nom}
-                      {res.clients?.membre && <span className="ml-2 text-sm text-green-600">⭐ Membre</span>}
-                    </p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-xl font-bold" style={{ color: "#1B2B5E" }}>
+                        {res.clients?.prenom} {res.clients?.nom}
+                        {res.clients?.membre && <span className="ml-2 text-sm text-green-600">⭐ Membre</span>}
+                      </p>
+                      {res.numero && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: "#F5F0E8", color: "#1B2B5E" }}>
+                          #{res.numero}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-gray-500 text-sm mt-1">
                       🐶 {chiens.map((c: any) => c.nom).join(", ") || "—"}
                     </p>
                     <p className="text-gray-500 text-sm">
                       🏠 Box {res.boxes?.numero ?? "—"} ·{" "}
-                      {res.type_reservation === "journee" ? "Journée" : "Séjour"}
+                      {res.type_reservation === "journee" ? "Journée" :
+                       res.type_reservation === "sejour" ? "Séjour" : "Journée d'essai"}
                     </p>
                     <p className="text-gray-500 text-sm">
                       📅 {formatDate(res.date_debut)} → {formatDate(res.date_fin)}
                     </p>
                   </Link>
 
-                  {/* Statuts + paiement rapide */}
                   <div className="flex flex-col items-end gap-2 flex-shrink-0">
-
-                    {/* Statut réservation */}
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                       res.statut === "validee" ? "bg-green-100 text-green-700" :
                       res.statut === "en_attente" ? "bg-yellow-100 text-yellow-700" :
@@ -105,8 +120,6 @@ export default async function ReservationsPage({
                        res.statut === "annulee" ? "❌ Annulée" :
                        res.statut === "terminee" ? "🏁 Terminée" : res.statut}
                     </span>
-
-                    {/* Statut paiement */}
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                       res.statut_paiement === "paye" ? "bg-green-100 text-green-700" :
                       res.statut_paiement === "partiel" ? "bg-orange-100 text-orange-700" :
@@ -116,15 +129,11 @@ export default async function ReservationsPage({
                        res.statut_paiement === "partiel" ? "💰 Partiel" :
                        "💰 Impayé"}
                     </span>
-
-                    {/* Montant */}
                     {res.montant_final && (
                       <p className="font-bold text-sm" style={{ color: "#1B2B5E" }}>
                         {res.montant_final} CHF
                       </p>
                     )}
-
-                    {/* Bouton paiement rapide */}
                     {res.statut_paiement !== "paye" && res.statut !== "annulee" && (
                       <BoutonPaiementRapide
                         reservation_id={res.id}
@@ -132,7 +141,6 @@ export default async function ReservationsPage({
                         statut_paiement={res.statut_paiement}
                       />
                     )}
-
                   </div>
                 </div>
               </div>
