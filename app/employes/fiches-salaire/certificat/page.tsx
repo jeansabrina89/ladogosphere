@@ -4,9 +4,6 @@ import { supabase } from "../../../../src/lib/supabase";
 import BoutonImprimer from "../[id]/BoutonImprimer";
 import Link from "next/link";
 
-const MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
-  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
-
 export default async function CertificatSalaireAnnuelPage({
   searchParams,
 }: {
@@ -23,7 +20,6 @@ export default async function CertificatSalaireAnnuelPage({
 
   const annee = parseInt(params.annee || new Date().getFullYear().toString());
 
-  // Si employé, on prend son propre ID
   let employe_id = params.employe_id;
   if (profile?.role === "employe") {
     const { data: emp } = await supabase
@@ -43,10 +39,7 @@ export default async function CertificatSalaireAnnuelPage({
   }
 
   const { data: employe } = await supabase
-    .from("employes_rh")
-    .select("*")
-    .eq("id", employe_id)
-    .single();
+    .from("employes_rh").select("*").eq("id", employe_id).single();
 
   const { data: fiches } = await supabase
     .from("fiches_salaire")
@@ -57,10 +50,67 @@ export default async function CertificatSalaireAnnuelPage({
 
   if (!employe) return <div>Employé introuvable</div>;
 
+  const dateGeneration = new Date().toLocaleDateString("fr-CH");
+
+  // Calculs totaux
   const totalBrut = fiches?.reduce((acc, f) => acc + Number(f.salaire_brut), 0) ?? 0;
   const totalNet = fiches?.reduce((acc, f) => acc + Number(f.salaire_net), 0) ?? 0;
-  const totalDeductions = fiches?.reduce((acc, f) => acc + Number(f.total_deductions), 0) ?? 0;
-  const dateGeneration = new Date().toLocaleDateString("fr-CH");
+
+  // Extraire les déductions par type depuis toutes les fiches
+  const toutesDeductions: any[] = [];
+  fiches?.forEach(f => {
+    (f as any).fiche_salaire_deductions?.forEach((d: any) => {
+      toutesDeductions.push(d);
+    });
+  });
+
+  // Regrouper par label
+  const deductionsParLabel: Record<string, number> = {};
+  toutesDeductions.forEach(d => {
+    if (!deductionsParLabel[d.label]) deductionsParLabel[d.label] = 0;
+    deductionsParLabel[d.label] += Number(d.montant_calcule);
+  });
+
+  // Identifier les cotisations spécifiques
+  const avs = Object.entries(deductionsParLabel)
+    .filter(([k]) => k.toLowerCase().includes("avs") || k.toLowerCase().includes("ai") || k.toLowerCase().includes("apg"))
+    .reduce((acc, [, v]) => acc + v, 0);
+
+  const ac = Object.entries(deductionsParLabel)
+    .filter(([k]) => k.toLowerCase().includes("chômage") || k.toLowerCase().includes("ac"))
+    .reduce((acc, [, v]) => acc + v, 0);
+
+  const lpp = Object.entries(deductionsParLabel)
+    .filter(([k]) => k.toLowerCase().includes("lpp") || k.toLowerCase().includes("retraite"))
+    .reduce((acc, [, v]) => acc + v, 0);
+
+  const aanp = Object.entries(deductionsParLabel)
+    .filter(([k]) => k.toLowerCase().includes("accident") || k.toLowerCase().includes("aanp"))
+    .reduce((acc, [, v]) => acc + v, 0);
+
+  const ijm = Object.entries(deductionsParLabel)
+    .filter(([k]) => k.toLowerCase().includes("maladie") || k.toLowerCase().includes("ijm"))
+    .reduce((acc, [, v]) => acc + v, 0);
+
+  const autresDeductions = Object.entries(deductionsParLabel)
+    .filter(([k]) =>
+      !k.toLowerCase().includes("avs") && !k.toLowerCase().includes("ai") && !k.toLowerCase().includes("apg") &&
+      !k.toLowerCase().includes("chômage") && !k.toLowerCase().includes("ac") &&
+      !k.toLowerCase().includes("lpp") && !k.toLowerCase().includes("retraite") &&
+      !k.toLowerCase().includes("accident") && !k.toLowerCase().includes("aanp") &&
+      !k.toLowerCase().includes("maladie") && !k.toLowerCase().includes("ijm")
+    )
+    .reduce((acc, [, v]) => acc + v, 0);
+
+  const totalCotisationsCase7 = avs + ac;
+
+  // Dates début/fin emploi pour l'année
+  const dateDebut = employe.date_entree
+    ? new Date(employe.date_entree) > new Date(`${annee}-01-01`)
+      ? new Date(employe.date_entree).toLocaleDateString("fr-CH")
+      : `01.01.${annee}`
+    : `01.01.${annee}`;
+  const dateFin = `31.12.${annee}`;
 
   return (
     <>
@@ -69,12 +119,15 @@ export default async function CertificatSalaireAnnuelPage({
           .no-print { display: none !important; }
           nav { display: none !important; }
           header { display: none !important; }
-          body { background: white !important; }
-          @page { margin: 1.5cm; size: A4; }
+          body { background: white !important; margin: 0; }
+          @page { margin: 1cm; size: A4; }
         }
+        .cert-table { border-collapse: collapse; width: 100%; }
+        .cert-table td, .cert-table th { border: 1px solid #333; padding: 4px 8px; font-size: 11px; }
+        .cert-case { background-color: #f0f0f0; font-weight: bold; width: 30px; text-align: center; }
+        .cert-header { background-color: #1B2B5E; color: white; font-weight: bold; }
       `}} />
 
-      {/* Boutons */}
       <div className="no-print p-4 flex gap-3">
         <BoutonImprimer />
         <Link href="/employes/fiches-salaire"
@@ -84,141 +137,248 @@ export default async function CertificatSalaireAnnuelPage({
         </Link>
       </div>
 
-      {/* Certificat */}
-      <div className="max-w-3xl mx-auto bg-white p-10 shadow-sm mb-8">
+      {/* Certificat format officiel */}
+      <div className="max-w-3xl mx-auto bg-white p-8 shadow-sm mb-8" style={{ fontFamily: "Arial, sans-serif", fontSize: "12px" }}>
 
-        {/* En-tête */}
-        <div className="flex justify-between items-start mb-8">
-          <div>
-            <img src="/Logo.png" alt="La Dogosphère" style={{ height: "70px", marginBottom: "8px" }} />
-            <p className="text-sm text-gray-500">Pension canine</p>
-            <p className="text-sm text-gray-500">Sion, Valais</p>
-            <p className="text-sm text-gray-500">ladogosphere@gmail.com</p>
+        {/* Titre */}
+        <div className="text-center mb-4">
+          <h1 style={{ fontSize: "16px", fontWeight: "bold", color: "#1B2B5E", borderBottom: "2px solid #1B2B5E", paddingBottom: "8px" }}>
+            CERTIFICAT DE SALAIRE / ATTESTATION DE RENTES
+          </h1>
+          <p style={{ fontSize: "11px", color: "#666" }}>
+            Formulaire officiel — Année fiscale {annee}
+          </p>
+        </div>
+
+        {/* Section employeur + employé */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+
+          {/* Employeur */}
+          <div style={{ border: "1px solid #333", padding: "8px" }}>
+            <p style={{ fontWeight: "bold", backgroundColor: "#1B2B5E", color: "white", padding: "2px 6px", marginBottom: "6px", fontSize: "11px" }}>
+              EMPLOYEUR
+            </p>
+            <p style={{ fontWeight: "bold" }}>La Dogosphère Sàrl</p>
+            <p>Pension canine</p>
+            <p>Sion, Valais</p>
+            <p>ladogosphere@gmail.com</p>
           </div>
-          <div className="text-right">
-            <h2 className="text-2xl font-bold mb-1" style={{ color: "#1B2B5E" }}>
-              CERTIFICAT DE SALAIRE
-            </h2>
-            <p className="text-sm font-semibold">Année {annee}</p>
-            <p className="text-sm text-gray-500">Généré le {dateGeneration}</p>
+
+          {/* Employé */}
+          <div style={{ border: "1px solid #333", padding: "8px" }}>
+            <p style={{ fontWeight: "bold", backgroundColor: "#1B2B5E", color: "white", padding: "2px 6px", marginBottom: "6px", fontSize: "11px" }}>
+              EMPLOYÉ(E)
+            </p>
+            <p style={{ fontWeight: "bold" }}>{employe.prenom} {employe.nom}</p>
+            {employe.adresse && <p>{employe.adresse}</p>}
+            <p>✉️ {employe.email}</p>
+            {employe.telephone && <p>📞 {employe.telephone}</p>}
           </div>
         </div>
 
-        <div className="border-t-2 mb-6" style={{ borderColor: "#1B2B5E" }} />
+        {/* Cases officielles */}
+        <table className="cert-table mb-4">
+          <thead>
+            <tr>
+              <td className="cert-case cert-header">N°</td>
+              <td className="cert-header" style={{ border: "1px solid #333", padding: "4px 8px" }}>DESCRIPTION</td>
+              <td className="cert-header" style={{ border: "1px solid #333", padding: "4px 8px", textAlign: "right", width: "150px" }}>MONTANT (CHF)</td>
+            </tr>
+          </thead>
+          <tbody>
 
-        {/* Employé */}
-        <div className="mb-6">
-          <h3 className="font-bold text-sm uppercase tracking-wide text-gray-400 mb-2">Employé</h3>
-          <p className="font-bold text-lg" style={{ color: "#1B2B5E" }}>
-            {employe.prenom} {employe.nom}
-          </p>
-          <p className="text-sm text-gray-500">
-            {employe.poste === "Autre" ? employe.poste_autre || "Autre" : employe.poste || "—"}
-            {" — "}{employe.taux_travail}%
-          </p>
-          {employe.adresse && <p className="text-sm text-gray-500">📍 {employe.adresse}</p>}
-          <p className="text-sm text-gray-500">✉️ {employe.email}</p>
-          {employe.telephone && <p className="text-sm text-gray-500">📞 {employe.telephone}</p>}
-          {employe.date_entree && (
-            <p className="text-sm text-gray-500">
-              Entrée : {new Date(employe.date_entree).toLocaleDateString("fr-CH")}
-            </p>
-          )}
-        </div>
+            {/* Case 1 — Salaire brut */}
+            <tr>
+              <td className="cert-case">1</td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px" }}>
+                <strong>Salaire brut</strong> (salaire convenu + allocations diverses)
+              </td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px", textAlign: "right", fontWeight: "bold" }}>
+                {totalBrut.toFixed(2)}
+              </td>
+            </tr>
 
-        {/* Tableau récapitulatif */}
-        {fiches && fiches.length > 0 ? (
-          <>
-            <table className="w-full mb-6 text-sm">
-              <thead>
-                <tr style={{ backgroundColor: "#1B2B5E", color: "white" }}>
-                  <th className="px-4 py-3 text-left rounded-tl-lg">Mois</th>
-                  <th className="px-4 py-3 text-right">Brut</th>
-                  <th className="px-4 py-3 text-right">Déductions</th>
-                  <th className="px-4 py-3 text-right rounded-tr-lg">Net</th>
-                </tr>
-              </thead>
-              <tbody>
-                {fiches.map((f: any) => (
-                  <tr key={f.id} className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-3">{MOIS[f.mois - 1]}</td>
-                    <td className="px-4 py-3 text-right">
-                      CHF {Number(f.salaire_brut).toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-right text-red-600">
-                      - CHF {Number(f.total_deductions).toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold" style={{ color: "#1B2B5E" }}>
-                      CHF {Number(f.salaire_net).toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr style={{ backgroundColor: "#F5F0E8" }}>
-                  <td className="px-4 py-3 font-bold">Total {annee}</td>
-                  <td className="px-4 py-3 text-right font-bold">
-                    CHF {totalBrut.toFixed(2)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-bold text-red-600">
-                    - CHF {totalDeductions.toFixed(2)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-bold" style={{ color: "#1B2B5E" }}>
-                    CHF {totalNet.toFixed(2)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+            {/* Case 2 — Indemnités journalières */}
+            <tr>
+              <td className="cert-case">2</td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px" }}>
+                Indemnités journalières (maladie, accident, maternité)
+              </td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px", textAlign: "right" }}>
+                0.00
+              </td>
+            </tr>
 
-            {/* Résumé */}
-            <div className="bg-gray-50 rounded-xl p-4 mb-6 grid grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Total brut</p>
-                <p className="font-bold text-lg" style={{ color: "#4AAEA0" }}>
-                  CHF {totalBrut.toFixed(2)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Total déductions</p>
-                <p className="font-bold text-lg text-red-500">
-                  - CHF {totalDeductions.toFixed(2)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Total net</p>
-                <p className="font-bold text-lg" style={{ color: "#1B2B5E" }}>
-                  CHF {totalNet.toFixed(2)}
-                </p>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
-            <p className="text-yellow-700 text-sm">
-              ⚠️ Aucune fiche de salaire trouvée pour l'année {annee}.
-            </p>
-          </div>
-        )}
+            {/* Case 3 — Prestations en nature */}
+            <tr>
+              <td className="cert-case">3</td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px" }}>
+                Prestations en nature (logement, nourriture, etc.)
+              </td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px", textAlign: "right" }}>
+                0.00
+              </td>
+            </tr>
+
+            {/* Case 4 — Participation salariée */}
+            <tr>
+              <td className="cert-case">4</td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px" }}>
+                Participations de collaborateur
+              </td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px", textAlign: "right" }}>
+                0.00
+              </td>
+            </tr>
+
+            {/* Case 5 — Indemnités de départ */}
+            <tr>
+              <td className="cert-case">5</td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px" }}>
+                Indemnités de départ / autres prestations non périodiques
+              </td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px", textAlign: "right" }}>
+                0.00
+              </td>
+            </tr>
+
+            {/* Case 6 — Salaire brut total */}
+            <tr style={{ backgroundColor: "#f5f5f5" }}>
+              <td className="cert-case" style={{ backgroundColor: "#1B2B5E", color: "white" }}>6</td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px", fontWeight: "bold" }}>
+                SALAIRE BRUT TOTAL (cases 1 à 5)
+              </td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px", textAlign: "right", fontWeight: "bold" }}>
+                {totalBrut.toFixed(2)}
+              </td>
+            </tr>
+
+            {/* Case 7 — AVS/AI/APG/AC */}
+            <tr>
+              <td className="cert-case">7</td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px" }}>
+                Cotisations employé AVS/AI/APG + Assurance chômage (AC)
+                {avs > 0 && <span style={{ color: "#666", fontSize: "10px" }}> — AVS/AI/APG: {avs.toFixed(2)} | AC: {ac.toFixed(2)}</span>}
+              </td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px", textAlign: "right", color: "red" }}>
+                -{totalCotisationsCase7.toFixed(2)}
+              </td>
+            </tr>
+
+            {/* Case 8 — LPP */}
+            <tr>
+              <td className="cert-case">8</td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px" }}>
+                Cotisations LPP (prévoyance professionnelle — part employé)
+              </td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px", textAlign: "right", color: "red" }}>
+                -{lpp.toFixed(2)}
+              </td>
+            </tr>
+
+            {/* Case 9 — AANP/IJM */}
+            <tr>
+              <td className="cert-case">9</td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px" }}>
+                Primes d'assurance (AANP + IJM — part employé)
+                {(aanp > 0 || ijm > 0) && <span style={{ color: "#666", fontSize: "10px" }}> — AANP: {aanp.toFixed(2)} | IJM: {ijm.toFixed(2)}</span>}
+              </td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px", textAlign: "right", color: "red" }}>
+                -{(aanp + ijm).toFixed(2)}
+              </td>
+            </tr>
+
+            {/* Case 10 — Autres déductions */}
+            <tr>
+              <td className="cert-case">10</td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px" }}>
+                Autres déductions (retenues diverses)
+              </td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px", textAlign: "right", color: "red" }}>
+                -{autresDeductions.toFixed(2)}
+              </td>
+            </tr>
+
+            {/* Case 11 — Salaire net */}
+            <tr style={{ backgroundColor: "#E8F5F4" }}>
+              <td className="cert-case" style={{ backgroundColor: "#4AAEA0", color: "white" }}>11</td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px", fontWeight: "bold" }}>
+                SALAIRE NET (case 6 - cases 7 à 10)
+              </td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px", textAlign: "right", fontWeight: "bold", color: "#1B2B5E", fontSize: "14px" }}>
+                {totalNet.toFixed(2)}
+              </td>
+            </tr>
+
+          </tbody>
+        </table>
+
+        {/* Cases 12-14 — Informations complémentaires */}
+        <table className="cert-table mb-4">
+          <tbody>
+            <tr>
+              <td className="cert-case">12</td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px", width: "200px" }}>
+                <strong>Taux d'occupation</strong>
+              </td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px" }}>
+                <strong>{employe.taux_travail}%</strong>
+              </td>
+            </tr>
+            <tr>
+              <td className="cert-case">13</td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px" }}>
+                <strong>Durée du rapport de travail</strong>
+              </td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px" }}>
+                Du <strong>{dateDebut}</strong> au <strong>{dateFin}</strong>
+              </td>
+            </tr>
+            <tr>
+              <td className="cert-case">14</td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px" }}>
+                <strong>Fonction / Poste</strong>
+              </td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px" }}>
+                {employe.poste === "Autre" ? employe.poste_autre || "—" : employe.poste || "—"}
+              </td>
+            </tr>
+            <tr>
+              <td className="cert-case">15</td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px" }}>
+                <strong>Remarques</strong>
+              </td>
+              <td style={{ border: "1px solid #333", padding: "4px 8px" }}>
+                Certificat de salaire — Année fiscale {annee}
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
         {/* Signature */}
-        <div className="mt-8 flex justify-between items-end">
+        <div className="grid grid-cols-2 gap-8 mt-6">
           <div>
-            <p className="text-sm text-gray-500 mb-6">Sion, le {dateGeneration}</p>
-            <div style={{ borderTop: "1px solid #1B2B5E", width: "200px", paddingTop: "8px" }}>
-              <p className="text-sm font-semibold" style={{ color: "#1B2B5E" }}>Sabrina Jean</p>
-              <p className="text-xs text-gray-500">La Dogosphère Sàrl — Responsable</p>
+            <p style={{ fontSize: "11px", color: "#666", marginBottom: "40px" }}>
+              Sion, le {dateGeneration}
+            </p>
+            <div style={{ borderTop: "1px solid #333", width: "200px", paddingTop: "4px" }}>
+              <p style={{ fontWeight: "bold", fontSize: "11px" }}>Sabrina Jean</p>
+              <p style={{ fontSize: "10px", color: "#666" }}>La Dogosphère Sàrl — Responsable</p>
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-gray-400">Mois couverts : {fiches?.length ?? 0}/12</p>
-            <p className="text-xs text-gray-400">Taux : {employe.taux_travail}%</p>
+          <div style={{ textAlign: "right" }}>
+            <p style={{ fontSize: "10px", color: "#666" }}>
+              Document établi le {dateGeneration}<br/>
+              Fiches générées : {fiches?.length ?? 0} mois sur 12<br/>
+              Taux : {employe.taux_travail}%
+            </p>
           </div>
         </div>
 
         {/* Pied de page */}
-        <div className="border-t mt-8 pt-6 text-center text-xs text-gray-400">
-          <p>La Dogosphère Sàrl — Pension canine — Sion, Valais</p>
-          <p>Document confidentiel — Certificat de salaire {annee}</p>
+        <div style={{ borderTop: "1px solid #ccc", marginTop: "20px", paddingTop: "8px", textAlign: "center", fontSize: "10px", color: "#888" }}>
+          <p>La Dogosphère Sàrl — Pension canine — Sion, Valais — ladogosphere@gmail.com</p>
+          <p>Ce certificat de salaire est établi conformément aux directives de l'AFC (Administration fédérale des contributions)</p>
         </div>
 
       </div>
