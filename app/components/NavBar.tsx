@@ -12,6 +12,7 @@ const liensAdmin = [
   { href: "/planning", label: "🏠 Planning" },
   { href: "/checkin", label: "✅ Check-in" },
   { href: "/employes", label: "👥 Équipe" },
+  { href: "/tarifs", label: "💰 Tarifs" },
   { href: "/comptabilite", label: "📈 Compta" },
 ];
 
@@ -37,7 +38,6 @@ export default function NavBar({ role: roleInitial }: { role: string }) {
   const router = useRouter();
   const [role, setRole] = useState(roleInitial);
 
-  // Synchroniser si le rôle change (switch de compte)
   useEffect(() => {
     setRole(roleInitial);
   }, [roleInitial]);
