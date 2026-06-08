@@ -9,7 +9,6 @@ export default async function ModifierEmployePage({
 }) {
   const { id } = await params;
 
-  // Chercher dans profiles ET employes_rh
   const { data: emp } = await supabase
     .from("profiles")
     .select("*")
@@ -22,7 +21,6 @@ export default async function ModifierEmployePage({
     .eq("id", id)
     .maybeSingle();
 
-  // Si pas dans profiles, chercher par email dans employes_rh
   const { data: rhParEmail } = !rh && emp ? await supabase
     .from("employes_rh")
     .select("*")
@@ -74,8 +72,15 @@ export default async function ModifierEmployePage({
             <div className="mt-4">
               <label className="block font-semibold mb-1 text-sm">Téléphone</label>
               <input name="telephone" type="tel"
-                defaultValue={emp?.telephone || ""}
+                defaultValue={rhData?.telephone || emp?.telephone || ""}
                 placeholder="+41 79 000 00 00"
+                className="w-full border rounded-xl p-3" />
+            </div>
+            <div className="mt-4">
+              <label className="block font-semibold mb-1 text-sm">Adresse</label>
+              <input name="adresse" type="text"
+                defaultValue={rhData?.adresse || ""}
+                placeholder="Rue de la Paix 1, 1950 Sion"
                 className="w-full border rounded-xl p-3" />
             </div>
           </div>
@@ -86,6 +91,30 @@ export default async function ModifierEmployePage({
               <h2 className="font-bold mb-3 text-sm uppercase tracking-wide text-gray-400">
                 Informations RH
               </h2>
+
+              {/* Poste */}
+              <div className="mb-4">
+                <label className="block font-semibold mb-1 text-sm">Poste</label>
+                <select name="poste" defaultValue={rhData.poste || "Auxiliaire"}
+                  className="w-full border rounded-xl p-3">
+                  <option value="Gardien-ne d'animaux CFC">Gardien-ne d'animaux CFC</option>
+                  <option value="Apprenti-e Gardien-ne d'animaux">Apprenti-e Gardien-ne d'animaux</option>
+                  <option value="Auxiliaire">Auxiliaire</option>
+                  <option value="Autre">Autre</option>
+                </select>
+              </div>
+
+              {/* Poste autre */}
+              <div className="mb-4">
+                <label className="block font-semibold mb-1 text-sm">
+                  Précision poste (si "Autre")
+                </label>
+                <input name="poste_autre" type="text"
+                  defaultValue={rhData.poste_autre || ""}
+                  placeholder="Ex: Responsable administrative"
+                  className="w-full border rounded-xl p-3" />
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block font-semibold mb-1 text-sm">Taux de travail</label>
@@ -179,7 +208,6 @@ export default async function ModifierEmployePage({
           </div>
         </form>
 
-        {/* Suppression */}
         {emp && (
           <div className="border-t mt-8 pt-6">
             <h2 className="font-bold mb-3" style={{ color: "#E8847A" }}>⚠️ Zone dangereuse</h2>

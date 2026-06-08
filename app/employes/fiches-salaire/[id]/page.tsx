@@ -23,7 +23,7 @@ export default async function FicheSalairePage({
 
   const { data: fiche } = await supabase
     .from("fiches_salaire")
-    .select("*, employes_rh(prenom, nom, email, taux_travail)")
+    .select("*, employes_rh(prenom, nom, email, taux_travail, poste, poste_autre, adresse, telephone)")
     .eq("id", id)
     .single();
 
@@ -90,14 +90,25 @@ export default async function FicheSalairePage({
         <div className="border-t-2 mb-6" style={{ borderColor: "#1B2B5E" }} />
 
         {/* Employé */}
-        <div className="mb-6">
-          <h3 className="font-bold text-sm uppercase tracking-wide text-gray-400 mb-2">Employé</h3>
-          <p className="font-bold text-lg" style={{ color: "#1B2B5E" }}>
-            {fiche.employes_rh?.prenom} {fiche.employes_rh?.nom}
-          </p>
-          <p className="text-sm text-gray-500">{fiche.employes_rh?.email}</p>
-          <p className="text-sm text-gray-500">Taux : {fiche.employes_rh?.taux_travail}%</p>
-        </div>
+<div className="mb-6">
+  <h3 className="font-bold text-sm uppercase tracking-wide text-gray-400 mb-2">Employé</h3>
+  <p className="font-bold text-lg" style={{ color: "#1B2B5E" }}>
+    {fiche.employes_rh?.prenom} {fiche.employes_rh?.nom}
+  </p>
+  <p className="text-sm text-gray-500">
+    {fiche.employes_rh?.poste === "Autre"
+      ? fiche.employes_rh?.poste_autre || "Autre"
+      : fiche.employes_rh?.poste || "—"}
+    {" — "}{fiche.employes_rh?.taux_travail}%
+  </p>
+  {fiche.employes_rh?.adresse && (
+    <p className="text-sm text-gray-500">📍 {fiche.employes_rh.adresse}</p>
+  )}
+  <p className="text-sm text-gray-500">✉️ {fiche.employes_rh?.email}</p>
+  {fiche.employes_rh?.telephone && (
+    <p className="text-sm text-gray-500">📞 {fiche.employes_rh.telephone}</p>
+  )}
+</div>
 
         {/* Tableau salaire */}
         <table className="w-full mb-6 text-sm">

@@ -25,6 +25,10 @@ export async function modifierEmploye(
         salaire_base: parseFloat(formData.get("salaire_base") as string),
         date_entree: formData.get("date_entree") as string,
         actif: formData.get("actif") === "on",
+        poste: formData.get("poste") as string || "Auxiliaire",
+        poste_autre: formData.get("poste_autre") as string || null,
+        adresse: formData.get("adresse") as string || null,
+        telephone: formData.get("telephone") as string || null,
       })
       .eq("id", rh_id);
   }
