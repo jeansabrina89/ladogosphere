@@ -21,12 +21,20 @@ export default async function FichesSalairePage() {
 
   const { data: fiches } = await supabase
     .from("fiches_salaire")
-    .select("*, employes_rh(prenom, nom)")
+    .select("*, employes_rh(id, prenom, nom)")
     .order("annee", { ascending: false })
     .order("mois", { ascending: false });
 
+  const { data: employes } = await supabase
+    .from("employes_rh")
+    .select("id, prenom, nom")
+    .eq("actif", true)
+    .order("nom");
+
   const MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
     "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+
+  const anneeActuelle = new Date().getFullYear();
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -37,7 +45,7 @@ export default async function FichesSalairePage() {
             <h1 className="text-4xl font-bold" style={{ color: "#1B2B5E" }}>📊 Fiches de salaire</h1>
             <p className="text-gray-500 mt-1">Génération et gestion des fiches de salaire</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <Link href="/employes/fiches-salaire/creer"
               className="px-4 py-2 rounded-xl font-semibold text-white text-sm"
               style={{ backgroundColor: "#4AAEA0" }}>
@@ -48,6 +56,23 @@ export default async function FichesSalairePage() {
               style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
               ← Retour
             </Link>
+          </div>
+        </div>
+
+        {/* Certificats par employé */}
+        <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
+          <h2 className="text-xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
+            📋 Certificats de salaire {anneeActuelle}
+          </h2>
+          <div className="flex flex-wrap gap-3">
+            {employes?.map((emp: any) => (
+              <Link key={emp.id}
+                href={`/employes/fiches-salaire/certificat?employe_id=${emp.id}&annee=${anneeActuelle}`}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-white"
+                style={{ backgroundColor: "#1B2B5E" }}>
+                📋 {emp.prenom} {emp.nom}
+              </Link>
+            ))}
           </div>
         </div>
 
