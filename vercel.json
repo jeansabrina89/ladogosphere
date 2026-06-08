@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/rappel-veille",
+      "schedule": "0 10 * * *"
+    }
+  ]
+}

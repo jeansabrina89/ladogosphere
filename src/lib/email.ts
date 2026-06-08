@@ -312,3 +312,58 @@ export async function envoyerEmailSatisfactionEssai({
     `),
   });
 }
+
+export async function envoyerEmailRappelVeille({
+  email, prenom, nom_chien, date_debut, heure_arrivee, type,
+}: {
+  email: string; prenom: string; nom_chien: string;
+  date_debut: string; heure_arrivee?: string; type: string;
+}) {
+  await resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: "📅 Rappel — votre chien arrive demain !",
+    html: emailTemplate(`
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom} ! 🐶</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">
+        Petit rappel — <strong>${nom_chien}</strong> arrive <strong>demain</strong> à La Dogosphère !
+      </p>
+
+      <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
+        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Votre réservation</h3>
+        <table cellpadding="0" cellspacing="0" style="width:100%;">
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Type</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${typeLabel(type)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Arrivée</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${formatDate(date_debut)}${heure_arrivee ? ` à ${heure_arrivee}` : ""}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">
+        <p style="margin:0 0 8px 0; color:#1B5E4F; font-size:14px; font-weight:bold;">🎒 N'oubliez pas :</p>
+        <p style="margin:0; color:#1B5E4F; font-size:13px;">
+          ✔ Sa nourriture habituelle (quantités pour toute la durée du séjour)<br/>
+          ✔ Son carnet de vaccination à jour<br/>
+          ✔ Un jouet ou une couverture pour le rassurer<br/>
+          ✔ Tout médicament en cours avec les instructions
+        </p>
+      </div>
+
+      <div style="background-color:#FFF8E1; border-left:4px solid #C9A84C; border-radius:8px; padding:16px; margin:0 0 24px 0;">
+        <p style="margin:0 0 4px 0; color:#7A5C00; font-size:14px; font-weight:bold;">⏰ Horaires d'arrivée</p>
+        <p style="margin:0; color:#7A5C00; font-size:13px;">
+          Journée : 7h35 – 10h00<br/>
+          Séjour : 9h00 – 10h00 ou 17h00 – 18h00
+        </p>
+      </div>
+
+      <p style="color:#6B7280; font-size:14px; margin:0;">
+        En cas d'imprévu, contactez-nous au plus vite. À demain ! 🐾
+      </p>
+    `),
+  });
+}
