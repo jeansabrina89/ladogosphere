@@ -57,6 +57,11 @@ export default async function EmployesPage() {
               style={{ backgroundColor: "#1B2B5E" }}>
               📅 Planning
             </Link>
+            <Link href="/employes/fiches-salaire"
+              className="px-4 py-2 rounded-xl font-semibold text-white text-sm"
+              style={{ backgroundColor: "#E8847A" }}>
+              📊 Fiches de salaire
+            </Link>
           </div>
         </div>
 
@@ -106,16 +111,20 @@ export default async function EmployesPage() {
                     </div>
                   </div>
 
-                  <div className="flex gap-2 ml-4">
+                  <div className="flex gap-2 ml-4 flex-wrap">
                     <Link href={`/employes/${emp.id}/modifier`}
                       className="px-3 py-2 rounded-xl text-sm font-semibold"
                       style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
                       ✏️ Modifier
                     </Link>
+                    <Link href={`/employes/fiches-salaire/creer?employe_id=${emp.id}`}
+                      className="px-3 py-2 rounded-xl text-sm font-semibold text-white"
+                      style={{ backgroundColor: "#E8847A" }}>
+                      📊 Fiche
+                    </Link>
                   </div>
                 </div>
 
-                {/* Permissions si compte existant */}
                 {profil && profil.role === "employe" && (
                   <div className="mt-4 border-t pt-4">
                     <p className="text-sm font-semibold mb-2 text-gray-600">Permissions :</p>

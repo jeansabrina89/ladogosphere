@@ -212,6 +212,12 @@ export default async function MonEspaceRHPage() {
               </p>
             )}
           </Link>
+          <Link href="/employes/mon-espace/fiches-salaire"
+  className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition"
+  style={{ borderLeft: "4px solid #E8847A" }}>
+  <p className="font-bold" style={{ color: "#1B2B5E" }}>📊 Fiches de salaire</p>
+  <p className="text-xs text-gray-400 mt-1">Consulter mes fiches</p>
+</Link>
         </div>
 
         {/* Dernières demandes vacances */}
