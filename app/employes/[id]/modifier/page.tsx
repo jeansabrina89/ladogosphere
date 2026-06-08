@@ -77,6 +77,19 @@ export default async function ModifierEmployePage({
                 className="w-full border rounded-xl p-3" />
             </div>
             <div className="mt-4">
+  <label className="block font-semibold mb-1 text-sm">N° AVS</label>
+  <input name="numero_avs" type="text"
+    defaultValue={rhData?.numero_avs || ""}
+    placeholder="756.XXXX.XXXX.XX"
+    className="w-full border rounded-xl p-3" />
+</div>
+<div className="mt-4">
+  <label className="block font-semibold mb-1 text-sm">Date de naissance</label>
+  <input name="date_naissance" type="date"
+    defaultValue={rhData?.date_naissance || ""}
+    className="w-full border rounded-xl p-3" />
+</div>
+            <div className="mt-4">
               <label className="block font-semibold mb-1 text-sm">Adresse</label>
               <input name="adresse" type="text"
                 defaultValue={rhData?.adresse || ""}
