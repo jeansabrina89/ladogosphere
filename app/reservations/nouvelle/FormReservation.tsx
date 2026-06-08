@@ -6,6 +6,16 @@ type Client = { id: string; prenom: string; nom: string; membre: boolean };
 type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string };
 type Box = { id: string; numero: number };
 
+const JOURS_SEMAINE = [
+  { value: 1, label: "Lundi" },
+  { value: 2, label: "Mardi" },
+  { value: 3, label: "Mercredi" },
+  { value: 4, label: "Jeudi" },
+  { value: 5, label: "Vendredi" },
+  { value: 6, label: "Samedi" },
+  { value: 0, label: "Dimanche" },
+];
+
 export default function FormReservation({
   clients,
   chiens,
@@ -26,8 +36,21 @@ export default function FormReservation({
   const [suggestionBox, setSuggestionBox] = useState<{ message: string; raison: string } | null>(null);
   const [chargementSuggestion, setChargementSuggestion] = useState(false);
 
+  // Récurrence
+  const [estRecurrente, setEstRecurrente] = useState(false);
+  const [jourRecurrence, setJourRecurrence] = useState<number>(1); // jour de la semaine
+  const [dureeRecurrence, setDureeRecurrence] = useState<"1mois" | "3mois" | "6mois">("1mois");
+  const [dateDebutRecurrence, setDateDebutRecurrence] = useState("");
+  // Pour séjour récurrent
+  const [jourArrivee, setJourArrivee] = useState<number>(3); // mercredi
+  const [jourDepart, setJourDepart] = useState<number>(4); // jeudi
+  const [datesExclues, setDatesExclues] = useState<string[]>([]);
+  const [dateExclueInput, setDateExclueInput] = useState("");
+  const [apercu, setApercu] = useState<string[]>([]);
+
   const handleTypeChange = (val: string) => {
     setType(val);
+    setEstRecurrente(false);
     if (val === "journee" || val === "essai") {
       if (dateDebut) setDateFin(dateDebut);
     }
@@ -44,7 +67,61 @@ export default function FormReservation({
     );
   };
 
-  // Chercher suggestion automatique quand chiens + dates sont sélectionnés
+  // Générer l'aperçu des dates récurrentes
+  const genererDates = (): string[] => {
+    if (!dateDebutRecurrence) return [];
+
+    const dates: string[] = [];
+    const debut = new Date(dateDebutRecurrence + "T12:00:00");
+    const nbMois = dureeRecurrence === "1mois" ? 1 : dureeRecurrence === "3mois" ? 3 : 6;
+    const fin = new Date(debut);
+    fin.setMonth(fin.getMonth() + nbMois);
+
+    const current = new Date(debut);
+
+    if (type === "journee") {
+      // Trouver le premier jour correspondant
+      while (current.getDay() !== jourRecurrence) {
+        current.setDate(current.getDate() + 1);
+      }
+      while (current <= fin) {
+        const dateStr = current.toISOString().split("T")[0];
+        if (!datesExclues.includes(dateStr)) {
+          dates.push(dateStr);
+        }
+        current.setDate(current.getDate() + 7);
+      }
+    } else if (type === "sejour") {
+      // Trouver le premier jour d'arrivée
+      while (current.getDay() !== jourArrivee) {
+        current.setDate(current.getDate() + 1);
+      }
+      while (current <= fin) {
+        const dateArriveeStr = current.toISOString().split("T")[0];
+        // Calculer le jour de départ
+        const depart = new Date(current);
+        let diff = jourDepart - jourArrivee;
+        if (diff <= 0) diff += 7;
+        depart.setDate(depart.getDate() + diff);
+        const dateDepartStr = depart.toISOString().split("T")[0];
+
+        if (!datesExclues.includes(dateArriveeStr)) {
+          dates.push(`${dateArriveeStr}→${dateDepartStr}`);
+        }
+        current.setDate(current.getDate() + 7);
+      }
+    }
+
+    return dates;
+  };
+
+  useEffect(() => {
+    if (estRecurrente && dateDebutRecurrence) {
+      setApercu(genererDates());
+    }
+  }, [estRecurrente, jourRecurrence, jourArrivee, jourDepart, dureeRecurrence, dateDebutRecurrence, datesExclues, type]);
+
+  // Suggestion automatique de box
   useEffect(() => {
     const dateF = type === "journee" || type === "essai" ? dateDebut : dateFin;
     if (chiensSelectionnes.length === 0 || !dateDebut || !dateF) {
@@ -86,22 +163,14 @@ export default function FormReservation({
       const arriveeOk = !heureArrivee || (heureArrivee >= "07:35" && heureArrivee <= "10:00");
       const departOk = !heureDepart || (heureDepart >= "17:00" && heureDepart <= "18:00");
       if (!arriveeOk || !departOk) {
-        return confirm(
-          "⚠️ Horaire hors plage habituelle !\n" +
-          "Journée : arrivée 7h35–10h00 · départ 17h00–18h00\n\n" +
-          "Confirmer quand même ?"
-        );
+        return confirm("⚠️ Horaire hors plage habituelle !\nJournée : arrivée 7h35–10h00 · départ 17h00–18h00\n\nConfirmer quand même ?");
       }
     }
     if (type === "essai") {
       const arriveeOk = !heureArrivee || heureArrivee === "10:00";
       const departOk = !heureDepart || (heureDepart >= "17:00" && heureDepart <= "18:00");
       if (!arriveeOk || !departOk) {
-        return confirm(
-          "⚠️ Horaire hors plage habituelle !\n" +
-          "Journée d'essai : arrivée 10h00 · départ 17h00–18h00\n\n" +
-          "Confirmer quand même ?"
-        );
+        return confirm("⚠️ Horaire hors plage habituelle !\nJournée d'essai : arrivée 10h00 · départ 17h00–18h00\n\nConfirmer quand même ?");
       }
     }
     if (type === "sejour") {
@@ -112,11 +181,7 @@ export default function FormReservation({
         (heureDepart >= "09:00" && heureDepart <= "10:00") ||
         (heureDepart >= "17:00" && heureDepart <= "18:00");
       if (!arriveeOk || !departOk) {
-        return confirm(
-          "⚠️ Horaire hors plage habituelle !\n" +
-          "Séjour : arrivée/départ entre 9h00–10h00 ou 17h00–18h00\n\n" +
-          "Confirmer quand même ?"
-        );
+        return confirm("⚠️ Horaire hors plage habituelle !\nSéjour : arrivée/départ entre 9h00–10h00 ou 17h00–18h00\n\nConfirmer quand même ?");
       }
     }
     return true;
@@ -130,22 +195,81 @@ export default function FormReservation({
       return;
     }
 
-    if (type === "sejour" && dateFin && dateDebut && dateFin < dateDebut) {
-      alert("❌ La date de départ ne peut pas être avant la date d'arrivée.");
-      return;
-    }
-
     if (!verifierHoraires()) return;
 
     setLoading(true);
 
+    // Mode récurrent
+    if (estRecurrente) {
+      const dates = genererDates();
+      if (dates.length === 0) {
+        alert("❌ Aucune date générée. Vérifiez les paramètres.");
+        setLoading(false);
+        return;
+      }
+
+      if (!confirm(`Créer ${dates.length} réservation(s) récurrente(s) ?`)) {
+        setLoading(false);
+        return;
+      }
+
+      const form = e.currentTarget;
+      const formData = new FormData(form);
+      const client_id = formData.get("client_id") as string;
+      const statut = formData.get("statut") as string;
+      const commentaire_admin = formData.get("commentaire_admin") as string;
+
+      let nbCreees = 0;
+      let derniereId = "";
+
+      for (const dateStr of dates) {
+        const fd = new FormData();
+        fd.set("client_id", client_id);
+        fd.set("box_id", boxId);
+        fd.set("type_reservation", type);
+        fd.set("statut", statut || "en_attente");
+        fd.set("heure_arrivee", heureArrivee || "");
+        fd.set("heure_depart", heureDepart || "");
+        fd.set("urgence", "");
+        fd.set("commentaire_admin", commentaire_admin || "");
+        chiensSelectionnes.forEach(id => fd.append("chien_ids", id));
+
+        if (type === "journee") {
+          fd.set("date_debut", dateStr);
+          fd.set("date_fin", dateStr);
+        } else if (type === "sejour") {
+          const [dDebut, dFin] = dateStr.split("→");
+          fd.set("date_debut", dDebut);
+          fd.set("date_fin", dFin);
+        }
+
+        const response = await fetch("/api/reservations", {
+          method: "POST",
+          body: fd,
+        });
+
+        if (response.ok) {
+          const { id } = await response.json();
+          derniereId = id;
+          nbCreees++;
+        }
+      }
+
+      alert(`✅ ${nbCreees} réservation(s) créée(s) !`);
+      window.location.href = `/reservations`;
+      return;
+    }
+
+    // Mode normal
+    if (type === "sejour" && dateFin && dateDebut && dateFin < dateDebut) {
+      alert("❌ La date de départ ne peut pas être avant la date d'arrivée.");
+      setLoading(false);
+      return;
+    }
+
     const form = e.currentTarget;
     const formData = new FormData(form);
-
-    // Ajouter le box_id depuis le state
     formData.set("box_id", boxId);
-
-    // Ajouter les chiens sélectionnés
     formData.delete("chien_ids");
     chiensSelectionnes.forEach(id => formData.append("chien_ids", id));
 
@@ -228,34 +352,188 @@ export default function FormReservation({
             )}
           </div>
 
-          {/* Dates */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block font-semibold mb-1">Date début *</label>
-              <input name="date_debut" type="date" required
-                value={dateDebut}
-                onChange={e => handleDateDebutChange(e.target.value)}
-                className="w-full border rounded-xl p-3" />
-            </div>
-            <div>
-              <label className="block font-semibold mb-1">Date fin *</label>
-              {type === "journee" || type === "essai" ? (
-                <>
-                  <input name="date_fin" type="date"
-                    value={dateDebut}
-                    readOnly
-                    className="w-full border rounded-xl p-3 bg-gray-100 text-gray-500 cursor-not-allowed" />
-                  <p className="text-xs text-gray-400 mt-1">Même jour que l'arrivée</p>
-                </>
-              ) : (
-                <input name="date_fin" type="date" required
-                  value={dateFin}
-                  min={dateDebut}
-                  onChange={e => setDateFin(e.target.value)}
-                  className="w-full border rounded-xl p-3" />
+          {/* Option récurrence — seulement pour journée et séjour */}
+          {(type === "journee" || type === "sejour") && (
+            <div className="border-2 rounded-xl p-4"
+              style={{ borderColor: estRecurrente ? "#4AAEA0" : "#E2E8F0", backgroundColor: estRecurrente ? "#E8F5F4" : "white" }}>
+              <label className="flex items-center gap-2 cursor-pointer mb-3">
+                <input type="checkbox" checked={estRecurrente}
+                  onChange={e => setEstRecurrente(e.target.checked)} />
+                <span className="font-semibold" style={{ color: "#1B2B5E" }}>
+                  🔁 Réservation récurrente
+                </span>
+              </label>
+
+              {estRecurrente && (
+                <div className="space-y-4">
+
+                  {/* Date de début de la récurrence */}
+                  <div>
+                    <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+                      À partir du *
+                    </label>
+                    <input type="date" value={dateDebutRecurrence}
+                      onChange={e => setDateDebutRecurrence(e.target.value)}
+                      className="w-full border rounded-xl p-2 text-sm" required={estRecurrente} />
+                  </div>
+
+                  {/* Jour(s) de la semaine */}
+                  {type === "journee" && (
+                    <div>
+                      <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+                        Chaque *
+                      </label>
+                      <select value={jourRecurrence}
+                        onChange={e => setJourRecurrence(parseInt(e.target.value))}
+                        className="w-full border rounded-xl p-2 text-sm">
+                        {JOURS_SEMAINE.map(j => (
+                          <option key={j.value} value={j.value}>{j.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {type === "sejour" && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+                          Arrivée chaque *
+                        </label>
+                        <select value={jourArrivee}
+                          onChange={e => setJourArrivee(parseInt(e.target.value))}
+                          className="w-full border rounded-xl p-2 text-sm">
+                          {JOURS_SEMAINE.map(j => (
+                            <option key={j.value} value={j.value}>{j.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+                          Départ chaque *
+                        </label>
+                        <select value={jourDepart}
+                          onChange={e => setJourDepart(parseInt(e.target.value))}
+                          className="w-full border rounded-xl p-2 text-sm">
+                          {JOURS_SEMAINE.map(j => (
+                            <option key={j.value} value={j.value}>{j.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Durée */}
+                  <div>
+                    <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+                      Durée *
+                    </label>
+                    <div className="flex gap-2">
+                      {(["1mois", "3mois", "6mois"] as const).map(d => (
+                        <button key={d} type="button"
+                          onClick={() => setDureeRecurrence(d)}
+                          className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 transition ${
+                            dureeRecurrence === d ? "text-white border-transparent" : "bg-white"
+                          }`}
+                          style={{
+                            backgroundColor: dureeRecurrence === d ? "#4AAEA0" : "white",
+                            borderColor: dureeRecurrence === d ? "#4AAEA0" : "#E2E8F0",
+                            color: dureeRecurrence === d ? "white" : "#1B2B5E",
+                          }}>
+                          {d === "1mois" ? "1 mois" : d === "3mois" ? "3 mois" : "6 mois"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Dates exclues */}
+                  <div>
+                    <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+                      Dates à exclure (ex: vacances)
+                    </label>
+                    <div className="flex gap-2 mb-2">
+                      <input type="date" value={dateExclueInput}
+                        onChange={e => setDateExclueInput(e.target.value)}
+                        className="border rounded-xl p-2 text-sm flex-1" />
+                      <button type="button"
+                        onClick={() => {
+                          if (dateExclueInput && !datesExclues.includes(dateExclueInput)) {
+                            setDatesExclues([...datesExclues, dateExclueInput]);
+                            setDateExclueInput("");
+                          }
+                        }}
+                        className="px-3 py-2 rounded-xl text-sm font-semibold text-white"
+                        style={{ backgroundColor: "#E8847A" }}>
+                        ➕ Exclure
+                      </button>
+                    </div>
+                    {datesExclues.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {datesExclues.map(d => (
+                          <span key={d} className="flex items-center gap-1 px-2 py-1 bg-red-50 text-red-600 rounded-lg text-xs">
+                            {new Date(d + "T12:00:00").toLocaleDateString("fr-CH")}
+                            <button type="button" onClick={() => setDatesExclues(datesExclues.filter(x => x !== d))}>
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Aperçu des dates */}
+                  {apercu.length > 0 && (
+                    <div className="bg-white rounded-xl p-3 border">
+                      <p className="text-sm font-semibold mb-2" style={{ color: "#1B2B5E" }}>
+                        📋 Aperçu — {apercu.length} réservation(s) :
+                      </p>
+                      <div className="max-h-40 overflow-y-auto space-y-1">
+                        {apercu.map((d, i) => (
+                          <p key={i} className="text-xs text-gray-600">
+                            {type === "journee"
+                              ? new Date(d + "T12:00:00").toLocaleDateString("fr-CH", { weekday: "long", day: "numeric", month: "long" })
+                              : (() => {
+                                  const [dDebut, dFin] = d.split("→");
+                                  return `${new Date(dDebut + "T12:00:00").toLocaleDateString("fr-CH", { weekday: "short", day: "numeric", month: "short" })} → ${new Date(dFin + "T12:00:00").toLocaleDateString("fr-CH", { weekday: "short", day: "numeric", month: "short" })}`;
+                                })()
+                            }
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
-          </div>
+          )}
+
+          {/* Dates — masquées si récurrent */}
+          {!estRecurrente && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block font-semibold mb-1">Date début *</label>
+                <input name="date_debut" type="date" required={!estRecurrente}
+                  value={dateDebut}
+                  onChange={e => handleDateDebutChange(e.target.value)}
+                  className="w-full border rounded-xl p-3" />
+              </div>
+              <div>
+                <label className="block font-semibold mb-1">Date fin *</label>
+                {type === "journee" || type === "essai" ? (
+                  <>
+                    <input name="date_fin" type="date"
+                      value={dateDebut} readOnly
+                      className="w-full border rounded-xl p-3 bg-gray-100 text-gray-500 cursor-not-allowed" />
+                    <p className="text-xs text-gray-400 mt-1">Même jour que l'arrivée</p>
+                  </>
+                ) : (
+                  <input name="date_fin" type="date" required={!estRecurrente}
+                    value={dateFin} min={dateDebut}
+                    onChange={e => setDateFin(e.target.value)}
+                    className="w-full border rounded-xl p-3" />
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Box — suggestion automatique */}
           <div>
@@ -273,19 +551,21 @@ export default function FormReservation({
                 {suggestionBox.message}
               </div>
             )}
-            <select
-              value={boxId}
+            <select value={boxId}
               onChange={e => { setBoxId(e.target.value); setSuggestionBox(null); }}
-              className="w-full border rounded-xl p-3"
-              required>
+              className="w-full border rounded-xl p-3" required>
               <option value="">-- Sélectionner un box --</option>
               {boxes.map(b => (
                 <option key={b.id} value={b.id}>
-                  Box {b.numero}
-                  {b.id === boxId && suggestionBox ? " ← suggéré" : ""}
+                  Box {b.numero}{b.id === boxId && suggestionBox ? " ← suggéré" : ""}
                 </option>
               ))}
             </select>
+            {estRecurrente && (
+              <p className="text-xs text-gray-400 mt-1">
+                ℹ️ Le même box sera utilisé pour toutes les réservations récurrentes.
+              </p>
+            )}
           </div>
 
           {/* Heures */}
@@ -344,7 +624,7 @@ export default function FormReservation({
             <button type="submit" disabled={loading}
               className="px-6 py-3 rounded-xl font-semibold text-white disabled:opacity-50"
               style={{ backgroundColor: "#4AAEA0" }}>
-              {loading ? "Enregistrement..." : "💾 Enregistrer"}
+              {loading ? "Enregistrement..." : estRecurrente ? `🔁 Créer ${apercu.length} réservation(s)` : "💾 Enregistrer"}
             </button>
             <a href="/reservations"
               className="px-6 py-3 rounded-xl font-semibold"
