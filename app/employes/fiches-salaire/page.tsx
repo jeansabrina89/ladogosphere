@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { supabase } from "../../../src/lib/supabase";
 import Link from "next/link";
 import GestionModeles from "./GestionModeles";
+import BoutonSupprimerFiche from "./BoutonSupprimerFiche";
 
 export default async function FichesSalairePage() {
   const supabaseServer = await createSupabaseServerClient();
@@ -13,22 +14,16 @@ export default async function FichesSalairePage() {
     .from("profiles").select("role").eq("id", user.id).single();
   if (profile?.role !== "admin") redirect("/");
 
-  const { data: employes } = await supabase
-    .from("employes_rh")
+  const { data: modeles } = await supabase
+    .from("modeles_deductions")
     .select("*")
-    .eq("actif", true)
-    .order("nom");
+    .order("ordre");
 
   const { data: fiches } = await supabase
     .from("fiches_salaire")
     .select("*, employes_rh(prenom, nom)")
     .order("annee", { ascending: false })
     .order("mois", { ascending: false });
-
-  const { data: modeles } = await supabase
-    .from("modeles_deductions")
-    .select("*")
-    .order("ordre");
 
   const MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
     "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -91,11 +86,14 @@ export default async function FichesSalairePage() {
                     Net : CHF {Number(f.salaire_net).toFixed(2)}
                   </p>
                 </div>
-                <Link href={`/employes/fiches-salaire/${f.id}`}
-                  className="ml-4 px-3 py-2 rounded-xl text-sm font-semibold text-white"
-                  style={{ backgroundColor: "#C9A84C" }}>
-                  👁️ Voir
-                </Link>
+                <div className="flex ml-4">
+                  <Link href={`/employes/fiches-salaire/${f.id}`}
+                    className="px-3 py-2 rounded-xl text-sm font-semibold text-white"
+                    style={{ backgroundColor: "#C9A84C" }}>
+                    👁️ Voir
+                  </Link>
+                  <BoutonSupprimerFiche id={f.id} />
+                </div>
               </div>
             ))}
           </div>
