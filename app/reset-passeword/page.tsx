@@ -1,108 +1,109 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createSupabaseBrowserClient } from "../../src/lib/supabase-browser";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createBrowserClient } from "@supabase/ssr";
+
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function ResetPasswordPage() {
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [succes, setSucces] = useState(false);
-  const [verifEnCours, setVerifEnCours] = useState(true);
-  const [verifie, setVerifie] = useState(false);
   const router = useRouter();
+  const [etat, setEtat] = useState<"verification" | "pret" | "succes" | "erreur">("verification");
+  const [message, setMessage] = useState("");
+  const [motDePasse, setMotDePasse] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [enCours, setEnCours] = useState(false);
+  const dejaLance = useRef(false);
 
-  // Validation du lien côté navigateur (les scanners d'e-mail n'exécutent pas ce code)
   useEffect(() => {
-    const verifierLien = async () => {
-      const supabase = createSupabaseBrowserClient();
-      const params = new URLSearchParams(window.location.search);
-      const token_hash = params.get("token_hash");
-      const type = params.get("type");
+    if (dejaLance.current) return; // empêche le double-appel de React
+    dejaLance.current = true;
 
-      if (token_hash && type) {
-        const { error } = await supabase.auth.verifyOtp({ type: type as any, token_hash });
-        if (error) {
-          setError("Ce lien est invalide ou a expiré. Veuillez en demander un nouveau.");
-        } else {
-          setVerifie(true);
-          window.history.replaceState({}, "", "/reset-passeword"); // nettoie l'URL
-        }
+    const params = new URLSearchParams(window.location.search);
+    const token_hash = params.get("token_hash");
+    const type = params.get("type");
+
+    if (!token_hash || !type) {
+      setEtat("erreur");
+      setMessage("Lien invalide. Merci de redemander un e-mail de réinitialisation.");
+      return;
+    }
+
+    supabase.auth.verifyOtp({ type: type as any, token_hash }).then(({ error }) => {
+      if (error) {
+        setEtat("erreur");
+        setMessage("Ce lien a expiré ou a déjà été utilisé. Merci de redemander un e-mail.");
       } else {
-        const { data } = await supabase.auth.getSession();
-        if (data.session) setVerifie(true);
-        else setError("Lien manquant ou invalide. Veuillez demander un nouvel e-mail.");
+        setEtat("pret");
       }
-      setVerifEnCours(false);
-    };
-    verifierLien();
+    });
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    if (password.length < 8) { setError("Le mot de passe doit contenir au moins 8 caractères."); return; }
-    if (password !== confirm) { setError("Les mots de passe ne correspondent pas."); return; }
-
-    setLoading(true);
-    const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) {
-      setError("Erreur lors de la mise à jour. Le lien a peut-être expiré.");
-    } else {
-      setSucces(true);
-      setTimeout(() => router.push("/login"), 3000);
+  async function enregistrer() {
+    if (motDePasse.length < 8) {
+      setMessage("Le mot de passe doit contenir au moins 8 caractères.");
+      return;
     }
-    setLoading(false);
-  };
+    if (motDePasse !== confirmation) {
+      setMessage("Les deux mots de passe ne correspondent pas.");
+      return;
+    }
+    setEnCours(true);
+    setMessage("");
+    const { error } = await supabase.auth.updateUser({ password: motDePasse });
+    setEnCours(false);
+    if (error) {
+      setMessage("Erreur : " + error.message);
+      return;
+    }
+    setEtat("succes");
+    setTimeout(() => router.push("/login"), 2500);
+  }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-8" style={{ backgroundColor: "#F5F0E8" }}>
-      <div className="max-w-md w-full bg-white rounded-xl p-8 shadow-lg">
-        <div className="text-center mb-8">
-          <img src="/Logo.png" alt="La Dogosphère" className="h-24 w-24 rounded-full object-cover mx-auto mb-4" />
-          <h1 className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>Nouveau mot de passe</h1>
-          <p className="text-gray-500 mt-2 text-sm">Choisissez un nouveau mot de passe sécurisé</p>
-        </div>
+    <div style={{ maxWidth: 420, margin: "60px auto", padding: 24 }}>
+      <h1 style={{ marginBottom: 16 }}>Réinitialisation du mot de passe</h1>
 
-        {verifEnCours ? (
-          <p className="text-center text-gray-500 text-sm">Validation du lien en cours…</p>
-        ) : succes ? (
-          <div className="bg-green-100 text-green-700 px-4 py-4 rounded-xl text-sm text-center">
-            <p className="font-bold mb-1">✅ Mot de passe mis à jour !</p>
-            <p>Vous allez être redirigé vers la page de connexion...</p>
-          </div>
-        ) : verifie ? (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && <div className="bg-red-100 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>}
-            <div>
-              <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Nouveau mot de passe</label>
-              <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
-                className="w-full border rounded-xl p-3" placeholder="••••••••" minLength={8} />
-              <p className="text-xs text-gray-400 mt-1">Minimum 8 caractères</p>
-            </div>
-            <div>
-              <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Confirmer le mot de passe</label>
-              <input type="password" required value={confirm} onChange={e => setConfirm(e.target.value)}
-                className="w-full border rounded-xl p-3" placeholder="••••••••" />
-            </div>
-            <button type="submit" disabled={loading}
-              className="w-full py-3 rounded-xl font-semibold text-white disabled:opacity-50"
-              style={{ backgroundColor: "#4AAEA0" }}>
-              {loading ? "Mise à jour..." : "🔑 Mettre à jour le mot de passe"}
-            </button>
-          </form>
-        ) : (
-          <div className="bg-red-100 text-red-700 px-4 py-4 rounded-xl text-sm text-center">
-            <p>{error || "Lien invalide."}</p>
-            <button onClick={() => router.push("/login")} className="mt-3 font-semibold" style={{ color: "#4AAEA0" }}>
-              ← Retour à la connexion
-            </button>
-          </div>
-        )}
-      </div>
-    </main>
+      {etat === "verification" && <p>Vérification du lien en cours…</p>}
+
+      {etat === "erreur" && (
+        <>
+          <p style={{ color: "#b00" }}>{message}</p>
+          <button onClick={() => router.push("/login")} style={{ marginTop: 12 }}>
+            Retour à la connexion
+          </button>
+        </>
+      )}
+
+      {etat === "pret" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <input
+            type="password"
+            placeholder="Nouveau mot de passe"
+            value={motDePasse}
+            onChange={(e) => setMotDePasse(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Confirmer le mot de passe"
+            value={confirmation}
+            onChange={(e) => setConfirmation(e.target.value)}
+          />
+          {message && <p style={{ color: "#b00" }}>{message}</p>}
+          <button onClick={enregistrer} disabled={enCours}>
+            {enCours ? "Enregistrement…" : "Enregistrer le nouveau mot de passe"}
+          </button>
+        </div>
+      )}
+
+      {etat === "succes" && (
+        <p style={{ color: "#080" }}>
+          Mot de passe modifié ✓ Redirection vers la connexion…
+        </p>
+      )}
+    </div>
   );
 }
