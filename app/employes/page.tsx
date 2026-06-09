@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createSupabaseServerClient } from "../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { supabase } from "../../src/lib/supabase";
+import BoutonSupprimerEmploye from "./BoutonSupprimerEmploye";
 
 export default async function EmployesPage() {
   const supabaseServer = await createSupabaseServerClient();
@@ -13,9 +14,11 @@ export default async function EmployesPage() {
   if (profile?.role !== "admin") redirect("/");
 
   const { data: employesRh } = await supabase
-    .from("employes_rh")
-    .select("*")
-    .order("nom");
+  .from("employes_rh")
+  .select("*")
+  .order("actif", { ascending: false })      // actifs en premier
+  .order("taux_travail", { ascending: false }) // 100% → dégressif
+  .order("nom", { ascending: true });          // puis ordre alphabétique
 
   const { data: profiles } = await supabase
     .from("profiles")
@@ -122,8 +125,8 @@ export default async function EmployesPage() {
                       style={{ backgroundColor: "#E8847A" }}>
                       📊 Fiche
                     </Link>
+                    <BoutonSupprimerEmploye id={emp.id} nom={`${emp.prenom} ${emp.nom}`} />
                   </div>
-                </div>
 
                 {profil && profil.role === "employe" && (
                   <div className="mt-4 border-t pt-4">
