@@ -14,11 +14,11 @@ export default async function EmployesPage() {
   if (profile?.role !== "admin") redirect("/");
 
   const { data: employesRh } = await supabase
-  .from("employes_rh")
-  .select("*")
-  .order("actif", { ascending: false })      // actifs en premier
-  .order("taux_travail", { ascending: false }) // 100% → dégressif
-  .order("nom", { ascending: true });          // puis ordre alphabétique
+    .from("employes_rh")
+    .select("*")
+    .order("actif", { ascending: false })
+    .order("taux_travail", { ascending: false })
+    .order("nom", { ascending: true });
 
   const { data: profiles } = await supabase
     .from("profiles")
@@ -127,6 +127,7 @@ export default async function EmployesPage() {
                     </Link>
                     <BoutonSupprimerEmploye id={emp.id} nom={`${emp.prenom} ${emp.nom}`} />
                   </div>
+                </div>
 
                 {profil && profil.role === "employe" && (
                   <div className="mt-4 border-t pt-4">
