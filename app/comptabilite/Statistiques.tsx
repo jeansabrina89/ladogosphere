@@ -10,6 +10,8 @@ type StatMois = {
   mois: string;
   ca: number;
   ca_annee_prec: number;
+  ca_cotisations: number;
+  ca_total: number;
   nb_reservations: number;
   nb_chiens_total: number;
   taux_remplissage: number;
@@ -48,19 +50,19 @@ export default function Statistiques({
     import("xlsx").then(XLSX => {
       const wb = XLSX.utils.book_new();
 
-      // Feuille CA
       const wsCA = XLSX.utils.json_to_sheet(statsMois.map(m => ({
         "Mois": m.mois,
         [`CA ${annee} (CHF)`]: m.ca,
+        [`Cotisations ${annee} (CHF)`]: m.ca_cotisations,
+        [`Total ${annee} (CHF)`]: m.ca_total,
         [`CA ${annee - 1} (CHF)`]: m.ca_annee_prec,
         "Évolution (%)": m.ca_annee_prec > 0
           ? ((m.ca - m.ca_annee_prec) / m.ca_annee_prec * 100).toFixed(1)
           : "—",
       })));
-      wsCA["!cols"] = [{ wch: 8 }, { wch: 15 }, { wch: 15 }, { wch: 12 }];
+      wsCA["!cols"] = [{ wch: 8 }, { wch: 15 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 12 }];
       XLSX.utils.book_append_sheet(wb, wsCA, `CA ${annee}`);
 
-      // Feuille chiens
       const wsChiens = XLSX.utils.json_to_sheet(statsMois.map(m => ({
         "Mois": m.mois,
         "Nb chiens": m.nb_chiens_total,
@@ -69,7 +71,6 @@ export default function Statistiques({
       wsChiens["!cols"] = [{ wch: 8 }, { wch: 12 }, { wch: 16 }];
       XLSX.utils.book_append_sheet(wb, wsChiens, `Chiens ${annee}`);
 
-      // Feuille taux remplissage
       const wsTaux = XLSX.utils.json_to_sheet(statsMois.map(m => ({
         "Mois": m.mois,
         "Taux remplissage (%)": m.taux_remplissage,
@@ -77,7 +78,6 @@ export default function Statistiques({
       wsTaux["!cols"] = [{ wch: 8 }, { wch: 20 }];
       XLSX.utils.book_append_sheet(wb, wsTaux, `Remplissage ${annee}`);
 
-      // Feuille journalière
       if (statsJours.length > 0) {
         const wsJours = XLSX.utils.json_to_sheet(statsJours.map(j => ({
           "Jour": j.jour,
@@ -96,41 +96,40 @@ export default function Statistiques({
     <div className="space-y-6">
 
       {/* Résumé annuel */}
-<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-  <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-    <p className="text-3xl font-bold" style={{ color: "#1B2B5E" }}>
-      {totalAnnee.toFixed(2)} CHF
-    </p>
-    <p className="text-gray-500 text-sm mt-1">CA réservations {annee}</p>
-    {evolution && (
-      <p className={`text-sm font-semibold mt-1 ${parseFloat(evolution) >= 0 ? "text-green-600" : "text-red-600"}`}>
-        {parseFloat(evolution) >= 0 ? "▲" : "▼"} {Math.abs(parseFloat(evolution))}% vs {annee - 1}
-      </p>
-    )}
-  </div>
-  <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-    <p className="text-3xl font-bold" style={{ color: "#4AAEA0" }}>
-      {totalCotisations.toFixed(2)} CHF
-    </p>
-    <p className="text-gray-500 text-sm mt-1">⭐ Cotisations {annee}</p>
-  </div>
-  <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-    <p className="text-3xl font-bold" style={{ color: "#C9A84C" }}>
-      {totalGeneral.toFixed(2)} CHF
-    </p>
-    <p className="text-gray-500 text-sm mt-1">💰 Total général {annee}</p>
-  </div>
-  <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-    <p className="text-3xl font-bold" style={{ color: "#E8847A" }}>
-      {totalAnneePrec.toFixed(2)} CHF
-    </p>
-    <p className="text-gray-500 text-sm mt-1">CA total {annee - 1}</p>
-  </div>
-</div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+          <p className="text-3xl font-bold" style={{ color: "#1B2B5E" }}>
+            {totalAnnee.toFixed(2)} CHF
+          </p>
+          <p className="text-gray-500 text-sm mt-1">CA réservations {annee}</p>
+          {evolution && (
+            <p className={`text-sm font-semibold mt-1 ${parseFloat(evolution) >= 0 ? "text-green-600" : "text-red-600"}`}>
+              {parseFloat(evolution) >= 0 ? "▲" : "▼"} {Math.abs(parseFloat(evolution))}% vs {annee - 1}
+            </p>
+          )}
+        </div>
+        <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+          <p className="text-3xl font-bold" style={{ color: "#4AAEA0" }}>
+            {totalCotisations.toFixed(2)} CHF
+          </p>
+          <p className="text-gray-500 text-sm mt-1">⭐ Cotisations {annee}</p>
+        </div>
+        <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+          <p className="text-3xl font-bold" style={{ color: "#C9A84C" }}>
+            {totalGeneral.toFixed(2)} CHF
+          </p>
+          <p className="text-gray-500 text-sm mt-1">💰 Total général {annee}</p>
+        </div>
+        <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+          <p className="text-3xl font-bold" style={{ color: "#E8847A" }}>
+            {totalAnneePrec.toFixed(2)} CHF
+          </p>
+          <p className="text-gray-500 text-sm mt-1">CA total {annee - 1}</p>
+        </div>
+      </div>
 
       {/* Graphiques */}
       <div className="bg-white rounded-xl p-6 shadow-sm">
-
         <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
           <div className="flex gap-2 flex-wrap">
             {[
@@ -171,7 +170,8 @@ export default function Statistiques({
               <Tooltip formatter={(v: any) => `${v} CHF`} />
               <Legend />
               <Bar dataKey="ca" name={`CA ${annee}`} fill="#4AAEA0" radius={[4,4,0,0]} />
-              <Bar dataKey="ca_annee_prec" name={`CA ${annee - 1}`} fill="#C9A84C" radius={[4,4,0,0]} />
+              <Bar dataKey="ca_cotisations" name={`Cotisations ${annee}`} fill="#C9A84C" radius={[4,4,0,0]} />
+              <Bar dataKey="ca_annee_prec" name={`CA ${annee - 1}`} fill="#E8847A" radius={[4,4,0,0]} />
             </BarChart>
           ) : vue === "chiens" ? (
             <BarChart data={statsMois}>
@@ -221,6 +221,8 @@ export default function Statistiques({
             <tr style={{ backgroundColor: "#1B2B5E" }}>
               <th className="px-4 py-3 text-left text-sm font-semibold text-white">Mois</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">CA {annee}</th>
+              <th className="px-4 py-3 text-right text-sm font-semibold text-white">⭐ Cotisations</th>
+              <th className="px-4 py-3 text-right text-sm font-semibold text-white">💰 Total</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">CA {annee - 1}</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">Évolution</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">Réservations</th>
@@ -242,6 +244,12 @@ export default function Statistiques({
                   </td>
                   <td className="px-4 py-3 text-sm text-right font-semibold" style={{ color: "#4AAEA0" }}>
                     {m.ca > 0 ? `${m.ca.toFixed(2)} CHF` : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right font-semibold" style={{ color: "#C9A84C" }}>
+                    {m.ca_cotisations > 0 ? `${m.ca_cotisations.toFixed(2)} CHF` : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right font-bold" style={{ color: "#1B2B5E" }}>
+                    {m.ca_total > 0 ? `${m.ca_total.toFixed(2)} CHF` : "—"}
                   </td>
                   <td className="px-4 py-3 text-sm text-right text-gray-500">
                     {m.ca_annee_prec > 0 ? `${m.ca_annee_prec.toFixed(2)} CHF` : "—"}
