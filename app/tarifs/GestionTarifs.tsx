@@ -33,18 +33,20 @@ const GROUPES = [
 ];
 
 export default function GestionTarifs({
-  tarifs, annee, anneesDisponibles, cotisationMontant,
+  tarifs, annee, anneesDisponibles, cotisationMontant, ibanInitial,
 }: {
   tarifs: Tarif[];
   annee: number;
   anneesDisponibles: number[];
   cotisationMontant: number;
+  ibanInitial: string;
 }) {
   const router = useRouter();
   const [tarifsLocaux, setTarifsLocaux] = useState<Record<string, number>>(
     Object.fromEntries(tarifs.map(t => [`${t.categorie}_${t.membre}`, parseFloat(t.prix)]))
   );
   const [cotisation, setCotisation] = useState(cotisationMontant);
+  const [iban, setIban] = useState(ibanInitial);
   const [nouvelleAnnee, setNouvelleAnnee] = useState(annee + 1);
   const [loading, setLoading] = useState(false);
   const [succes, setSucces] = useState("");
@@ -63,7 +65,7 @@ export default function GestionTarifs({
     const res = await fetch("/api/tarifs", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ updates, cotisation }),
+      body: JSON.stringify({ updates, cotisation, iban }),
     });
 
     if (res.ok) {
@@ -133,7 +135,7 @@ export default function GestionTarifs({
         <h2 className="text-xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
           ⭐ Cotisation membre {annee}
         </h2>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <label className="font-semibold text-sm" style={{ color: "#1B2B5E" }}>
             Montant annuel (CHF) :
           </label>
@@ -143,6 +145,23 @@ export default function GestionTarifs({
             style={{ color: "#1B2B5E" }} />
           <span className="text-sm text-gray-500">CHF / an — valable du 01.01 au 31.12.{annee}</span>
         </div>
+      </div>
+
+      {/* IBAN */}
+      <div className="bg-white rounded-xl p-6 shadow-sm">
+        <h2 className="text-xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
+          🏦 IBAN La Dogosphère Sàrl
+        </h2>
+        <div className="flex items-center gap-4 flex-wrap">
+          <input type="text" value={iban}
+            onChange={e => setIban(e.target.value)}
+            className="border rounded-xl p-3 flex-1 font-mono text-sm"
+            placeholder="CH00 0000 0000 0000 0000 0"
+            style={{ color: "#1B2B5E" }} />
+        </div>
+        <p className="text-xs text-gray-400 mt-2">
+          Utilisé dans les emails de demande de paiement et rappels de cotisation.
+        </p>
       </div>
 
       {/* Tableaux de tarifs par groupe */}

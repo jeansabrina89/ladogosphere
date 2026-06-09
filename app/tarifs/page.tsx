@@ -26,11 +26,10 @@ export default async function TarifsPage({
     .eq("actif", true)
     .order("categorie");
 
-  const { data: parametre } = await supabase
+  const { data: parametres } = await supabase
     .from("parametres")
-    .select("valeur")
-    .eq("cle", "cotisation_montant")
-    .single();
+    .select("cle, valeur")
+    .in("cle", ["cotisation_montant", "iban"]);
 
   const { data: anneesDispo } = await supabase
     .from("tarifs")
@@ -38,6 +37,11 @@ export default async function TarifsPage({
     .order("annee", { ascending: false });
 
   const anneesUniques = [...new Set(anneesDispo?.map(t => t.annee) ?? [])];
+
+  const cotisationMontant = parseFloat(
+    parametres?.find(p => p.cle === "cotisation_montant")?.valeur ?? "180"
+  );
+  const iban = parametres?.find(p => p.cle === "iban")?.valeur ?? "CH00 0000 0000 0000 0000 0";
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -49,7 +53,8 @@ export default async function TarifsPage({
           tarifs={tarifs ?? []}
           annee={annee}
           anneesDisponibles={anneesUniques}
-          cotisationMontant={parseFloat(parametre?.valeur ?? "180")}
+          cotisationMontant={cotisationMontant}
+          ibanInitial={iban}
         />
       </div>
     </main>

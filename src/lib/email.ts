@@ -367,3 +367,77 @@ export async function envoyerEmailRappelVeille({
     `),
   });
 }
+export async function envoyerEmailRappelCotisation({
+  email, prenom, nom, annee, montant, iban,
+}: {
+  email: string; prenom: string; nom: string; annee: number; montant: number; iban: string;
+}) {
+  const anneeProchaine = annee + 1;
+  await resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: `⭐ Renouvellement de votre cotisation membre ${annee}`,
+    html: emailTemplate(`
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom} ! ⭐</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">
+        Votre cotisation membre La Dogosphère arrive à échéance le <strong>31 décembre ${annee}</strong>.
+      </p>
+
+      <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
+        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">⭐ Votre adhésion</h3>
+        <table cellpadding="0" cellspacing="0" style="width:100%;">
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Statut actuel</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">⭐ Membre actif</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Valable jusqu'au</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">31 décembre ${annee}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Cotisation ${anneeProchaine}</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">CHF ${montant.toFixed(2)}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">
+        <p style="margin:0 0 8px 0; color:#1B5E4F; font-size:14px; font-weight:bold;">🐾 Avantages membres</p>
+        <p style="margin:0; color:#1B5E4F; font-size:13px;">
+          ✔ Tarifs préférentiels sur toutes les réservations<br/>
+          ✔ Accès aux réservations d'urgence<br/>
+          ✔ Priorité lors des périodes chargées
+        </p>
+      </div>
+
+      <div style="background-color:#FFF8E1; border-left:4px solid #C9A84C; border-radius:8px; padding:16px; margin:0 0 24px 0;">
+        <p style="margin:0 0 12px 0; color:#7A5C00; font-size:14px; font-weight:bold;">🏦 Comment renouveler ?</p>
+        <p style="margin:0 0 8px 0; color:#7A5C00; font-size:13px;">
+          Effectuez un virement bancaire avec les informations suivantes :
+        </p>
+        <table cellpadding="0" cellspacing="0" style="width:100%;">
+          <tr>
+            <td style="padding:4px 0; color:#7A5C00; font-size:13px; width:35%;">IBAN</td>
+            <td style="padding:4px 0; color:#7A5C00; font-weight:bold; font-size:13px;">${iban}</td>
+          </tr>
+          <tr>
+            <td style="padding:4px 0; color:#7A5C00; font-size:13px;">Titulaire</td>
+            <td style="padding:4px 0; color:#7A5C00; font-weight:bold; font-size:13px;">La Dogosphère Sàrl</td>
+          </tr>
+          <tr>
+            <td style="padding:4px 0; color:#7A5C00; font-size:13px;">Montant</td>
+            <td style="padding:4px 0; color:#7A5C00; font-weight:bold; font-size:13px;">CHF ${montant.toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td style="padding:4px 0; color:#7A5C00; font-size:13px;">Référence</td>
+            <td style="padding:4px 0; color:#7A5C00; font-weight:bold; font-size:13px;">${prenom} ${nom} Cotisation ${anneeProchaine}</td>
+          </tr>
+        </table>
+      </div>
+
+      <p style="color:#6B7280; font-size:14px; margin:0;">
+        Merci pour votre fidélité ! Nous espérons vous accueillir encore longtemps. 🐶
+      </p>
+    `),
+  });
+}

@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/rappel-veille",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/rappel-cotisation",
+      "schedule": "0 9 1 12 *"
     }
   ]
 }
