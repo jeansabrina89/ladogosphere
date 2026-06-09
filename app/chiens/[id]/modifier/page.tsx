@@ -118,6 +118,27 @@ export default async function ModifierChienPage({
               className="w-full border rounded-xl p-3" />
           </div>
 
+          {/* Vétérinaire */}
+          <div className="border-t pt-4">
+            <h2 className="font-bold mb-3" style={{ color: "#1B2B5E" }}>
+              🩺 Vétérinaire
+            </h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block font-semibold mb-1">Nom du vétérinaire</label>
+                <input name="veterinaire_nom"
+                  defaultValue={chien.veterinaire_nom || ""}
+                  className="w-full border rounded-xl p-3" />
+              </div>
+              <div>
+                <label className="block font-semibold mb-1">Téléphone du vétérinaire</label>
+                <input name="veterinaire_telephone"
+                  defaultValue={chien.veterinaire_telephone || ""}
+                  className="w-full border rounded-xl p-3" />
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="block font-semibold mb-1">Comportement / Sociabilité</label>
             <textarea name="comportement" rows={3}

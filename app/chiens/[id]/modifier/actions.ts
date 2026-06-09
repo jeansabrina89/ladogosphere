@@ -27,6 +27,8 @@ export async function modifierChien(id: string, formData: FormData) {
       niveau_energie: formData.get("niveau_energie"),
       allergies: formData.get("allergies"),
       traitements: formData.get("traitements"),
+      veterinaire_nom: formData.get("veterinaire_nom"),
+      veterinaire_telephone: formData.get("veterinaire_telephone"),
       comportement: formData.get("comportement"),
       comportement_autre: formData.get("comportement_autre") || null,
       protection_ressources: formData.get("protection_ressources") === "on",
