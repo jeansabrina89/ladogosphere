@@ -93,6 +93,8 @@ export default async function ClientPage({
             cotisation_existante={!!cotisationAnneeActuelle}
             montant={montantCotisation}
             annee={anneeActuelle}
+            est_exempte={client.cotisation_exemptee}
+            raison_exemption={client.cotisation_exemptee_raison}
           />
 
           {/* Historique des cotisations */}

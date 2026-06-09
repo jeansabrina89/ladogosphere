@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 export default function BoutonCotisation({
   client_id, client_nom, est_membre, cotisation_existante, montant, annee,
+  est_exempte = false, raison_exemption,
 }: {
   client_id: string;
   client_nom: string;
@@ -12,6 +13,8 @@ export default function BoutonCotisation({
   cotisation_existante: boolean;
   montant: number;
   annee: number;
+  est_exempte?: boolean;
+  raison_exemption?: string | null;
 }) {
   const [ouvert, setOuvert] = useState(false);
   const [mode, setMode] = useState<"cash" | "virement" | "prochaine_resa">("cash");
@@ -44,6 +47,14 @@ export default function BoutonCotisation({
     setLoading(false);
   };
 
+  if (est_exempte) {
+    return (
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm font-semibold text-amber-800">
+        🎟️ Client exempté de cotisation{raison_exemption ? ` — ${raison_exemption}` : ""}
+      </div>
+    );
+  }
+
   if (cotisation_existante) {
     return (
       <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-700 font-semibold">
@@ -70,7 +81,6 @@ export default function BoutonCotisation({
             Montant : <strong>CHF {montant.toFixed(2)}</strong>
           </p>
 
-          {/* Mode de paiement */}
           <div>
             <label className="block text-sm font-semibold mb-2" style={{ color: "#1B2B5E" }}>
               Mode de paiement *
@@ -95,7 +105,6 @@ export default function BoutonCotisation({
             </div>
           </div>
 
-          {/* Date de paiement — seulement si pas prochaine_resa */}
           {mode !== "prochaine_resa" && (
             <div>
               <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>
