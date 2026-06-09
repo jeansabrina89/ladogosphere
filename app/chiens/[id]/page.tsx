@@ -83,6 +83,14 @@ export default async function ChienPage({
         </div>
 
         <div className="border-t pt-6 mb-8">
+          <h2 className="text-2xl font-bold mb-4">🩺 Santé</h2>
+          <p><strong>Allergies :</strong> {chien.allergies || "Aucune"}</p>
+          <p><strong>Traitements :</strong> {chien.traitements || "Aucun"}</p>
+          <p><strong>Vétérinaire :</strong> {chien.veterinaire_nom || "-"}</p>
+          <p><strong>Téléphone vétérinaire :</strong> {chien.veterinaire_telephone || "-"}</p>
+        </div>
+
+        <div className="border-t pt-6 mb-8">
           <h2 className="text-2xl font-bold mb-4">🐾 Comportement</h2>
           <p className="mb-3">{chien.comportement || "-"}</p>
           <div className="flex flex-wrap gap-2 mb-3">
