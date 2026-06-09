@@ -13,6 +13,8 @@ export async function modifierClient(id: string, formData: FormData) {
       telephone: formData.get("telephone") as string || null,
       adresse: formData.get("adresse") as string || null,
       membre: formData.get("membre") === "on",
+      cotisation_exemptee: formData.get("cotisation_exemptee") === "on",
+      cotisation_exemptee_raison: formData.get("cotisation_exemptee_raison") as string || null,
       contact_urgence_prenom: formData.get("contact_urgence_prenom") as string || null,
       contact_urgence_nom: formData.get("contact_urgence_nom") as string || null,
       contact_urgence_telephone: formData.get("contact_urgence_telephone") as string || null,
