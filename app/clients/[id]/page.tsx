@@ -2,6 +2,7 @@ import Link from "next/link";
 import { supabase } from "../../../src/lib/supabase";
 import BoutonArchiverClient from "./BoutonArchiverClient";
 import BoutonSupprimerClient from "./BoutonSupprimerClient";
+import BoutonCotisation from "./BoutonCotisation";
 
 export default async function ClientPage({
   params,
@@ -17,6 +18,28 @@ export default async function ClientPage({
     .single();
 
   if (!client) return <div>Client introuvable</div>;
+
+  const anneeActuelle = new Date().getFullYear();
+
+  // Cotisations existantes
+  const { data: cotisations } = await supabase
+    .from("cotisations_membres")
+    .select("*")
+    .eq("client_id", id)
+    .order("annee", { ascending: false });
+
+  // Montant cotisation
+  const { data: parametre } = await supabase
+    .from("parametres")
+    .select("valeur")
+    .eq("cle", "cotisation_montant")
+    .single();
+
+  const montantCotisation = parseFloat(parametre?.valeur ?? "180");
+  const cotisationAnneeActuelle = cotisations?.find(c => c.annee === anneeActuelle);
+
+  const MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -45,6 +68,64 @@ export default async function ClientPage({
           <p><strong>Téléphone :</strong> {client.telephone || "—"}</p>
           <p><strong>Adresse :</strong> {client.adresse || "—"}</p>
           <p><strong>Client depuis :</strong> {new Date(client.created_at).toLocaleDateString("fr-CH")}</p>
+        </div>
+
+        {/* Section cotisation membre */}
+        <div className="border-t pt-6 mb-8">
+          <h2 className="text-2xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
+            ⭐ Cotisation membre
+          </h2>
+
+          {/* Alerte si cotisation manquante pour l'année en cours */}
+          {client.membre && !cotisationAnneeActuelle && (
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-4">
+              <p className="text-orange-700 font-semibold text-sm">
+                ⚠️ Aucune cotisation enregistrée pour {anneeActuelle} — renouvellement requis !
+              </p>
+            </div>
+          )}
+
+          {/* Bouton enregistrer/renouveler */}
+          <BoutonCotisation
+            client_id={client.id}
+            client_nom={`${client.prenom} ${client.nom}`}
+            est_membre={client.membre}
+            cotisation_existante={!!cotisationAnneeActuelle}
+            montant={montantCotisation}
+            annee={anneeActuelle}
+          />
+
+          {/* Historique des cotisations */}
+          {cotisations && cotisations.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Historique</p>
+              {cotisations.map((c: any) => (
+                <div key={c.id} className="flex justify-between items-center border rounded-xl p-3">
+                  <div>
+                    <p className="font-semibold text-sm" style={{ color: "#1B2B5E" }}>
+                      Cotisation {c.annee}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {c.mode_paiement === "cash" ? "💵 Cash" :
+                       c.mode_paiement === "virement" ? "🏦 Virement IBAN" :
+                       c.mode_paiement === "prochaine_resa" ? "📅 Prochaine réservation" : "—"}
+                      {c.date_paiement && ` — ${new Date(c.date_paiement).toLocaleDateString("fr-CH")}`}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-sm" style={{ color: "#4AAEA0" }}>
+                      CHF {Number(c.montant).toFixed(2)}
+                    </p>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                      c.statut === "payee" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+                    }`}>
+                      {c.statut === "payee" ? "✅ Payée" : "⏳ En attente"}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Contact d'urgence */}
