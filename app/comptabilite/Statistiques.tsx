@@ -27,12 +27,16 @@ export default function Statistiques({
   annee,
   totalAnnee,
   totalAnneePrec,
+  totalCotisations,
+  totalGeneral,
 }: {
   statsMois: StatMois[];
   statsJours: StatJour[];
   annee: number;
   totalAnnee: number;
   totalAnneePrec: number;
+  totalCotisations: number;
+  totalGeneral: number;
 }) {
   const [vue, setVue] = useState<"ca" | "chiens" | "remplissage">("ca");
 
@@ -92,33 +96,37 @@ export default function Statistiques({
     <div className="space-y-6">
 
       {/* Résumé annuel */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-          <p className="text-3xl font-bold" style={{ color: "#1B2B5E" }}>
-            {totalAnnee.toFixed(2)} CHF
-          </p>
-          <p className="text-gray-500 text-sm mt-1">CA total {annee}</p>
-          {evolution && (
-            <p className={`text-sm font-semibold mt-1 ${parseFloat(evolution) >= 0 ? "text-green-600" : "text-red-600"}`}>
-              {parseFloat(evolution) >= 0 ? "▲" : "▼"} {Math.abs(parseFloat(evolution))}% vs {annee - 1}
-            </p>
-          )}
-        </div>
-        <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-          <p className="text-3xl font-bold" style={{ color: "#4AAEA0" }}>
-            {totalAnneePrec.toFixed(2)} CHF
-          </p>
-          <p className="text-gray-500 text-sm mt-1">CA total {annee - 1}</p>
-        </div>
-        <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-          <p className="text-3xl font-bold" style={{ color: "#C9A84C" }}>
-            {statsMois.filter(m => m.ca > 0).length > 0
-              ? (totalAnnee / statsMois.filter(m => m.ca > 0).length).toFixed(2)
-              : "0.00"} CHF
-          </p>
-          <p className="text-gray-500 text-sm mt-1">CA moyen / mois actif</p>
-        </div>
-      </div>
+<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+  <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+    <p className="text-3xl font-bold" style={{ color: "#1B2B5E" }}>
+      {totalAnnee.toFixed(2)} CHF
+    </p>
+    <p className="text-gray-500 text-sm mt-1">CA réservations {annee}</p>
+    {evolution && (
+      <p className={`text-sm font-semibold mt-1 ${parseFloat(evolution) >= 0 ? "text-green-600" : "text-red-600"}`}>
+        {parseFloat(evolution) >= 0 ? "▲" : "▼"} {Math.abs(parseFloat(evolution))}% vs {annee - 1}
+      </p>
+    )}
+  </div>
+  <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+    <p className="text-3xl font-bold" style={{ color: "#4AAEA0" }}>
+      {totalCotisations.toFixed(2)} CHF
+    </p>
+    <p className="text-gray-500 text-sm mt-1">⭐ Cotisations {annee}</p>
+  </div>
+  <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+    <p className="text-3xl font-bold" style={{ color: "#C9A84C" }}>
+      {totalGeneral.toFixed(2)} CHF
+    </p>
+    <p className="text-gray-500 text-sm mt-1">💰 Total général {annee}</p>
+  </div>
+  <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+    <p className="text-3xl font-bold" style={{ color: "#E8847A" }}>
+      {totalAnneePrec.toFixed(2)} CHF
+    </p>
+    <p className="text-gray-500 text-sm mt-1">CA total {annee - 1}</p>
+  </div>
+</div>
 
       {/* Graphiques */}
       <div className="bg-white rounded-xl p-6 shadow-sm">
