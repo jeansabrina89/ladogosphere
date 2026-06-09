@@ -17,7 +17,7 @@ export default function BoutonSupprimerEmploye({ id, nom }: { id: string; nom: s
     if (!ok) return;
     startTransition(async () => {
       const res = await supprimerEmploye(id);
-      if (res?.error) alert("Erreur : " + res.error);
+      if (res.error) alert("Erreur : " + res.error);
       else router.refresh();
     });
   }

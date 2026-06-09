@@ -3,7 +3,7 @@
 import { createSupabaseServerClient } from "../../src/lib/supabase-server";
 import { revalidatePath } from "next/cache";
 
-export async function supprimerEmploye(id: string) {
+export async function supprimerEmploye(id: string): Promise<{ error?: string }> {
   const supabase = await createSupabaseServerClient();
 
   // Sécurité : admin uniquement
@@ -13,10 +13,10 @@ export async function supprimerEmploye(id: string) {
     .from("profiles").select("role").eq("id", user.id).single();
   if (profile?.role !== "admin") return { error: "Accès réservé à l'admin" };
 
-  // On supprime l'historique RH lié, puis l'employé (à cause des liens en base)
+  // Historique RH lié, puis l'employé
   const { data: fiches } = await supabase
     .from("fiches_salaire").select("id").eq("employe_id", id);
-  const ficheIds = (fiches ?? []).map((f) => f.id);
+  const ficheIds = (fiches ?? []).map((f: any) => f.id);
   if (ficheIds.length) {
     await supabase.from("fiche_salaire_deductions").delete().in("fiche_id", ficheIds);
   }
@@ -30,5 +30,5 @@ export async function supprimerEmploye(id: string) {
   if (error) return { error: error.message };
 
   revalidatePath("/employes");
-  return { success: true };
+  return {};
 }
