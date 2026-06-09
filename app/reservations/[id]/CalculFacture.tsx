@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { calculerMontant } from "../../../src/lib/calculTarif";
 
 type Tarif = { categorie: string; membre: boolean; prix: string };
@@ -11,20 +11,25 @@ export default function CalculFacture({
   est_membre,
   tarifs,
   montant_actuel,
+  cotisation_en_attente,
+  cotisation_id,
+  cotisation_montant,
 }: {
   reservation: any;
   nb_chiens: number;
   est_membre: boolean;
   tarifs: Tarif[];
   montant_actuel: number | null;
+  cotisation_en_attente?: boolean;
+  cotisation_id?: string;
+  cotisation_montant?: number;
 }) {
-  console.log("CalculFacture rendu", { nb_chiens, est_membre, tarifs: tarifs.length });
-
   const [est_privatif, setEstPrivatif] = useState(false);
+  const [inclure_cotisation, setInclureCotisation] = useState(cotisation_en_attente ?? false);
   const [sauvegarde, setSauvegarde] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const montant = calculerMontant({
+  const montantBase = calculerMontant({
     tarifs,
     type_reservation: reservation.type_reservation,
     nb_chiens,
@@ -35,13 +40,28 @@ export default function CalculFacture({
     date_fin: reservation.date_fin,
   });
 
+  const montantCotisation = inclure_cotisation && cotisation_montant ? cotisation_montant : 0;
+  const montantTotal = montantBase + montantCotisation;
+
   const handleSauvegarder = async () => {
     setLoading(true);
+
+    // Sauvegarder le montant de la réservation
     const res = await fetch(`/api/reservations/${reservation.id}/montant`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ montant }),
+      body: JSON.stringify({ montant: montantTotal }),
     });
+
+    // Si cotisation incluse, la passer en payée
+    if (res.ok && inclure_cotisation && cotisation_id) {
+      await fetch(`/api/clients/cotisation/${cotisation_id}/payer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date_paiement: new Date().toISOString().split("T")[0] }),
+      });
+    }
+
     if (res.ok) setSauvegarde(true);
     setLoading(false);
   };
@@ -65,7 +85,8 @@ export default function CalculFacture({
           <div>
             <p className="text-gray-500">Type</p>
             <p className="font-semibold">
-              {reservation.type_reservation === "journee" ? "Journée" : "Séjour"}
+              {reservation.type_reservation === "journee" ? "Journée" :
+               reservation.type_reservation === "sejour" ? "Séjour" : "Journée d'essai"}
             </p>
           </div>
           <div>
@@ -90,21 +111,52 @@ export default function CalculFacture({
           )}
         </div>
 
-        <div className="border-t pt-3 flex justify-between items-center">
-          <div>
-            <p className="text-gray-500 text-sm">Montant calculé</p>
-            <p className="text-3xl font-bold text-blue-600">{montant} CHF</p>
+        {/* Cotisation en attente */}
+        {cotisation_en_attente && cotisation_montant && (
+          <div className="border rounded-xl p-3 bg-yellow-50 border-yellow-200">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox"
+                checked={inclure_cotisation}
+                onChange={e => setInclureCotisation(e.target.checked)} />
+              <span className="text-sm font-semibold text-yellow-800">
+                ⭐ Inclure cotisation membre {new Date().getFullYear()} — CHF {cotisation_montant.toFixed(2)}
+              </span>
+            </label>
+            <p className="text-xs text-yellow-600 mt-1 ml-6">
+              Le client a choisi de payer sa cotisation lors de cette réservation.
+            </p>
           </div>
-          <div className="text-right">
-            {montant_actuel && (
-              <p className="text-sm text-gray-400 mb-1">
-                Actuel : {montant_actuel} CHF
-              </p>
-            )}
-            <button onClick={handleSauvegarder} disabled={loading}
-              className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-50">
-              {sauvegarde ? "✅ Sauvegardé" : loading ? "..." : "💾 Sauvegarder"}
-            </button>
+        )}
+
+        <div className="border-t pt-3 space-y-2">
+          {inclure_cotisation && cotisation_montant && (
+            <div className="flex justify-between text-sm text-gray-500">
+              <span>Réservation</span>
+              <span>{montantBase} CHF</span>
+            </div>
+          )}
+          {inclure_cotisation && cotisation_montant && (
+            <div className="flex justify-between text-sm text-yellow-700 font-semibold">
+              <span>⭐ Cotisation membre</span>
+              <span>+ {cotisation_montant.toFixed(2)} CHF</span>
+            </div>
+          )}
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-gray-500 text-sm">Montant total</p>
+              <p className="text-3xl font-bold text-blue-600">{montantTotal} CHF</p>
+            </div>
+            <div className="text-right">
+              {montant_actuel && (
+                <p className="text-sm text-gray-400 mb-1">
+                  Actuel : {montant_actuel} CHF
+                </p>
+              )}
+              <button onClick={handleSauvegarder} disabled={loading}
+                className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-50">
+                {sauvegarde ? "✅ Sauvegardé" : loading ? "..." : "💾 Sauvegarder"}
+              </button>
+            </div>
           </div>
         </div>
 

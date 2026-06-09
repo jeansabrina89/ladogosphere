@@ -36,6 +36,16 @@ export default async function ReservationPage({
 
   const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens).filter(Boolean) ?? [];
   const est_membre = res.clients?.membre ?? false;
+  const anneeActuelle = new Date().getFullYear();
+
+  // Chercher cotisation en attente pour ce client
+  const { data: cotisation } = await supabase
+    .from("cotisations_membres")
+    .select("*")
+    .eq("client_id", res.clients?.id)
+    .eq("statut", "en_attente")
+    .eq("annee", anneeActuelle)
+    .maybeSingle();
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -78,6 +88,15 @@ export default async function ReservationPage({
         {res.urgence && (
           <div className="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl mb-6 font-semibold">
             🚨 Réservation urgence
+          </div>
+        )}
+
+        {/* Alerte cotisation en attente */}
+        {cotisation && (
+          <div className="bg-yellow-50 border border-yellow-200 px-4 py-3 rounded-xl mb-6">
+            <p className="text-yellow-800 font-semibold text-sm">
+              ⭐ Ce client a une cotisation membre {anneeActuelle} en attente de paiement (CHF {Number(cotisation.montant).toFixed(2)}) — elle peut être incluse dans cette facture.
+            </p>
           </div>
         )}
 
@@ -141,6 +160,9 @@ export default async function ReservationPage({
           est_membre={est_membre}
           tarifs={tarifs ?? []}
           montant_actuel={res.montant_final}
+          cotisation_en_attente={!!cotisation}
+          cotisation_id={cotisation?.id}
+          cotisation_montant={cotisation ? Number(cotisation.montant) : undefined}
         />
 
         {/* Paiement */}
