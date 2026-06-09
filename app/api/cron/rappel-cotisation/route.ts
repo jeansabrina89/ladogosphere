@@ -27,7 +27,8 @@ export async function GET(req: NextRequest) {
     .from("clients")
     .select("id, prenom, nom, email")
     .eq("membre", true)
-    .eq("actif", true);
+    .eq("actif", true)
+    .eq("cotisation_exemptee", false);
 
   // Ceux qui n'ont pas encore renouvelé pour l'année prochaine
   const { data: cotisationsExistantes } = await supabase
