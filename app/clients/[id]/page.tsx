@@ -74,14 +74,14 @@ export default async function ClientPage({
         {/* Section cotisation membre */}
         <div className="border-t pt-6 mb-8">
           <h2 className="text-2xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
-            ⭐ Cotisation membre
+            ⭐ Adhésion membre
           </h2>
 
           {/* Alerte si cotisation manquante pour l'année en cours */}
           {client.membre && !cotisationAnneeActuelle && (
             <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-4">
               <p className="text-orange-700 font-semibold text-sm">
-                ⚠️ Aucune cotisation enregistrée pour {anneeActuelle} — renouvellement requis !
+                ⚠️ Aucune adhésion enregistrée pour {anneeActuelle} — renouvellement requis !
               </p>
             </div>
           )}
@@ -106,7 +106,7 @@ export default async function ClientPage({
                 <div key={c.id} className="flex justify-between items-center border rounded-xl p-3">
                   <div>
                     <p className="font-semibold text-sm" style={{ color: "#1B2B5E" }}>
-                      Cotisation {c.annee}
+                      Adhésion {c.annee}
                     </p>
                     <p className="text-xs text-gray-500">
                       {c.mode_paiement === "cash" ? "💵 Cash" :

@@ -376,11 +376,11 @@ export async function envoyerEmailRappelCotisation({
   await resend.emails.send({
     from: FROM,
     to: email,
-    subject: `⭐ Renouvellement de votre cotisation membre ${annee}`,
+    subject: `⭐ Renouvellement de votre adhésion membre ${annee}`,
     html: emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom} ! ⭐</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">
-        Votre cotisation membre La Dogosphère arrive à échéance le <strong>31 décembre ${annee}</strong>.
+        Votre adhésion membre La Dogosphère arrive à échéance le <strong>31 décembre ${annee}</strong>.
       </p>
 
       <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
@@ -395,7 +395,7 @@ export async function envoyerEmailRappelCotisation({
             <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">31 décembre ${annee}</td>
           </tr>
           <tr>
-            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Cotisation ${anneeProchaine}</td>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Adhésion ${anneeProchaine}</td>
             <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">CHF ${montant.toFixed(2)}</td>
           </tr>
         </table>
@@ -430,7 +430,7 @@ export async function envoyerEmailRappelCotisation({
           </tr>
           <tr>
             <td style="padding:4px 0; color:#7A5C00; font-size:13px;">Référence</td>
-            <td style="padding:4px 0; color:#7A5C00; font-weight:bold; font-size:13px;">${prenom} ${nom} Cotisation ${anneeProchaine}</td>
+            <td style="padding:4px 0; color:#7A5C00; font-weight:bold; font-size:13px;">${prenom} ${nom} Adhésion ${anneeProchaine}</td>
           </tr>
         </table>
       </div>

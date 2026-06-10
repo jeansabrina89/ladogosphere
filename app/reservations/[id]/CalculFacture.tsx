@@ -119,11 +119,11 @@ export default function CalculFacture({
                 checked={inclure_cotisation}
                 onChange={e => setInclureCotisation(e.target.checked)} />
               <span className="text-sm font-semibold text-yellow-800">
-                ⭐ Inclure cotisation membre {new Date().getFullYear()} — CHF {cotisation_montant.toFixed(2)}
+                ⭐ Inclure adhésion membre {new Date().getFullYear()} — CHF {cotisation_montant.toFixed(2)}
               </span>
             </label>
             <p className="text-xs text-yellow-600 mt-1 ml-6">
-              Le client a choisi de payer sa cotisation lors de cette réservation.
+              Le client a choisi de payer son adhésion lors de cette réservation.
             </p>
           </div>
         )}
@@ -137,7 +137,7 @@ export default function CalculFacture({
           )}
           {inclure_cotisation && cotisation_montant && (
             <div className="flex justify-between text-sm text-yellow-700 font-semibold">
-              <span>⭐ Cotisation membre</span>
+              <span>⭐ Adhésion membre</span>
               <span>+ {cotisation_montant.toFixed(2)} CHF</span>
             </div>
           )}

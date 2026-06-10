@@ -133,7 +133,7 @@ export default function GestionTarifs({
       {/* Cotisation membre */}
       <div className="bg-white rounded-xl p-6 shadow-sm">
         <h2 className="text-xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
-          ⭐ Cotisation membre {annee}
+          ⭐ Adhésion membre {annee}
         </h2>
         <div className="flex items-center gap-4 flex-wrap">
           <label className="font-semibold text-sm" style={{ color: "#1B2B5E" }}>
@@ -160,7 +160,7 @@ export default function GestionTarifs({
             style={{ color: "#1B2B5E" }} />
         </div>
         <p className="text-xs text-gray-400 mt-2">
-          Utilisé dans les emails de demande de paiement et rappels de cotisation.
+          Utilisé dans les emails de demande de paiement et rappels d'adhésion.
         </p>
       </div>
 

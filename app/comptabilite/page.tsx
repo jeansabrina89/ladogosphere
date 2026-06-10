@@ -194,7 +194,7 @@ export default async function ComptabilitePage({
           <div className="bg-white rounded-xl p-6 shadow-sm text-center">
             <p className="text-3xl font-bold" style={{ color: "#4AAEA0" }}>{totalCotisFiltrees.toFixed(2)} CHF</p>
             <p className="text-gray-500 text-sm mt-1">
-              ⭐ Cotisations {moisFiltre ? `(${moisLabels[moisFiltre - 1]})` : `(${annee})`}
+              ⭐ Adhésions {moisFiltre ? `(${moisLabels[moisFiltre - 1]})` : `(${annee})`}
             </p>
           </div>
           <div className="bg-white rounded-xl p-6 shadow-sm text-center">
@@ -307,9 +307,9 @@ export default async function ComptabilitePage({
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b" style={{ backgroundColor: "#F5F0E8" }}>
               <h2 className="font-bold" style={{ color: "#1B2B5E" }}>
-                ⭐ Cotisations membres {moisFiltre ? `— ${moisLabels[moisFiltre - 1]} ${annee}` : `— ${annee}`}
+                ⭐ Adhésions membres {moisFiltre ? `— ${moisLabels[moisFiltre - 1]} ${annee}` : `— ${annee}`}
                 <span className="ml-2 text-sm font-normal text-gray-500">
-                  ({cotisationsFiltrees.length} cotisation(s) — {totalCotisFiltrees.toFixed(2)} CHF)
+                  ({cotisationsFiltrees.length} adhésion(s) — {totalCotisFiltrees.toFixed(2)} CHF)
                 </span>
               </h2>
             </div>

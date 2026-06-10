@@ -53,7 +53,7 @@ export default function Statistiques({
       const wsCA = XLSX.utils.json_to_sheet(statsMois.map(m => ({
         "Mois": m.mois,
         [`CA ${annee} (CHF)`]: m.ca,
-        [`Cotisations ${annee} (CHF)`]: m.ca_cotisations,
+        [`Adhésions ${annee} (CHF)`]: m.ca_cotisations,
         [`Total ${annee} (CHF)`]: m.ca_total,
         [`CA ${annee - 1} (CHF)`]: m.ca_annee_prec,
         "Évolution (%)": m.ca_annee_prec > 0
@@ -112,7 +112,7 @@ export default function Statistiques({
           <p className="text-3xl font-bold" style={{ color: "#4AAEA0" }}>
             {totalCotisations.toFixed(2)} CHF
           </p>
-          <p className="text-gray-500 text-sm mt-1">⭐ Cotisations {annee}</p>
+          <p className="text-gray-500 text-sm mt-1">⭐ Adhésions {annee}</p>
         </div>
         <div className="bg-white rounded-xl p-6 shadow-sm text-center">
           <p className="text-3xl font-bold" style={{ color: "#C9A84C" }}>
@@ -170,7 +170,7 @@ export default function Statistiques({
               <Tooltip formatter={(v: any) => `${v} CHF`} />
               <Legend />
               <Bar dataKey="ca" name={`CA ${annee}`} fill="#4AAEA0" radius={[4,4,0,0]} />
-              <Bar dataKey="ca_cotisations" name={`Cotisations ${annee}`} fill="#C9A84C" radius={[4,4,0,0]} />
+              <Bar dataKey="ca_cotisations" name={`Adhésions ${annee}`} fill="#C9A84C" radius={[4,4,0,0]} />
               <Bar dataKey="ca_annee_prec" name={`CA ${annee - 1}`} fill="#E8847A" radius={[4,4,0,0]} />
             </BarChart>
           ) : vue === "chiens" ? (
@@ -221,7 +221,7 @@ export default function Statistiques({
             <tr style={{ backgroundColor: "#1B2B5E" }}>
               <th className="px-4 py-3 text-left text-sm font-semibold text-white">Mois</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">CA {annee}</th>
-              <th className="px-4 py-3 text-right text-sm font-semibold text-white">⭐ Cotisations</th>
+              <th className="px-4 py-3 text-right text-sm font-semibold text-white">⭐ Adhésions</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">💰 Total</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">CA {annee - 1}</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">Évolution</th>

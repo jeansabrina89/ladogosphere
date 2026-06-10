@@ -79,7 +79,7 @@ export default async function ModifierClientPage({
               <input type="checkbox" name="cotisation_exemptee" id="cotisation_exemptee"
                 defaultChecked={client.cotisation_exemptee} />
               <label htmlFor="cotisation_exemptee" className="font-semibold">
-                🎟️ Exempté de cotisation
+                🎟️ Exempté d'adhésion
               </label>
             </div>
             <div className="mt-3">

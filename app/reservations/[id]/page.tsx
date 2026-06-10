@@ -96,7 +96,7 @@ export default async function ReservationPage({
         {cotisation && (
           <div className="bg-yellow-50 border border-yellow-200 px-4 py-3 rounded-xl mb-6">
             <p className="text-yellow-800 font-semibold text-sm">
-              ⭐ Ce client a une cotisation membre {anneeActuelle} en attente de paiement (CHF {Number(cotisation.montant).toFixed(2)}) — elle peut être incluse dans cette facture.
+              ⭐ Ce client a une adhésion membre {anneeActuelle} en attente de paiement (CHF {Number(cotisation.montant).toFixed(2)}) — elle peut être incluse dans cette facture.
             </p>
           </div>
         )}
