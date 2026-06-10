@@ -1,69 +1,71 @@
 import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
-import { createClient } from "../../../../src/utils/supabase/server";
 import Link from "next/link";
 
-export default async function MesChiensPage() {
-  const supabase = await createClient();
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
+export default async function FicheChienClientPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const supabase = await createSupabaseServerClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: client } = await supabase
-    .from("clients")
-    .select("*, chiens (*)")
-    .eq("auth_user_id", user.id)
-    .single();
+  // La RLS garantit que le client ne peut lire que SES chiens
+  const { data: chien } = await supabase
+    .from("chiens")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
 
-  if (!client) return <div>Profil introuvable</div>;
+  if (!chien) {
+    return (
+      <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
+        <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm text-center">
+          <p className="text-gray-600 mb-4">Chien introuvable.</p>
+          <Link href="/mon-compte/chiens" className="font-semibold" style={{ color: "#4AAEA0" }}>
+            ← Retour à mes chiens
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm">
+        <h1 className="text-3xl font-bold mb-6" style={{ color: "#1B2B5E" }}>
+          🐶 {chien.nom}
+        </h1>
 
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold" style={{ color: "#1B2B5E" }}>
-            🐶 Mes chiens
-          </h1>
-          <Link href="/mon-compte/chiens/nouveau"
-            className="px-4 py-2 rounded-lg font-semibold text-white text-sm"
-            style={{ backgroundColor: "#4AAEA0" }}>
-            ➕ Ajouter
+        <div className="space-y-2 mb-8">
+          <p><strong>Race :</strong> {chien.race || "—"}</p>
+          <p><strong>Couleur :</strong> {chien.couleur || "—"}</p>
+          <p><strong>Poids :</strong> {chien.poids ? `${chien.poids} kg` : "—"}</p>
+          <p><strong>Catégorie :</strong> {
+            chien.categorie_poids === "moins_15kg" ? "🟢 Petit (moins de 15 kg)" :
+            chien.categorie_poids === "15_30kg" ? "🟡 Moyen (15–30 kg)" :
+            chien.categorie_poids === "30_40kg" ? "🔴 Grand (30 kg et +)" : "—"
+          }</p>
+          <p><strong>Sexe :</strong> {chien.sexe === "M" ? "♂️ Mâle" : chien.sexe === "F" ? "♀️ Femelle" : "—"}</p>
+          <p><strong>Stérilisé(e) :</strong> {chien.sterilise ? "Oui" : "Non"}</p>
+          <p><strong>Date de naissance :</strong> {chien.date_naissance ? new Date(chien.date_naissance).toLocaleDateString("fr-CH") : "—"}</p>
+          <p><strong>Numéro de puce :</strong> {chien.numero_puce || "—"}</p>
+        </div>
+
+        <div className="border-t pt-6 space-y-2 mb-8">
+          <h2 className="text-xl font-bold mb-2" style={{ color: "#1B2B5E" }}>Santé</h2>
+          <p><strong>Allergies :</strong> {chien.allergies || "—"}</p>
+          <p><strong>Traitements en cours :</strong> {chien.traitements || "—"}</p>
+          <p><strong>Remarques :</strong> {chien.remarques || "—"}</p>
+        </div>
+
+        <div className="border-t pt-6">
+          <Link href="/mon-compte/chiens" className="font-semibold" style={{ color: "#4AAEA0" }}>
+            ← Retour à mes chiens
           </Link>
         </div>
-
-        <div className="space-y-3">
-          {client.chiens?.length === 0 && (
-            <p className="text-gray-400">Aucun chien enregistré.</p>
-          )}
-          {client.chiens?.map((chien: any) => (
-            <Link key={chien.id} href={`/mon-compte/chiens/${chien.id}`}
-              className="block bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="font-bold text-lg" style={{ color: "#1B2B5E" }}>{chien.nom}</p>
-                  <p className="text-gray-500 text-sm">{chien.race || "—"}</p>
-                </div>
-                <div className="text-right text-sm text-gray-500">
-                  <p>{chien.poids ? `${chien.poids} kg` : "—"}</p>
-                  <p>{
-                    chien.categorie_poids === "moins_15kg" ? "🟢 Petit" :
-                    chien.categorie_poids === "15_30kg" ? "🟡 Moyen" :
-                    chien.categorie_poids === "30_40kg" ? "🔴 Grand" : "—"
-                  }</p>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-
-        <div className="mt-6">
-          <Link href="/mon-compte"
-            className="text-sm font-semibold"
-            style={{ color: "#4AAEA0" }}>
-            ← Retour à mon compte
-          </Link>
-        </div>
-
       </div>
     </main>
   );
