@@ -5,11 +5,11 @@ import { createSupabaseBrowserClient } from "../../src/lib/supabase-browser";
 import { useEffect, useState } from "react";
 
 const liensAdmin = [
-  { href: "/", label: "🏠 Tableau de bord" },
+  { href: "/", label: "📋 Tableau de bord" },
   { href: "/chiens", label: "🐶 Chiens" },
   { href: "/clients", label: "👤 Clients" },
   { href: "/reservations", label: "📅 Réservations" },
-  { href: "/planning", label: "🔲 Planning" },
+  { href: "/planning", label: "🗂️ Planning" },
   { href: "/checkin", label: "✅ Check-in" },
   { href: "/boxes", label: "🏠 Box" },
   { href: "/employes", label: "👥 Équipe" },
@@ -18,11 +18,11 @@ const liensAdmin = [
 ];
 
 const liensEmploye = [
-  { href: "/", label: "🏠 Tableau de bord" },
+  { href: "/", label: "📋 Tableau de bord" },
   { href: "/chiens", label: "🐶 Chiens" },
   { href: "/clients", label: "👤 Clients" },
   { href: "/reservations", label: "📅 Réservations" },
-  { href: "/planning", label: "🔲 Planning" },
+  { href: "/planning", label: "🗂️ Planning" },
   { href: "/checkin", label: "✅ Check-in" },
   { href: "/employes/mon-espace", label: "👤 Mon espace RH" },
 ];
