@@ -42,13 +42,25 @@ export async function POST(req: NextRequest) {
   // Vérifier que les chiens appartiennent bien à la fiche client connectée
   const { data: chiensOwned, error: chiensErr } = await supabaseServer
     .from("chiens")
-    .select("id")
+    .select("id, nom, journee_essai_effectuee, journee_essai_invalide")
     .eq("client_id", fiche.id)
     .in("id", chien_ids);
 
   if (chiensErr) return NextResponse.json({ error: chiensErr.message }, { status: 500 });
   if (!chiensOwned || chiensOwned.length !== chien_ids.length) {
     return NextResponse.json({ error: "Chien(s) invalide(s)." }, { status: 403 });
+  }
+
+  // Séjour / journée : tous les chiens doivent avoir validé leur journée d'essai
+  if (type_reservation !== "essai") {
+    const chiensNonEligibles = chiensOwned.filter(
+      c => !c.journee_essai_effectuee || c.journee_essai_invalide
+    );
+    if (chiensNonEligibles.length > 0) {
+      return NextResponse.json({
+        error: `${chiensNonEligibles.map(c => c.nom).join(", ")} doi${chiensNonEligibles.length > 1 ? "vent" : "t"} d'abord effectuer leur journée d'essai avant de pouvoir réserver un séjour ou une journée.`,
+      }, { status: 400 });
+    }
   }
 
   // Écriture via le client service-role (le client n'a que SELECT en RLS)

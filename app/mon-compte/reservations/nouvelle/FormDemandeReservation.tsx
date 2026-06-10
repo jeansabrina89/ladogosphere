@@ -73,10 +73,18 @@ export default function FormDemandeReservation({
   const [dateExclueInput, setDateExclueInput] = useState("");
   const [apercu, setApercu] = useState<string[]>([]);
 
+  const [chienIdsSelectionnes, setChienIdsSelectionnes] = useState<string[]>([]);
+
   const router = useRouter();
 
   const chiensInvalides = chiens.filter(c => c.journee_essai_invalide);
   const chiensDisponibles = chiens.filter(c => !c.journee_essai_invalide);
+
+  const chiensSelectionnes = chiens.filter(c => chienIdsSelectionnes.includes(c.id));
+  const chiensNonEligiblesSejour = chiensSelectionnes.filter(c => !c.journee_essai_effectuee);
+  const tousEligiblesSejour = chiensSelectionnes.length > 0 && chiensNonEligiblesSejour.length === 0;
+  // Tant qu'aucun chien n'est sélectionné, on se base sur l'accès global du client
+  const afficherChoixComplet = chienIdsSelectionnes.length > 0 ? tousEligiblesSejour : acces_complet;
 
   useEffect(() => {
     const annee = new Date().getFullYear();
@@ -155,6 +163,13 @@ export default function FormDemandeReservation({
       setHeureArrivee("");
     }
   };
+
+  // Si la sélection de chiens ne permet plus le séjour, on retombe sur la journée d'essai
+  useEffect(() => {
+    if (!afficherChoixComplet && type !== "essai") {
+      handleTypeChange("essai");
+    }
+  }, [afficherChoixComplet]);
 
   const handleDateDebutChange = (val: string) => {
     if (estDateInvalide(val)) {
@@ -277,7 +292,7 @@ export default function FormDemandeReservation({
         <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>
           Type de réservation *
         </label>
-        {acces_complet ? (
+        {afficherChoixComplet ? (
           <select name="type_reservation" required
             value={type} onChange={e => handleTypeChange(e.target.value)}
             className="w-full border rounded-xl p-3">
@@ -291,9 +306,17 @@ export default function FormDemandeReservation({
             <div className="border rounded-xl p-3 bg-blue-50 text-sm" style={{ color: "#1B2B5E" }}>
               🧪 Journée d'essai
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              ℹ️ Tous vos chiens doivent effectuer une journée d'essai avant de pouvoir réserver.
-            </p>
+            {chiensNonEligiblesSejour.length > 0 ? (
+              <p className="text-xs text-gray-500 mt-1">
+                ℹ️ {chiensNonEligiblesSejour.map(c => c.nom).join(", ")}{" "}
+                {chiensNonEligiblesSejour.length > 1 ? "doivent" : "doit"} d'abord effectuer
+                {chiensNonEligiblesSejour.length > 1 ? " leur" : " sa"} journée d'essai pour accéder au séjour.
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1">
+                ℹ️ Tous vos chiens doivent effectuer une journée d'essai avant de pouvoir réserver.
+              </p>
+            )}
           </>
         )}
       </div>
@@ -314,7 +337,13 @@ export default function FormDemandeReservation({
           <div className="border rounded-xl p-3 space-y-2">
             {chiensDisponibles.map(c => (
               <label key={c.id} className="flex items-center gap-2">
-                <input type="checkbox" name="chien_ids" value={c.id} />
+                <input type="checkbox" name="chien_ids" value={c.id}
+                  checked={chienIdsSelectionnes.includes(c.id)}
+                  onChange={e => {
+                    setChienIdsSelectionnes(prev =>
+                      e.target.checked ? [...prev, c.id] : prev.filter(id => id !== c.id)
+                    );
+                  }} />
                 <span className="text-sm">
                   {c.nom} — {c.race || "—"} —{" "}
                   {c.poids ? `${c.poids} kg` : "?"} —{" "}
@@ -330,7 +359,7 @@ export default function FormDemandeReservation({
       </div>
 
       {/* Option récurrence — seulement pour journée et séjour avec accès complet */}
-      {acces_complet && (type === "journee" || type === "sejour") && (
+      {afficherChoixComplet && (type === "journee" || type === "sejour") && (
         <div className="border-2 rounded-xl p-4"
           style={{ borderColor: estRecurrente ? "#4AAEA0" : "#E2E8F0", backgroundColor: estRecurrente ? "#E8F5F4" : "white" }}>
           <label className="flex items-center gap-2 cursor-pointer mb-3">
