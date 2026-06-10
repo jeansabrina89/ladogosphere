@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { supabase } from "../../../../src/lib/supabase";
+import { createClient } from "../../../../src/utils/supabase/server";
 
 function calculerCategorie(poids: number): string {
   if (poids < 15) return "moins_15kg";
@@ -10,6 +10,7 @@ function calculerCategorie(poids: number): string {
 }
 
 export async function modifierChien(id: string, formData: FormData) {
+  const supabase = await createClient();
   const poids = Number(formData.get("poids"));
 
   const { error } = await supabase

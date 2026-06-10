@@ -1,9 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { supabase } from "../../src/lib/supabase";
+import { createClient } from "../../src/utils/supabase/server";
 
 export async function fairerCheckin(formData: FormData) {
+  const supabase = await createClient();
   const checkin_id = formData.get("checkin_id") as string;
 
   const { error } = await supabase
@@ -19,6 +20,7 @@ export async function fairerCheckin(formData: FormData) {
 }
 
 export async function fairerCheckout(formData: FormData) {
+  const supabase = await createClient();
   const checkin_id = formData.get("checkin_id") as string;
 
   const { error } = await supabase

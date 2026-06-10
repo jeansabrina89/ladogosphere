@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "../../../src/lib/supabase";
+import { createClient } from "../../../src/utils/supabase/server";
 
 function getJoursFeries(annee: number): string[] {
   const feries: string[] = [];
@@ -52,6 +52,7 @@ const fmt = (d: Date) => {
 }
 
 export async function GET(req: NextRequest) {
+  const supabase = await createClient();
   const { searchParams } = new URL(req.url);
   const annee = parseInt(searchParams.get("annee") || String(new Date().getFullYear()));
   const nb_boxes = 12;

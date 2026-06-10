@@ -1,9 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { supabase } from "../../../src/lib/supabase";
+import { createClient } from "../../../src/utils/supabase/server";
 
 export async function creerReservation(formData: FormData) {
+  const supabase = await createClient();
   const client_id = formData.get("client_id") as string;
   const box_id = formData.get("box_id") as string;
   const type_reservation = formData.get("type_reservation") as string;

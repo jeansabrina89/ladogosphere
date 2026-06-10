@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { supabase } from "../src/lib/supabase";
+import { createClient } from "../src/utils/supabase/server";
 import { createSupabaseServerClient } from "../src/lib/supabase-server";
 import CarteReservationAttente from "./components/CarteReservationAttente";
 import BoutonsCheckinDashboard from "./components/BoutonsCheckinDashboard";
 
 export default async function Home() {
+  const supabase = await createClient();
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
 

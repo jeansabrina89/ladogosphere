@@ -1,4 +1,4 @@
-import { supabase } from "../../src/lib/supabase";
+import { createClient } from "../../src/utils/supabase/server";
 import PlanningNavigation from "./PlanningNavigation";
 import BoutonDeplacerChien from "./BoutonDeplacerChien";
 import BoutonMasquerBoxesVides from "./BoutonMasquerBoxesVides";
@@ -8,6 +8,7 @@ export default async function PlanningPage({
 }: {
   searchParams: Promise<{ date?: string; vue?: string; masquer?: string }>;
 }) {
+  const supabase = await createClient();
   const params = await searchParams;
   const aujourd_hui = new Date().toISOString().split("T")[0];
   const dateSelectionnee = params.date || aujourd_hui;

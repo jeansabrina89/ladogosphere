@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { supabase } from "../../../src/lib/supabase";
+import { createClient } from "../../../src/utils/supabase/server";
 import BoutonAnnuler from "./BoutonAnnuler";
 import CalculFacture from "./CalculFacture";
 import BoutonValiderReservation from "../../components/BoutonValiderReservation";
@@ -12,6 +12,7 @@ export default async function ReservationPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const supabase = await createClient();
   const { id } = await params;
 
   const { data: res } = await supabase

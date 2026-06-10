@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "../../../../../src/lib/supabase";
+import { createClient } from "../../../../../src/utils/supabase/server";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const supabase = await createClient();
   const { id } = await params;
 
   const { data: ententes } = await supabase
@@ -33,6 +34,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const supabase = await createClient();
   const { id } = await params;
   const { chien_cible_id, type, note, famille_uniquement } = await req.json();
 

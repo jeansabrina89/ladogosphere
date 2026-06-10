@@ -1,9 +1,10 @@
 import { createSupabaseServerClient } from "../../src/lib/supabase-server";
-import { supabase } from "../../src/lib/supabase";
+import { createClient } from "../../src/utils/supabase/server";
 import Link from "next/link";
 import { formatDate } from "../../src/lib/dates";
 
 export default async function MonComptePage() {
+  const supabase = await createClient();
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
   if (!user) return null;

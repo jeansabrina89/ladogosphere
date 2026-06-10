@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { supabase } from "../../../../src/lib/supabase";
+import { createClient } from "../../../../src/utils/supabase/server";
 import FormTimbrage from "./FormTimbrage";
 
 export default async function TimbrageePage({
@@ -8,6 +8,7 @@ export default async function TimbrageePage({
 }: {
   searchParams: Promise<{ date?: string }>;
 }) {
+  const supabase = await createClient();
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
   if (!user) redirect("/login");

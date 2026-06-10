@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { supabase } from "../../../../src/lib/supabase";
+import { createClient } from "../../../../src/utils/supabase/server";
 import BoutonImprimer from "./BoutonImprimer";
 import Link from "next/link";
 
@@ -12,6 +12,7 @@ export default async function FicheSalairePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const supabase = await createClient();
   const { id } = await params;
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();

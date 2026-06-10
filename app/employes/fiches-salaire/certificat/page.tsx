@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { supabase } from "../../../../src/lib/supabase";
+import { createClient } from "../../../../src/utils/supabase/server";
 import CertificatEditeur from "./CertificatEditeur";
 import Link from "next/link";
 
@@ -9,6 +9,7 @@ export default async function CertificatSalaireAnnuelPage({
 }: {
   searchParams: Promise<{ employe_id?: string; annee?: string }>;
 }) {
+  const supabase = await createClient();
   const params = await searchParams;
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();

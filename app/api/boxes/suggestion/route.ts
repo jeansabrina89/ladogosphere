@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "../../../../src/lib/supabase";
+import { createClient } from "../../../../src/utils/supabase/server";
 
 export async function POST(req: NextRequest) {
+  const supabase = await createClient();
   const { chien_ids, date_debut, date_fin } = await req.json();
 
   if (!chien_ids?.length || !date_debut || !date_fin) {

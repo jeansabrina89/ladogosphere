@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { supabase } from "../../src/lib/supabase";
+import { createClient } from "../../src/utils/supabase/server";
 import { formatDate } from "../../src/lib/dates";
 import FiltresReservations from "./FiltresReservations";
 import BoutonPaiementRapide from "./BoutonPaiementRapide";
@@ -10,6 +10,7 @@ export default async function ReservationsPage({
 }: {
   searchParams: Promise<{ filtre?: string; paiement?: string; recherche?: string }>;
 }) {
+  const supabase = await createClient();
   const params = await searchParams;
   const filtre = params.filtre || "toutes";
   const paiement = params.paiement || "tous";

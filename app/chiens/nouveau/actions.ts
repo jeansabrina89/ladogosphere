@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { supabase } from "../../../src/lib/supabase";
+import { createClient } from "../../../src/utils/supabase/server";
 
 function calculerCategorie(poids: number): string {
   if (poids < 15) return "moins_15kg";
@@ -10,6 +10,7 @@ function calculerCategorie(poids: number): string {
 }
 
 export async function creerChien(formData: FormData) {
+  const supabase = await createClient();
   const client_id = formData.get("client_id") as string;
   const nom = formData.get("nom") as string;
   const race = formData.get("race") as string;

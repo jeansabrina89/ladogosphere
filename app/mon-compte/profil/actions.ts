@@ -1,9 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { supabase } from "../../../src/lib/supabase";
+import { createClient } from "../../../src/utils/supabase/server";
 
 export async function modifierProfil(id: string, formData: FormData) {
+  const supabase = await createClient();
   const { error } = await supabase
     .from("clients")
     .update({

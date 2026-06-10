@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "../../../../src/lib/supabase";
+import { createClient } from "../../../../src/utils/supabase/server";
 import { envoyerEmailRappelVeille } from "../../../../src/lib/email";
 
 export async function GET(req: NextRequest) {
+  // Vérification sécurité — token Vercel cron
+  const supabase = await createClient();
   // Vérification sécurité — token Vercel cron
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {

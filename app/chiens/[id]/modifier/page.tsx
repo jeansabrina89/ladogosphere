@@ -1,11 +1,12 @@
 import { modifierChien } from "./actions";
-import { supabase } from "../../../../src/lib/supabase";
+import { createClient } from "../../../../src/utils/supabase/server";
 
 export default async function ModifierChienPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const supabase = await createClient();
   const { id } = await params;
 
   const { data: chien } = await supabase

@@ -1,9 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { supabase } from "../../../../src/lib/supabase";
+import { createClient } from "../../../../src/utils/supabase/server";
 
 export async function modifierReservation(id: string, formData: FormData) {
+  const supabase = await createClient();
   const statut = formData.get("statut") as string;
   const box_id = formData.get("box_id") as string || null;
   const commentaire_admin = formData.get("commentaire_admin") as string || null;
@@ -74,6 +75,7 @@ export async function modifierReservation(id: string, formData: FormData) {
 }
 
 export async function annulerReservation(formData: FormData) {
+  const supabase = await createClient();
   const id = formData.get("id") as string;
 
   const { error } = await supabase

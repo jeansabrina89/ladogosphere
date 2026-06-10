@@ -1,4 +1,4 @@
-import { supabase } from "../../../../src/lib/supabase";
+import { createClient } from "../../../../src/utils/supabase/server";
 import { modifierEmploye } from "./actions";
 import BoutonSupprimerEmploye from "./BoutonSupprimerEmploye";
 
@@ -7,6 +7,7 @@ export default async function ModifierEmployePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const supabase = await createClient();
   const { id } = await params;
 
   const { data: emp } = await supabase

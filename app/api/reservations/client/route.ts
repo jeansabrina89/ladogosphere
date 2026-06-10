@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "../../../../src/lib/supabase";
+import { createClient } from "../../../../src/utils/supabase/server";
 import { envoyerEmailConfirmationDemande } from "../../../../src/lib/email";
 
 export async function POST(req: NextRequest) {
+  const supabase = await createClient();
   const formData = await req.formData();
 
   const client_id = formData.get("client_id") as string;

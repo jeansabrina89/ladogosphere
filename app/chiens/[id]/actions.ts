@@ -1,9 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { supabase } from "../../../src/lib/supabase";
+import { createClient } from "../../../src/utils/supabase/server";
 
 export async function archiverChien(formData: FormData) {
+  const supabase = await createClient();
   const id = formData.get("id") as string;
   const actif = formData.get("actif") === "true";
 
@@ -17,6 +18,7 @@ export async function archiverChien(formData: FormData) {
 }
 
 export async function supprimerChien(formData: FormData) {
+  const supabase = await createClient();
   const id = formData.get("id") as string;
 
   const { error } = await supabase

@@ -1,7 +1,8 @@
-import { supabase } from "../../src/lib/supabase";
+import { createClient } from "../../src/utils/supabase/server";
 import { BoutonCheckin, BoutonCheckout } from "./BoutonsCheckin";
 
 export default async function CheckinPage() {
+  const supabase = await createClient();
   const aujourd_hui = new Date().toISOString().split("T")[0];
 
   const { data: checkins } = await supabase

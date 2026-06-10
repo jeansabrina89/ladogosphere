@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "../../../src/lib/supabase";
+import { createClient } from "../../../src/utils/supabase/server";
 
 export async function PUT(req: NextRequest) {
+  const supabase = await createClient();
   const { updates, cotisation, iban } = await req.json();
 
   // Mettre à jour les tarifs

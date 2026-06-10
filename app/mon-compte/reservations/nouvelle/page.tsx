@@ -1,8 +1,9 @@
 import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
-import { supabase } from "../../../../src/lib/supabase";
+import { createClient } from "../../../../src/utils/supabase/server";
 import FormDemandeReservation from "./FormDemandeReservation";
 
 export default async function NouvelleDemandeReservationPage() {
+  const supabase = await createClient();
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
   if (!user) return null;

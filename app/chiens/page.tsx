@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { supabase } from "../../src/lib/supabase";
+import { createClient } from "../../src/utils/supabase/server";
 
 export default async function ChiensPage() {
+  const supabase = await createClient();
   const { data: chiens } = await supabase
     .from("chiens")
     .select(`*, clients (prenom, nom)`)

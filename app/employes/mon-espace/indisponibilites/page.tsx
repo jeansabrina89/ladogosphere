@@ -1,9 +1,10 @@
 import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { supabase } from "../../../../src/lib/supabase";
+import { createClient } from "../../../../src/utils/supabase/server";
 import FormIndisponibilites from "./FormIndisponibilites";
 
 export default async function IndisponibilitesPage() {
+  const supabase = await createClient();
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
   if (!user) redirect("/login");

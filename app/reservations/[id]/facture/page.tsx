@@ -1,4 +1,4 @@
-import { supabase } from "../../../../src/lib/supabase";
+import { createClient } from "../../../../src/utils/supabase/server";
 import { formatDate } from "../../../../src/lib/dates";
 import BoutonImprimer from "./BoutonImprimer";
 
@@ -7,6 +7,7 @@ export default async function FacturePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const supabase = await createClient();
   const { id } = await params;
 
   const { data: res } = await supabase

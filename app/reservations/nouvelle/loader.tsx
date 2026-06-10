@@ -1,7 +1,8 @@
-import { supabase } from "../../../src/lib/supabase";
+import { createClient } from "../../../src/utils/supabase/server";
 import FormReservation from "./FormReservation";
 
 export default async function NouvelleReservationLoader() {
+  const supabase = await createClient();
   const { data: clients } = await supabase
     .from("clients")
     .select("id, prenom, nom, membre")

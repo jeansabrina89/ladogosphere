@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "../../../../src/lib/supabase";
+import { createClient } from "../../../../src/utils/supabase/server";
 
 export async function POST(req: NextRequest) {
+  const supabase = await createClient();
   const { employe_id, mois, annee, salaire_brut, salaire_net, total_deductions, commentaire, deductions } = await req.json();
 
   const { data: fiche, error } = await supabase

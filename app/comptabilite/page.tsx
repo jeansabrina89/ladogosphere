@@ -1,4 +1,4 @@
-import { supabase } from "../../src/lib/supabase";
+import { createClient } from "../../src/utils/supabase/server";
 import { formatDate } from "../../src/lib/dates";
 import ExportCompta from "./ExportCompta";
 import Statistiques from "./Statistiques";
@@ -11,6 +11,7 @@ export default async function ComptabilitePage({
 }: {
   searchParams: Promise<{ annee?: string; mois?: string }>;
 }) {
+  const supabase = await createClient();
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
   if (!user) redirect("/login");

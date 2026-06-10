@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "../../../../../src/lib/supabase";
+import { createClient } from "../../../../../src/utils/supabase/server";
 import { envoyerEmailPaiement, envoyerEmailSatisfactionEssai } from "../../../../../src/lib/email";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const supabase = await createClient();
   const { id } = await params;
   const { type } = await req.json();
 

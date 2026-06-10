@@ -1,8 +1,9 @@
 import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
-import { supabase } from "../../../src/lib/supabase";
+import { createClient } from "../../../src/utils/supabase/server";
 import { modifierProfil } from "./actions";
 
 export default async function MonProfilPage() {
+  const supabase = await createClient();
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
   if (!user) return null;
