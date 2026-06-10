@@ -12,7 +12,6 @@ export default async function FicheChienClientPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  // La RLS garantit que le client ne peut lire que SES chiens
   const { data: chien } = await supabase
     .from("chiens")
     .select("*")
@@ -61,9 +60,14 @@ export default async function FicheChienClientPage({
           <p><strong>Remarques :</strong> {chien.remarques || "—"}</p>
         </div>
 
-        <div className="border-t pt-6">
-          <Link href="/mon-compte/chiens" className="font-semibold" style={{ color: "#4AAEA0" }}>
-            ← Retour à mes chiens
+        <div className="border-t pt-6 flex gap-3">
+          <Link href={`/mon-compte/chiens/${chien.id}/modifier`}
+            className="px-6 py-3 rounded-xl font-semibold text-white" style={{ backgroundColor: "#4AAEA0" }}>
+            ✏️ Modifier
+          </Link>
+          <Link href="/mon-compte/chiens"
+            className="px-6 py-3 rounded-xl font-semibold" style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
+            ← Mes chiens
           </Link>
         </div>
       </div>
