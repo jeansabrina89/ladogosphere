@@ -1,0 +1,88 @@
+import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
+import Link from "next/link";
+import { formatDate } from "../../../../src/lib/dates";
+
+function libelleType(t: string): string {
+  if (t === "journee") return "Journée";
+  if (t === "essai") return "Journée d'essai";
+  if (t === "sejour") return "Séjour";
+  return t || "—";
+}
+
+export default async function DetailReservationClientPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: res } = await supabase
+    .from("reservations")
+    .select(`*, boxes (numero), reservation_chiens (chiens (nom))`)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!res) {
+    return (
+      <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
+        <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm text-center">
+          <p className="text-gray-600 mb-4">Réservation introuvable.</p>
+          <Link href="/mon-compte/reservations" className="font-semibold" style={{ color: "#4AAEA0" }}>
+            ← Retour à mes réservations
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens?.nom).filter(Boolean) ?? [];
+  const resteAPayer = (res.montant_final || 0) - (res.montant_paye || 0);
+
+  return (
+    <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
+      <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm">
+        <p className="text-sm text-gray-400 font-semibold">Réservation n°{res.numero}</p>
+        <h1 className="text-3xl font-bold mb-6" style={{ color: "#1B2B5E" }}>
+          🐶 {chiens.join(", ") || "—"}
+        </h1>
+
+        <div className="space-y-2 mb-6">
+          <p><strong>Type :</strong> {libelleType(res.type_reservation)}</p>
+          <p><strong>Dates :</strong> {formatDate(res.date_debut)} → {formatDate(res.date_fin)}</p>
+          {(res.heure_arrivee || res.heure_depart) && (
+            <p><strong>Horaires :</strong> {res.heure_arrivee ? String(res.heure_arrivee).slice(0, 5) : "—"} → {res.heure_depart ? String(res.heure_depart).slice(0, 5) : "—"}</p>
+          )}
+          <p><strong>Box :</strong> {res.boxes?.numero ?? "—"}</p>
+          <p><strong>Statut :</strong> {
+            res.statut === "validee" ? "✅ Validée" :
+            res.statut === "en_attente" ? "⏳ En attente" :
+            res.statut === "annulee" ? "❌ Annulée" :
+            res.statut === "terminee" ? "🏁 Terminée" : res.statut
+          }</p>
+        </div>
+
+        <div className="border-t pt-4 space-y-2 mb-6">
+          <h2 className="text-xl font-bold mb-2" style={{ color: "#1B2B5E" }}>Paiement</h2>
+          <p><strong>Montant :</strong> {res.montant_final > 0 ? `${res.montant_final} CHF` : "—"}</p>
+          <p><strong>Payé :</strong> {res.montant_paye || 0} CHF</p>
+          {resteAPayer > 0 && res.statut !== "annulee" && (
+            <p><strong>Reste à payer :</strong> {resteAPayer.toFixed(2)} CHF</p>
+          )}
+          <p><strong>Statut paiement :</strong> {
+            res.statut_paiement === "paye" ? "💰 Payé" :
+            res.statut_paiement === "partiel" ? "💰 Partiel" : "💰 Impayé"
+          }</p>
+        </div>
+
+        <div className="border-t pt-4">
+          <Link href="/mon-compte/reservations" className="font-semibold" style={{ color: "#4AAEA0" }}>
+            ← Mes réservations
+          </Link>
+        </div>
+      </div>
+    </main>
+  );
+}

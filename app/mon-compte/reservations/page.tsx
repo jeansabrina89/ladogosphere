@@ -4,6 +4,13 @@ import Link from "next/link";
 import { formatDate } from "../../../src/lib/dates";
 import BoutonPaiementClient from "./BoutonPaiementClient";
 
+function libelleType(t: string): string {
+  if (t === "journee") return "Journée";
+  if (t === "essai") return "Journée d'essai";
+  if (t === "sejour") return "Séjour";
+  return t || "—";
+}
+
 export default async function MesReservationsPage() {
   const supabase = await createClient();
   const supabaseServer = await createSupabaseServerClient();
@@ -53,6 +60,7 @@ export default async function MesReservationsPage() {
               <div key={res.id} className="bg-white rounded-xl p-6 shadow-sm">
                 <div className="flex justify-between items-start gap-4">
                   <div className="flex-1">
+                    <p className="text-xs text-gray-400 font-semibold">Réservation n°{res.numero}</p>
                     <p className="font-bold text-lg" style={{ color: "#1B2B5E" }}>
                       🐶 {chiens.join(", ") || "—"}
                     </p>
@@ -60,7 +68,7 @@ export default async function MesReservationsPage() {
                       📅 {formatDate(res.date_debut)} → {formatDate(res.date_fin)}
                     </p>
                     <p className="text-sm text-gray-500">
-                      🏠 Box {res.boxes?.numero ?? "—"} · {res.type_reservation === "journee" ? "Journée" : "Séjour"}
+                      🏠 Box {res.boxes?.numero ?? "—"} · {libelleType(res.type_reservation)}
                     </p>
                     {res.montant_final > 0 && (
                       <p className="text-sm font-semibold mt-1" style={{ color: "#4AAEA0" }}>
@@ -104,6 +112,13 @@ export default async function MesReservationsPage() {
                       />
                     )}
                   </div>
+                </div>
+
+                <div className="mt-4 pt-3 border-t">
+                  <Link href={`/mon-compte/reservations/${res.id}`}
+                    className="text-sm font-semibold" style={{ color: "#4AAEA0" }}>
+                    Voir le détail →
+                  </Link>
                 </div>
               </div>
             );
