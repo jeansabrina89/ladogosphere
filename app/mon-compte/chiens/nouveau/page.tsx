@@ -1,14 +1,12 @@
 import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
-import { createClient } from "../../../../src/utils/supabase/server";
 import { creerChienClient } from "./actions";
 
 export default async function NouveauChienClientPage() {
-  const supabase = await createClient();
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
   if (!user) return null;
 
-  const { data: client } = await supabase
+  const { data: client } = await supabaseServer
     .from("clients")
     .select("id")
     .eq("auth_user_id", user.id)
@@ -51,40 +49,41 @@ export default async function NouveauChienClientPage() {
           </div>
 
           <div>
-            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Race</label>
-            <input name="race" type="text" className="w-full border rounded-xl p-3" />
+            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Race *</label>
+            <input name="race" type="text" required className="w-full border rounded-xl p-3" />
           </div>
 
           <div>
-            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Couleur</label>
-            <input name="couleur" type="text" className="w-full border rounded-xl p-3" />
+            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Couleur *</label>
+            <input name="couleur" type="text" required className="w-full border rounded-xl p-3" />
           </div>
 
           <div>
-            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Poids (kg)</label>
-            <input name="poids" type="number" step="0.1" className="w-full border rounded-xl p-3" />
+            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Poids (kg) *</label>
+            <input name="poids" type="number" step="0.1" min="0" required className="w-full border rounded-xl p-3" />
           </div>
 
           <div>
-            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Date de naissance</label>
-            <input name="date_naissance" type="date" className="w-full border rounded-xl p-3" />
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Sexe</label>
-            <select name="sexe" className="w-full border rounded-xl p-3">
-              <option value="">Choisir</option>
+            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Sexe *</label>
+            <select name="sexe" required defaultValue="" className="w-full border rounded-xl p-3">
+              <option value="" disabled>Choisir</option>
               <option value="M">Mâle</option>
               <option value="F">Femelle</option>
             </select>
           </div>
 
           <div>
-            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Stérilisé(e)</label>
-            <select name="sterilise" className="w-full border rounded-xl p-3">
+            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Stérilisé(e) *</label>
+            <select name="sterilise" required defaultValue="" className="w-full border rounded-xl p-3">
+              <option value="" disabled>Choisir</option>
               <option value="false">Non</option>
               <option value="true">Oui</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Date de naissance</label>
+            <input name="date_naissance" type="date" className="w-full border rounded-xl p-3" />
           </div>
 
           <div>

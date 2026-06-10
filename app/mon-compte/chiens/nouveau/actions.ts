@@ -11,12 +11,10 @@ function calculerCategorie(poids: number): string {
 }
 
 export async function creerChienClient(client_id: string, formData: FormData) {
-  // 1. Identifier l'utilisateur connecté (session via cookies)
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Non authentifié");
 
-  // 2. Vérifier que ce client appartient bien à l'utilisateur connecté
   const { data: monClient } = await supabaseAdmin
     .from("clients")
     .select("id")
@@ -26,21 +24,29 @@ export async function creerChienClient(client_id: string, formData: FormData) {
 
   if (!monClient) throw new Error("Accès refusé : ce client ne vous appartient pas.");
 
-  // 3. Insérer via supabaseAdmin, uniquement les champs de base
+  const nom = (formData.get("nom") as string || "").trim();
+  const race = (formData.get("race") as string || "").trim();
+  const couleur = (formData.get("couleur") as string || "").trim();
   const poids = formData.get("poids") ? Number(formData.get("poids")) : null;
+  const sexe = (formData.get("sexe") as string || "").trim();
+  const steriliseRaw = formData.get("sterilise") as string;
+
+  if (!nom || !race || !couleur || !poids || !sexe || (steriliseRaw !== "true" && steriliseRaw !== "false")) {
+    throw new Error("Merci de remplir tous les champs obligatoires : nom, race, couleur, poids, sexe et stérilisation.");
+  }
 
   const { error } = await supabaseAdmin
     .from("chiens")
     .insert({
       client_id: monClient.id,
-      nom: formData.get("nom") as string,
-      race: formData.get("race") as string || null,
-      couleur: formData.get("couleur") as string || null,
+      nom,
+      race,
+      couleur,
       poids,
-      categorie_poids: poids ? calculerCategorie(poids) : null,
+      categorie_poids: calculerCategorie(poids),
+      sexe,
+      sterilise: steriliseRaw === "true",
       date_naissance: formData.get("date_naissance") as string || null,
-      sexe: formData.get("sexe") as string || null,
-      sterilise: formData.get("sterilise") === "true",
       numero_puce: formData.get("numero_puce") as string || null,
       allergies: formData.get("allergies") as string || null,
       traitements: formData.get("traitements") as string || null,
