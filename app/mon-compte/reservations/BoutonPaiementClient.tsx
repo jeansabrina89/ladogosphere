@@ -4,11 +4,15 @@ import { useState } from "react";
 
 export default function BoutonPaiementClient({
   reservation_id,
+  numero,
+  iban,
   montant_final,
   montant_paye,
   statut_paiement,
 }: {
   reservation_id: string;
+  numero: number;
+  iban: string;
   montant_final: number;
   montant_paye: number;
   statut_paiement: string;
@@ -43,7 +47,6 @@ export default function BoutonPaiementClient({
               💳 Payer ma réservation
             </h2>
 
-            {/* Montant modifiable */}
             {!methode && (
               <>
                 <div className="mb-5">
@@ -116,7 +119,6 @@ export default function BoutonPaiementClient({
               </>
             )}
 
-            {/* IBAN */}
             {methode === "iban" && (
               <div className="space-y-4">
                 <div className="rounded-xl p-4" style={{ backgroundColor: "#E8F5F4" }}>
@@ -126,12 +128,12 @@ export default function BoutonPaiementClient({
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-500">Titulaire</span>
-                      <span className="font-semibold" style={{ color: "#1B2B5E" }}>La Dogosphere Sàrl</span>
+                      <span className="font-semibold" style={{ color: "#1B2B5E" }}>La Dogosphère</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">IBAN</span>
                       <span className="font-semibold font-mono" style={{ color: "#1B2B5E" }}>
-                        CH00 0000 0000 0000 0000 0
+                        {iban || "—"}
                       </span>
                     </div>
                     <div className="flex justify-between border-t pt-2 mt-2">
@@ -143,7 +145,7 @@ export default function BoutonPaiementClient({
                     <div className="flex justify-between">
                       <span className="text-gray-500">Référence</span>
                       <span className="font-semibold font-mono text-xs" style={{ color: "#1B2B5E" }}>
-                        RES-{reservation_id.substring(0, 8).toUpperCase()}
+                        Réservation N°{numero}
                       </span>
                     </div>
                   </div>
@@ -166,7 +168,6 @@ export default function BoutonPaiementClient({
               </div>
             )}
 
-            {/* Stripe — à venir */}
             {methode === "stripe" && (
               <div className="space-y-4">
                 <div className="rounded-xl p-4 bg-blue-50 border border-blue-200 text-center">
@@ -184,7 +185,6 @@ export default function BoutonPaiementClient({
               </div>
             )}
 
-            {/* Twint — à venir */}
             {methode === "twint" && (
               <div className="space-y-4">
                 <div className="rounded-xl p-4 bg-blue-50 border border-blue-200 text-center">

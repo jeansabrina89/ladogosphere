@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
 import { createClient } from "../../../src/utils/supabase/server";
+import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import Link from "next/link";
 import { formatDate } from "../../../src/lib/dates";
 import BoutonPaiementClient from "./BoutonPaiementClient";
@@ -31,6 +32,14 @@ export default async function MesReservationsPage() {
     .eq("client_id", client.id)
     .order("date_debut", { ascending: false });
 
+  // IBAN lu côté serveur (table parametres réservée à l'admin)
+  const { data: ibanRow } = await supabaseAdmin
+    .from("parametres")
+    .select("valeur")
+    .eq("cle", "iban")
+    .maybeSingle();
+  const iban = ibanRow?.valeur ?? "";
+
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-3xl mx-auto">
@@ -52,7 +61,7 @@ export default async function MesReservationsPage() {
           )}
           {reservations?.map((res: any) => {
             const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens?.nom).filter(Boolean) ?? [];
-            const impayee = res.statut !== "annulee" &&
+            const peutPayer = res.statut === "validee" &&
               (!res.statut_paiement || res.statut_paiement === "impaye" || res.statut_paiement === "partiel");
             const resteAPayer = (res.montant_final || 0) - (res.montant_paye || 0);
 
@@ -103,9 +112,11 @@ export default async function MesReservationsPage() {
                        res.statut_paiement === "partiel" ? "💰 Partiel" :
                        "💰 Impayé"}
                     </span>
-                    {impayee && (
+                    {peutPayer && (
                       <BoutonPaiementClient
                         reservation_id={res.id}
+                        numero={res.numero}
+                        iban={iban}
                         montant_final={res.montant_final || 0}
                         montant_paye={res.montant_paye || 0}
                         statut_paiement={res.statut_paiement || "impaye"}
