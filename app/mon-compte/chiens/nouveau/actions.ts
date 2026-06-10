@@ -10,19 +10,19 @@ function calculerCategorie(poids: number): string {
   return "30_40kg";
 }
 
-export async function creerChienClient(_client_id: string, formData: FormData) {
+export async function creerChienClient(client_id: string, formData: FormData) {
   const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
 
-  // Source de vérité = la session, pas l'argument transmis
-  const { data: monClient } = await supabaseAdmin
+  // La session courante a-t-elle le droit de lire cette fiche ? (RLS)
+  // client = uniquement la sienne ; admin = toutes. Sinon -> refus.
+  const { data: fiche, error: verifErr } = await supabaseServer
     .from("clients")
     .select("id")
-    .eq("auth_user_id", user.id)
+    .eq("id", client_id)
     .maybeSingle();
 
-  if (!monClient) throw new Error(`Profil client introuvable (user ${user.id})`);
+  if (verifErr) throw new Error("Vérification: " + verifErr.message);
+  if (!fiche) throw new Error("Accès refusé à cette fiche client.");
 
   const nom = (formData.get("nom") as string || "").trim();
   const race = (formData.get("race") as string || "").trim();
@@ -38,7 +38,7 @@ export async function creerChienClient(_client_id: string, formData: FormData) {
   const { error } = await supabaseAdmin
     .from("chiens")
     .insert({
-      client_id: monClient.id,
+      client_id: fiche.id,
       nom,
       race,
       couleur,
