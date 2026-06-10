@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { supabase } from "../../../src/lib/supabase";
+import { createClient } from "../../../src/utils/supabase/server";
 import BoutonArchiverClient from "./BoutonArchiverClient";
 import BoutonSupprimerClient from "./BoutonSupprimerClient";
 import BoutonCotisation from "./BoutonCotisation";
@@ -10,6 +10,7 @@ export default async function ClientPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const supabase = await createClient();
 
   const { data: client } = await supabase
     .from("clients")
