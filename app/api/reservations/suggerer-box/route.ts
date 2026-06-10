@@ -5,7 +5,7 @@ import { occupationEnConflit } from "../../../../src/lib/disponibilite-box";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
-  const { chien_ids, date_debut, date_fin, reservation_id, heure_arrivee, heure_depart } = await req.json();
+  const { chien_ids, date_debut, date_fin, reservation_id, heure_arrivee, heure_depart, type_reservation } = await req.json();
 
   if (!chien_ids || chien_ids.length === 0) {
     return NextResponse.json({ suggestions: [] });
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       chien_id,
       date_debut,
       date_fin,
-      reservations (heure_arrivee, heure_depart),
+      reservations (heure_arrivee, heure_depart, type_reservation),
       chiens (
         id, nom, categorie_poids, sexe, sterilise, client_id,
         compatible_moins_15kg, compatible_15_30kg, compatible_30_40kg,
@@ -57,8 +57,9 @@ export async function POST(req: NextRequest) {
     .neq("reservation_id", reservation_id || "00000000-0000-0000-0000-000000000000");
 
   // Exclut les occupations dont le seul jour de chevauchement est une transition
-  // du soir (départ <= 18h / arrivée >= 17h le même jour) — ne s'applique que si
-  // les horaires de la nouvelle réservation sont fournis (côté client).
+  // autorisée (départ/arrivée le même jour, créneaux compatibles, arrivée pas
+  // de type 'journee') — ne s'applique que si les horaires/type de la nouvelle
+  // réservation sont fournis (côté client).
   const occupations = (occupationsRaw ?? []).filter((occ: any) =>
     occupationEnConflit(
       {
@@ -66,8 +67,9 @@ export async function POST(req: NextRequest) {
         date_fin: occ.date_fin,
         heure_arrivee: occ.reservations?.heure_arrivee,
         heure_depart: occ.reservations?.heure_depart,
+        type_reservation: occ.reservations?.type_reservation,
       },
-      { date_debut, date_fin, heure_arrivee, heure_depart }
+      { date_debut, date_fin, heure_arrivee, heure_depart, type_reservation }
     )
   );
 

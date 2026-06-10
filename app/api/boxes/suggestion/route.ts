@@ -6,7 +6,7 @@ import { occupationEnConflit } from "../../../../src/lib/disponibilite-box";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
-  const { chien_ids, date_debut, date_fin, heure_arrivee, heure_depart } = await req.json();
+  const { chien_ids, date_debut, date_fin, heure_arrivee, heure_depart, type_reservation } = await req.json();
 
   if (!chien_ids?.length || !date_debut || !date_fin) {
     return NextResponse.json({ box_id: null, raison: null });
@@ -15,13 +15,14 @@ export async function POST(req: NextRequest) {
   // 1. Trouver les boxes occupés sur ces dates
   const { data: occupationsRaw } = await supabase
     .from("occupation_boxes")
-    .select("box_id, chien_id, date_debut, date_fin, reservations (heure_arrivee, heure_depart)")
+    .select("box_id, chien_id, date_debut, date_fin, reservations (heure_arrivee, heure_depart, type_reservation)")
     .lte("date_debut", date_fin)
     .gte("date_fin", date_debut);
 
   // Exclut les occupations dont le seul jour de chevauchement est une transition
-  // du soir (départ <= 18h / arrivée >= 17h le même jour) — ne s'applique que si
-  // les horaires de la nouvelle réservation sont fournis (côté client).
+  // autorisée (départ/arrivée le même jour, créneaux compatibles, arrivée pas
+  // de type 'journee') — ne s'applique que si les horaires/type de la nouvelle
+  // réservation sont fournis (côté client).
   const boxesOccupes = (occupationsRaw ?? []).filter((occ: any) =>
     occupationEnConflit(
       {
@@ -29,8 +30,9 @@ export async function POST(req: NextRequest) {
         date_fin: occ.date_fin,
         heure_arrivee: occ.reservations?.heure_arrivee,
         heure_depart: occ.reservations?.heure_depart,
+        type_reservation: occ.reservations?.type_reservation,
       },
-      { date_debut, date_fin, heure_arrivee, heure_depart }
+      { date_debut, date_fin, heure_arrivee, heure_depart, type_reservation }
     )
   );
 

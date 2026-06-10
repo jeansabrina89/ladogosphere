@@ -20,6 +20,7 @@ export default function SuggestionBox({
   date_fin,
   heure_arrivee,
   heure_depart,
+  type_reservation,
   reservation_id,
   onSelectBox,
 }: {
@@ -28,6 +29,7 @@ export default function SuggestionBox({
   date_fin: string;
   heure_arrivee?: string | null;
   heure_depart?: string | null;
+  type_reservation?: string | null;
   reservation_id: string;
   onSelectBox: (box_id: string) => void;
 }) {
@@ -53,6 +55,7 @@ export default function SuggestionBox({
             date_fin,
             heure_arrivee,
             heure_depart,
+            type_reservation,
           }),
         });
         const data = await res.json();
@@ -75,7 +78,7 @@ export default function SuggestionBox({
     const response = await fetch("/api/reservations/suggerer-box", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chien_ids, date_debut, date_fin, heure_arrivee, heure_depart, reservation_id }),
+      body: JSON.stringify({ chien_ids, date_debut, date_fin, heure_arrivee, heure_depart, type_reservation, reservation_id }),
     });
     const data = await response.json();
     setSuggestions(data.suggestions || []);

@@ -103,6 +103,7 @@ export default function ModifierReservationPage({
               date_fin={res.date_fin}
               heure_arrivee={res.heure_arrivee}
               heure_depart={res.heure_depart}
+              type_reservation={res.type_reservation}
               reservation_id={id}
               onSelectBox={(box_id) => setBoxId(box_id)}
             />

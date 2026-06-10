@@ -142,6 +142,7 @@ export default function FormReservation({
             date_fin: dateF,
             heure_arrivee: heureArrivee,
             heure_depart: heureDepart,
+            type_reservation: type,
           }),
         });
         const data = await res.json();
