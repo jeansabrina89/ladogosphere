@@ -1,10 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { supabase } from "../../../src/lib/supabase";
+import { createClient } from "../../../src/utils/supabase/server";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 
 export async function creerClient(formData: FormData) {
+  const supabase = await createClient();
   const email = formData.get("email") as string;
 
   // Vérifier si un compte Auth existe déjà avec cet email

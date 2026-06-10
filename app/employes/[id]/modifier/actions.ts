@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { supabase } from "../../../../src/lib/supabase";
+import { createClient } from "../../../../src/utils/supabase/server";
 import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 
 export async function modifierEmploye(
@@ -9,6 +9,7 @@ export async function modifierEmploye(
   rh_id: string | null,
   formData: FormData
 ) {
+  const supabase = await createClient();
   const prenom = formData.get("prenom") as string;
   const nom = formData.get("nom") as string;
   const email = formData.get("email") as string;
@@ -70,6 +71,7 @@ export async function modifierEmploye(
 }
 
 export async function supprimerEmploye(formData: FormData) {
+  const supabase = await createClient();
   const id = formData.get("id") as string;
   await supabase.from("profiles").delete().eq("id", id);
   await supabaseAdmin.auth.admin.deleteUser(id);
