@@ -40,17 +40,30 @@ export default async function ChiensPage() {
                         Archivé
                       </span>
                     )}
-                    {chien.journee_essai_invalide && (
+                    {chien.sterilisation === "oui" ? (
+                      <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">
+                        Stérilisé
+                      </span>
+                    ) : chien.sterilisation === "chimique" ? (
+                      <span className="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700">
+                        Castré chim.
+                      </span>
+                    ) : (
                       <span className="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">
-                        ❌ Essai invalide
+                        Entier
                       </span>
                     )}
                     {chien.journee_essai_effectuee && !chien.journee_essai_invalide && (
                       <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">
-                        ✅ Essai effectué
+                        ✅ Essai validé
                       </span>
                     )}
-                    {!chien.journee_essai_effectuee && !chien.journee_essai_invalide && (
+                    {chien.journee_essai_effectuee && chien.journee_essai_invalide && (
+                      <span className="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">
+                        ❌ Essai non validé
+                      </span>
+                    )}
+                    {!chien.journee_essai_effectuee && (
                       <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">
                         ⏳ Essai à faire
                       </span>
