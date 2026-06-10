@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../src/utils/supabase/server";
+import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
 import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 
 function calculerCategorie(poids: number): string {
@@ -10,19 +10,19 @@ function calculerCategorie(poids: number): string {
   return "30_40kg";
 }
 
-export async function creerChienClient(client_id: string, formData: FormData) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+export async function creerChienClient(_client_id: string, formData: FormData) {
+  const supabaseServer = await createSupabaseServerClient();
+  const { data: { user } } = await supabaseServer.auth.getUser();
   if (!user) throw new Error("Non authentifié");
 
+  // Source de vérité = la session, pas l'argument transmis
   const { data: monClient } = await supabaseAdmin
     .from("clients")
     .select("id")
-    .eq("id", client_id)
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
-  if (!monClient) throw new Error("Accès refusé : ce client ne vous appartient pas.");
+  if (!monClient) throw new Error(`Profil client introuvable (user ${user.id})`);
 
   const nom = (formData.get("nom") as string || "").trim();
   const race = (formData.get("race") as string || "").trim();
@@ -32,7 +32,7 @@ export async function creerChienClient(client_id: string, formData: FormData) {
   const steriliseRaw = formData.get("sterilise") as string;
 
   if (!nom || !race || !couleur || !poids || !sexe || (steriliseRaw !== "true" && steriliseRaw !== "false")) {
-    throw new Error("Merci de remplir tous les champs obligatoires : nom, race, couleur, poids, sexe et stérilisation.");
+    throw new Error("Merci de remplir tous les champs obligatoires.");
   }
 
   const { error } = await supabaseAdmin
