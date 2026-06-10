@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "../../../../src/utils/supabase/server";
+import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 import { envoyerEmailRappelCotisation } from "../../../../src/lib/email";
 
 export async function GET(req: NextRequest) {
-  const supabase = await createClient();
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -13,7 +12,7 @@ export async function GET(req: NextRequest) {
   const anneeProchaine = anneeActuelle + 1;
 
   // Récupérer montant et IBAN depuis les paramètres
-  const { data: parametres } = await supabase
+  const { data: parametres } = await supabaseAdmin
     .from("parametres")
     .select("cle, valeur")
     .in("cle", ["cotisation_montant", "iban"]);
@@ -24,7 +23,7 @@ export async function GET(req: NextRequest) {
   const iban = parametres?.find(p => p.cle === "iban")?.valeur ?? "CH00 0000 0000 0000 0000 0";
 
   // Tous les membres actifs
-  const { data: membres } = await supabase
+  const { data: membres } = await supabaseAdmin
     .from("clients")
     .select("id, prenom, nom, email")
     .eq("membre", true)
@@ -32,7 +31,7 @@ export async function GET(req: NextRequest) {
     .eq("cotisation_exemptee", false);
 
   // Ceux qui n'ont pas encore renouvelé pour l'année prochaine
-  const { data: cotisationsExistantes } = await supabase
+  const { data: cotisationsExistantes } = await supabaseAdmin
     .from("cotisations_membres")
     .select("client_id")
     .eq("annee", anneeProchaine);

@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "../../../../src/utils/supabase/server";
+import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 import { envoyerEmailRappelVeille } from "../../../../src/lib/email";
 
 export async function GET(req: NextRequest) {
-  // Vérification sécurité — token Vercel cron
-  const supabase = await createClient();
   // Vérification sécurité — token Vercel cron
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -16,7 +14,7 @@ export async function GET(req: NextRequest) {
   const dateDemain = demain.toISOString().split("T")[0];
 
   // Récupérer toutes les réservations validées du lendemain
-  const { data: reservations, error } = await supabase
+  const { data: reservations, error } = await supabaseAdmin
     .from("reservations")
     .select(`
       *,
