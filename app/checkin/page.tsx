@@ -1,5 +1,6 @@
 import { createClient } from "../../src/utils/supabase/server";
 import { BoutonCheckin, BoutonCheckout } from "./BoutonsCheckin";
+import { formatBoxLabel } from "../../src/lib/boxes";
 
 export default async function CheckinPage() {
   const supabase = await createClient();
@@ -14,7 +15,7 @@ export default async function CheckinPage() {
         date_debut,
         date_fin,
         type_reservation,
-        boxes (numero),
+        boxes (numero, nom),
         clients (prenom, nom)
       )
     `)
@@ -32,7 +33,7 @@ export default async function CheckinPage() {
         date_debut,
         date_fin,
         type_reservation,
-        boxes (numero),
+        boxes (numero, nom),
         clients (prenom, nom)
       )
     `)
@@ -171,7 +172,7 @@ function CarteCheckin({ checkin, action }: { checkin: any; action?: React.ReactN
           </p>
         </div>
         <div className="text-right text-xs text-gray-500">
-          <p>Box {res?.boxes?.numero ?? "—"}</p>
+          <p>{formatBoxLabel(res?.boxes)}</p>
           <p>{res?.clients?.prenom} {res?.clients?.nom}</p>
         </div>
       </div>

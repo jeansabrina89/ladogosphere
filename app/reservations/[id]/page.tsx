@@ -6,6 +6,7 @@ import BoutonValiderReservation from "../../components/BoutonValiderReservation"
 import BoutonEmail from "./BoutonEmail";
 import GestionPaiement from "./GestionPaiement";
 import { formatDate } from "../../../src/lib/dates";
+import { formatBoxLabel } from "../../../src/lib/boxes";
 
 export default async function ReservationPage({
   params,
@@ -20,7 +21,7 @@ export default async function ReservationPage({
     .select(`
       *,
       clients (id, prenom, nom, membre, telephone, email),
-      boxes (numero),
+      boxes (numero, nom),
       reservation_chiens (
         chiens (id, nom, race, poids, categorie_poids, sexe, sterilisation)
       )
@@ -147,7 +148,7 @@ export default async function ReservationPage({
             res.type_reservation === "journee" ? "Journée" :
             res.type_reservation === "sejour" ? "Séjour" : "Journée d'essai"
           }</p>
-          <p><strong>Box :</strong> {res.boxes?.numero ? `Box ${res.boxes.numero}` : "—"}</p>
+          <p><strong>Box :</strong> {formatBoxLabel(res.boxes)}</p>
           <p><strong>Date début :</strong> {formatDate(res.date_debut)}</p>
           <p><strong>Date fin :</strong> {formatDate(res.date_fin)}</p>
           <p><strong>Heure arrivée :</strong> {res.heure_arrivee || "—"}</p>

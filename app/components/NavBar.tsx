@@ -11,6 +11,7 @@ const liensAdmin = [
   { href: "/reservations", label: "📅 Réservations" },
   { href: "/planning", label: "🏠 Planning" },
   { href: "/checkin", label: "✅ Check-in" },
+  { href: "/boxes", label: "📦 Box" },
   { href: "/employes", label: "👥 Équipe" },
   { href: "/tarifs", label: "💰 Tarifs" },
   { href: "/comptabilite", label: "📈 Compta" },

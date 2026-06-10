@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "../../src/lib/supabase-server";
 import { createClient } from "../../src/utils/supabase/server";
 import Link from "next/link";
 import { formatDate } from "../../src/lib/dates";
+import { formatBoxLabel } from "../../src/lib/boxes";
 
 export default async function MonComptePage() {
   const supabase = await createClient();
@@ -19,7 +20,7 @@ export default async function MonComptePage() {
 
   const { data: reservations } = client ? await supabase
     .from("reservations")
-    .select(`*, boxes (numero), reservation_chiens (chiens (nom))`)
+    .select(`*, boxes (numero, nom), reservation_chiens (chiens (nom))`)
     .eq("client_id", client.id)
     .order("date_debut", { ascending: true }) : { data: [] };
 
@@ -190,7 +191,7 @@ export default async function MonComptePage() {
                           📅 {formatDate(res.date_debut)} → {formatDate(res.date_fin)}
                         </p>
                         <p className="text-sm text-gray-500">
-                          🏠 Box {res.boxes?.numero ?? "—"} · {res.type_reservation === "journee" ? "Journée" : "Séjour"}
+                          🏠 {formatBoxLabel(res.boxes)} · {res.type_reservation === "journee" ? "Journée" : "Séjour"}
                         </p>
                         {res.heure_arrivee && (
                           <p className="text-sm text-gray-500">🕐 Arrivée : {res.heure_arrivee}</p>

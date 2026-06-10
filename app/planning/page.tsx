@@ -2,6 +2,7 @@ import { createClient } from "../../src/utils/supabase/server";
 import PlanningNavigation from "./PlanningNavigation";
 import BoutonDeplacerChien from "./BoutonDeplacerChien";
 import BoutonMasquerBoxesVides from "./BoutonMasquerBoxesVides";
+import { formatBoxLabel } from "../../src/lib/boxes";
 
 export default async function PlanningPage({
   searchParams,
@@ -64,7 +65,7 @@ export default async function PlanningPage({
     ? boxes?.filter(b => boxesOccupes.has(b.id))
     : boxes;
 
-  const boxesSimples = boxes?.map(b => ({ id: b.id, numero: b.numero })) ?? [];
+  const boxesSimples = boxes?.map(b => ({ id: b.id, numero: b.numero, nom: b.nom })) ?? [];
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -127,7 +128,7 @@ export default async function PlanningPage({
                       color: "#1B2B5E",
                       backgroundColor: idx % 2 === 0 ? "white" : "#f8fafc"
                     }}>
-                    Box {box.numero}
+                    {formatBoxLabel(box)}
                   </td>
                   {jours.map((jour) => {
                     const occs = index[box.id]?.[jour] ?? [];
@@ -150,7 +151,7 @@ export default async function PlanningPage({
                                 <BoutonDeplacerChien
                                   occupation_id={occ.id}
                                   chien={occ.chiens}
-                                  box_actuel={box.numero}
+                                  box_actuel={{ numero: box.numero, nom: box.nom }}
                                   boxes={boxesSimples}
                                   date_debut={occ.date_debut}
                                   date_fin={occ.date_fin}

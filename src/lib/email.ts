@@ -133,10 +133,10 @@ export async function envoyerEmailConfirmationDemande({
 }
 
 export async function envoyerEmailReservationValidee({
-  email, prenom, date_debut, date_fin, type, box_numero, heure_arrivee, heure_depart,
+  email, prenom, date_debut, date_fin, type, box_label, heure_arrivee, heure_depart,
 }: {
   email: string; prenom: string; date_debut: string; date_fin: string;
-  type: string; box_numero?: number; heure_arrivee?: string; heure_depart?: string;
+  type: string; box_label?: string; heure_arrivee?: string; heure_depart?: string;
 }) {
   await resend.emails.send({
     from: FROM,
@@ -161,10 +161,10 @@ export async function envoyerEmailReservationValidee({
             <td style="padding:6px 0; color:#6B7280; font-size:14px;">Départ</td>
             <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${formatDate(date_fin)}${heure_depart ? ` à ${heure_depart}` : ""}</td>
           </tr>
-          ${box_numero ? `
+          ${box_label ? `
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px;">Box assigné</td>
-            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">Box ${box_numero}</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${box_label}</td>
           </tr>` : ""}
         </table>
       </div>

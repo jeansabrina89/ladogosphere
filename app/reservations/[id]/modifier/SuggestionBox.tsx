@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { formatBoxLabel } from "../../../../src/lib/boxes";
 
 type Suggestion = {
   box_id: string;
   numero: number;
+  nom?: string | null;
   score: number;
   raisons: string[];
   problemes: string[];
@@ -111,11 +113,11 @@ export default function SuggestionBox({
               <div key={s.box_id}
                 className="rounded-xl p-3 border-2 cursor-pointer hover:opacity-80 transition"
                 style={{ backgroundColor: couleur.bg, borderColor: couleur.border }}
-                onClick={() => { onSelectBox(s.box_id); setOuvert(false); setAutoSelectMessage(`Box ${s.numero} sélectionné`); }}>
+                onClick={() => { onSelectBox(s.box_id); setOuvert(false); setAutoSelectMessage(`${formatBoxLabel(s)} sélectionné`); }}>
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-bold" style={{ color: couleur.text }}>
-                      Box {s.numero}
+                      {formatBoxLabel(s)}
                       {s.nb_chiens_presents === 0 && " — Libre"}
                       {s.nb_chiens_presents > 0 && ` — ${s.nb_chiens_presents} chien(s) : ${s.chiens_presents.join(", ")}`}
                     </p>

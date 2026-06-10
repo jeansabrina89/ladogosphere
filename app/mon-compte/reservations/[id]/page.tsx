@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
 import Link from "next/link";
 import { formatDate } from "../../../../src/lib/dates";
+import { formatBoxLabel } from "../../../../src/lib/boxes";
 
 function libelleType(t: string): string {
   if (t === "journee") return "Journée";
@@ -21,7 +22,7 @@ export default async function DetailReservationClientPage({
 
   const { data: res } = await supabase
     .from("reservations")
-    .select(`*, boxes (numero), reservation_chiens (chiens (nom))`)
+    .select(`*, boxes (numero, nom), reservation_chiens (chiens (nom))`)
     .eq("id", id)
     .maybeSingle();
 
@@ -55,7 +56,7 @@ export default async function DetailReservationClientPage({
           {(res.heure_arrivee || res.heure_depart) && (
             <p><strong>Horaires :</strong> {res.heure_arrivee ? String(res.heure_arrivee).slice(0, 5) : "—"} → {res.heure_depart ? String(res.heure_depart).slice(0, 5) : "—"}</p>
           )}
-          <p><strong>Box :</strong> {res.boxes?.numero ?? "—"}</p>
+          <p><strong>Box :</strong> {formatBoxLabel(res.boxes)}</p>
           <p><strong>Statut :</strong> {
             res.statut === "validee" ? "✅ Validée" :
             res.statut === "en_attente" ? "⏳ En attente" :

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../src/utils/supabase/server";
+import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
+import { formatBoxLabel } from "../../../../src/lib/boxes";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -38,13 +40,23 @@ export async function POST(req: NextRequest) {
   ];
 
   // 3. Chercher les boxes actifs
-  const { data: tousBoxes } = await supabase
+  const { data: boxesActifs } = await supabase
     .from("boxes")
-    .select("id, numero, capacite_standard")
+    .select("id, numero, nom, capacite_standard")
     .eq("actif", true)
     .order("numero");
 
-  if (!tousBoxes?.length) return NextResponse.json({ box_id: null, raison: null });
+  // Exclure les box indisponibles sur la période demandée (lecture admin : RLS admin-only)
+  const { data: indisponibilites } = await supabaseAdmin
+    .from("box_indisponibilites")
+    .select("box_id")
+    .lte("date_debut", date_fin)
+    .gte("date_fin", date_debut);
+  const boxesIndisponibles = new Set((indisponibilites ?? []).map(i => i.box_id));
+
+  const tousBoxes = (boxesActifs ?? []).filter(box => !boxesIndisponibles.has(box.id));
+
+  if (!tousBoxes.length) return NextResponse.json({ box_id: null, raison: null });
 
   // 4. Pour chaque box, compter les occupants et vérifier les amis
   for (const box of tousBoxes) {
@@ -62,7 +74,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         box_id: box.id,
         raison: "box_compatible",
-        message: `🏠 Un ami compatible est dans le Box ${box.numero}`
+        message: `🏠 Un ami compatible est dans le ${formatBoxLabel(box)}`
       });
     }
   }
@@ -74,7 +86,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         box_id: box.id,
         raison: "vide",
-        message: `✅ Box ${box.numero} disponible`
+        message: `✅ ${formatBoxLabel(box)} disponible`
       });
     }
   }
@@ -91,7 +103,7 @@ export async function POST(req: NextRequest) {
   for (const box of tousBoxes) {
     const occupantsBox = boxesOccupes.filter(o => o.box_id === box.id);
     const chiensDansBox = occupantsBox.map(o => o.chien_id);
-    const capacite = box.capacite || 2;
+    const capacite = box.capacite_standard || 2;
     const amiOkDansBox = chiensDansBox.some(id => amisOk.includes(id));
     const placeDispo = chiensDansBox.length + chien_ids.length <= capacite;
 
@@ -99,7 +111,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         box_id: box.id,
         raison: "ami_ok",
-        message: `✅ Un ami est dans le Box ${box.numero}`
+        message: `✅ Un ami est dans le ${formatBoxLabel(box)}`
       });
     }
   }

@@ -1,5 +1,6 @@
 import { createClient } from "../../../../src/utils/supabase/server";
 import { formatDate } from "../../../../src/lib/dates";
+import { formatBoxLabel } from "../../../../src/lib/boxes";
 import BoutonImprimer from "./BoutonImprimer";
 
 export default async function FacturePage({
@@ -15,7 +16,7 @@ export default async function FacturePage({
     .select(`
       *,
       clients (id, prenom, nom, membre, telephone, email, adresse),
-      boxes (numero),
+      boxes (numero, nom),
       reservation_chiens (
         chiens (id, nom, race, poids, categorie_poids)
       )
@@ -123,7 +124,7 @@ export default async function FacturePage({
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Box</span>
-              <span className="font-semibold">{res.boxes?.numero ? `Box ${res.boxes.numero}` : "—"}</span>
+              <span className="font-semibold">{formatBoxLabel(res.boxes)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Date d'arrivée</span>

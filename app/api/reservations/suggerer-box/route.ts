@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../src/utils/supabase/server";
+import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -16,11 +17,24 @@ export async function POST(req: NextRequest) {
 
   if (!chiensAplacer) return NextResponse.json({ suggestions: [] });
 
-  const { data: boxes } = await supabase
+  const { data: boxesActifs } = await supabase
     .from("boxes")
     .select("*")
     .eq("actif", true)
     .order("numero");
+
+  // Exclure les box indisponibles sur la période demandée (lecture admin : RLS admin-only)
+  let boxesIndisponibles = new Set<string>();
+  if (date_debut && date_fin) {
+    const { data: indisponibilites } = await supabaseAdmin
+      .from("box_indisponibilites")
+      .select("box_id")
+      .lte("date_debut", date_fin)
+      .gte("date_fin", date_debut);
+    boxesIndisponibles = new Set((indisponibilites ?? []).map(i => i.box_id));
+  }
+
+  const boxes = (boxesActifs ?? []).filter(box => !boxesIndisponibles.has(box.id));
 
   const { data: occupations } = await supabase
     .from("occupation_boxes")
@@ -71,6 +85,7 @@ export async function POST(req: NextRequest) {
     return {
       box_id: box.id,
       numero: box.numero,
+      nom: box.nom,
       score: score.total,
       raisons: score.raisons,
       problemes: score.problemes,

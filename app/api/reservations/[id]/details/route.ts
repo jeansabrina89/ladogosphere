@@ -13,7 +13,7 @@ export async function GET(
     .select(`
       *,
       clients (prenom, nom, membre),
-      boxes (numero),
+      boxes (numero, nom),
       reservation_chiens (
         chien_id,
         chiens (id, nom, race)
@@ -24,7 +24,7 @@ export async function GET(
 
   const { data: boxes } = await supabase
     .from("boxes")
-    .select("id, numero")
+    .select("id, numero, nom")
     .eq("actif", true)
     .order("numero");
 

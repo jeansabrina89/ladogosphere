@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { formatBoxLabel } from "../../../src/lib/boxes";
 
 type Client = { id: string; prenom: string; nom: string; membre: boolean };
 type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string };
-type Box = { id: string; numero: number };
+type Box = { id: string; numero: number; nom?: string | null };
 
 const JOURS_SEMAINE = [
   { value: 1, label: "Lundi" },
@@ -557,7 +558,7 @@ export default function FormReservation({
               <option value="">-- Sélectionner un box --</option>
               {boxes.map(b => (
                 <option key={b.id} value={b.id}>
-                  Box {b.numero}{b.id === boxId && suggestionBox ? " ← suggéré" : ""}
+                  {formatBoxLabel(b)}{b.id === boxId && suggestionBox ? " ← suggéré" : ""}
                 </option>
               ))}
             </select>

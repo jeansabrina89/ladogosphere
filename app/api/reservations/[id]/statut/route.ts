@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../../src/utils/supabase/server";
 import { envoyerEmailReservationValidee, envoyerEmailReservationAnnulee } from "../../../../../src/lib/email";
+import { formatBoxLabel } from "../../../../../src/lib/boxes";
 
 export async function POST(
   req: NextRequest,
@@ -21,7 +22,7 @@ export async function POST(
   try {
     const { data: reservation } = await supabase
       .from("reservations")
-      .select(`*, clients (email, prenom), boxes (numero)`)
+      .select(`*, clients (email, prenom), boxes (numero, nom)`)
       .eq("id", id)
       .single();
 
@@ -33,7 +34,7 @@ export async function POST(
           date_debut: reservation.date_debut,
           date_fin: reservation.date_fin,
           type: reservation.type_reservation,
-          box_numero: reservation.boxes?.numero,
+          box_label: formatBoxLabel(reservation.boxes),
           heure_arrivee: reservation.heure_arrivee,
           heure_depart: reservation.heure_depart,
         });

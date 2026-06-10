@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../src/utils/supabase/server";
+import { formatBoxLabel } from "../../../../src/lib/boxes";
 import * as XLSX from "xlsx";
 
 export async function GET(req: NextRequest) {
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
     .select(`
       *,
       clients (prenom, nom, email, telephone, membre),
-      boxes (numero),
+      boxes (numero, nom),
       reservation_chiens (chiens (nom))
     `)
     .neq("statut", "annulee")
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
       "Téléphone": res.clients?.telephone || "—",
       "Membre": res.clients?.membre ? "Oui" : "Non",
       "Chien(s)": chiens,
-      "Box": res.boxes?.numero ? `Box ${res.boxes.numero}` : "—",
+      "Box": formatBoxLabel(res.boxes),
       "Type": res.type_reservation === "journee" ? "Journée" : "Séjour",
       "Urgence": res.urgence ? "Oui" : "Non",
       "Statut réservation": res.statut,

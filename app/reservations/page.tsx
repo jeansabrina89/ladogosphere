@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "../../src/utils/supabase/server";
 import { formatDate } from "../../src/lib/dates";
+import { formatBoxLabel } from "../../src/lib/boxes";
 import FiltresReservations from "./FiltresReservations";
 import BoutonPaiementRapide from "./BoutonPaiementRapide";
 import RechercheReservation from "./RechercheReservation";
@@ -22,7 +23,7 @@ export default async function ReservationsPage({
     .select(`
       *,
       clients (prenom, nom, membre),
-      boxes (numero),
+      boxes (numero, nom),
       reservation_chiens (
         chiens (id, nom, race, categorie_poids)
       )
@@ -99,7 +100,7 @@ export default async function ReservationsPage({
                       🐶 {chiens.map((c: any) => c.nom).join(", ") || "—"}
                     </p>
                     <p className="text-gray-500 text-sm">
-                      🏠 Box {res.boxes?.numero ?? "—"} ·{" "}
+                      🏠 {formatBoxLabel(res.boxes)} ·{" "}
                       {res.type_reservation === "journee" ? "Journée" :
                        res.type_reservation === "sejour" ? "Séjour" : "Journée d'essai"}
                     </p>

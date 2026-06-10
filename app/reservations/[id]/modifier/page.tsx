@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import SuggestionBox from "./SuggestionBox";
+import { formatBoxLabel } from "../../../../src/lib/boxes";
 
 import { use } from "react";
 
@@ -92,7 +93,7 @@ export default function ModifierReservationPage({
               className="w-full border rounded-xl p-3 mb-2">
               <option value="">-- Pas encore assigné --</option>
               {boxes.map((b: any) => (
-                <option key={b.id} value={b.id}>Box {b.numero}</option>
+                <option key={b.id} value={b.id}>{formatBoxLabel(b)}</option>
               ))}
             </select>
 

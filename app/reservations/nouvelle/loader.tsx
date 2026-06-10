@@ -17,7 +17,7 @@ export default async function NouvelleReservationLoader() {
 
   const { data: boxes } = await supabase
     .from("boxes")
-    .select("id, numero")
+    .select("id, numero, nom")
     .eq("actif", true)
     .order("numero");
 

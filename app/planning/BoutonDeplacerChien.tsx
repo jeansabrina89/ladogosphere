@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatBoxLabel } from "../../src/lib/boxes";
 
-type Box = { id: string; numero: number };
+type Box = { id: string; numero: number; nom?: string | null };
 type Suggestion = {
   box_id: string;
   numero: number;
@@ -25,7 +26,7 @@ export default function BoutonDeplacerChien({
 }: {
   occupation_id: string;
   chien: any;
-  box_actuel: number;
+  box_actuel: { numero: number; nom?: string | null };
   boxes: Box[];
   date_debut: string;
   date_fin: string;
@@ -129,7 +130,7 @@ export default function BoutonDeplacerChien({
               }</p>
               <p><strong>Sexe :</strong> {chien.sexe === "M" ? "♂️ Mâle" : "♀️ Femelle"} {chien.sterilise ? "stérilisé(e)" : "entier(e)"}</p>
               <p><strong>Séjour :</strong> {date_debut} → {date_fin}</p>
-              <p><strong>Box actuel :</strong> Box {box_actuel}</p>
+              <p><strong>Box actuel :</strong> {formatBoxLabel(box_actuel)}</p>
             </div>
 
             {/* Mode */}
@@ -171,7 +172,7 @@ export default function BoutonDeplacerChien({
                   className="w-full border rounded-xl p-3" />
                 {dateChangement && (
                   <p className="text-xs text-gray-500 mt-1">
-                    Box {box_actuel} : {date_debut} → {new Date(new Date(dateChangement).getTime() - 86400000).toISOString().split("T")[0]}<br />
+                    {formatBoxLabel(box_actuel)} : {date_debut} → {new Date(new Date(dateChangement).getTime() - 86400000).toISOString().split("T")[0]}<br />
                     Nouveau box : {dateChangement} → {date_fin}
                   </p>
                 )}
@@ -189,7 +190,7 @@ export default function BoutonDeplacerChien({
                 {boxes.map(b => {
                   const couleur = getCouleurBox(b.id);
                   const sugg = getSuggestion(b.id);
-                  const estActuel = b.numero === box_actuel;
+                  const estActuel = b.numero === box_actuel.numero;
 
                   return (
                     <div key={b.id}
@@ -203,7 +204,7 @@ export default function BoutonDeplacerChien({
                       <div className="flex justify-between items-start">
                         <div>
                           <p className="font-bold text-sm" style={{ color: "#1B2B5E" }}>
-                            Box {b.numero}
+                            {formatBoxLabel(b)}
                             {estActuel && <span className="ml-2 text-xs text-gray-400">(actuel)</span>}
                             {sugg && sugg.nb_chiens_presents > 0 && (
                               <span className="ml-2 text-xs text-gray-500">
