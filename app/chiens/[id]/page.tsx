@@ -66,7 +66,10 @@ export default async function ChienPage({
           <p><strong>Couleur :</strong> {chien.couleur || "-"}</p>
           <p><strong>Âge :</strong> {calculerAge(chien.date_naissance)} an(s)</p>
           <p><strong>Sexe :</strong> {chien.sexe === "M" ? "♂️ Mâle" : "♀️ Femelle"}</p>
-          <p><strong>Stérilisé :</strong> {chien.sterilise ? "Oui" : "Non"}</p>
+          <p><strong>Stérilisation :</strong> {
+            chien.sterilisation === "oui" ? "Stérilisé" :
+            chien.sterilisation === "chimique" ? "Castré chimiquement" : "Non stérilisé"
+          }</p>
           <p><strong>Poids :</strong> {chien.poids ? `${chien.poids} kg` : "-"}</p>
           <p><strong>Catégorie :</strong> {
             chien.categorie_poids === "moins_15kg" ? "🟢 Petit (< 15 kg)" :

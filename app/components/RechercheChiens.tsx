@@ -11,7 +11,7 @@ type Chien = {
   poids: number;
   date_naissance: string;
   sexe: string;
-  sterilise: boolean;
+  sterilisation: string;
 };
 
 export default function RechercheChiens({
@@ -81,11 +81,15 @@ export default function RechercheChiens({
 
             <p className="font-medium mb-2">
               {chien.sexe === "M"
-                ? chien.sterilise
+                ? chien.sterilisation === "oui"
                   ? "♂️ Mâle castré"
+                  : chien.sterilisation === "chimique"
+                  ? "♂️ Mâle castré chimiquement"
                   : "♂️ Mâle entier"
-                : chien.sterilise
+                : chien.sterilisation === "oui"
                 ? "♀️ Femelle stérilisée"
+                : chien.sterilisation === "chimique"
+                ? "♀️ Femelle castrée chimiquement"
                 : "♀️ Femelle entière"}
             </p>
 

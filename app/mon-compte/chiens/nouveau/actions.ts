@@ -29,9 +29,9 @@ export async function creerChienClient(client_id: string, formData: FormData) {
   const couleur = (formData.get("couleur") as string || "").trim();
   const poids = formData.get("poids") ? Number(formData.get("poids")) : null;
   const sexe = (formData.get("sexe") as string || "").trim();
-  const steriliseRaw = formData.get("sterilise") as string;
+  const sterilisation = (formData.get("sterilisation") as string || "").trim();
 
-  if (!nom || !race || !couleur || !poids || !sexe || (steriliseRaw !== "true" && steriliseRaw !== "false")) {
+  if (!nom || !race || !couleur || !poids || !sexe || !["oui", "non", "chimique"].includes(sterilisation)) {
     throw new Error("Merci de remplir tous les champs obligatoires.");
   }
 
@@ -45,7 +45,8 @@ export async function creerChienClient(client_id: string, formData: FormData) {
       poids,
       categorie_poids: calculerCategorie(poids),
       sexe,
-      sterilise: steriliseRaw === "true",
+      sterilisation,
+      sterilise: sterilisation === "oui",
       date_naissance: formData.get("date_naissance") as string || null,
       numero_puce: formData.get("numero_puce") as string || null,
       allergies: formData.get("allergies") as string || null,

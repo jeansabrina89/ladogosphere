@@ -12,6 +12,8 @@ function calculerCategorie(poids: number): string {
 export async function modifierChien(id: string, formData: FormData) {
   const supabase = await createClient();
   const poids = Number(formData.get("poids"));
+  const sterilisationRaw = formData.get("sterilisation") as string;
+  const sterilisation = ["oui", "non", "chimique"].includes(sterilisationRaw) ? sterilisationRaw : "non";
 
   const { error } = await supabase
     .from("chiens")
@@ -23,7 +25,8 @@ export async function modifierChien(id: string, formData: FormData) {
       categorie_poids: calculerCategorie(poids),
       date_naissance: formData.get("date_naissance") || null,
       sexe: formData.get("sexe"),
-      sterilise: formData.get("sterilise") === "true",
+      sterilisation,
+      sterilise: sterilisation === "oui",
       numero_puce: formData.get("numero_puce"),
       niveau_energie: formData.get("niveau_energie"),
       allergies: formData.get("allergies"),

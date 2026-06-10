@@ -66,11 +66,11 @@ export default async function ModifierChienClientPage({
             </select>
           </div>
           <div>
-            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Stérilisé(e) *</label>
-            <select name="sterilise" required defaultValue={chien.sterilise === true ? "true" : chien.sterilise === false ? "false" : ""} className="w-full border rounded-xl p-3">
-              <option value="" disabled>Choisir</option>
-              <option value="false">Non</option>
-              <option value="true">Oui</option>
+            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Stérilisation *</label>
+            <select name="sterilisation" required defaultValue={chien.sterilisation || "non"} className="w-full border rounded-xl p-3">
+              <option value="non">Non</option>
+              <option value="oui">Oui</option>
+              <option value="chimique">Castré chimiquement</option>
             </select>
           </div>
           <div>

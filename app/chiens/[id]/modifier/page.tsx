@@ -78,12 +78,13 @@ export default async function ModifierChienPage({
           </div>
 
           <div>
-            <label className="block font-semibold mb-1">Stérilisé(e)</label>
-            <select name="sterilise"
-              defaultValue={chien.sterilise ? "true" : "false"}
+            <label className="block font-semibold mb-1">Stérilisation</label>
+            <select name="sterilisation"
+              defaultValue={chien.sterilisation || "non"}
               className="w-full border rounded-xl p-3">
-              <option value="false">Non</option>
-              <option value="true">Oui</option>
+              <option value="non">Non</option>
+              <option value="oui">Oui</option>
+              <option value="chimique">Castré chimiquement</option>
             </select>
           </div>
 

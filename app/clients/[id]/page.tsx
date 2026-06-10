@@ -14,7 +14,7 @@ export default async function ClientPage({
 
   const { data: client } = await supabase
     .from("clients")
-    .select(`*, chiens (id, nom, race, poids, categorie_poids, sexe, sterilise)`)
+    .select(`*, chiens (id, nom, race, poids, categorie_poids, sexe, sterilisation)`)
     .eq("id", id)
     .single();
 
@@ -181,7 +181,10 @@ export default async function ClientPage({
                     chien.categorie_poids === "15_30kg" ? "🟡 Moyen" :
                     chien.categorie_poids === "30_40kg" ? "🔴 Grand" : "—"
                   }</p>
-                  <p>{chien.sexe === "M" ? "♂️" : "♀️"} {chien.sterilise ? "stérilisé(e)" : "entier(e)"}</p>
+                  <p>{chien.sexe === "M" ? "♂️" : "♀️"} {
+                    chien.sterilisation === "oui" ? "stérilisé(e)" :
+                    chien.sterilisation === "chimique" ? "castré chimiquement" : "entier(e)"
+                  }</p>
                 </div>
               </Link>
             ))}

@@ -22,7 +22,7 @@ export default async function ReservationPage({
       clients (id, prenom, nom, membre, telephone, email),
       boxes (numero),
       reservation_chiens (
-        chiens (id, nom, race, poids, categorie_poids, sexe, sterilise)
+        chiens (id, nom, race, poids, categorie_poids, sexe, sterilisation)
       )
     `)
     .eq("id", id)
@@ -129,7 +129,10 @@ export default async function ReservationPage({
                     chien.categorie_poids === "15_30kg" ? "🟡 Moyen" :
                     chien.categorie_poids === "30_40kg" ? "🔴 Grand" : "—"
                   }</p>
-                  <p>{chien.sexe === "M" ? "♂️" : "♀️"} {chien.sterilise ? "stér." : "entier"}</p>
+                  <p>{chien.sexe === "M" ? "♂️" : "♀️"} {
+                    chien.sterilisation === "oui" ? "stér." :
+                    chien.sterilisation === "chimique" ? "castr. chim." : "entier"
+                  }</p>
                 </div>
               </Link>
             ))}

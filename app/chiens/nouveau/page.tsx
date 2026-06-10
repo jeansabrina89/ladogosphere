@@ -66,10 +66,11 @@ export default async function NouveauChienPage() {
           </div>
 
           <div>
-            <label className="block font-semibold mb-1">Stérilisé(e)</label>
-            <select name="sterilise" className="w-full border rounded-xl p-3">
-              <option value="false">Non</option>
-              <option value="true">Oui</option>
+            <label className="block font-semibold mb-1">Stérilisation</label>
+            <select name="sterilisation" className="w-full border rounded-xl p-3" defaultValue="non">
+              <option value="non">Non</option>
+              <option value="oui">Oui</option>
+              <option value="chimique">Castré chimiquement</option>
             </select>
           </div>
 

@@ -48,7 +48,10 @@ export default async function FicheChienClientPage({
             chien.categorie_poids === "30_40kg" ? "🔴 Grand (30 kg et +)" : "—"
           }</p>
           <p><strong>Sexe :</strong> {chien.sexe === "M" ? "♂️ Mâle" : chien.sexe === "F" ? "♀️ Femelle" : "—"}</p>
-          <p><strong>Stérilisé(e) :</strong> {chien.sterilise ? "Oui" : "Non"}</p>
+          <p><strong>Stérilisation :</strong> {
+            chien.sterilisation === "oui" ? "Stérilisé" :
+            chien.sterilisation === "chimique" ? "Castré chimiquement" : "Non stérilisé"
+          }</p>
           <p><strong>Date de naissance :</strong> {chien.date_naissance ? new Date(chien.date_naissance).toLocaleDateString("fr-CH") : "—"}</p>
           <p><strong>Numéro de puce :</strong> {chien.numero_puce || "—"}</p>
         </div>

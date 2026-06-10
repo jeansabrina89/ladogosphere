@@ -19,7 +19,9 @@ export async function creerChien(formData: FormData) {
   const dateNaissanceValue = formData.get("date_naissance") as string;
   const date_naissance = dateNaissanceValue || null;
   const sexe = formData.get("sexe") as string;
-  const sterilise = formData.get("sterilise") === "true";
+  const sterilisationRaw = formData.get("sterilisation") as string;
+  const sterilisation = ["oui", "non", "chimique"].includes(sterilisationRaw) ? sterilisationRaw : "non";
+  const sterilise = sterilisation === "oui";
   const numero_puce = formData.get("numero_puce") as string;
   const niveau_energie = formData.get("niveau_energie") as string;
   const allergies = formData.get("allergies") as string;
@@ -43,6 +45,7 @@ export async function creerChien(formData: FormData) {
       categorie_poids,
       date_naissance,
       sexe,
+      sterilisation,
       sterilise,
       numero_puce,
       niveau_energie,
