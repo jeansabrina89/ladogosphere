@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../src/utils/supabase/server";
 import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
+import { occupationEnConflit } from "../../../../src/lib/disponibilite-box";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
-  const { chien_ids, date_debut, date_fin, reservation_id } = await req.json();
+  const { chien_ids, date_debut, date_fin, reservation_id, heure_arrivee, heure_depart } = await req.json();
 
   if (!chien_ids || chien_ids.length === 0) {
     return NextResponse.json({ suggestions: [] });
@@ -36,11 +37,14 @@ export async function POST(req: NextRequest) {
 
   const boxes = (boxesActifs ?? []).filter(box => !boxesIndisponibles.has(box.id));
 
-  const { data: occupations } = await supabase
+  const { data: occupationsRaw } = await supabase
     .from("occupation_boxes")
     .select(`
       box_id,
       chien_id,
+      date_debut,
+      date_fin,
+      reservations (heure_arrivee, heure_depart),
       chiens (
         id, nom, categorie_poids, sexe, sterilise, client_id,
         compatible_moins_15kg, compatible_15_30kg, compatible_30_40kg,
@@ -51,6 +55,21 @@ export async function POST(req: NextRequest) {
     .lte("date_debut", date_fin)
     .gte("date_fin", date_debut)
     .neq("reservation_id", reservation_id || "00000000-0000-0000-0000-000000000000");
+
+  // Exclut les occupations dont le seul jour de chevauchement est une transition
+  // du soir (départ <= 18h / arrivée >= 17h le même jour) — ne s'applique que si
+  // les horaires de la nouvelle réservation sont fournis (côté client).
+  const occupations = (occupationsRaw ?? []).filter((occ: any) =>
+    occupationEnConflit(
+      {
+        date_debut: occ.date_debut,
+        date_fin: occ.date_fin,
+        heure_arrivee: occ.reservations?.heure_arrivee,
+        heure_depart: occ.reservations?.heure_depart,
+      },
+      { date_debut, date_fin, heure_arrivee, heure_depart }
+    )
+  );
 
   // Récupérer les ententes individuelles des chiens à placer
   const { data: ententes } = await supabase

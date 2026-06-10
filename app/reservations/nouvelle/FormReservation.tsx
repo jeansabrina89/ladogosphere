@@ -140,6 +140,8 @@ export default function FormReservation({
             chien_ids: chiensSelectionnes,
             date_debut: dateDebut,
             date_fin: dateF,
+            heure_arrivee: heureArrivee,
+            heure_depart: heureDepart,
           }),
         });
         const data = await res.json();
@@ -157,7 +159,7 @@ export default function FormReservation({
 
     const timeout = setTimeout(chercher, 500);
     return () => clearTimeout(timeout);
-  }, [chiensSelectionnes, dateDebut, dateFin, type]);
+  }, [chiensSelectionnes, dateDebut, dateFin, heureArrivee, heureDepart, type]);
 
   const verifierHoraires = (): boolean => {
     if (type === "journee") {

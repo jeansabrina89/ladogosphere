@@ -101,6 +101,8 @@ export default function ModifierReservationPage({
               chien_ids={chien_ids}
               date_debut={res.date_debut}
               date_fin={res.date_fin}
+              heure_arrivee={res.heure_arrivee}
+              heure_depart={res.heure_depart}
               reservation_id={id}
               onSelectBox={(box_id) => setBoxId(box_id)}
             />
