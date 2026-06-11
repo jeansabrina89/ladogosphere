@@ -78,6 +78,33 @@ export function boxCompatibleAvecIsolement(
   return true;
 }
 
+/**
+ * « Même famille » = même propriétaire = même client_id (les deux définis et
+ * identiques). Les chiens d'une même famille vivent déjà ensemble : entre
+ * eux, les contrôles de compatibilité taille/sexe sont ignorés et ils sont
+ * placés ensemble dans le même box (sauf chien "doit être isolé").
+ */
+export function memeFamille(
+  clientIdA?: string | null,
+  clientIdB?: string | null
+): boolean {
+  return !!clientIdA && !!clientIdB && clientIdA === clientIdB;
+}
+
+/**
+ * Capacité maximale d'un box pour regrouper des chiens d'une même famille :
+ * jusqu'à 3 chiens, ou 4 si tous les chiens concernés sont de petit gabarit
+ * (< 15 kg).
+ */
+export function capaciteMaxFamille(
+  categoriesPoids: (string | null | undefined)[]
+): number {
+  const tousPetits =
+    categoriesPoids.length > 0 &&
+    categoriesPoids.every(c => c === "moins_15kg");
+  return tousPetits ? 4 : 3;
+}
+
 export function occupationEnConflit(occupation: Periode, nouvelle: Periode): boolean {
   const debutPartage = occupation.date_debut > nouvelle.date_debut ? occupation.date_debut : nouvelle.date_debut;
   const finPartagee = occupation.date_fin < nouvelle.date_fin ? occupation.date_fin : nouvelle.date_fin;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../src/utils/supabase/server";
 import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
-import { occupationEnConflit, boxCompatibleAvecIsolement } from "../../../../src/lib/disponibilite-box";
+import { occupationEnConflit, boxCompatibleAvecIsolement, memeFamille, capaciteMaxFamille } from "../../../../src/lib/disponibilite-box";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -140,6 +140,19 @@ function calculerScore(
   const raisons: string[] = [];
   const problemes: string[] = [];
 
+  // Une réservation correspond à un seul client : tous les chiens à placer
+  // appartiennent à la même famille. On distingue, parmi les chiens déjà
+  // présents dans le box, ceux de cette même famille (regroupement souhaité,
+  // compatibilité taille/sexe ignorée) de ceux d'une autre famille (règles de
+  // compatibilité normales).
+  const clientIdFamille = chiensAplacer[0]?.clients?.id ?? null;
+  const chiensPresentsMemeFamille = chiensPresents.filter((p: any) =>
+    memeFamille(clientIdFamille, p.client_id)
+  );
+  const chiensPresentsAutreFamille = chiensPresents.filter((p: any) =>
+    !memeFamille(clientIdFamille, p.client_id)
+  );
+
   // Vérifier famille uniquement
   for (const chien of chiensAplacer) {
     if (chiensFamilleUniquement.has(chien.id) && chiensPresents.length > 0) {
@@ -184,11 +197,22 @@ function calculerScore(
   const aGrands = toutesCategories.includes("30_40kg");
   const aPetits = toutesCategories.includes("moins_15kg");
 
-  if (aMoyens || aGrands) {
-    const memeProprietaire = chiensAplacer.every(c =>
-      chiensPresents.every((p: any) => p.client_id === c.clients?.id)
-    );
-    const maxCapacite = memeProprietaire ? 3 : 2;
+  if (chiensPresentsAutreFamille.length === 0) {
+    // Box vide ou occupé uniquement par la même famille : on regroupe la
+    // famille, capacité élargie (jusqu'à 3, ou 4 si tous petits gabarits).
+    const maxCapaciteFamille = capaciteMaxFamille([
+      ...chiensAplacer.map(c => c.categorie_poids),
+      ...chiensPresentsMemeFamille.map((c: any) => c.categorie_poids),
+    ]);
+    if (nbTotal > maxCapaciteFamille) {
+      const surplus = nbTotal - maxCapaciteFamille;
+      total -= 5 * surplus;
+      problemes.push(
+        `👨‍👩‍👧 Famille trop nombreuse pour ce box (max ${maxCapaciteFamille}) — ${surplus} chien(s) à regrouper dans un autre box`
+      );
+    }
+  } else if (aMoyens || aGrands) {
+    const maxCapacite = 2;
     if (nbTotal > maxCapacite) {
       total -= 100;
       problemes.push(`Box plein (max ${maxCapacite} pour cette catégorie)`);
@@ -198,25 +222,21 @@ function calculerScore(
     problemes.push("Box plein (max 4 petits)");
   }
 
-  // Même propriétaire — bonus
-  if (chiensPresents.length > 0) {
-    const clientIds = chiensAplacer.map(c => c.clients?.id);
-    const memeProprietaire = chiensPresents.some((p: any) =>
-      clientIds.includes(p.client_id)
-    );
-    if (memeProprietaire) {
-      total += 50;
-      raisons.push("✅ Même propriétaire");
-    }
+  // Même famille déjà présente dans ce box — bonus (on les regroupe)
+  if (chiensPresentsMemeFamille.length > 0) {
+    total += 50;
+    raisons.push("✅ Même famille déjà présente dans ce box");
   }
 
   if (chiensPresents.length === 0) {
     raisons.push("🟢 Box libre");
   }
 
-  // Compatibilités générales
+  // Compatibilités générales taille/sexe — uniquement avec les chiens d'une
+  // AUTRE famille : entre chiens d'une même famille (même client_id), ces
+  // contrôles sont ignorés (ils vivent déjà ensemble).
   for (const chienAplacer of chiensAplacer) {
-    for (const present of chiensPresents) {
+    for (const present of chiensPresentsAutreFamille) {
       const categoriePresent = present.categorie_poids;
       if (categoriePresent === "moins_15kg" && !chienAplacer.compatible_moins_15kg) {
         total -= 30;
@@ -252,7 +272,7 @@ function calculerScore(
     }
   }
 
-  if (problemes.length === 0 && chiensPresents.length > 0) {
+  if (problemes.length === 0 && chiensPresentsAutreFamille.length > 0) {
     raisons.push("✅ Compatible");
   }
 

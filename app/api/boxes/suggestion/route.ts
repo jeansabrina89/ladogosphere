@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../src/utils/supabase/server";
 import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 import { formatBoxLabel } from "../../../../src/lib/boxes";
-import { occupationEnConflit, boxCompatibleAvecIsolement } from "../../../../src/lib/disponibilite-box";
+import { occupationEnConflit, boxCompatibleAvecIsolement, memeFamille, capaciteMaxFamille } from "../../../../src/lib/disponibilite-box";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -15,16 +15,39 @@ export async function POST(req: NextRequest) {
   // 1. Trouver les boxes occupés sur ces dates
   const { data: occupationsRaw } = await supabase
     .from("occupation_boxes")
-    .select("box_id, chien_id, date_debut, date_fin, reservations (heure_arrivee, heure_depart, type_reservation), chiens (doit_etre_isole)")
+    .select("box_id, chien_id, date_debut, date_fin, reservations (heure_arrivee, heure_depart, type_reservation), chiens (doit_etre_isole, client_id, categorie_poids)")
     .lte("date_debut", date_fin)
     .gte("date_fin", date_debut);
 
   // Le(s) chien(s) à placer doivent-ils être isolés (box seul) ?
   const { data: chiensAPlacerInfo } = await supabase
     .from("chiens")
-    .select("id, doit_etre_isole")
+    .select("id, doit_etre_isole, client_id, categorie_poids")
     .in("id", chien_ids);
   const placementIsole = (chiensAPlacerInfo ?? []).some((c: any) => c.doit_etre_isole);
+
+  // « Même famille » = même client_id pour tous les chiens de la réservation.
+  const clientIdFamille =
+    chiensAPlacerInfo && chiensAPlacerInfo.length > 0 &&
+    chiensAPlacerInfo.every((c: any) => c.client_id === chiensAPlacerInfo[0].client_id)
+      ? chiensAPlacerInfo[0].client_id
+      : null;
+
+  // Capacité d'un box pour y placer les chien_ids : capacité standard, sauf
+  // si le box est vide ou occupé uniquement par la même famille, auquel cas
+  // la famille peut être regroupée (jusqu'à 3, ou 4 si tous petits gabarits).
+  const capaciteBox = (box: any, occupantsBox: any[]): number => {
+    const occupantsAutreFamille = occupantsBox.filter(
+      (o: any) => !memeFamille(clientIdFamille, o.chiens?.client_id)
+    );
+    if (clientIdFamille && occupantsAutreFamille.length === 0) {
+      return capaciteMaxFamille([
+        ...(chiensAPlacerInfo ?? []).map((c: any) => c.categorie_poids),
+        ...occupantsBox.map((o: any) => o.chiens?.categorie_poids),
+      ]);
+    }
+    return box.capacite_standard || 2;
+  };
 
   // Exclut les occupations dont le seul jour de chevauchement est une transition
   // autorisée (départ/arrivée le même jour, créneaux compatibles, arrivée pas
@@ -93,7 +116,7 @@ export async function POST(req: NextRequest) {
   for (const box of boxesUtilisables) {
     const occupantsBox = boxesOccupes.filter(o => o.box_id === box.id);
     const chiensDansBox = occupantsBox.map(o => o.chien_id);
-    const capacite = box.capacite_standard || 2;
+    const capacite = capaciteBox(box, occupantsBox);
 
     // Vérifier si un ami box_compatible est dans ce box
     const amiDansBox = chiensDansBox.some(id => tousAmis.includes(id));
@@ -134,7 +157,7 @@ export async function POST(req: NextRequest) {
   for (const box of boxesUtilisables) {
     const occupantsBox = boxesOccupes.filter(o => o.box_id === box.id);
     const chiensDansBox = occupantsBox.map(o => o.chien_id);
-    const capacite = box.capacite_standard || 2;
+    const capacite = capaciteBox(box, occupantsBox);
     const amiOkDansBox = chiensDansBox.some(id => amisOk.includes(id));
     const placeDispo = chiensDansBox.length + chien_ids.length <= capacite;
 
