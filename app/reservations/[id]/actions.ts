@@ -7,14 +7,14 @@ import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import { getSoldeAvoir } from "../../../src/lib/avoirs";
 import type { EcartType } from "../../../src/lib/facturation";
 
-async function verifierAdmin(): Promise<{ error?: string }> {
+async function verifierAdmin(): Promise<{ error?: string; userId?: string }> {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Non connecté" };
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id).single();
   if (profile?.role !== "admin") return { error: "Accès réservé à l'admin" };
-  return {};
+  return { userId: user.id };
 }
 
 function calculerStatut(montantPaye: number, total: number): string {
@@ -43,7 +43,7 @@ export type RecalculResult = {
  * - Manque (0 < montant_paye < nouveau_total) : reste 'partiel', aucun mouvement auto.
  * À appeler après toute modif de montant_calcule, ajustement_manuel ou reservation_extras.
  */
-async function recalculerTotalEtPaiement(reservationId: string): Promise<RecalculResult> {
+async function recalculerTotalEtPaiement(reservationId: string, createdBy?: string): Promise<RecalculResult> {
   const { data: reservation, error: resError } = await supabaseAdmin
     .from("reservations")
     .select("montant_calcule, ajustement_manuel, montant_paye, numero, client_id")
@@ -75,9 +75,10 @@ async function recalculerTotalEtPaiement(reservationId: string): Promise<Recalcu
     const { error: mvtError } = await supabaseAdmin.from("avoirs_mouvements").insert({
       client_id: reservation.client_id,
       montant: tropPercu,
-      type: "ajout_manuel",
+      type: "trop_percu",
       motif: `Trop-perçu — modification montant résa #${reservation.numero}`,
       reservation_id: reservationId,
+      created_by: createdBy ?? null,
     });
     if (mvtError) return { error: mvtError.message };
 
@@ -213,7 +214,7 @@ export async function enregistrerMontantCalcule(reservationId: string, montant: 
     .eq("id", reservationId);
   if (updateError) return { error: updateError.message };
 
-  const result = await recalculerTotalEtPaiement(reservationId);
+  const result = await recalculerTotalEtPaiement(reservationId, verif.userId);
   revalidatePath(`/reservations/${reservationId}`);
   return result;
 }
@@ -246,7 +247,7 @@ export async function modifierPrixSejour(reservationId: string, nouveauPrixSejou
     .eq("id", reservationId);
   if (updateError) return { error: updateError.message };
 
-  const result = await recalculerTotalEtPaiement(reservationId);
+  const result = await recalculerTotalEtPaiement(reservationId, verif.userId);
   revalidatePath(`/reservations/${reservationId}`);
   return result;
 }
@@ -278,7 +279,7 @@ export async function ajouterExtraReservation(reservationId: string, libelle: st
   });
   if (insertError) return { error: insertError.message };
 
-  const result = await recalculerTotalEtPaiement(reservationId);
+  const result = await recalculerTotalEtPaiement(reservationId, verif.userId);
   revalidatePath(`/reservations/${reservationId}`);
   return result;
 }
@@ -313,7 +314,7 @@ export async function supprimerExtraReservation(extraId: string): Promise<Recalc
     .eq("id", extraId);
   if (deleteError) return { error: deleteError.message };
 
-  const result = await recalculerTotalEtPaiement(extra.reservation_id);
+  const result = await recalculerTotalEtPaiement(extra.reservation_id, verif.userId);
   revalidatePath(`/reservations/${extra.reservation_id}`);
   return result;
 }

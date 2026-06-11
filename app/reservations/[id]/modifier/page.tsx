@@ -150,18 +150,6 @@ export default function ModifierReservationPage({
             </label>
           </div>
 
-          {/* Montant */}
-          <div>
-            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>
-              Montant (CHF)
-              <span className="text-gray-400 font-normal text-sm ml-2">— laisser vide pour recalculer</span>
-            </label>
-            <input name="montant_final" type="number" step="0.05"
-              defaultValue={res.montant_final || ""}
-              className="w-full border rounded-xl p-3"
-              placeholder="Ex: 40.00" />
-          </div>
-
           {/* Commentaire */}
           <div>
             <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Commentaire admin</label>

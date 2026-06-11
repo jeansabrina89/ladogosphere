@@ -13,7 +13,6 @@ export async function modifierReservation(id: string, formData: FormData) {
   const urgence = formData.get("urgence") === "on";
   const date_debut = formData.get("date_debut") as string;
   const date_fin = formData.get("date_fin") as string;
-  const montant_final = formData.get("montant_final") as string;
 
   const { error } = await supabase
     .from("reservations")
@@ -26,7 +25,6 @@ export async function modifierReservation(id: string, formData: FormData) {
       urgence,
       date_debut,
       date_fin,
-      montant_final: montant_final ? parseFloat(montant_final) : null,
     })
     .eq("id", id);
 
