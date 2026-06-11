@@ -59,7 +59,7 @@ export default function LoginForm() {
 
     const supabase = createSupabaseBrowserClient();
     const { error } = await supabase.auth.resetPasswordForEmail(emailReset, {
-      redirectTo: `${window.location.origin}/auth/confirm?next=/reset-passeword`,
+      redirectTo: `${window.location.origin}/auth/confirm?next=/reset-password`,
     });
 
     if (error) {

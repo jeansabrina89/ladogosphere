@@ -1,25 +1,4 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
-
-export async function createSupabaseServerClient() {
-  const cookieStore = await cookies()
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch {}
-        },
-      },
-    }
-  )
-}
+// Alias historique : implémentation unique dans src/utils/supabase/server.ts
+// (même client SSR par cookies, mêmes options). Conservé pour ne pas casser
+// les imports existants de createSupabaseServerClient.
+export { createClient as createSupabaseServerClient } from '../utils/supabase/server'

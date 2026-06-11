@@ -7,7 +7,7 @@ export async function proxy(request: NextRequest) {
   if (
     pathname.startsWith('/login') ||
     pathname.startsWith('/inscription') ||
-    pathname.startsWith('/reset-passeword') ||
+    pathname.startsWith('/reset-password') ||
     pathname.startsWith('/auth/confirm') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
