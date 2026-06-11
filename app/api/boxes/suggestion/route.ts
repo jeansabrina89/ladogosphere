@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../src/utils/supabase/server";
 import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 import { formatBoxLabel } from "../../../../src/lib/boxes";
-import { occupationEnConflit } from "../../../../src/lib/disponibilite-box";
+import { occupationEnConflit, boxCompatibleAvecIsolement } from "../../../../src/lib/disponibilite-box";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -15,9 +15,16 @@ export async function POST(req: NextRequest) {
   // 1. Trouver les boxes occupés sur ces dates
   const { data: occupationsRaw } = await supabase
     .from("occupation_boxes")
-    .select("box_id, chien_id, date_debut, date_fin, reservations (heure_arrivee, heure_depart, type_reservation)")
+    .select("box_id, chien_id, date_debut, date_fin, reservations (heure_arrivee, heure_depart, type_reservation), chiens (doit_etre_isole)")
     .lte("date_debut", date_fin)
     .gte("date_fin", date_debut);
+
+  // Le(s) chien(s) à placer doivent-ils être isolés (box seul) ?
+  const { data: chiensAPlacerInfo } = await supabase
+    .from("chiens")
+    .select("id, doit_etre_isole")
+    .in("id", chien_ids);
+  const placementIsole = (chiensAPlacerInfo ?? []).some((c: any) => c.doit_etre_isole);
 
   // Exclut les occupations dont le seul jour de chevauchement est une transition
   // autorisée (départ/arrivée le même jour, créneaux compatibles, arrivée pas
@@ -74,8 +81,16 @@ export async function POST(req: NextRequest) {
 
   if (!tousBoxes.length) return NextResponse.json({ box_id: null, raison: null });
 
+  // Exclusivité "doit être isolé" : un box occupé par un chien isolé est
+  // indisponible pour tout le monde, et un chien isolé exige un box vide.
+  const boxesUtilisables = tousBoxes.filter(box => {
+    const occupantsBox = boxesOccupes.filter((o: any) => o.box_id === box.id);
+    const occupantIsole = occupantsBox.some((o: any) => o.chiens?.doit_etre_isole);
+    return boxCompatibleAvecIsolement(occupantIsole, occupantsBox.length, placementIsole);
+  });
+
   // 4. Pour chaque box, compter les occupants et vérifier les amis
-  for (const box of tousBoxes) {
+  for (const box of boxesUtilisables) {
     const occupantsBox = boxesOccupes.filter(o => o.box_id === box.id);
     const chiensDansBox = occupantsBox.map(o => o.chien_id);
     const capacite = box.capacite_standard || 2;
@@ -96,7 +111,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 5. Pas d'ami trouvé → chercher un box vide
-  for (const box of tousBoxes) {
+  for (const box of boxesUtilisables) {
     const occupantsBox = boxesOccupes.filter(o => o.box_id === box.id);
     if (occupantsBox.length === 0) {
       return NextResponse.json({
@@ -116,7 +131,7 @@ export async function POST(req: NextRequest) {
 
   const amisOk = (entendesOk || []).map(e => e.chien_cible_id);
 
-  for (const box of tousBoxes) {
+  for (const box of boxesUtilisables) {
     const occupantsBox = boxesOccupes.filter(o => o.box_id === box.id);
     const chiensDansBox = occupantsBox.map(o => o.chien_id);
     const capacite = box.capacite_standard || 2;

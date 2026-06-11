@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../src/utils/supabase/server";
 import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
-import { occupationEnConflit } from "../../../../src/lib/disponibilite-box";
+import { occupationEnConflit, boxCompatibleAvecIsolement } from "../../../../src/lib/disponibilite-box";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       date_fin,
       reservations (heure_arrivee, heure_depart, type_reservation),
       chiens (
-        id, nom, categorie_poids, sexe, sterilise, client_id,
+        id, nom, categorie_poids, sexe, sterilise, client_id, doit_etre_isole,
         compatible_moins_15kg, compatible_15_30kg, compatible_30_40kg,
         compatible_males_castres, compatible_males_entiers,
         compatible_femelles_sterilisees, compatible_femelles_entieres
@@ -94,7 +94,16 @@ export async function POST(req: NextRequest) {
     if (occ.chiens) chiensByBox[occ.box_id].push(occ.chiens);
   });
 
-  const suggestions = boxes?.map(box => {
+  // Exclusivité "doit être isolé" : un box occupé par un chien isolé est
+  // indisponible pour tout le monde, et un chien isolé exige un box vide.
+  const placementIsole = chiensAplacer.some((c: any) => c.doit_etre_isole);
+  const boxesDisponibles = (boxes ?? []).filter(box => {
+    const chiensPresents = chiensByBox[box.id] ?? [];
+    const occupantIsole = chiensPresents.some((c: any) => c.doit_etre_isole);
+    return boxCompatibleAvecIsolement(occupantIsole, chiensPresents.length, placementIsole);
+  });
+
+  const suggestions = boxesDisponibles.map(box => {
     const chiensPresents = chiensByBox[box.id] ?? [];
     const score = calculerScore(
       chiensAplacer,
@@ -113,7 +122,7 @@ export async function POST(req: NextRequest) {
       nb_chiens_presents: chiensPresents.length,
       chiens_presents: chiensPresents.map((c: any) => c.nom),
     };
-  }) ?? [];
+  });
 
   suggestions.sort((a, b) => b.score - a.score);
 

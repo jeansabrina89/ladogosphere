@@ -235,6 +235,16 @@ export default async function ModifierChienPage({
             </div>
           </div>
 
+          {/* Compatibilité isolement */}
+          <div className="border-t pt-4">
+            <h2 className="font-bold mb-3">🚪 Compatibilité — Isolement</h2>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" name="doit_etre_isole"
+                defaultChecked={chien.doit_etre_isole} />
+              🚫🐕 Doit être isolé (box seul, tarif privatif)
+            </label>
+          </div>
+
           <div className="flex gap-3 pt-4 border-t">
             <button type="submit"
               className="px-6 py-3 rounded-xl font-semibold text-white"

@@ -60,6 +60,24 @@ function transitionAutorisee(
  * jour est partagé, ou si les conditions ne sont pas remplies (y compris en
  * cas d'horaire/type manquant), c'est un conflit normal.
  */
+/**
+ * Détermine si un box reste utilisable pour un placement donné, compte tenu
+ * de la règle d'exclusivité d'un chien "doit être isolé" :
+ * - un box déjà occupé par un chien isolé (sur la période demandée) est
+ *   indisponible pour tout autre chien ;
+ * - un chien isolé ne peut aller que dans un box totalement vide sur ses
+ *   dates (occupantIsole exclu d'office par le premier cas).
+ */
+export function boxCompatibleAvecIsolement(
+  occupantIsole: boolean,
+  nbOccupants: number,
+  placementIsole: boolean
+): boolean {
+  if (occupantIsole) return false;
+  if (placementIsole && nbOccupants > 0) return false;
+  return true;
+}
+
 export function occupationEnConflit(occupation: Periode, nouvelle: Periode): boolean {
   const debutPartage = occupation.date_debut > nouvelle.date_debut ? occupation.date_debut : nouvelle.date_debut;
   const finPartagee = occupation.date_fin < nouvelle.date_fin ? occupation.date_fin : nouvelle.date_fin;

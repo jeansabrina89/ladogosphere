@@ -23,7 +23,7 @@ export default async function ReservationPage({
       clients (id, prenom, nom, membre, telephone, email),
       boxes (numero, nom),
       reservation_chiens (
-        chiens (id, nom, race, poids, categorie_poids, sexe, sterilisation)
+        chiens (id, nom, race, poids, categorie_poids, sexe, sterilisation, doit_etre_isole)
       )
     `)
     .eq("id", id)
@@ -37,6 +37,7 @@ export default async function ReservationPage({
   if (!res) return <div>Réservation introuvable</div>;
 
   const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens).filter(Boolean) ?? [];
+  const chien_isole = chiens.some((c: any) => c.doit_etre_isole);
   const est_membre = res.clients?.membre ?? false;
   const anneeActuelle = new Date().getFullYear();
 
@@ -162,6 +163,7 @@ export default async function ReservationPage({
         <CalculFacture
           reservation={res}
           nb_chiens={chiens.length}
+          chien_isole={chien_isole}
           est_membre={est_membre}
           tarifs={tarifs ?? []}
           montant_actuel={res.montant_final}

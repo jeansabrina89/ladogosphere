@@ -8,6 +8,7 @@ type Tarif = { categorie: string; membre: boolean; prix: string };
 export default function CalculFacture({
   reservation,
   nb_chiens,
+  chien_isole,
   est_membre,
   tarifs,
   montant_actuel,
@@ -17,6 +18,7 @@ export default function CalculFacture({
 }: {
   reservation: any;
   nb_chiens: number;
+  chien_isole?: boolean;
   est_membre: boolean;
   tarifs: Tarif[];
   montant_actuel: number | null;
@@ -24,7 +26,7 @@ export default function CalculFacture({
   cotisation_id?: string;
   cotisation_montant?: number;
 }) {
-  const [est_privatif, setEstPrivatif] = useState(false);
+  const [est_privatif, setEstPrivatif] = useState(!!chien_isole);
   const [inclure_cotisation, setInclureCotisation] = useState(cotisation_en_attente ?? false);
   const [sauvegarde, setSauvegarde] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -75,11 +77,18 @@ export default function CalculFacture({
         <div className="flex items-center gap-3">
           <input type="checkbox" id="privatif"
             checked={est_privatif}
+            disabled={chien_isole}
             onChange={e => setEstPrivatif(e.target.checked)} />
           <label htmlFor="privatif" className="font-semibold cursor-pointer">
             Box privatif
           </label>
         </div>
+
+        {chien_isole && (
+          <p className="text-sm text-red-700 bg-red-50 rounded-xl px-3 py-2">
+            🚫🐕 Un chien de cette réservation doit être isolé : tarif privatif appliqué automatiquement.
+          </p>
+        )}
 
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>

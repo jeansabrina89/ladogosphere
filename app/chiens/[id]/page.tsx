@@ -131,6 +131,11 @@ export default async function ChienPage({
             <li>{chien.compatible_15_30kg ? "✅" : "❌"} 15 à 30 kg</li>
             <li>{chien.compatible_30_40kg ? "✅" : "❌"} Plus de 30 kg</li>
           </ul>
+          {chien.doit_etre_isole && (
+            <span className="inline-block mt-3 px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-700">
+              🚫🐕 Doit être isolé (box seul, tarif privatif)
+            </span>
+          )}
         </div>
 
         {/* Journée d'essai */}
