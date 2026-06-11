@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import { getSoldeAvoir } from "../../../src/lib/avoirs";
 import type { EcartType } from "../../../src/lib/facturation";
+import { calculerMontant } from "../../../src/lib/calculTarif";
 
 async function verifierAdmin(): Promise<{ error?: string; userId?: string }> {
   const supabase = await createSupabaseServerClient();
@@ -207,6 +208,68 @@ export async function enregistrerMontantCalcule(reservationId: string, montant: 
     .single();
   if (resError || !reservation) return { error: "Réservation introuvable." };
   if (estCloturee(reservation.statut)) return { error: "Réservation clôturée : modification impossible." };
+
+  const { error: updateError } = await supabaseAdmin
+    .from("reservations")
+    .update({ montant_calcule: montant })
+    .eq("id", reservationId);
+  if (updateError) return { error: updateError.message };
+
+  const result = await recalculerTotalEtPaiement(reservationId, verif.userId);
+  revalidatePath(`/reservations/${reservationId}`);
+  return result;
+}
+
+/**
+ * Recalcule montant_calcule pour une réservation 'sejour' à partir de ses
+ * dates/heures actuelles (comptage par tranche horaire : nuits + éventuelle
+ * garde à la journée), puis recalcule le total dû et le paiement via
+ * recalculerTotalEtPaiement. Sans effet pour les types 'journee'/'essai'.
+ * Le caractère privatif/partagé est dérivé de "doit_etre_isole" sur les
+ * chiens (même valeur par défaut que CalculFacture), car non persisté.
+ * À appeler après toute modif de date_debut, date_fin, heure_arrivee ou
+ * heure_depart d'une réservation 'sejour'.
+ */
+export async function recalculerMontantSejour(reservationId: string): Promise<RecalculResult> {
+  const verif = await verifierAdmin();
+  if (verif.error) return verif;
+
+  const { data: reservation, error: resError } = await supabaseAdmin
+    .from("reservations")
+    .select(`
+      statut, type_reservation, urgence, date_debut, date_fin, heure_arrivee, heure_depart,
+      clients (membre),
+      reservation_chiens (chiens (doit_etre_isole))
+    `)
+    .eq("id", reservationId)
+    .single();
+  if (resError || !reservation) return { error: "Réservation introuvable." };
+  if (reservation.type_reservation !== "sejour") return {};
+  if (estCloturee(reservation.statut)) return { error: "Réservation clôturée : modification impossible." };
+
+  const { data: tarifs, error: tarifsError } = await supabaseAdmin
+    .from("tarifs")
+    .select("categorie, membre, prix")
+    .eq("actif", true);
+  if (tarifsError) return { error: tarifsError.message };
+
+  const chiens = (reservation.reservation_chiens ?? []).map((rc: any) => rc.chiens).filter(Boolean);
+  const nb_chiens = chiens.length;
+  const chien_isole = chiens.some((c: any) => c.doit_etre_isole);
+  const est_membre = (reservation.clients as any)?.membre ?? false;
+
+  const montant = calculerMontant({
+    tarifs: tarifs ?? [],
+    type_reservation: "sejour",
+    nb_chiens,
+    est_membre,
+    est_urgence: !!reservation.urgence,
+    est_privatif: chien_isole,
+    date_debut: reservation.date_debut,
+    date_fin: reservation.date_fin,
+    heure_arrivee: reservation.heure_arrivee,
+    heure_depart: reservation.heure_depart,
+  });
 
   const { error: updateError } = await supabaseAdmin
     .from("reservations")

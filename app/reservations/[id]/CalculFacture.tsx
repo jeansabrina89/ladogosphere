@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { calculerMontant } from "../../../src/lib/calculTarif";
+import { calculerMontant, compterSejour } from "../../../src/lib/calculTarif";
 import { enregistrerMontantCalcule } from "./actions";
 import { messageEcart } from "../../../src/lib/facturation";
 
@@ -45,7 +45,18 @@ export default function CalculFacture({
     est_privatif,
     date_debut: reservation.date_debut,
     date_fin: reservation.date_fin,
+    heure_arrivee: reservation.heure_arrivee,
+    heure_depart: reservation.heure_depart,
   });
+
+  const detailSejour = reservation.type_reservation === "sejour"
+    ? compterSejour({
+        date_debut: reservation.date_debut,
+        date_fin: reservation.date_fin,
+        heure_arrivee: reservation.heure_arrivee,
+        heure_depart: reservation.heure_depart,
+      })
+    : null;
 
   const montantCotisation = inclure_cotisation && cotisation_montant ? cotisation_montant : 0;
   const montantTotal = montantBase + montantCotisation;
@@ -121,11 +132,12 @@ export default function CalculFacture({
             <p className="text-gray-500">Urgence</p>
             <p className="font-semibold">{reservation.urgence ? "🚨 Oui" : "Non"}</p>
           </div>
-          {reservation.type_reservation === "sejour" && (
+          {detailSejour && (
             <div>
               <p className="text-gray-500">Durée</p>
               <p className="font-semibold">
-                {Math.max(1, Math.round((new Date(reservation.date_fin).getTime() - new Date(reservation.date_debut).getTime()) / (1000 * 60 * 60 * 24)) + 1)} jour(s)
+                {detailSejour.nb_nuits} séjour{detailSejour.nb_nuits !== 1 ? "s" : ""} (24h)
+                {detailSejour.supplement_journee > 0 && " + 1 garde à la journée"}
               </p>
             </div>
           )}

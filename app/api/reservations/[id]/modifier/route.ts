@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../../src/utils/supabase/server";
+import { recalculerMontantSejour } from "../../../../reservations/[id]/actions";
 
 export async function POST(
   req: NextRequest,
@@ -18,6 +19,15 @@ export async function POST(
   const date_debut = formData.get("date_debut") as string;
   const date_fin = formData.get("date_fin") as string;
 
+  // Valeurs avant modification : pour détecter un changement de
+  // date_debut/date_fin/heure_arrivee/heure_depart sur un séjour et
+  // déclencher le recalcul de montant_calcule.
+  const { data: avant } = await supabase
+    .from("reservations")
+    .select("type_reservation, date_debut, date_fin, heure_arrivee, heure_depart")
+    .eq("id", id)
+    .single();
+
   const { error } = await supabase
     .from("reservations")
     .update({
@@ -33,6 +43,22 @@ export async function POST(
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Séjour : si les dates ou heures changent (typiquement, heures saisies
+  // après coup), recalculer montant_calcule par tranche horaire puis
+  // re-dériver montant_final / paiement.
+  if (avant?.type_reservation === "sejour") {
+    const normHeure = (h: string | null) => (h ? h.slice(0, 5) : null);
+    const aChange =
+      avant.date_debut !== date_debut ||
+      avant.date_fin !== date_fin ||
+      normHeure(avant.heure_arrivee) !== normHeure(heure_arrivee) ||
+      normHeure(avant.heure_depart) !== normHeure(heure_depart);
+
+    if (aChange) {
+      await recalculerMontantSejour(id);
+    }
+  }
 
   if (box_id) {
     await supabase.from("occupation_boxes").delete().eq("reservation_id", id);
