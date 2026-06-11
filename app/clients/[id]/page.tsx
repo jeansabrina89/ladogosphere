@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { createClient } from "../../../src/utils/supabase/server";
+import { supabaseAdmin } from "../../../src/lib/supabase-admin";
+import { getMouvementsAvoir, calculerSoldeAvoir } from "../../../src/lib/avoirs";
 import BoutonArchiverClient from "./BoutonArchiverClient";
 import BoutonSupprimerClient from "./BoutonSupprimerClient";
 import BoutonCotisation from "./BoutonCotisation";
+import GestionAvoir from "./GestionAvoir";
 
 export default async function ClientPage({
   params,
@@ -38,6 +41,10 @@ export default async function ClientPage({
 
   const montantCotisation = parseFloat(parametre?.valeur ?? "180");
   const cotisationAnneeActuelle = cotisations?.find(c => c.annee === anneeActuelle);
+
+  // Avoir client (lecture admin via supabaseAdmin)
+  const mouvementsAvoir = await getMouvementsAvoir(supabaseAdmin, id);
+  const soldeAvoir = calculerSoldeAvoir(mouvementsAvoir);
 
   const MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
     "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -130,6 +137,9 @@ export default async function ClientPage({
             </div>
           )}
         </div>
+
+        {/* Avoir client */}
+        <GestionAvoir client_id={client.id} solde={soldeAvoir} mouvements={mouvementsAvoir} />
 
         {/* Contact d'urgence */}
         <div className="border-t pt-6 mb-8">
