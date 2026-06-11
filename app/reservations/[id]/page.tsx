@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createClient } from "../../../src/utils/supabase/server";
+import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import BoutonAnnuler from "./BoutonAnnuler";
+import BoutonSupprimerDefinitif from "./BoutonSupprimerDefinitif";
 import CalculFacture from "./CalculFacture";
 import BoutonValiderReservation from "../../components/BoutonValiderReservation";
 import BoutonEmail from "./BoutonEmail";
@@ -49,6 +51,14 @@ export default async function ReservationPage({
     .eq("statut", "en_attente")
     .eq("annee", anneeActuelle)
     .maybeSingle();
+
+  // Suppression définitive possible uniquement si annulée et sans facture liée
+  const { count: facturesCount } = await supabaseAdmin
+    .from("factures")
+    .select("id", { count: "exact", head: true })
+    .eq("reservation_id", id);
+
+  const peutSupprimerDefinitivement = res.statut === "annulee" && (facturesCount ?? 0) === 0;
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -221,6 +231,10 @@ export default async function ReservationPage({
 
           {res.statut !== "annulee" && (
             <BoutonAnnuler id={res.id} />
+          )}
+
+          {peutSupprimerDefinitivement && (
+            <BoutonSupprimerDefinitif id={res.id} />
           )}
 
           <Link href={`/reservations/${res.id}/facture`}
