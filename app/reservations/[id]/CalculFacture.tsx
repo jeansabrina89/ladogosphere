@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { calculerMontant } from "../../../src/lib/calculTarif";
+import { enregistrerMontantCalcule } from "./actions";
+import { messageEcart } from "../../../src/lib/facturation";
 
 type Tarif = { categorie: string; membre: boolean; prix: string };
 
@@ -26,10 +29,12 @@ export default function CalculFacture({
   cotisation_id?: string;
   cotisation_montant?: number;
 }) {
+  const router = useRouter();
   const [est_privatif, setEstPrivatif] = useState(!!chien_isole);
   const [inclure_cotisation, setInclureCotisation] = useState(cotisation_en_attente ?? false);
   const [sauvegarde, setSauvegarde] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [ecartMsg, setEcartMsg] = useState<string | null>(null);
 
   const montantBase = calculerMontant({
     tarifs,
@@ -47,16 +52,19 @@ export default function CalculFacture({
 
   const handleSauvegarder = async () => {
     setLoading(true);
+    setEcartMsg(null);
 
-    // Sauvegarder le montant de la réservation
-    const res = await fetch(`/api/reservations/${reservation.id}/montant`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ montant: montantTotal }),
-    });
+    // Sauvegarder le montant calculé automatiquement (recalcule ensuite le total dû)
+    const res = await enregistrerMontantCalcule(reservation.id, montantTotal);
+
+    if (res.error) {
+      alert(res.error);
+      setLoading(false);
+      return;
+    }
 
     // Si cotisation incluse, la passer en payée
-    if (res.ok && inclure_cotisation && cotisation_id) {
+    if (inclure_cotisation && cotisation_id) {
       await fetch(`/api/clients/cotisation/${cotisation_id}/payer`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -64,7 +72,10 @@ export default function CalculFacture({
       });
     }
 
-    if (res.ok) setSauvegarde(true);
+    setSauvegarde(true);
+    setEcartMsg(messageEcart(res.type_ecart, res.ecart));
+    setTimeout(() => setSauvegarde(false), 3000);
+    router.refresh();
     setLoading(false);
   };
 
@@ -152,13 +163,13 @@ export default function CalculFacture({
           )}
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-gray-500 text-sm">Montant total</p>
+              <p className="text-gray-500 text-sm">Calculé automatiquement</p>
               <p className="text-3xl font-bold text-blue-600">{montantTotal} CHF</p>
             </div>
             <div className="text-right">
-              {montant_actuel && (
+              {montant_actuel != null && (
                 <p className="text-sm text-gray-400 mb-1">
-                  Actuel : {montant_actuel} CHF
+                  Total dû actuel : {montant_actuel} CHF
                 </p>
               )}
               <button onClick={handleSauvegarder} disabled={loading}
@@ -167,6 +178,11 @@ export default function CalculFacture({
               </button>
             </div>
           </div>
+          {ecartMsg && (
+            <p className="text-sm font-semibold text-orange-600 bg-orange-50 rounded-xl px-3 py-2">
+              ⚠️ {ecartMsg}
+            </p>
+          )}
         </div>
 
       </div>

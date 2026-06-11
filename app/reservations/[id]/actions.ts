@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import { getSoldeAvoir } from "../../../src/lib/avoirs";
+import type { EcartType } from "../../../src/lib/facturation";
 
 async function verifierAdmin(): Promise<{ error?: string }> {
   const supabase = await createSupabaseServerClient();
@@ -20,6 +21,89 @@ function calculerStatut(montantPaye: number, total: number): string {
   if (montantPaye <= 0) return "impaye";
   if (total > 0 && montantPaye >= total) return "paye";
   return "partiel";
+}
+
+const STATUTS_CLOTURES = ["terminee", "annulee", "refusee"];
+
+function estCloturee(statut: string | null | undefined): boolean {
+  return !!statut && STATUTS_CLOTURES.includes(statut);
+}
+
+export type RecalculResult = {
+  error?: string;
+  nouveau_total?: number;
+  ecart?: number;
+  type_ecart?: EcartType;
+};
+
+/**
+ * Recalcule montant_final = montant_calcule + ajustement_manuel + Σ(extras) (plancher 0),
+ * puis réévalue montant_paye / statut_paiement en conséquence.
+ * - Trop-perçu (montant_paye > nouveau_total) : crédite l'avoir du client de la différence.
+ * - Manque (0 < montant_paye < nouveau_total) : reste 'partiel', aucun mouvement auto.
+ * À appeler après toute modif de montant_calcule, ajustement_manuel ou reservation_extras.
+ */
+async function recalculerTotalEtPaiement(reservationId: string): Promise<RecalculResult> {
+  const { data: reservation, error: resError } = await supabaseAdmin
+    .from("reservations")
+    .select("montant_calcule, ajustement_manuel, montant_paye, numero, client_id")
+    .eq("id", reservationId)
+    .single();
+  if (resError || !reservation) return { error: "Réservation introuvable." };
+
+  const { data: extras, error: extrasError } = await supabaseAdmin
+    .from("reservation_extras")
+    .select("montant")
+    .eq("reservation_id", reservationId);
+  if (extrasError) return { error: extrasError.message };
+
+  const montantCalcule = Number(reservation.montant_calcule) || 0;
+  const ajustement = Number(reservation.ajustement_manuel) || 0;
+  const sommeExtras = (extras ?? []).reduce((s, e) => s + (Number(e.montant) || 0), 0);
+  const nouveauTotal = Math.max(0, montantCalcule + ajustement + sommeExtras);
+  const montantPaye = Number(reservation.montant_paye) || 0;
+
+  let nouveauMontantPaye = montantPaye;
+  let statut: string;
+  let ecart = 0;
+  let type_ecart: EcartType = "aucun";
+
+  if (montantPaye > nouveauTotal) {
+    const tropPercu = montantPaye - nouveauTotal;
+    if (!reservation.client_id) return { error: "Client introuvable (impossible de créditer le trop-perçu)." };
+
+    const { error: mvtError } = await supabaseAdmin.from("avoirs_mouvements").insert({
+      client_id: reservation.client_id,
+      montant: tropPercu,
+      type: "ajout_manuel",
+      motif: `Trop-perçu — modification montant résa #${reservation.numero}`,
+      reservation_id: reservationId,
+    });
+    if (mvtError) return { error: mvtError.message };
+
+    nouveauMontantPaye = nouveauTotal;
+    statut = "paye";
+    ecart = tropPercu;
+    type_ecart = "trop_percu";
+  } else {
+    statut = calculerStatut(nouveauMontantPaye, nouveauTotal);
+    if (nouveauMontantPaye > 0 && nouveauMontantPaye < nouveauTotal) {
+      ecart = nouveauTotal - nouveauMontantPaye;
+      type_ecart = "complement";
+    }
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from("reservations")
+    .update({
+      montant_final: nouveauTotal,
+      montant_paye: nouveauMontantPaye,
+      statut_paiement: statut,
+    })
+    .eq("id", reservationId);
+  if (updateError) return { error: updateError.message };
+
+  return { nouveau_total: nouveauTotal, ecart, type_ecart };
 }
 
 /**
@@ -102,6 +186,136 @@ export async function enregistrerPaiement(formData: FormData): Promise<{ error?:
 
   revalidatePath(`/reservations/${reservation_id}`);
   return {};
+}
+
+/**
+ * Met à jour le montant calculé automatiquement (base avant ajustement manuel et extras),
+ * puis recalcule le total dû et le paiement.
+ */
+export async function enregistrerMontantCalcule(reservationId: string, montant: number): Promise<RecalculResult> {
+  const verif = await verifierAdmin();
+  if (verif.error) return verif;
+
+  if (!reservationId) return { error: "Réservation introuvable." };
+  if (isNaN(montant) || montant < 0) return { error: "Montant invalide." };
+
+  const { data: reservation, error: resError } = await supabaseAdmin
+    .from("reservations")
+    .select("statut")
+    .eq("id", reservationId)
+    .single();
+  if (resError || !reservation) return { error: "Réservation introuvable." };
+  if (estCloturee(reservation.statut)) return { error: "Réservation clôturée : modification impossible." };
+
+  const { error: updateError } = await supabaseAdmin
+    .from("reservations")
+    .update({ montant_calcule: montant })
+    .eq("id", reservationId);
+  if (updateError) return { error: updateError.message };
+
+  const result = await recalculerTotalEtPaiement(reservationId);
+  revalidatePath(`/reservations/${reservationId}`);
+  return result;
+}
+
+/**
+ * Modifie le prix du séjour retenu : ajustement_manuel = nouveauPrixSejour - montant_calcule,
+ * de sorte que montant_calcule + ajustement_manuel = nouveauPrixSejour. Puis recalcule.
+ */
+export async function modifierPrixSejour(reservationId: string, nouveauPrixSejour: number): Promise<RecalculResult> {
+  const verif = await verifierAdmin();
+  if (verif.error) return verif;
+
+  if (!reservationId) return { error: "Réservation introuvable." };
+  if (isNaN(nouveauPrixSejour) || nouveauPrixSejour < 0) return { error: "Montant invalide." };
+
+  const { data: reservation, error: resError } = await supabaseAdmin
+    .from("reservations")
+    .select("statut, montant_calcule")
+    .eq("id", reservationId)
+    .single();
+  if (resError || !reservation) return { error: "Réservation introuvable." };
+  if (estCloturee(reservation.statut)) return { error: "Réservation clôturée : modification impossible." };
+
+  const montantCalcule = Number(reservation.montant_calcule) || 0;
+  const ajustement_manuel = nouveauPrixSejour - montantCalcule;
+
+  const { error: updateError } = await supabaseAdmin
+    .from("reservations")
+    .update({ ajustement_manuel })
+    .eq("id", reservationId);
+  if (updateError) return { error: updateError.message };
+
+  const result = await recalculerTotalEtPaiement(reservationId);
+  revalidatePath(`/reservations/${reservationId}`);
+  return result;
+}
+
+/**
+ * Ajoute une ligne supplémentaire (extra/remise, montant libre +/-) à la réservation, puis recalcule.
+ */
+export async function ajouterExtraReservation(reservationId: string, libelle: string, montant: number): Promise<RecalculResult> {
+  const verif = await verifierAdmin();
+  if (verif.error) return verif;
+
+  if (!reservationId) return { error: "Réservation introuvable." };
+  const libelleTrim = (libelle || "").trim();
+  if (!libelleTrim) return { error: "Libellé requis." };
+  if (isNaN(montant) || montant === 0) return { error: "Montant invalide." };
+
+  const { data: reservation, error: resError } = await supabaseAdmin
+    .from("reservations")
+    .select("statut")
+    .eq("id", reservationId)
+    .single();
+  if (resError || !reservation) return { error: "Réservation introuvable." };
+  if (estCloturee(reservation.statut)) return { error: "Réservation clôturée : modification impossible." };
+
+  const { error: insertError } = await supabaseAdmin.from("reservation_extras").insert({
+    reservation_id: reservationId,
+    libelle: libelleTrim,
+    montant,
+  });
+  if (insertError) return { error: insertError.message };
+
+  const result = await recalculerTotalEtPaiement(reservationId);
+  revalidatePath(`/reservations/${reservationId}`);
+  return result;
+}
+
+/**
+ * Supprime une ligne supplémentaire et recalcule le total et le paiement de sa réservation.
+ */
+export async function supprimerExtraReservation(extraId: string): Promise<RecalculResult> {
+  const verif = await verifierAdmin();
+  if (verif.error) return verif;
+
+  if (!extraId) return { error: "Ligne introuvable." };
+
+  const { data: extra, error: extraError } = await supabaseAdmin
+    .from("reservation_extras")
+    .select("reservation_id")
+    .eq("id", extraId)
+    .single();
+  if (extraError || !extra) return { error: "Ligne introuvable." };
+
+  const { data: reservation, error: resError } = await supabaseAdmin
+    .from("reservations")
+    .select("statut")
+    .eq("id", extra.reservation_id)
+    .single();
+  if (resError || !reservation) return { error: "Réservation introuvable." };
+  if (estCloturee(reservation.statut)) return { error: "Réservation clôturée : modification impossible." };
+
+  const { error: deleteError } = await supabaseAdmin
+    .from("reservation_extras")
+    .delete()
+    .eq("id", extraId);
+  if (deleteError) return { error: deleteError.message };
+
+  const result = await recalculerTotalEtPaiement(extra.reservation_id);
+  revalidatePath(`/reservations/${extra.reservation_id}`);
+  return result;
 }
 
 export async function annulerPaiement(formData: FormData): Promise<{ error?: string }> {

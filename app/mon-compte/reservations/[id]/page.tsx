@@ -22,7 +22,7 @@ export default async function DetailReservationClientPage({
 
   const { data: res } = await supabase
     .from("reservations")
-    .select(`*, boxes (numero, nom), reservation_chiens (chiens (nom))`)
+    .select(`*, boxes (numero, nom), reservation_chiens (chiens (nom)), reservation_extras (id, libelle, montant)`)
     .eq("id", id)
     .maybeSingle();
 
@@ -67,6 +67,17 @@ export default async function DetailReservationClientPage({
 
         <div className="border-t pt-4 space-y-2 mb-6">
           <h2 className="text-xl font-bold mb-2" style={{ color: "#1B2B5E" }}>Paiement</h2>
+          {res.reservation_extras && res.reservation_extras.length > 0 && (
+            <div className="space-y-1 mb-2">
+              <p className="font-semibold text-sm text-gray-500">Lignes supplémentaires :</p>
+              {res.reservation_extras.map((extra: any) => (
+                <p key={extra.id} className="flex justify-between text-sm pl-2">
+                  <span>{extra.libelle}</span>
+                  <span>{Number(extra.montant) > 0 ? "+" : ""}{Number(extra.montant).toFixed(2)} CHF</span>
+                </p>
+              ))}
+            </div>
+          )}
           <p><strong>Montant :</strong> {res.montant_final > 0 ? `${res.montant_final} CHF` : "—"}</p>
           <p><strong>Payé :</strong> {res.montant_paye || 0} CHF</p>
           {resteAPayer > 0 && res.statut !== "annulee" && (

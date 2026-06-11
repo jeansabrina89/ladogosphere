@@ -5,6 +5,7 @@ import { getSoldeAvoir } from "../../../src/lib/avoirs";
 import BoutonAnnuler from "./BoutonAnnuler";
 import BoutonSupprimerDefinitif from "./BoutonSupprimerDefinitif";
 import CalculFacture from "./CalculFacture";
+import GestionPrix from "./GestionPrix";
 import BoutonValiderReservation from "../../components/BoutonValiderReservation";
 import BoutonEmail from "./BoutonEmail";
 import GestionPaiement from "./GestionPaiement";
@@ -27,7 +28,8 @@ export default async function ReservationPage({
       boxes (numero, nom),
       reservation_chiens (
         chiens (id, nom, race, poids, categorie_poids, sexe, sterilisation, doit_etre_isole)
-      )
+      ),
+      reservation_extras (id, libelle, montant, created_at)
     `)
     .eq("id", id)
     .single();
@@ -184,6 +186,16 @@ export default async function ReservationPage({
           cotisation_en_attente={!!cotisation}
           cotisation_id={cotisation?.id}
           cotisation_montant={cotisation ? Number(cotisation.montant) : undefined}
+        />
+
+        {/* Prix retenu + lignes supplémentaires */}
+        <GestionPrix
+          reservation_id={res.id}
+          statut={res.statut}
+          montant_calcule={res.montant_calcule}
+          ajustement_manuel={res.ajustement_manuel}
+          montant_final={res.montant_final}
+          extras={res.reservation_extras ?? []}
         />
 
         {/* Paiement */}
