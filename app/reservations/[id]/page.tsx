@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "../../../src/utils/supabase/server";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
+import { getSoldeAvoir } from "../../../src/lib/avoirs";
 import BoutonAnnuler from "./BoutonAnnuler";
 import BoutonSupprimerDefinitif from "./BoutonSupprimerDefinitif";
 import CalculFacture from "./CalculFacture";
@@ -59,6 +60,9 @@ export default async function ReservationPage({
     .eq("reservation_id", id);
 
   const peutSupprimerDefinitivement = res.statut === "annulee" && (facturesCount ?? 0) === 0;
+
+  // Solde d'avoir du client (pour le paiement par avoir)
+  const soldeAvoir = res.clients?.id ? await getSoldeAvoir(supabaseAdmin, res.clients.id) : 0;
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -185,6 +189,8 @@ export default async function ReservationPage({
         {/* Paiement */}
         <GestionPaiement
           reservation_id={res.id}
+          client_id={res.clients?.id}
+          solde_avoir={soldeAvoir}
           montant_final={res.montant_final}
           statut_paiement={res.statut_paiement}
           montant_paye={res.montant_paye}

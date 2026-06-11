@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { enregistrerPaiementAvoir, annulerPaiement } from "./actions";
 
 export default function GestionPaiement({
   reservation_id,
+  client_id,
+  solde_avoir,
   montant_final,
   statut_paiement,
   montant_paye,
@@ -12,6 +15,8 @@ export default function GestionPaiement({
   mode_paiement,
 }: {
   reservation_id: string;
+  client_id?: string;
+  solde_avoir?: number;
   montant_final: number | null;
   statut_paiement: string | null;
   montant_paye: number | null;
@@ -24,10 +29,34 @@ export default function GestionPaiement({
   const [mode, setMode] = useState(mode_paiement || "");
   const [loading, setLoading] = useState(false);
   const [sauvegarde, setSauvegarde] = useState(false);
+  const [annulationLoading, setAnnulationLoading] = useState(false);
   const router = useRouter();
 
   const handleSauvegarder = async () => {
     setLoading(true);
+
+    if (mode === "avoir") {
+      const formData = new FormData();
+      formData.set("reservation_id", reservation_id);
+      formData.set("client_id", client_id || "");
+      formData.set("montant_paye", montantPaye ? montantPaye : "0");
+      formData.set("statut_paiement", statut);
+      formData.set("date_paiement", date || "");
+
+      const res = await enregistrerPaiementAvoir(formData);
+      if (res?.error) {
+        alert(res.error);
+        setLoading(false);
+        return;
+      }
+
+      setSauvegarde(true);
+      setTimeout(() => setSauvegarde(false), 3000);
+      router.refresh();
+      setLoading(false);
+      return;
+    }
+
     const response = await fetch(`/api/reservations/${reservation_id}/paiement`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -44,6 +73,32 @@ export default function GestionPaiement({
       router.refresh();
     }
     setLoading(false);
+  };
+
+  const handleAnnulerPaiement = async () => {
+    if (!confirm(`Annuler le paiement de CHF ${Number(montant_paye).toFixed(2)} ?`)) return;
+
+    const mettreEnAvoir = confirm(
+      "Mettre le montant en avoir pour le client ?\n\n" +
+      "OK = Oui, créditer l'avoir du client\n" +
+      "Annuler = Non, ne rien créditer"
+    );
+
+    setAnnulationLoading(true);
+    const formData = new FormData();
+    formData.set("reservation_id", reservation_id);
+    formData.set("client_id", client_id || "");
+    formData.set("mettre_en_avoir", mettreEnAvoir ? "true" : "false");
+
+    const res = await annulerPaiement(formData);
+    if (res?.error) {
+      alert(res.error);
+      setAnnulationLoading(false);
+      return;
+    }
+
+    router.refresh();
+    setAnnulationLoading(false);
   };
 
   return (
@@ -98,9 +153,23 @@ export default function GestionPaiement({
                 <option value="cash">Cash</option>
                 <option value="iban">Virement IBAN</option>
                 <option value="stripe">Stripe</option>
+                <option value="avoir">💳 Avoir</option>
                 <option value="autre">Autre</option>
               </select>
             </div>
+          </div>
+        )}
+
+        {/* Avoir disponible */}
+        {(statut === "partiel" || statut === "paye") && typeof solde_avoir === "number" && (
+          <div className="text-sm rounded-xl px-3 py-2"
+            style={{ backgroundColor: "#E8F5F4", color: "#1B2B5E" }}>
+            💳 Avoir disponible pour ce client : <strong>CHF {solde_avoir.toFixed(2)}</strong>
+            {mode === "avoir" && (
+              <span className="block mt-1 text-xs text-gray-600">
+                Le montant ajouté par rapport au montant déjà reçu (CHF {Number(montant_paye ?? 0).toFixed(2)}) sera débité de cet avoir.
+              </span>
+            )}
           </div>
         )}
 
@@ -139,6 +208,14 @@ export default function GestionPaiement({
           style={{ backgroundColor: "#1B2B5E" }}>
           {sauvegarde ? "✅ Sauvegardé !" : loading ? "..." : "💾 Enregistrer le paiement"}
         </button>
+
+        {Number(montant_paye) > 0 && (
+          <button onClick={handleAnnulerPaiement} disabled={annulationLoading}
+            className="w-full py-2 rounded-xl font-semibold text-white disabled:opacity-50"
+            style={{ backgroundColor: "#E8847A" }}>
+            {annulationLoading ? "..." : "🗑️ Annuler le paiement"}
+          </button>
+        )}
 
       </div>
     </div>
