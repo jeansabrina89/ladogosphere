@@ -34,3 +34,20 @@ export async function getSoldeAvoir(
   const mouvements = await getMouvementsAvoir(supabase, client_id);
   return calculerSoldeAvoir(mouvements);
 }
+
+export async function getMouvementsAvoirReservation(
+  supabase: SupabaseClient,
+  client_id: string,
+  reservation_id: string
+): Promise<MouvementAvoir[]> {
+  const { data, error } = await supabase
+    .from("avoirs_mouvements")
+    .select("id, montant, type, motif, created_at")
+    .eq("client_id", client_id)
+    .eq("reservation_id", reservation_id)
+    .order("created_at", { ascending: true });
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((m) => ({ ...m, montant: Number(m.montant) }));
+}

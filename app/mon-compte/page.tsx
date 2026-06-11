@@ -3,7 +3,7 @@ import { createClient } from "../../src/utils/supabase/server";
 import Link from "next/link";
 import { formatDate } from "../../src/lib/dates";
 import { formatBoxLabel } from "../../src/lib/boxes";
-import { getMouvementsAvoir, calculerSoldeAvoir } from "../../src/lib/avoirs";
+import { getSoldeAvoir } from "../../src/lib/avoirs";
 
 export default async function MonComptePage() {
   const supabase = await createClient();
@@ -36,16 +36,7 @@ export default async function MonComptePage() {
   // Client sans profil complet (prénom/nom vides)
   const profilIncomplet = !client || (!client.prenom && !client.nom);
 
-  const mouvementsAvoir = client ? await getMouvementsAvoir(supabase, client.id) : [];
-  const soldeAvoir = calculerSoldeAvoir(mouvementsAvoir);
-  const historiqueAvoir = mouvementsAvoir.slice(0, 5);
-
-  const LABELS_TYPE_AVOIR: Record<string, string> = {
-    ajout_manuel: "➕ Ajout",
-    retrait_manuel: "➖ Retrait",
-    annulation_paiement: "↩️ Annulation paiement",
-    utilisation: "🛒 Utilisation",
-  };
+  const soldeAvoir = client ? await getSoldeAvoir(supabase, client.id) : 0;
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -149,34 +140,18 @@ export default async function MonComptePage() {
             </div>
 
             {/* Avoir */}
-            {!profilIncomplet && (
+            {!profilIncomplet && soldeAvoir !== 0 && (
               <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold" style={{ color: "#1B2B5E" }}>💳 Mon avoir</h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold" style={{ color: "#1B2B5E" }}>👛 Mon avoir</h2>
                   <p className="text-2xl font-bold" style={{ color: soldeAvoir < 0 ? "#DC2626" : "#4AAEA0" }}>
                     CHF {soldeAvoir.toFixed(2)}
                   </p>
                 </div>
-                {historiqueAvoir.length > 0 ? (
-                  <div className="space-y-2">
-                    {historiqueAvoir.map((m) => (
-                      <div key={m.id} className="flex justify-between items-center border rounded-xl p-3">
-                        <div>
-                          <p className="font-semibold text-sm" style={{ color: "#1B2B5E" }}>
-                            {LABELS_TYPE_AVOIR[m.type] ?? m.type}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {m.motif || "—"} — {new Date(m.created_at).toLocaleDateString("fr-CH")}
-                          </p>
-                        </div>
-                        <p className="font-bold text-sm" style={{ color: m.montant < 0 ? "#DC2626" : "#4AAEA0" }}>
-                          {m.montant >= 0 ? "+" : ""}{m.montant.toFixed(2)} CHF
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-400 text-sm">Aucun mouvement enregistré.</p>
+                {soldeAvoir > 0 && (
+                  <p className="text-sm text-gray-500 mt-2">
+                    Le détail de vos avoirs figure sur les réservations concernées.
+                  </p>
                 )}
               </div>
             )}
