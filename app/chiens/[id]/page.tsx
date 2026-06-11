@@ -84,12 +84,6 @@ export default async function ChienPage({
           <h2 className="text-2xl font-bold mb-4">🩺 Santé</h2>
           <p><strong>Allergies :</strong> {chien.allergies || "Aucune"}</p>
           <p><strong>Traitements :</strong> {chien.traitements || "Aucun"}</p>
-        </div>
-
-        <div className="border-t pt-6 mb-8">
-          <h2 className="text-2xl font-bold mb-4">🩺 Santé</h2>
-          <p><strong>Allergies :</strong> {chien.allergies || "Aucune"}</p>
-          <p><strong>Traitements :</strong> {chien.traitements || "Aucun"}</p>
           <p><strong>Vétérinaire :</strong> {chien.veterinaire_nom || "-"}</p>
           <p><strong>Téléphone vétérinaire :</strong> {chien.veterinaire_telephone || "-"}</p>
         </div>
@@ -170,7 +164,7 @@ export default async function ChienPage({
           />
         </div>
 
-        <Ententes chien_id={chien.id} tous_chiens={tousChiens ?? []} />
+        <Ententes chien_id={chien.id} tous_chiens={tousChiens ?? []} doit_etre_isole={chien.doit_etre_isole} />
 
         <div className="border-t pt-6 flex flex-wrap gap-4">
           <Link href={`/chiens/${chien.id}/modifier`}

@@ -14,9 +14,11 @@ type Entente = {
 export default function Ententes({
   chien_id,
   tous_chiens,
+  doit_etre_isole,
 }: {
   chien_id: string;
   tous_chiens: Chien[];
+  doit_etre_isole?: boolean;
 }) {
   const [ententes, setEntentes] = useState<Entente[]>([]);
   const [chienCible, setChienCible] = useState("");
@@ -24,6 +26,7 @@ export default function Ententes({
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [familleUniquement, setFamilleUniquement] = useState(false);
+  const [doitEtreIsole, setDoitEtreIsole] = useState(!!doit_etre_isole);
 
   const charger = async () => {
     const res = await fetch(`/api/chiens/${chien_id}/ententes`);
@@ -62,6 +65,17 @@ export default function Ententes({
     await charger();
   };
 
+  const handleDoitEtreIsole = async () => {
+    const nouvelleValeur = !doitEtreIsole;
+    setDoitEtreIsole(nouvelleValeur);
+    const res = await fetch(`/api/chiens/${chien_id}/isolement`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ doit_etre_isole: nouvelleValeur }),
+    });
+    if (!res.ok) setDoitEtreIsole(!nouvelleValeur);
+  };
+
   const chiensDisponibles = tous_chiens.filter(c =>
     c.id !== chien_id && !ententes.find(e => e.chien_cible_id === c.id)
   );
@@ -92,6 +106,21 @@ export default function Ententes({
             onChange={handleFamilleUniquement} />
           <span className="font-semibold" style={{ color: "#1B2B5E" }}>
             🏠 Famille uniquement — ne pas mélanger avec d'autres chiens
+          </span>
+        </label>
+      </div>
+
+      {/* Option doit être isolé */}
+      <div className="mb-4 p-3 rounded-xl border-2"
+        style={{
+          borderColor: doitEtreIsole ? "#E8847A" : "#E2E8F0",
+          backgroundColor: doitEtreIsole ? "#FEF2F2" : "white"
+        }}>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={doitEtreIsole}
+            onChange={handleDoitEtreIsole} />
+          <span className="font-semibold" style={{ color: "#1B2B5E" }}>
+            🚫 Doit être isolé — box exclusif, jamais avec d'autres chiens
           </span>
         </label>
       </div>

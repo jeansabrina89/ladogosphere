@@ -46,7 +46,6 @@ export async function modifierChien(id: string, formData: FormData) {
       compatible_moins_15kg: formData.get("compatible_moins_15kg") === "on",
       compatible_15_30kg: formData.get("compatible_15_30kg") === "on",
       compatible_30_40kg: formData.get("compatible_30_40kg") === "on",
-      doit_etre_isole: formData.get("doit_etre_isole") === "on",
     })
     .eq("id", id);
 
