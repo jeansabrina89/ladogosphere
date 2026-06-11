@@ -2,7 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Smartphone, Banknote, Landmark, CreditCard, Wallet, MoreHorizontal } from "lucide-react";
 import { enregistrerPaiementAvoir, annulerPaiement } from "./actions";
+
+const MODES_PAIEMENT = [
+  { val: "twint", label: "Twint", Icon: Smartphone },
+  { val: "cash", label: "Cash", Icon: Banknote },
+  { val: "iban", label: "Virement IBAN", Icon: Landmark },
+  { val: "stripe", label: "Stripe", Icon: CreditCard },
+  { val: "avoir", label: "Avoir", Icon: Wallet },
+  { val: "autre", label: "Autre", Icon: MoreHorizontal },
+];
 
 export default function GestionPaiement({
   reservation_id,
@@ -146,16 +156,20 @@ export default function GestionPaiement({
               <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>
                 Mode de paiement
               </label>
-              <select value={mode} onChange={e => setMode(e.target.value)}
-                className="w-full border rounded-xl p-3">
-                <option value="">-- Choisir --</option>
-                <option value="twint">Twint</option>
-                <option value="cash">Cash</option>
-                <option value="iban">Virement IBAN</option>
-                <option value="stripe">Stripe</option>
-                <option value="avoir">💳 Avoir</option>
-                <option value="autre">Autre</option>
-              </select>
+              <div className="flex flex-wrap gap-2">
+                {MODES_PAIEMENT.map(m => (
+                  <button key={m.val} type="button" onClick={() => setMode(m.val)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border-2 transition"
+                    style={{
+                      borderColor: mode === m.val ? "#4AAEA0" : "#E2E8F0",
+                      backgroundColor: mode === m.val ? "#4AAEA0" : "white",
+                      color: mode === m.val ? "white" : "#1B2B5E",
+                    }}>
+                    <m.Icon size={16} />
+                    {m.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
