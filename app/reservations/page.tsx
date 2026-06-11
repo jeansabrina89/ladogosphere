@@ -131,7 +131,12 @@ export default async function ReservationsPage({
                        res.statut_paiement === "partiel" ? "💰 Partiel" :
                        "💰 Impayé"}
                     </span>
-                    {res.montant_final && (
+                    {res.statut_paiement === "partiel" && res.montant_final != null && (
+                      <p className="font-bold text-sm" style={{ color: "#1B2B5E" }}>
+                        Reste {(Number(res.montant_final) - Number(res.montant_paye ?? 0)).toFixed(2)} CHF
+                      </p>
+                    )}
+                    {res.statut_paiement === "impaye" && res.montant_final != null && (
                       <p className="font-bold text-sm" style={{ color: "#1B2B5E" }}>
                         {res.montant_final} CHF
                       </p>

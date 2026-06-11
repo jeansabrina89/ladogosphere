@@ -116,7 +116,7 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
 
   const { data: reservation, error: resError } = await supabaseAdmin
     .from("reservations")
-    .select("montant_paye")
+    .select("montant_paye, mode_paiement, montant_final, montant_calcule, numero")
     .eq("id", reservation_id)
     .single();
   if (resError || !reservation) return { error: "Réservation introuvable." };
@@ -126,7 +126,19 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
     return { error: "Aucun paiement à annuler pour cette réservation." };
   }
 
-  if (mettreEnAvoir) {
+  // Si le paiement annulé était par avoir, on réverse TOUJOURS le débit d'origine
+  // (sinon le client perd son crédit), indépendamment du choix "mettre_en_avoir".
+  if (reservation.mode_paiement === "avoir") {
+    if (!client_id) return { error: "Client introuvable." };
+    const { error: mouvementError } = await supabaseAdmin.from("avoirs_mouvements").insert({
+      client_id,
+      montant: montantPaye,
+      type: "annulation_paiement",
+      motif: `Annulation paiement avoir résa #${reservation.numero ?? reservation_id}`,
+      reservation_id,
+    });
+    if (mouvementError) return { error: mouvementError.message };
+  } else if (mettreEnAvoir) {
     if (!client_id) return { error: "Client introuvable." };
     const { error: mouvementError } = await supabaseAdmin.from("avoirs_mouvements").insert({
       client_id,
@@ -138,11 +150,14 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
     if (mouvementError) return { error: mouvementError.message };
   }
 
+  const total = Number(reservation.montant_final ?? reservation.montant_calcule ?? 0);
+  const statut = calculerStatut(0, total);
+
   const { error: updateError } = await supabaseAdmin
     .from("reservations")
     .update({
       montant_paye: 0,
-      statut_paiement: "impaye",
+      statut_paiement: statut,
       mode_paiement: null,
       date_paiement: null,
     })
