@@ -79,11 +79,21 @@ export default function GestionPaiement({
 
   const handleAnnulerPaiement = async () => {
     if (!confirm(`Annuler le paiement de CHF ${dejaPaye.toFixed(2)} ?`)) return;
-    const mettreEnAvoir = confirm(
-      "Mettre le montant en avoir pour le client ?\n\n" +
-      "OK = Oui, créditer l'avoir du client\n" +
-      "Annuler = Non, ne rien créditer"
-    );
+
+    let mettreEnAvoir = true;
+    if (mode_paiement === "avoir") {
+      alert(
+        "Ce paiement a été réglé avec le crédit du client. " +
+        "À l'annulation, le crédit lui sera automatiquement restauré."
+      );
+    } else {
+      mettreEnAvoir = confirm(
+        "Mettre le montant en avoir pour le client ?\n\n" +
+        "OK = Oui, créditer l'avoir du client\n" +
+        "Annuler = Non, ne rien créditer"
+      );
+    }
+
     setAnnulationLoading(true);
     const formData = new FormData();
     formData.set("reservation_id", reservation_id);
