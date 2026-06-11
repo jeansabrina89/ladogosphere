@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { enregistrerPaiement } from "./[id]/actions";
 
 export default function BoutonPaiementRapide({
   reservation_id,
+  client_id,
   montant_final,
   statut_paiement,
 }: {
   reservation_id: string;
+  client_id?: string;
   montant_final: number | null;
   statut_paiement: string | null;
 }) {
@@ -18,21 +21,24 @@ export default function BoutonPaiementRapide({
   const router = useRouter();
 
   const handlePayer = async () => {
+    if (!mode) { alert("Choisis un mode de paiement."); return; }
     setLoading(true);
-    const response = await fetch(`/api/reservations/${reservation_id}/paiement`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        statut_paiement: "paye",
-        montant_paye: montant_final,
-        date_paiement: new Date().toISOString().split("T")[0],
-        mode_paiement: mode || null,
-      }),
-    });
-    if (response.ok) {
-      setOuvert(false);
-      router.refresh();
+
+    const formData = new FormData();
+    formData.set("reservation_id", reservation_id);
+    formData.set("client_id", client_id || "");
+    formData.set("montant_paye", (montant_final ?? 0).toString());
+    formData.set("date_paiement", new Date().toISOString().split("T")[0]);
+    formData.set("mode_paiement", mode);
+
+    const res = await enregistrerPaiement(formData);
+    if (res?.error) {
+      alert(res.error);
+      setLoading(false);
+      return;
     }
+    setOuvert(false);
+    router.refresh();
     setLoading(false);
   };
 
