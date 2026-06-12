@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { formatBoxLabel } from "../../../src/lib/boxes";
 
 type Client = { id: string; prenom: string; nom: string; membre: boolean };
-type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string };
+type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string; journee_essai_effectuee: boolean; journee_essai_invalide: boolean };
 type Box = { id: string; numero: number; nom?: string | null };
 
 const JOURS_SEMAINE = [
@@ -67,6 +67,17 @@ export default function FormReservation({
       prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
     );
   };
+
+  const chiensSelectionnesInfos = chiens.filter(c => chiensSelectionnes.includes(c.id));
+  const masquerEssai = chiensSelectionnesInfos.length > 0 &&
+    chiensSelectionnesInfos.every(c => c.journee_essai_effectuee === true);
+
+  // Si "essai" n'est plus proposé (tous les chiens sélectionnés l'ont déjà validé), on retombe sur journée
+  useEffect(() => {
+    if (masquerEssai && type === "essai") {
+      handleTypeChange("journee");
+    }
+  }, [masquerEssai]);
 
   // Générer l'aperçu des dates récurrentes
   const genererDates = (): string[] => {
@@ -347,7 +358,7 @@ export default function FormReservation({
               value={type} onChange={e => handleTypeChange(e.target.value)}>
               <option value="journee">Journée</option>
               <option value="sejour">Séjour</option>
-              <option value="essai">🧪 Journée d'essai</option>
+              {!masquerEssai && <option value="essai">🧪 Journée d'essai</option>}
             </select>
             {type === "essai" && (
               <p className="text-xs text-gray-500 mt-1">
