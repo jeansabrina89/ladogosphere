@@ -3,6 +3,7 @@ import PlanningNavigation from "./PlanningNavigation";
 import BoutonDeplacerChien from "./BoutonDeplacerChien";
 import BoutonMasquerBoxesVides from "./BoutonMasquerBoxesVides";
 import { formatBoxLabel } from "../../src/lib/boxes";
+import { aujourdhuiISO } from "../../src/lib/dates";
 
 export default async function PlanningPage({
   searchParams,
@@ -11,7 +12,7 @@ export default async function PlanningPage({
 }) {
   const supabase = await createClient();
   const params = await searchParams;
-  const aujourd_hui = new Date().toISOString().split("T")[0];
+  const aujourd_hui = aujourdhuiISO();
   const dateSelectionnee = params.date || aujourd_hui;
   const vue = params.vue || "semaine";
   const masquerVides = params.masquer === "1";

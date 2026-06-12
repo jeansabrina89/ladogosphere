@@ -18,3 +18,10 @@ export function formatDateLong(date: string | null | undefined): string {
     year: "numeric",
   });
 }
+
+export function aujourdhuiISO(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Zurich",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+}

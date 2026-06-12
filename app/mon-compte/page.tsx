@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from "../../src/lib/supabase-server";
 import { createClient } from "../../src/utils/supabase/server";
 import Link from "next/link";
-import { formatDate } from "../../src/lib/dates";
+import { formatDate, aujourdhuiISO } from "../../src/lib/dates";
 import { formatBoxLabel } from "../../src/lib/boxes";
 import { getSoldeAvoir } from "../../src/lib/avoirs";
 
@@ -17,7 +17,7 @@ export default async function MonComptePage() {
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
-  const aujourd_hui = new Date().toISOString().split("T")[0];
+  const aujourd_hui = aujourdhuiISO();
 
   const { data: reservations } = client ? await supabase
     .from("reservations")
@@ -91,7 +91,7 @@ export default async function MonComptePage() {
                 </div>
                 <div className="bg-white rounded-xl p-6 shadow-sm text-center">
                   <p className="text-3xl font-bold" style={{ color: "#4AAEA0" }}>
-                    {reservations?.length ?? 0}
+                    {reservations?.filter(r => r.statut !== "annulee" && r.statut !== "refusee").length ?? 0}
                   </p>
                   <p className="text-gray-500 text-sm mt-1">Réservation(s)</p>
                 </div>
@@ -217,7 +217,7 @@ export default async function MonComptePage() {
                           🏠 {formatBoxLabel(res.boxes)} · {res.type_reservation === "journee" ? "Journée" : "Séjour"}
                         </p>
                         {res.heure_arrivee && (
-                          <p className="text-sm text-gray-500">🕐 Arrivée : {res.heure_arrivee}</p>
+                          <p className="text-sm text-gray-500">🕐 Arrivée : {String(res.heure_arrivee).slice(0, 5)}</p>
                         )}
                         <p className="text-xs text-green-700 font-semibold mt-1">✅ Confirmée</p>
                       </div>

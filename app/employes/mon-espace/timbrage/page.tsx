@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../../src/utils/supabase/server";
+import { aujourdhuiISO } from "../../../../src/lib/dates";
 import FormTimbrage from "./FormTimbrage";
 
 export default async function TimbrageePage({
@@ -22,7 +23,7 @@ export default async function TimbrageePage({
   if (!employe) redirect("/employes/mon-espace");
 
   const params = await searchParams;
-  const aujourd_hui = new Date().toISOString().split("T")[0];
+  const aujourd_hui = aujourdhuiISO();
   const dateSelectionnee = params.date || aujourd_hui;
 
   const moisActuel = new Date().getMonth() + 1;

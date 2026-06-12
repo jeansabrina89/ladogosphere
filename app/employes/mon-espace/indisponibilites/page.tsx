@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../../src/utils/supabase/server";
+import { aujourdhuiISO } from "../../../../src/lib/dates";
 import FormIndisponibilites from "./FormIndisponibilites";
 
 export default async function IndisponibilitesPage() {
@@ -17,7 +18,7 @@ export default async function IndisponibilitesPage() {
     .from("employes_rh").select("*").eq("email", profile?.email ?? "").single();
   if (!employe) redirect("/employes/mon-espace");
 
-  const aujourd_hui = new Date().toISOString().split("T")[0];
+  const aujourd_hui = aujourdhuiISO();
 
   const { data: indisponibilites } = await supabase
     .from("indisponibilites")

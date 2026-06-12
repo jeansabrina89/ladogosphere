@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../src/utils/supabase/server";
+import { aujourdhuiISO } from "../../../src/lib/dates";
 import Link from "next/link";
 
 export default async function MonEspaceRHPage() {
@@ -31,7 +32,7 @@ export default async function MonEspaceRHPage() {
     </main>
   );
 
-  const aujourd_hui = new Date().toISOString().split("T")[0];
+  const aujourd_hui = aujourdhuiISO();
   const moisActuel = new Date().getMonth() + 1;
   const anneeActuelle = new Date().getFullYear();
 

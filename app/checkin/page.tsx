@@ -1,10 +1,11 @@
 import { createClient } from "../../src/utils/supabase/server";
 import { BoutonCheckin, BoutonCheckout } from "./BoutonsCheckin";
 import { formatBoxLabel } from "../../src/lib/boxes";
+import { aujourdhuiISO } from "../../src/lib/dates";
 
 export default async function CheckinPage() {
   const supabase = await createClient();
-  const aujourd_hui = new Date().toISOString().split("T")[0];
+  const aujourd_hui = aujourdhuiISO();
 
   const { data: checkins } = await supabase
     .from("checkin_checkout")

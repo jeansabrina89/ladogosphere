@@ -8,9 +8,7 @@ export const ONGLETS_PERIODE: { val: FiltrePeriode; label: string }[] = [
   { val: "annulees", label: "❌ Annulées" },
 ];
 
-export function aujourdhuiISO(): string {
-  return new Date().toISOString().split("T")[0];
-}
+export { aujourdhuiISO } from "./dates";
 
 // Applique le filtre de période + le tri à une requête Supabase et la retourne.
 export function appliquerPeriodeEtTri(query: any, filtre: string, aujourd_hui: string) {

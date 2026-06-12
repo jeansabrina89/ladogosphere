@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "../src/utils/supabase/server";
 import { createSupabaseServerClient } from "../src/lib/supabase-server";
+import { aujourdhuiISO } from "../src/lib/dates";
 import CarteReservationAttente from "./components/CarteReservationAttente";
 import BoutonsCheckinDashboard from "./components/BoutonsCheckinDashboard";
 
@@ -9,7 +10,7 @@ export default async function Home() {
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
 
-  const aujourd_hui = new Date().toISOString().split("T")[0];
+  const aujourd_hui = aujourdhuiISO();
 
   const [
     { count: totalChiens },

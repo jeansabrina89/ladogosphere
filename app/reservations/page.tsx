@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "../../src/utils/supabase/server";
-import { formatDate } from "../../src/lib/dates";
+import { formatDate, aujourdhuiISO } from "../../src/lib/dates";
 import { formatBoxLabel } from "../../src/lib/boxes";
 import FiltresReservations from "./FiltresReservations";
 import BoutonPaiementRapide from "./BoutonPaiementRapide";
@@ -17,7 +17,7 @@ export default async function ReservationsPage({
   const filtre = params.filtre || "toutes";
   const paiement = params.paiement || "tous";
   const recherche = params.recherche || "";
-  const aujourd_hui = new Date().toISOString().split("T")[0];
+  const aujourd_hui = aujourdhuiISO();
 
   let query = supabase
     .from("reservations")
