@@ -171,6 +171,13 @@ export default function FormDemandeReservation({
     }
   }, [afficherChoixComplet]);
 
+  // Si "essai" n'est plus proposé (tous les chiens l'ont déjà validé), on retombe sur journée
+  useEffect(() => {
+    if (afficherChoixComplet && type === "essai") {
+      handleTypeChange("journee");
+    }
+  }, [afficherChoixComplet]);
+
   const handleDateDebutChange = (val: string) => {
     if (estDateInvalide(val)) {
       setError(
@@ -298,7 +305,6 @@ export default function FormDemandeReservation({
             className="w-full border rounded-xl p-3">
             <option value="journee">Journée</option>
             <option value="sejour">Séjour</option>
-            <option value="essai">🧪 Journée d'essai</option>
           </select>
         ) : (
           <>
