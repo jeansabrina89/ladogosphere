@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { ONGLETS_PERIODE } from "../../src/lib/reservationsFiltres";
 
 export default function FiltresReservations() {
   const router = useRouter();
@@ -20,13 +21,6 @@ export default function FiltresReservations() {
     router.push(`/reservations?${params.toString()}`);
   };
 
-  const filtres = [
-    { val: "toutes", label: "Toutes" },
-    { val: "en_cours", label: "🟢 En cours" },
-    { val: "futures", label: "📅 Futures" },
-    { val: "passees", label: "📁 Passées" },
-  ];
-
   const filtresPaiement = [
     { val: "tous", label: "Tous" },
     { val: "impaye", label: "❌ Impayées" },
@@ -39,7 +33,7 @@ export default function FiltresReservations() {
       <div>
         <p className="text-sm font-semibold mb-2" style={{ color: "#1B2B5E" }}>Période</p>
         <div className="flex gap-2 flex-wrap">
-          {filtres.map(f => (
+          {ONGLETS_PERIODE.map(f => (
             <button key={f.val} onClick={() => setFiltre(f.val)}
               className="px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition"
               style={{

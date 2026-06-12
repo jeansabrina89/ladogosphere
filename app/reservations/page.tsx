@@ -5,6 +5,7 @@ import { formatBoxLabel } from "../../src/lib/boxes";
 import FiltresReservations from "./FiltresReservations";
 import BoutonPaiementRapide from "./BoutonPaiementRapide";
 import RechercheReservation from "./RechercheReservation";
+import { appliquerPeriodeEtTri } from "../../src/lib/reservationsFiltres";
 
 export default async function ReservationsPage({
   searchParams,
@@ -27,22 +28,16 @@ export default async function ReservationsPage({
       reservation_chiens (
         chiens (id, nom, race, categorie_poids)
       )
-    `)
-    .order("date_debut", { ascending: true });
+    `);
 
   if (recherche) {
     const numero = parseInt(recherche);
     if (!isNaN(numero)) {
       query = query.eq("numero", numero);
     }
+    query = query.order("date_debut", { ascending: false });
   } else {
-    if (filtre === "en_cours") {
-      query = query.lte("date_debut", aujourd_hui).gte("date_fin", aujourd_hui);
-    } else if (filtre === "futures") {
-      query = query.gt("date_debut", aujourd_hui);
-    } else if (filtre === "passees") {
-      query = query.lt("date_fin", aujourd_hui);
-    }
+    query = appliquerPeriodeEtTri(query, filtre || "toutes", aujourd_hui);
     if (paiement !== "tous") {
       query = query.eq("statut_paiement", paiement);
     }
@@ -114,12 +109,14 @@ export default async function ReservationsPage({
                       res.statut === "validee" ? "bg-green-100 text-green-700" :
                       res.statut === "en_attente" ? "bg-yellow-100 text-yellow-700" :
                       res.statut === "annulee" ? "bg-red-100 text-red-700" :
+                      res.statut === "refusee" ? "bg-red-100 text-red-700" :
                       res.statut === "terminee" ? "bg-gray-100 text-gray-600" :
                       "bg-gray-100 text-gray-600"
                     }`}>
                       {res.statut === "validee" ? "✅ Validée" :
                        res.statut === "en_attente" ? "⏳ En attente" :
                        res.statut === "annulee" ? "❌ Annulée" :
+                       res.statut === "refusee" ? "❌ Refusée" :
                        res.statut === "terminee" ? "🏁 Terminée" : res.statut}
                     </span>
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${

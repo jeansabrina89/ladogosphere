@@ -5,6 +5,8 @@ import Link from "next/link";
 import { formatDate } from "../../../src/lib/dates";
 import { formatBoxLabel } from "../../../src/lib/boxes";
 import BoutonPaiementClient from "./BoutonPaiementClient";
+import FiltresPeriode from "./FiltresPeriode";
+import { appliquerPeriodeEtTri, aujourdhuiISO } from "../../../src/lib/reservationsFiltres";
 
 function libelleType(t: string): string {
   if (t === "journee") return "Journée";
@@ -13,11 +15,18 @@ function libelleType(t: string): string {
   return t || "—";
 }
 
-export default async function MesReservationsPage() {
+export default async function MesReservationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filtre?: string }>;
+}) {
   const supabase = await createClient();
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
   if (!user) return null;
+
+  const params = await searchParams;
+  const filtre = params.filtre || "toutes";
 
   const { data: client } = await supabase
     .from("clients")
@@ -27,11 +36,13 @@ export default async function MesReservationsPage() {
 
   if (!client) return <div>Profil introuvable</div>;
 
-  const { data: reservations } = await supabase
+  const aujourd_hui = aujourdhuiISO();
+  let query = supabase
     .from("reservations")
     .select(`*, boxes (numero, nom), reservation_chiens (chiens (nom))`)
-    .eq("client_id", client.id)
-    .order("date_debut", { ascending: false });
+    .eq("client_id", client.id);
+  query = appliquerPeriodeEtTri(query, filtre || "toutes", aujourd_hui);
+  const { data: reservations } = await query;
 
   // IBAN lu côté serveur (table parametres réservée à l'admin)
   const { data: ibanRow } = await supabaseAdmin
@@ -56,9 +67,11 @@ export default async function MesReservationsPage() {
           </Link>
         </div>
 
+        <FiltresPeriode />
+
         <div className="space-y-4">
           {reservations?.length === 0 && (
-            <p className="text-gray-400">Aucune réservation pour le moment.</p>
+            <p className="text-gray-400">Aucune réservation dans cette catégorie.</p>
           )}
           {reservations?.map((res: any) => {
             const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens?.nom).filter(Boolean) ?? [];
@@ -98,12 +111,14 @@ export default async function MesReservationsPage() {
                       res.statut === "validee" ? "bg-green-100 text-green-700" :
                       res.statut === "en_attente" ? "bg-yellow-100 text-yellow-700" :
                       res.statut === "annulee" ? "bg-red-100 text-red-700" :
+                      res.statut === "refusee" ? "bg-red-100 text-red-700" :
                       res.statut === "terminee" ? "bg-gray-100 text-gray-600" :
                       "bg-gray-100 text-gray-600"
                     }`}>
                       {res.statut === "validee" ? "✅ Validée" :
                        res.statut === "en_attente" ? "⏳ En attente" :
                        res.statut === "annulee" ? "❌ Annulée" :
+                       res.statut === "refusee" ? "❌ Refusée" :
                        res.statut === "terminee" ? "🏁 Terminée" : res.statut}
                     </span>
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
