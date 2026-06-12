@@ -27,11 +27,14 @@ export default async function MonComptePage() {
 
   const resAttente = reservations?.filter(r => r.statut === "en_attente") ?? [];
   const resFutures = reservations?.filter(r => r.statut === "validee" && r.date_debut > aujourd_hui) ?? [];
-  const resImpayees = reservations?.filter(r =>
-    r.statut !== "annulee" &&
-    (!r.statut_paiement || r.statut_paiement === "impaye" || r.statut_paiement === "partiel")
-    && r.montant_final > 0
-  ) ?? [];
+  // « En attente de paiement » = réservation payable (validée par l'admin, ou séjour terminé)
+  // dont il reste un montant à régler. On exclut volontairement en_attente, refusee et annulee.
+  const resImpayees = reservations?.filter(r => {
+    const estPayable = r.statut === "validee" || r.statut === "terminee";
+    const nonRegle = !r.statut_paiement || r.statut_paiement === "impaye" || r.statut_paiement === "partiel";
+    const restant = Number(r.montant_final ?? 0) - Number(r.montant_paye ?? 0);
+    return estPayable && nonRegle && restant > 0;
+  }) ?? [];
 
   // Client sans profil complet (prénom/nom vides)
   const profilIncomplet = !client || (!client.prenom && !client.nom);
@@ -236,8 +239,15 @@ export default async function MonComptePage() {
                 <div className="space-y-3">
                   {resImpayees.map((res: any) => {
                     const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens?.nom).filter(Boolean) ?? [];
+                    const total = Number(res.montant_final ?? 0);
+                    const paye = Number(res.montant_paye ?? 0);
+                    const restant = total - paye;
                     return (
-                      <div key={res.id} className="border border-red-200 rounded-xl p-4 bg-red-50">
+                      <Link
+                        key={res.id}
+                        href={`/mon-compte/reservations/${res.id}`}
+                        className="block border border-red-200 rounded-xl p-4 bg-red-50 hover:shadow-md hover:border-red-300 transition"
+                      >
                         <div className="flex justify-between items-start">
                           <div>
                             <p className="font-semibold" style={{ color: "#1B2B5E" }}>
@@ -248,17 +258,23 @@ export default async function MonComptePage() {
                             </p>
                           </div>
                           <div className="text-right">
-                            {res.montant_final && (
+                            {total > 0 && (
                               <p className="font-bold" style={{ color: "#1B2B5E" }}>
-                                {res.montant_final} CHF
+                                {total} CHF
                               </p>
+                            )}
+                            {res.statut_paiement === "partiel" && restant > 0 && (
+                              <p className="text-xs text-gray-500">Restant : {restant} CHF</p>
                             )}
                             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
                               {res.statut_paiement === "partiel" ? "⚠️ Partiel" : "❌ Impayé"}
                             </span>
                           </div>
                         </div>
-                      </div>
+                        <p className="text-xs font-semibold mt-2 text-right" style={{ color: "#E8847A" }}>
+                          Régler cette réservation →
+                        </p>
+                      </Link>
                     );
                   })}
                 </div>
