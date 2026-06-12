@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../../src/utils/supabase/server";
 import { envoyerEmailPaiement, envoyerEmailSatisfactionEssai } from "../../../../../src/lib/email";
+import { exigerPersonnel } from "../../../../../src/lib/apiAuth";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient();
+  const garde = await exigerPersonnel(supabase);
+  if (garde) return garde;
   const { id } = await params;
   const { type } = await req.json();
 

@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../src/utils/supabase/server";
 import { formatBoxLabel } from "../../../../src/lib/boxes";
 import * as XLSX from "xlsx";
+import { exigerPersonnel } from "../../../../src/lib/apiAuth";
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
+  const garde = await exigerPersonnel(supabase);
+  if (garde) return garde;
   const { searchParams } = new URL(req.url);
   const mois = searchParams.get("mois");
   const annee = searchParams.get("annee");

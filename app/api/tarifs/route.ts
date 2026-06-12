@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../src/utils/supabase/server";
+import { exigerPersonnel } from "../../../src/lib/apiAuth";
 
 export async function PUT(req: NextRequest) {
   const supabase = await createClient();
+  const garde = await exigerPersonnel(supabase);
+  if (garde) return garde;
   const { updates, cotisation, iban } = await req.json();
 
   // Mettre à jour les tarifs

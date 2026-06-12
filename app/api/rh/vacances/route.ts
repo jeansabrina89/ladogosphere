@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../src/utils/supabase/server";
+import { exigerPersonnel } from "../../../../src/lib/apiAuth";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
+  const garde = await exigerPersonnel(supabase);
+  if (garde) return garde;
   const body = await req.json();
   const { employe_id, date_debut, date_fin, nb_jours, note_employe } = body;
 
@@ -30,6 +33,8 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const supabase = await createClient();
+  const garde = await exigerPersonnel(supabase);
+  if (garde) return garde;
   const { id, statut, note_admin } = await req.json();
 
   // Côté admin — pas de vérification de chevauchement

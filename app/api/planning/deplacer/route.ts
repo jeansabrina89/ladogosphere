@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../src/utils/supabase/server";
+import { exigerPersonnel } from "../../../../src/lib/apiAuth";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
+  const garde = await exigerPersonnel(supabase);
+  if (garde) return garde;
   const { occupation_id, nouveau_box_id, mode, date_changement } = await req.json();
 
   // Récupérer l'occupation actuelle
