@@ -1,8 +1,10 @@
 import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
+import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 import Link from "next/link";
 import { formatDate } from "../../../../src/lib/dates";
 import { formatBoxLabel } from "../../../../src/lib/boxes";
 import { getMouvementsAvoirReservation } from "../../../../src/lib/avoirs";
+import BoutonPaiementClient from "../BoutonPaiementClient";
 
 const LABELS_TYPE_AVOIR_RESERVATION: Record<string, string> = {
   utilisation: "Avoir utilisé",
@@ -51,6 +53,14 @@ export default async function DetailReservationClientPage({
 
   const mouvementsAvoir = await getMouvementsAvoirReservation(supabase, res.client_id, id);
 
+  const { data: ibanRow } = await supabaseAdmin.from("parametres").select("valeur").eq("cle", "iban").maybeSingle();
+  const iban = ibanRow?.valeur ?? "";
+
+  const peutPayer =
+    (res.statut === "validee" || res.statut === "terminee") &&
+    (!res.statut_paiement || res.statut_paiement === "impaye" || res.statut_paiement === "partiel") &&
+    resteAPayer > 0;
+
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm">
@@ -97,6 +107,19 @@ export default async function DetailReservationClientPage({
             res.statut_paiement === "partiel" ? "💰 Partiel" : "💰 Impayé"
           }</p>
         </div>
+
+        {peutPayer && (
+          <div className="border-t pt-4 mb-6">
+            <BoutonPaiementClient
+              reservation_id={res.id}
+              numero={res.numero}
+              iban={iban}
+              montant_final={res.montant_final || 0}
+              montant_paye={res.montant_paye || 0}
+              statut_paiement={res.statut_paiement || "impaye"}
+            />
+          </div>
+        )}
 
         {mouvementsAvoir.length > 0 && (
           <div className="border-t pt-4 space-y-2 mb-6">

@@ -62,9 +62,11 @@ export default async function MesReservationsPage() {
           )}
           {reservations?.map((res: any) => {
             const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens?.nom).filter(Boolean) ?? [];
-            const peutPayer = res.statut === "validee" &&
-              (!res.statut_paiement || res.statut_paiement === "impaye" || res.statut_paiement === "partiel");
             const resteAPayer = (res.montant_final || 0) - (res.montant_paye || 0);
+            const peutPayer =
+              (res.statut === "validee" || res.statut === "terminee") &&
+              (!res.statut_paiement || res.statut_paiement === "impaye" || res.statut_paiement === "partiel") &&
+              resteAPayer > 0;
 
             return (
               <div key={res.id} className="bg-white rounded-xl p-6 shadow-sm">

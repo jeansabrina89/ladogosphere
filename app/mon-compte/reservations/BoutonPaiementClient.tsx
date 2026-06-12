@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CreditCard, Smartphone, Landmark } from "lucide-react";
 
 export default function BoutonPaiementClient({
   reservation_id,
@@ -83,7 +84,7 @@ export default function BoutonPaiementClient({
                   <button onClick={() => setMethode("stripe")}
                     className="w-full border-2 rounded-xl p-4 flex items-center gap-3 hover:bg-slate-50 transition"
                     style={{ borderColor: "#E2E8F0" }}>
-                    <span className="text-2xl">💳</span>
+                    <CreditCard size={24} style={{ color: "#1B2B5E" }} />
                     <div className="text-left">
                       <p className="font-semibold" style={{ color: "#1B2B5E" }}>Carte bancaire</p>
                       <p className="text-xs text-gray-400">Visa, Mastercard — via Stripe</p>
@@ -93,7 +94,7 @@ export default function BoutonPaiementClient({
                   <button onClick={() => setMethode("twint")}
                     className="w-full border-2 rounded-xl p-4 flex items-center gap-3 hover:bg-slate-50 transition"
                     style={{ borderColor: "#E2E8F0" }}>
-                    <span className="text-2xl">📱</span>
+                    <Smartphone size={24} style={{ color: "#1B2B5E" }} />
                     <div className="text-left">
                       <p className="font-semibold" style={{ color: "#1B2B5E" }}>Twint</p>
                       <p className="text-xs text-gray-400">Paiement mobile suisse</p>
@@ -103,7 +104,7 @@ export default function BoutonPaiementClient({
                   <button onClick={() => setMethode("iban")}
                     className="w-full border-2 rounded-xl p-4 flex items-center gap-3 hover:bg-slate-50 transition"
                     style={{ borderColor: "#E2E8F0" }}>
-                    <span className="text-2xl">🏦</span>
+                    <Landmark size={24} style={{ color: "#1B2B5E" }} />
                     <div className="text-left">
                       <p className="font-semibold" style={{ color: "#1B2B5E" }}>Virement bancaire (IBAN)</p>
                       <p className="text-xs text-gray-400">Confirmation manuelle par notre équipe</p>
