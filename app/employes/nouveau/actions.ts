@@ -2,8 +2,17 @@
 
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
+import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
 
 export async function creerEmploye(formData: FormData) {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles").select("role").eq("id", user.id).single();
+  if (profile?.role !== "admin") redirect("/");
+
   const prenom = formData.get("prenom") as string;
   const nom = formData.get("nom") as string;
   const email = formData.get("email") as string;

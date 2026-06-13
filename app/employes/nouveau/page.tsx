@@ -1,6 +1,18 @@
+import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
+import { redirect } from "next/navigation";
+import { createClient } from "../../../src/utils/supabase/server";
 import { creerEmploye } from "./actions";
 
-export default function NouvelEmployePage() {
+export default async function NouvelEmployePage() {
+  const supabase = await createClient();
+  const supabaseServer = await createSupabaseServerClient();
+  const { data: { user } } = await supabaseServer.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles").select("role").eq("id", user.id).single();
+  if (profile?.role !== "admin") redirect("/");
+
   return (
     <main className="min-h-screen bg-slate-100 p-8">
       <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow">
