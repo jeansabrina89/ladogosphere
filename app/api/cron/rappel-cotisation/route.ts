@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 import { envoyerEmailRappelCotisation } from "../../../../src/lib/email";
+import { getCoordonneesPaiement } from "../../../../src/lib/coordonneesPaiement";
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -11,16 +12,16 @@ export async function GET(req: NextRequest) {
   const anneeActuelle = new Date().getFullYear();
   const anneeProchaine = anneeActuelle + 1;
 
-  // Récupérer montant et IBAN depuis les paramètres
+  // Récupérer montant et coordonnées de paiement depuis les paramètres
   const { data: parametres } = await supabaseAdmin
     .from("parametres")
     .select("cle, valeur")
-    .in("cle", ["cotisation_montant", "iban"]);
+    .in("cle", ["cotisation_montant"]);
 
   const montant = parseFloat(
     parametres?.find(p => p.cle === "cotisation_montant")?.valeur ?? "180"
   );
-  const iban = parametres?.find(p => p.cle === "iban")?.valeur ?? "CH00 0000 0000 0000 0000 0";
+  const coords = await getCoordonneesPaiement(supabaseAdmin);
 
   // Tous les membres actifs
   const { data: membres } = await supabaseAdmin
@@ -54,7 +55,8 @@ export async function GET(req: NextRequest) {
         nom: membre.nom || "",
         annee: anneeActuelle,
         montant,
-        iban,
+        iban: coords.iban,
+        titulaire: coords.titulaire,
       });
       nbEnvoyes++;
     } catch (e: any) {

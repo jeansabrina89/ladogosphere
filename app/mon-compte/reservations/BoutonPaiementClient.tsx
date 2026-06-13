@@ -7,6 +7,7 @@ export default function BoutonPaiementClient({
   reservation_id,
   numero,
   iban,
+  titulaire,
   montant_final,
   montant_paye,
   statut_paiement,
@@ -14,6 +15,7 @@ export default function BoutonPaiementClient({
   reservation_id: string;
   numero: number;
   iban: string;
+  titulaire: string;
   montant_final: number;
   montant_paye: number;
   statut_paiement: string;
@@ -122,38 +124,46 @@ export default function BoutonPaiementClient({
 
             {methode === "iban" && (
               <div className="space-y-4">
-                <div className="rounded-xl p-4" style={{ backgroundColor: "#E8F5F4" }}>
-                  <p className="font-bold mb-3" style={{ color: "#1B2B5E" }}>
-                    🏦 Coordonnées bancaires
-                  </p>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Titulaire</span>
-                      <span className="font-semibold" style={{ color: "#1B2B5E" }}>La Dogosphère</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">IBAN</span>
-                      <span className="font-semibold font-mono" style={{ color: "#1B2B5E" }}>
-                        {iban || "—"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between border-t pt-2 mt-2">
-                      <span className="text-gray-500">Montant à virer</span>
-                      <span className="font-bold text-lg" style={{ color: "#4AAEA0" }}>
-                        {montantNum.toFixed(2)} CHF
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Référence</span>
-                      <span className="font-semibold font-mono text-xs" style={{ color: "#1B2B5E" }}>
-                        Réservation N°{numero}
-                      </span>
+                {iban ? (
+                  <div className="rounded-xl p-4" style={{ backgroundColor: "#E8F5F4" }}>
+                    <p className="font-bold mb-3" style={{ color: "#1B2B5E" }}>
+                      🏦 Coordonnées bancaires
+                    </p>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Titulaire</span>
+                        <span className="font-semibold" style={{ color: "#1B2B5E" }}>{titulaire}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">IBAN</span>
+                        <span className="font-semibold font-mono" style={{ color: "#1B2B5E" }}>
+                          {iban}
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-t pt-2 mt-2">
+                        <span className="text-gray-500">Montant à virer</span>
+                        <span className="font-bold text-lg" style={{ color: "#4AAEA0" }}>
+                          {montantNum.toFixed(2)} CHF
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Référence</span>
+                        <span className="font-semibold font-mono text-xs" style={{ color: "#1B2B5E" }}>
+                          Réservation N°{numero}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="rounded-xl p-3 bg-amber-50 border border-amber-200 text-xs text-amber-700">
-                  ⚠️ Votre paiement sera confirmé manuellement par notre équipe après réception du virement. Merci d'indiquer la référence dans le motif du virement.
-                </div>
+                ) : (
+                  <div className="rounded-xl p-4 bg-amber-50 border border-amber-200 text-sm text-amber-700">
+                    Coordonnées de paiement bientôt disponibles.
+                  </div>
+                )}
+                {iban && (
+                  <div className="rounded-xl p-3 bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                    ⚠️ Votre paiement sera confirmé manuellement par notre équipe après réception du virement. Merci d'indiquer la référence dans le motif du virement.
+                  </div>
+                )}
                 <div className="flex gap-3">
                   <button onClick={() => setMethode("")}
                     className="flex-1 py-2 rounded-xl font-semibold text-sm"

@@ -42,7 +42,7 @@ export default async function TarifsPage({
   const cotisationMontant = parseFloat(
     parametres?.find(p => p.cle === "cotisation_montant")?.valeur ?? "180"
   );
-  const iban = parametres?.find(p => p.cle === "iban")?.valeur ?? "CH00 0000 0000 0000 0000 0";
+  const iban = parametres?.find(p => p.cle === "iban")?.valeur ?? "";
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>

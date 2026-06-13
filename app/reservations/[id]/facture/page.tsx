@@ -1,6 +1,8 @@
 import { createClient } from "../../../../src/utils/supabase/server";
+import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 import { formatDate } from "../../../../src/lib/dates";
 import { formatBoxLabel } from "../../../../src/lib/boxes";
+import { getCoordonneesPaiement } from "../../../../src/lib/coordonneesPaiement";
 import BoutonImprimer from "./BoutonImprimer";
 
 export default async function FacturePage({
@@ -25,6 +27,8 @@ export default async function FacturePage({
     .single();
 
   if (!res) return <div>Réservation introuvable</div>;
+
+  const coords = await getCoordonneesPaiement(supabaseAdmin);
 
   const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens).filter(Boolean) ?? [];
 
@@ -200,9 +204,15 @@ export default async function FacturePage({
         {res.statut_paiement !== "paye" && (
           <div className="border rounded-xl p-4 mb-8 text-sm" style={{ borderColor: "#C9A84C", backgroundColor: "#FFFBF0" }}>
             <p className="font-bold mb-2" style={{ color: "#1B2B5E" }}>💳 Coordonnées de paiement</p>
-            <p><strong>Virement bancaire :</strong> IBAN CH00 0000 0000 0000 0000 0</p>
-            <p><strong>Titulaire :</strong> La Dogosphère Sàrl</p>
-            <p className="text-gray-500 mt-1">Merci d'indiquer votre nom et le numéro de facture en référence.</p>
+            {coords.ibanConfigure ? (
+              <>
+                <p><strong>Virement bancaire :</strong> IBAN {coords.iban}</p>
+                <p><strong>Titulaire :</strong> {coords.titulaire}</p>
+                <p className="text-gray-500 mt-1">Merci d'indiquer votre nom et le numéro de facture en référence.</p>
+              </>
+            ) : (
+              <p>Coordonnées de paiement communiquées prochainement.</p>
+            )}
           </div>
         )}
 

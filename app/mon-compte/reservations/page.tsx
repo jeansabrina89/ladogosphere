@@ -7,6 +7,7 @@ import { formatBoxLabel } from "../../../src/lib/boxes";
 import BoutonPaiementClient from "./BoutonPaiementClient";
 import FiltresPeriode from "./FiltresPeriode";
 import { appliquerPeriodeEtTri, aujourdhuiISO } from "../../../src/lib/reservationsFiltres";
+import { getCoordonneesPaiement } from "../../../src/lib/coordonneesPaiement";
 
 function libelleType(t: string): string {
   if (t === "journee") return "Journée";
@@ -44,13 +45,8 @@ export default async function MesReservationsPage({
   query = appliquerPeriodeEtTri(query, filtre || "toutes", aujourd_hui);
   const { data: reservations } = await query;
 
-  // IBAN lu côté serveur (table parametres réservée à l'admin)
-  const { data: ibanRow } = await supabaseAdmin
-    .from("parametres")
-    .select("valeur")
-    .eq("cle", "iban")
-    .maybeSingle();
-  const iban = ibanRow?.valeur ?? "";
+  // Coordonnées de paiement lues côté serveur (table parametres réservée à l'admin)
+  const coords = await getCoordonneesPaiement(supabaseAdmin);
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -134,7 +130,8 @@ export default async function MesReservationsPage({
                       <BoutonPaiementClient
                         reservation_id={res.id}
                         numero={res.numero}
-                        iban={iban}
+                        iban={coords.iban}
+                        titulaire={coords.titulaire}
                         montant_final={res.montant_final || 0}
                         montant_paye={res.montant_paye || 0}
                         statut_paiement={res.statut_paiement || "impaye"}

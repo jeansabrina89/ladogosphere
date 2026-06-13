@@ -4,6 +4,7 @@ import Link from "next/link";
 import { formatDate } from "../../../../src/lib/dates";
 import { formatBoxLabel } from "../../../../src/lib/boxes";
 import { getMouvementsAvoirReservation } from "../../../../src/lib/avoirs";
+import { getCoordonneesPaiement } from "../../../../src/lib/coordonneesPaiement";
 import BoutonPaiementClient from "../BoutonPaiementClient";
 
 const LABELS_TYPE_AVOIR_RESERVATION: Record<string, string> = {
@@ -53,8 +54,7 @@ export default async function DetailReservationClientPage({
 
   const mouvementsAvoir = await getMouvementsAvoirReservation(supabase, res.client_id, id);
 
-  const { data: ibanRow } = await supabaseAdmin.from("parametres").select("valeur").eq("cle", "iban").maybeSingle();
-  const iban = ibanRow?.valeur ?? "";
+  const coords = await getCoordonneesPaiement(supabaseAdmin);
 
   const peutPayer =
     (res.statut === "validee" || res.statut === "terminee") &&
@@ -113,7 +113,8 @@ export default async function DetailReservationClientPage({
             <BoutonPaiementClient
               reservation_id={res.id}
               numero={res.numero}
-              iban={iban}
+              iban={coords.iban}
+              titulaire={coords.titulaire}
               montant_final={res.montant_final || 0}
               montant_paye={res.montant_paye || 0}
               statut_paiement={res.statut_paiement || "impaye"}

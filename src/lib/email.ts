@@ -229,10 +229,11 @@ export async function envoyerEmailReservationAnnulee({
   });
 }
 export async function envoyerEmailPaiement({
-  email, prenom, montant, date_debut, date_fin, type,
+  email, prenom, montant, date_debut, date_fin, type, iban, titulaire,
 }: {
   email: string; prenom: string; montant: number;
   date_debut: string; date_fin: string; type: string;
+  iban: string; titulaire: string;
 }) {
   await resend.emails.send({
     from: FROM,
@@ -266,11 +267,15 @@ export async function envoyerEmailPaiement({
 
       <div style="background-color:#FFF8E1; border-left:4px solid #C9A84C; border-radius:8px; padding:16px; margin:0 0 24px 0;">
         <p style="margin:0 0 8px 0; color:#7A5C00; font-size:14px; font-weight:bold;">💳 Moyens de paiement</p>
+        ${iban ? `
         <p style="margin:0 0 6px 0; color:#7A5C00; font-size:13px;">
-          <strong>Virement bancaire :</strong> IBAN CH00 0000 0000 0000 0000 0<br/>
-          <strong>Titulaire :</strong> La Dogosphère Sàrl<br/>
+          <strong>Virement bancaire :</strong> IBAN ${iban}<br/>
+          <strong>Titulaire :</strong> ${titulaire}<br/>
           <strong>Référence :</strong> Votre nom + date du séjour
-        </p>
+        </p>` : `
+        <p style="margin:0 0 6px 0; color:#7A5C00; font-size:13px;">
+          Les coordonnées de paiement vous seront communiquées séparément.
+        </p>`}
         <p style="margin:8px 0 0 0; color:#7A5C00; font-size:13px;">
           <strong>Twint :</strong> disponible sur demande
         </p>
@@ -368,9 +373,9 @@ export async function envoyerEmailRappelVeille({
   });
 }
 export async function envoyerEmailRappelCotisation({
-  email, prenom, nom, annee, montant, iban,
+  email, prenom, nom, annee, montant, iban, titulaire,
 }: {
-  email: string; prenom: string; nom: string; annee: number; montant: number; iban: string;
+  email: string; prenom: string; nom: string; annee: number; montant: number; iban: string; titulaire: string;
 }) {
   const anneeProchaine = annee + 1;
   await resend.emails.send({
@@ -416,14 +421,18 @@ export async function envoyerEmailRappelCotisation({
           Effectuez un virement bancaire avec les informations suivantes :
         </p>
         <table cellpadding="0" cellspacing="0" style="width:100%;">
+          ${iban ? `
           <tr>
             <td style="padding:4px 0; color:#7A5C00; font-size:13px; width:35%;">IBAN</td>
             <td style="padding:4px 0; color:#7A5C00; font-weight:bold; font-size:13px;">${iban}</td>
           </tr>
           <tr>
             <td style="padding:4px 0; color:#7A5C00; font-size:13px;">Titulaire</td>
-            <td style="padding:4px 0; color:#7A5C00; font-weight:bold; font-size:13px;">La Dogosphère Sàrl</td>
-          </tr>
+            <td style="padding:4px 0; color:#7A5C00; font-weight:bold; font-size:13px;">${titulaire}</td>
+          </tr>` : `
+          <tr>
+            <td colspan="2" style="padding:4px 0; color:#7A5C00; font-size:13px;">Coordonnées bancaires communiquées séparément.</td>
+          </tr>`}
           <tr>
             <td style="padding:4px 0; color:#7A5C00; font-size:13px;">Montant</td>
             <td style="padding:4px 0; color:#7A5C00; font-weight:bold; font-size:13px;">CHF ${montant.toFixed(2)}</td>

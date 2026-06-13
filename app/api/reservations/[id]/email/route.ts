@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../../src/utils/supabase/server";
+import { supabaseAdmin } from "../../../../../src/lib/supabase-admin";
 import { envoyerEmailPaiement, envoyerEmailSatisfactionEssai } from "../../../../../src/lib/email";
+import { getCoordonneesPaiement } from "../../../../../src/lib/coordonneesPaiement";
 import { exigerPersonnel } from "../../../../../src/lib/apiAuth";
 
 export async function POST(
@@ -35,6 +37,7 @@ export async function POST(
       if (res.statut_paiement === "paye") {
         return NextResponse.json({ error: "La réservation est déjà payée" }, { status: 400 });
       }
+      const coords = await getCoordonneesPaiement(supabaseAdmin);
       await envoyerEmailPaiement({
         email,
         prenom,
@@ -42,6 +45,8 @@ export async function POST(
         date_debut: res.date_debut,
         date_fin: res.date_fin,
         type: res.type_reservation,
+        iban: coords.iban,
+        titulaire: coords.titulaire,
       });
     }
 
