@@ -16,19 +16,25 @@ export default async function ModifierEmployePage({
     .eq("id", id)
     .maybeSingle();
 
-  const { data: rh } = await supabase
+  const { data: rhParProfileId } = await supabase
+    .from("employes_rh")
+    .select("*")
+    .eq("profile_id", id)
+    .maybeSingle();
+
+  const { data: rh } = !rhParProfileId ? await supabase
     .from("employes_rh")
     .select("*")
     .eq("id", id)
-    .maybeSingle();
+    .maybeSingle() : { data: null };
 
-  const { data: rhParEmail } = !rh && emp ? await supabase
+  const { data: rhParEmail } = !rhParProfileId && !rh && emp ? await supabase
     .from("employes_rh")
     .select("*")
     .eq("email", emp?.email || "")
     .maybeSingle() : { data: null };
 
-  const rhData = rh || rhParEmail;
+  const rhData = rhParProfileId || rh || rhParEmail;
 
   if (!emp && !rhData) return <div>Employé introuvable</div>;
 

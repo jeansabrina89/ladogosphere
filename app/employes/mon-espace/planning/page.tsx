@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../../src/utils/supabase/server";
+import { getEmployeRhActuel } from "../../../../src/lib/employeActuel";
 
 export default async function MonPlanningPage({
   searchParams,
@@ -16,8 +17,7 @@ export default async function MonPlanningPage({
     .from("profiles").select("role, email").eq("id", user.id).single();
   if (!profile || !["admin", "employe"].includes(profile.role)) redirect("/");
 
-  const { data: employe } = await supabase
-    .from("employes_rh").select("*").eq("email", profile?.email ?? "").single();
+  const employe = await getEmployeRhActuel(supabase, user.id, profile?.email);
   if (!employe) redirect("/employes/mon-espace");
 
   const params = await searchParams;

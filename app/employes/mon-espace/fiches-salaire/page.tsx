@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../../src/utils/supabase/server";
+import { getEmployeRhActuel } from "../../../../src/lib/employeActuel";
 import Link from "next/link";
 
 const MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -16,8 +17,7 @@ export default async function MesFichesSalairePage() {
     .from("profiles").select("role, email").eq("id", user.id).single();
   if (!["admin", "employe"].includes(profile?.role)) redirect("/");
 
-  const { data: employe } = await supabase
-    .from("employes_rh").select("*").eq("email", profile?.email ?? "").single();
+  const employe = await getEmployeRhActuel(supabase, user.id, profile?.email);
   if (!employe) redirect("/employes/mon-espace");
 
   const { data: fiches } = await supabase

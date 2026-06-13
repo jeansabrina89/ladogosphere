@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { createClient } from "../../src/utils/supabase/server";
 import BoutonSupprimerEmploye from "./BoutonSupprimerEmploye";
+import { creerAccesEmploye } from "./actions";
 
 export default async function EmployesPage() {
   const supabase = await createClient();
@@ -71,7 +72,7 @@ export default async function EmployesPage() {
 
         <div className="grid gap-4">
           {employesRh?.map((emp: any) => {
-            const profil = profiles?.find(p => p.email === emp.email);
+            const profil = profiles?.find(p => p.id === emp.profile_id) ?? profiles?.find(p => p.email === emp.email);
             const salaireBrut = (emp.salaire_base * emp.taux_travail / 100).toFixed(2);
             const joursParSemaine = Math.round(emp.taux_travail / 100 * 5);
             const joursVacances = Math.round(20 * emp.taux_travail / 100);
@@ -126,6 +127,16 @@ export default async function EmployesPage() {
                       style={{ backgroundColor: "#E8847A" }}>
                       📊 Fiche
                     </Link>
+                    {!profil && (
+                      <form action={creerAccesEmploye}>
+                        <input type="hidden" name="fiche_id" value={emp.id} />
+                        <button type="submit"
+                          className="px-3 py-2 rounded-xl text-sm font-semibold text-white"
+                          style={{ backgroundColor: "#4AAEA0" }}>
+                          🔑 Créer un accès
+                        </button>
+                      </form>
+                    )}
                     <BoutonSupprimerEmploye id={emp.id} nom={`${emp.prenom} ${emp.nom}`} />
                   </div>
                 </div>

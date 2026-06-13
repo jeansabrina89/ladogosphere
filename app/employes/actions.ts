@@ -1,7 +1,9 @@
 "use server";
 
 import { createSupabaseServerClient } from "../../src/lib/supabase-server";
+import { supabaseAdmin } from "../../src/lib/supabase-admin";
 import { revalidatePath } from "next/cache";
+import { randomBytes } from "crypto";
 
 export async function supprimerEmploye(id: string): Promise<{ error?: string }> {
   const supabase = await createSupabaseServerClient();
@@ -28,6 +30,84 @@ export async function supprimerEmploye(id: string): Promise<{ error?: string }> 
 
   const { error } = await supabase.from("employes_rh").delete().eq("id", id);
   if (error) return { error: error.message };
+
+  revalidatePath("/employes");
+  return {};
+}
+
+// Crée un compte connectable (role 'employe') pour une fiche RH existante,
+// et lie la fiche au compte via employes_rh.profile_id.
+export async function creerAccesEmploye(formData: FormData): Promise<{ error?: string }> {
+  const supabase = await createSupabaseServerClient();
+
+  // Sécurité : admin uniquement
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Non connecté" };
+  const { data: profile } = await supabase
+    .from("profiles").select("role").eq("id", user.id).single();
+  if (profile?.role !== "admin") return { error: "Accès réservé à l'admin" };
+
+  const ficheId = formData.get("fiche_id") as string;
+
+  const { data: fiche, error: ficheError } = await supabaseAdmin
+    .from("employes_rh")
+    .select("id, email, prenom, nom, profile_id")
+    .eq("id", ficheId)
+    .single();
+  if (ficheError || !fiche) return { error: "Fiche introuvable" };
+  if (fiche.profile_id) return { error: "Cette fiche est déjà liée à un compte" };
+  if (!fiche.email) return { error: "La fiche n'a pas d'email" };
+
+  // Un compte existe déjà pour cet email ? On relie sans en créer un nouveau.
+  const { data: profilExistant } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("email", fiche.email)
+    .maybeSingle();
+
+  let userId: string;
+
+  if (profilExistant) {
+    userId = profilExistant.id;
+  } else {
+    const motDePasseProvisoire = randomBytes(9).toString("base64url");
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: fiche.email,
+      password: motDePasseProvisoire,
+      email_confirm: true,
+    });
+    if (authError) return { error: authError.message };
+
+    userId = authData.user.id;
+
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .upsert({
+        id: userId,
+        email: fiche.email,
+        prenom: fiche.prenom,
+        nom: fiche.nom,
+        role: "employe",
+        actif: true,
+        perm_checkin: true,
+        perm_reservations_creer: true,
+        perm_reservations_modifier: true,
+        perm_reservations_annuler: true,
+        perm_clients_creer: true,
+        perm_clients_modifier: true,
+        perm_chiens_modifier: true,
+        perm_planning: true,
+        perm_tarifs_urgence: false,
+      });
+    if (profileError) return { error: profileError.message };
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from("employes_rh")
+    .update({ profile_id: userId })
+    .eq("id", ficheId);
+  if (updateError) return { error: updateError.message };
 
   revalidatePath("/employes");
   return {};

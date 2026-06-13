@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "../../../../src/lib/supabase-server"
 import { redirect } from "next/navigation";
 import { createClient } from "../../../../src/utils/supabase/server";
 import { aujourdhuiISO } from "../../../../src/lib/dates";
+import { getEmployeRhActuel } from "../../../../src/lib/employeActuel";
 import FormIndisponibilites from "./FormIndisponibilites";
 
 export default async function IndisponibilitesPage() {
@@ -14,8 +15,7 @@ export default async function IndisponibilitesPage() {
     .from("profiles").select("role, email").eq("id", user.id).single();
   if (!profile || !["admin", "employe"].includes(profile.role)) redirect("/");
 
-  const { data: employe } = await supabase
-    .from("employes_rh").select("*").eq("email", profile?.email ?? "").single();
+  const employe = await getEmployeRhActuel(supabase, user.id, profile?.email);
   if (!employe) redirect("/employes/mon-espace");
 
   const aujourd_hui = aujourdhuiISO();

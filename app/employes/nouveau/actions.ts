@@ -50,5 +50,12 @@ export async function creerEmploye(formData: FormData) {
 
   if (profileError) throw new Error(profileError.message);
 
+  // Relier une éventuelle fiche RH existante du même email (sans écraser un lien existant)
+  await supabaseAdmin
+    .from("employes_rh")
+    .update({ profile_id: userId })
+    .eq("email", email)
+    .is("profile_id", null);
+
   redirect("/employes");
 }

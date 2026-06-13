@@ -36,6 +36,14 @@ export async function modifierEmploye(
       .eq("id", rh_id);
   }
 
+  // Lier la fiche RH au compte via profile_id
+  if (rh_id && profil_id) {
+    await supabase
+      .from("employes_rh")
+      .update({ profile_id: profil_id })
+      .eq("id", rh_id);
+  }
+
   // Mettre à jour profil auth
   if (profil_id) {
     await supabase

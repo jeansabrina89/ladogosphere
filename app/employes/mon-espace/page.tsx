@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../src/utils/supabase/server";
 import { aujourdhuiISO } from "../../../src/lib/dates";
+import { getEmployeRhActuel } from "../../../src/lib/employeActuel";
 import Link from "next/link";
 
 export default async function MonEspaceRHPage() {
@@ -14,11 +15,7 @@ export default async function MonEspaceRHPage() {
     .from("profiles").select("role, email").eq("id", user.id).single();
   if (!profile || !["admin", "employe"].includes(profile.role)) redirect("/");
 
-  const { data: employe } = await supabase
-    .from("employes_rh")
-    .select("*")
-    .eq("email", profile?.email ?? "")
-    .single();
+  const employe = await getEmployeRhActuel(supabase, user.id, profile?.email);
 
   if (!employe) return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
