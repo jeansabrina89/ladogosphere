@@ -5,7 +5,7 @@ import { formatBoxLabel } from "../../../src/lib/boxes";
 import SelectHeure from "../../components/SelectHeure";
 
 type Client = { id: string; prenom: string; nom: string; membre: boolean };
-type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string; journee_essai_effectuee: boolean; journee_essai_invalide: boolean };
+type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string; statut_essai: string };
 type Box = { id: string; numero: number; nom?: string | null };
 
 const JOURS_SEMAINE = [
@@ -101,8 +101,13 @@ export default function FormReservation({
   };
 
   const chiensSelectionnesInfos = chiens.filter(c => chiensSelectionnes.includes(c.id));
-  const masquerEssai = chiensSelectionnesInfos.length > 0 &&
-    chiensSelectionnesInfos.every(c => c.journee_essai_effectuee === true);
+  const chiensRefusesSel = chiensSelectionnesInfos.filter(c => c.statut_essai === 'refuse');
+  const chiensNonValidesSel = chiensSelectionnesInfos.filter(
+    c => c.statut_essai === 'non_programme' || c.statut_essai === 'programme'
+  );
+  const reservationBloquee = chiensRefusesSel.length > 0;
+  const seulEssaiAutorise = !reservationBloquee && chiensNonValidesSel.length > 0;
+  const tousValidesSel = chiensSelectionnesInfos.length > 0 && !reservationBloquee && chiensNonValidesSel.length === 0;
 
   const clientSelectionne = clients.find(c => c.id === clientId) ?? null;
   const clientsFiltres = clientSearch
@@ -117,12 +122,10 @@ export default function FormReservation({
     return true;
   });
 
-  // Si "essai" n'est plus proposé (tous les chiens sélectionnés l'ont déjà validé), on retombe sur journée
   useEffect(() => {
-    if (masquerEssai && type === "essai") {
-      handleTypeChange("journee");
-    }
-  }, [masquerEssai]);
+    if (tousValidesSel && type === "essai") handleTypeChange("journee");
+    else if (seulEssaiAutorise && type !== "essai") handleTypeChange("essai");
+  }, [tousValidesSel, seulEssaiAutorise]);
 
   // Générer l'aperçu des dates récurrentes
   const genererDates = (): string[] => {
@@ -462,16 +465,40 @@ export default function FormReservation({
           {/* Type */}
           <div>
             <label className="block font-semibold mb-1">Type *</label>
-            <select name="type_reservation" required className="w-full border rounded-xl p-3"
-              value={type} onChange={e => handleTypeChange(e.target.value)}>
-              <option value="journee">Journée</option>
-              <option value="sejour">Séjour</option>
-              {!masquerEssai && <option value="essai">🧪 Journée d'essai</option>}
-            </select>
-            {type === "essai" && (
-              <p className="text-xs text-gray-500 mt-1">
-                ℹ️ Tarif journée membre. Arrivée à 10h00 · Départ 17h–18h.
-              </p>
+            {reservationBloquee ? (
+              <div className="space-y-2">
+                {chiensRefusesSel.map(c => (
+                  <div key={c.id} className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+                    <strong>{c.nom}</strong> n'a pas été accepté à l'issue de sa journée d'essai et ne peut donc pas faire l'objet d'une réservation. N'hésitez pas à nous contacter pour plus d'informations ou pour envisager une nouvelle journée d'essai.
+                  </div>
+                ))}
+              </div>
+            ) : seulEssaiAutorise ? (
+              <>
+                <input type="hidden" name="type_reservation" value="essai" />
+                <div className="border rounded-xl p-3 bg-blue-50 text-sm" style={{ color: "#1B2B5E" }}>
+                  🧪 Journée d'essai
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  ℹ️ {chiensNonValidesSel.map(c => c.nom).join(", ")}{" "}
+                  {chiensNonValidesSel.length > 1 ? "doivent" : "doit"} d'abord valider{" "}
+                  {chiensNonValidesSel.length > 1 ? "leur" : "sa"} journée d'essai avant de pouvoir réserver une journée ou un séjour. Vous pouvez réserver une journée d'essai.
+                </p>
+              </>
+            ) : (
+              <>
+                <select name="type_reservation" required className="w-full border rounded-xl p-3"
+                  value={type} onChange={e => handleTypeChange(e.target.value)}>
+                  <option value="journee">Journée</option>
+                  <option value="sejour">Séjour</option>
+                  {!tousValidesSel && <option value="essai">🧪 Journée d'essai</option>}
+                </select>
+                {type === "essai" && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    ℹ️ Tarif journée membre. Arrivée à 10h00 · Départ 17h–18h.
+                  </p>
+                )}
+              </>
             )}
           </div>
 
@@ -745,7 +772,7 @@ export default function FormReservation({
 
           {/* Boutons */}
           <div className="flex gap-3 pt-4 border-t">
-            <button type="submit" disabled={loading}
+            <button type="submit" disabled={loading || reservationBloquee}
               className="px-6 py-3 rounded-xl font-semibold text-white disabled:opacity-50"
               style={{ backgroundColor: "#4AAEA0" }}>
               {loading ? "Enregistrement..." : estRecurrente ? `🔁 Créer ${apercu.length} réservation(s)` : "💾 Enregistrer"}

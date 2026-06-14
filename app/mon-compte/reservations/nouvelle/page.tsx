@@ -11,7 +11,7 @@ export default async function NouvelleDemandeReservationPage() {
   // Chercher le profil client — peut être null si pas encore créé par admin
   const { data: client } = await supabase
     .from("clients")
-    .select("*, chiens (id, nom, race, poids, categorie_poids, journee_essai_effectuee, journee_essai_invalide)")
+    .select("*, chiens (id, nom, race, poids, categorie_poids, statut_essai)")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
@@ -42,18 +42,13 @@ export default async function NouvelleDemandeReservationPage() {
 
   const chiens = client.chiens ?? [];
 
-  // Vérifier si tous les chiens ont fait leur journée d'essai (et aucun invalide bloquant)
-  const tousChiensValides = chiens.length > 0 &&
-    chiens.every((c: any) => c.journee_essai_effectuee || c.journee_essai_invalide);
+  // Tous les chiens validés → accès complet (journée + séjour)
+  const acces_complet = chiens.length > 0 && chiens.every((c: any) => c.statut_essai === 'valide');
 
-  const aucunChienInvalide = chiens.every((c: any) => !c.journee_essai_invalide);
+  // Tous les chiens refusés → aucune réservation possible
+  const tousRefuses = chiens.length > 0 && chiens.every((c: any) => c.statut_essai === 'refuse');
 
-  const acces_complet = tousChiensValides && aucunChienInvalide;
-
-  // Si tous les chiens sont invalides — aucune réservation possible
-  const tousInvalides = chiens.length > 0 && chiens.every((c: any) => c.journee_essai_invalide);
-
-  if (tousInvalides) {
+  if (tousRefuses) {
     return (
       <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
         <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm text-center">
@@ -61,12 +56,17 @@ export default async function NouvelleDemandeReservationPage() {
           <h1 className="text-2xl font-bold mb-3" style={{ color: "#1B2B5E" }}>
             Réservation impossible
           </h1>
-          <p className="text-gray-600 mb-4">
-            La journée d'essai de vos chiens a été invalidée. Aucune réservation n'est possible.
+          <div className="text-gray-600 mb-4 text-left space-y-3">
+            {chiens.map((c: any) => (
+              <p key={c.id}>
+                {c.nom} n'a pas été accepté à l'issue de sa journée d'essai et ne peut donc pas faire l'objet d'une réservation.
+              </p>
+            ))}
+          </div>
+          <p className="text-sm text-gray-500">
+            N'hésitez pas à nous contacter pour plus d'informations ou pour envisager une nouvelle journée d'essai.
           </p>
-          <p className="text-sm text-gray-400">
-            Contactez-nous pour plus d'informations : ladogosphere@gmail.com
-          </p>
+          <p className="text-xs text-gray-400 mt-1">ladogosphere@gmail.com</p>
           <a href="/mon-compte"
             className="inline-block mt-6 px-6 py-3 rounded-xl font-semibold text-white"
             style={{ backgroundColor: "#4AAEA0" }}>

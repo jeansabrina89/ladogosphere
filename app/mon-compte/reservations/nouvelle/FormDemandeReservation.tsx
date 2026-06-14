@@ -9,8 +9,7 @@ type Chien = {
   race: string;
   poids: number;
   categorie_poids: string;
-  journee_essai_effectuee: boolean;
-  journee_essai_invalide: boolean;
+  statut_essai: string;
 };
 
 const JOURS_SEMAINE = [
@@ -77,14 +76,16 @@ export default function FormDemandeReservation({
 
   const router = useRouter();
 
-  const chiensInvalides = chiens.filter(c => c.journee_essai_invalide);
-  const chiensDisponibles = chiens.filter(c => !c.journee_essai_invalide);
+  const chiensRefuses = chiens.filter(c => c.statut_essai === 'refuse');
+  const chiensDisponibles = chiens.filter(c => c.statut_essai !== 'refuse');
 
   const chiensSelectionnes = chiens.filter(c => chienIdsSelectionnes.includes(c.id));
-  const chiensNonEligiblesSejour = chiensSelectionnes.filter(c => !c.journee_essai_effectuee);
-  const tousEligiblesSejour = chiensSelectionnes.length > 0 && chiensNonEligiblesSejour.length === 0;
+  const chiensNonValidesSel = chiensSelectionnes.filter(
+    c => c.statut_essai === 'non_programme' || c.statut_essai === 'programme'
+  );
+  const tousValidesSelection = chiensSelectionnes.length > 0 && chiensNonValidesSel.length === 0;
   // Tant qu'aucun chien n'est sélectionné, on se base sur l'accès global du client
-  const afficherChoixComplet = chienIdsSelectionnes.length > 0 ? tousEligiblesSejour : acces_complet;
+  const afficherChoixComplet = chienIdsSelectionnes.length > 0 ? tousValidesSelection : acces_complet;
 
   useEffect(() => {
     const annee = new Date().getFullYear();
@@ -288,11 +289,11 @@ export default function FormDemandeReservation({
         <div className="bg-red-100 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
       )}
 
-      {chiensInvalides.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
-          ⚠️ {chiensInvalides.map(c => c.nom).join(", ")} — journée d'essai invalide.
+      {chiensRefuses.map(c => (
+        <div key={c.id} className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+          {c.nom} n'a pas été accepté à l'issue de sa journée d'essai et ne peut donc pas faire l'objet d'une réservation. N'hésitez pas à nous contacter pour plus d'informations ou pour envisager une nouvelle journée d'essai.
         </div>
-      )}
+      ))}
 
       {/* Type */}
       <div>
@@ -312,11 +313,11 @@ export default function FormDemandeReservation({
             <div className="border rounded-xl p-3 bg-blue-50 text-sm" style={{ color: "#1B2B5E" }}>
               🧪 Journée d'essai
             </div>
-            {chiensNonEligiblesSejour.length > 0 ? (
+            {chiensNonValidesSel.length > 0 ? (
               <p className="text-xs text-gray-500 mt-1">
-                ℹ️ {chiensNonEligiblesSejour.map(c => c.nom).join(", ")}{" "}
-                {chiensNonEligiblesSejour.length > 1 ? "doivent" : "doit"} d'abord effectuer
-                {chiensNonEligiblesSejour.length > 1 ? " leur" : " sa"} journée d'essai pour accéder au séjour.
+                ℹ️ {chiensNonValidesSel.map(c => c.nom).join(", ")}{" "}
+                {chiensNonValidesSel.length > 1 ? "doivent" : "doit"} d'abord valider{" "}
+                {chiensNonValidesSel.length > 1 ? "leur" : "sa"} journée d'essai avant de pouvoir réserver une journée ou un séjour. Vous pouvez réserver une journée d'essai.
               </p>
             ) : (
               <p className="text-xs text-gray-500 mt-1">
@@ -356,7 +357,7 @@ export default function FormDemandeReservation({
                   {c.categorie_poids === "moins_15kg" ? "🟢 Petit" :
                    c.categorie_poids === "15_30kg" ? "🟡 Moyen" :
                    c.categorie_poids === "30_40kg" ? "🔴 Grand" : "—"}
-                  {c.journee_essai_effectuee && <span className="ml-1 text-green-600">✅</span>}
+                  {c.statut_essai === 'valide' && <span className="ml-1 text-green-600">✅</span>}
                 </span>
               </label>
             ))}
