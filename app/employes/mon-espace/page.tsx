@@ -217,6 +217,12 @@ export default async function MonEspaceRHPage() {
   <p className="font-bold" style={{ color: "#1B2B5E" }}>📊 Fiches de salaire</p>
   <p className="text-xs text-gray-400 mt-1">Consulter mes fiches</p>
 </Link>
+          <Link href="/employes/mon-espace/mot-de-passe"
+            className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition"
+            style={{ borderLeft: "4px solid #6B7280" }}>
+            <p className="font-bold" style={{ color: "#1B2B5E" }}>🔑 Changer mon mot de passe</p>
+            <p className="text-xs text-gray-400 mt-1">Modifier mon mot de passe de connexion</p>
+          </Link>
         </div>
 
         {/* Dernières demandes vacances */}
