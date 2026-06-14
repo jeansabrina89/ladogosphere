@@ -4,11 +4,24 @@ import { redirect } from "next/navigation";
 import { createClient } from "../../../../src/utils/supabase/server";
 import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 
+async function verifierAdmin(): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Non connecté" };
+  const { data: profile } = await supabase
+    .from("profiles").select("role").eq("id", user.id).single();
+  if (profile?.role !== "admin") return { error: "Accès réservé à l'admin" };
+  return {};
+}
+
 export async function modifierEmploye(
   profil_id: string,
   rh_id: string | null,
   formData: FormData
 ) {
+  const verif = await verifierAdmin();
+  if (verif.error) throw new Error(verif.error);
+
   const supabase = await createClient();
   const prenom = formData.get("prenom") as string;
   const nom = formData.get("nom") as string;
@@ -85,6 +98,9 @@ export async function modifierEmploye(
 }
 
 export async function supprimerEmploye(formData: FormData) {
+  const verif = await verifierAdmin();
+  if (verif.error) throw new Error(verif.error);
+
   const supabase = await createClient();
   const id = formData.get("id") as string;
   await supabase.from("profiles").delete().eq("id", id);
