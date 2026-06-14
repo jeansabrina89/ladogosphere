@@ -44,10 +44,15 @@ export default async function NouvelEmployeRHPage() {
               <label className="block font-semibold mb-1">Taux de travail (%) *</label>
               <select name="taux_travail" required className="w-full border rounded-xl p-3">
                 <option value="100">100% — 5j/semaine</option>
+                <option value="90">90% — alternance 4/5j</option>
                 <option value="80">80% — 4j/semaine</option>
+                <option value="70">70% — alternance 3/4j</option>
                 <option value="60">60% — 3j/semaine</option>
+                <option value="50">50% — alternance 2/3j</option>
                 <option value="40">40% — 2j/semaine</option>
+                <option value="30">30% — alternance 1/2j</option>
                 <option value="20">20% — 1j/semaine</option>
+                <option value="10">10% — alternance 0/1j</option>
               </select>
             </div>
             <div>
