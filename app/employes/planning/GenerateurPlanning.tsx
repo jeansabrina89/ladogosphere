@@ -20,18 +20,36 @@ type JourPlanning = {
   note?: string;
 };
 
+// val  = clé interne UI (unique, utilisé pour React keys et l'état)
+// dbVal = valeur réelle enregistrée en DB (doit respecter planning_employes_statut_check)
 const STATUTS = [
-  { val: "travail", label: "✅ Travail", bg: "#E8F5F4", text: "#4AAEA0" },
-  { val: "repos", label: "😴 Repos", bg: "#F1F5F9", text: "#6B7280" },
-  { val: "vacances", label: "🏖️ Vacances", bg: "#FEF9C3", text: "#CA8A04" },
-  { val: "absent", label: "🚫 Absent", bg: "#FEE2E2", text: "#DC2626" },
-  { val: "maladie", label: "🤒 Maladie", bg: "#FEE2E2", text: "#DC2626" },
-  { val: "accident", label: "🤕 Accident", bg: "#FEE2E2", text: "#DC2626" },
-  { val: "militaire", label: "🎖️ Militaire", bg: "#EDE9FE", text: "#7C3AED" },
-  { val: "ferie_travaille", label: "🎉 Férié+1j", bg: "#FEF3C7", text: "#D97706" },
-  { val: "heures_sup", label: "⏱️ Déd. H.sup", bg: "#DBEAFE", text: "#2563EB" },
-  { val: "autre", label: "📋 Autre", bg: "#F1F5F9", text: "#6B7280" },
+  { val: "travail",          dbVal: "travail",   label: "✅ Travail",     bg: "#E8F5F4", text: "#4AAEA0" },
+  { val: "repos",            dbVal: "repos",     label: "😴 Repos",       bg: "#F1F5F9", text: "#6B7280" },
+  { val: "vacances",         dbVal: "vacances",  label: "🏖️ Vacances",    bg: "#FEF9C3", text: "#CA8A04" },
+  { val: "absent",           dbVal: "autre",     label: "🚫 Absent",      bg: "#FEE2E2", text: "#DC2626" },
+  { val: "maladie",          dbVal: "maladie",   label: "🤒 Maladie",     bg: "#FEE2E2", text: "#DC2626" },
+  { val: "accident",         dbVal: "accident",  label: "🤕 Accident",    bg: "#FEE2E2", text: "#DC2626" },
+  { val: "militaire",        dbVal: "militaire", label: "🎖️ Militaire",   bg: "#EDE9FE", text: "#7C3AED" },
+  { val: "ferie_travaille",  dbVal: "ferie",     label: "🎉 Férié+1j",    bg: "#FEF3C7", text: "#D97706" },
+  { val: "heures_sup",       dbVal: "autre",     label: "⏱️ Déd. H.sup",  bg: "#DBEAFE", text: "#2563EB" },
+  { val: "autre",            dbVal: "autre",     label: "📋 Autre",       bg: "#F1F5F9", text: "#6B7280" },
 ];
+
+// Conversion DB val → UI val au chargement
+const DB_VERS_UI: Record<string, string> = {
+  travail:   "travail",
+  repos:     "repos",
+  vacances:  "vacances",
+  maladie:   "maladie",
+  accident:  "accident",
+  militaire: "militaire",
+  ferie:     "ferie_travaille",
+  autre:     "absent",
+};
+
+function uiValDepuisDb(dbStatut: string): string {
+  return DB_VERS_UI[dbStatut] ?? "autre";
+}
 
 const JOURS_FERIES_2026 = [
   "2026-01-01", "2026-03-19", "2026-05-14", "2026-06-04",
@@ -52,30 +70,10 @@ const NOMS_MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
 const ROTATIONS: Record<number, number[][]> = {
-  100: [
-    [6, 0],
-    [5, 6],
-    [0, 1],
-    [4, 5],
-  ],
-  80: [
-    [5, 6, 0],
-    [0, 1, 2],
-    [3, 4, 5],
-    [6, 0, 1],
-  ],
-  40: [
-    [6, 0],
-    [1, 2],
-    [4, 5],
-    [6, 0],
-  ],
-  60: [
-    [1, 2, 3],
-    [3, 4, 5],
-    [5, 6, 0],
-    [1, 2, 6],
-  ],
+  100: [[6, 0], [5, 6], [0, 1], [4, 5]],
+  80:  [[5, 6, 0], [0, 1, 2], [3, 4, 5], [6, 0, 1]],
+  40:  [[6, 0], [1, 2], [4, 5], [6, 0]],
+  60:  [[1, 2, 3], [3, 4, 5], [5, 6, 0], [1, 2, 6]],
 };
 
 export default function GenerateurPlanning({
@@ -97,12 +95,16 @@ export default function GenerateurPlanning({
   const joursParMois = new Date(annee, mois, 0).getDate();
   const joursFeries = getJoursFeries(annee);
 
+  // L'état interne stocke des UI vals ; on convertit les DB vals au chargement.
   const [planning, setPlanning] = useState<Record<string, Record<string, JourPlanning>>>(() => {
     const init: Record<string, Record<string, JourPlanning>> = {};
     employes.forEach(emp => {
       init[emp.id] = {};
-      planningExistant.filter(p => p.employe_id === emp.id)
-        .forEach(p => { init[emp.id][p.date] = p; });
+      planningExistant
+        .filter(p => p.employe_id === emp.id)
+        .forEach(p => {
+          init[emp.id][p.date] = { ...p, statut: uiValDepuisDb(p.statut) };
+        });
     });
     return init;
   });
@@ -121,13 +123,14 @@ export default function GenerateurPlanning({
   };
 
   const estWeekend = (d: string) => [0, 6].includes(new Date(d + "T12:00:00").getDay());
-  const estFerie = (d: string) => joursFeries.includes(d);
+  const estFerie   = (d: string) => joursFeries.includes(d);
   const estEnVacances = (id: string, d: string) =>
     vacancesAcceptees.some(v => v.employes_rh?.id === id && d >= v.date_debut && d <= v.date_fin);
   const estIndispo = (id: string, d: string) =>
     indisponibilites.some(i => i.employe_id === id && i.date === d);
 
   const getStatut = (id: string, d: string) => planning[id]?.[d]?.statut || null;
+
   const getStyle = (statut: string | null, estWE: boolean) => {
     if (!statut) return { bg: estWE ? "#F8FAFC" : "white", text: "#CBD5E1" };
     const s = STATUTS.find(x => x.val === statut);
@@ -165,6 +168,7 @@ export default function GenerateurPlanning({
         fixes[emp.id] = {};
         semaine.forEach(d => {
           if (estEnVacances(emp.id, d)) fixes[emp.id][d] = "vacances";
+          // "absent" → dbVal "autre" via le mapping dans l'action
           else if (estIndispo(emp.id, d)) fixes[emp.id][d] = "absent";
         });
       });
@@ -209,6 +213,7 @@ export default function GenerateurPlanning({
               employe_id: emp.id, date: dateStr, statut: fixes[emp.id][dateStr]
             };
           } else if (joursChoisis[emp.id].has(dateStr)) {
+            // "ferie_travaille" → dbVal "ferie" via le mapping dans l'action
             const estJourFerie = joursFeries.includes(dateStr);
             nouveauPlanning[emp.id][dateStr] = {
               employe_id: emp.id,
@@ -216,7 +221,9 @@ export default function GenerateurPlanning({
               statut: estJourFerie ? "ferie_travaille" : "travail"
             };
           } else {
-            nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "repos" };
+            nouveauPlanning[emp.id][dateStr] = {
+              employe_id: emp.id, date: dateStr, statut: "repos"
+            };
           }
         });
       });
@@ -231,7 +238,9 @@ export default function GenerateurPlanning({
     setErreurSave(null);
     const lignes: JourPlanning[] = [];
     Object.values(planning).forEach(p =>
-      Object.values(p).forEach(j => { if (j.statut) lignes.push({ employe_id: j.employe_id, date: j.date, statut: j.statut, note: j.note }); })
+      Object.values(p).forEach(j => {
+        if (j.statut) lignes.push({ employe_id: j.employe_id, date: j.date, statut: j.statut, note: j.note });
+      })
     );
     const result = await sauvegarderPlanning(lignes);
     setSaving(false);
@@ -247,10 +256,10 @@ export default function GenerateurPlanning({
   const getStats = (emp: Employe) => {
     const p = planning[emp.id] || {};
     return {
-      joursT: Object.values(p).filter(j => j.statut === "travail").length,
-      joursV: Object.values(p).filter(j => j.statut === "vacances").length,
-      joursHS: Object.values(p).filter(j => j.statut === "heures_sup").length,
+      joursT:  Object.values(p).filter(j => j.statut === "travail").length,
+      joursV:  Object.values(p).filter(j => j.statut === "vacances").length,
       joursFT: Object.values(p).filter(j => j.statut === "ferie_travaille").length,
+      joursHS: Object.values(p).filter(j => j.statut === "heures_sup").length,
     };
   };
 
@@ -368,9 +377,9 @@ export default function GenerateurPlanning({
                   })}
                   <td className="px-3 py-2 text-xs text-center">
                     <div style={{ color: "#4AAEA0" }} className="font-bold">{stats.joursT}j ✅</div>
-                    {stats.joursV > 0 && <div style={{ color: "#CA8A04" }}>{stats.joursV}j 🏖️</div>}
-                    {stats.joursHS > 0 && <div style={{ color: "#2563EB" }}>{stats.joursHS}j ⏱️</div>}
+                    {stats.joursV  > 0 && <div style={{ color: "#CA8A04" }}>{stats.joursV}j 🏖️</div>}
                     {stats.joursFT > 0 && <div style={{ color: "#D97706" }}>{stats.joursFT}j 🎉</div>}
+                    {stats.joursHS > 0 && <div style={{ color: "#2563EB" }}>{stats.joursHS}j ⏱️</div>}
                   </td>
                 </tr>
               );
