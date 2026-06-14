@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../../src/utils/supabase/server";
+import { supabaseAdmin } from "../../../../../src/lib/supabase-admin";
 import { envoyerEmailReservationValidee, envoyerEmailReservationAnnulee } from "../../../../../src/lib/email";
 import { formatBoxLabel } from "../../../../../src/lib/boxes";
-import { exigerPersonnel } from "../../../../../src/lib/apiAuth";
+import { exigerPermissionApi } from "../../../../../src/lib/apiAuth";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient();
-  const garde = await exigerPersonnel(supabase);
+  const garde = await exigerPermissionApi(supabase, "perm_reservations_modifier");
   if (garde) return garde;
   const { id } = await params;
   const { statut } = await req.json();
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("reservations")
     .update({ statut })
     .eq("id", id);
@@ -23,7 +24,7 @@ export async function POST(
 
   // Envoyer email selon le statut
   try {
-    const { data: reservation } = await supabase
+    const { data: reservation } = await supabaseAdmin
       .from("reservations")
       .select(`*, clients (email, prenom), boxes (numero, nom)`)
       .eq("id", id)

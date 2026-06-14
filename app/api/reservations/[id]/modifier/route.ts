@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../../src/utils/supabase/server";
+import { supabaseAdmin } from "../../../../../src/lib/supabase-admin";
 import { recalculerMontantSejour } from "../../../../reservations/[id]/actions";
-import { exigerPersonnel } from "../../../../../src/lib/apiAuth";
+import { exigerPermissionApi } from "../../../../../src/lib/apiAuth";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient();
-  const garde = await exigerPersonnel(supabase);
+  const garde = await exigerPermissionApi(supabase, "perm_reservations_modifier");
   if (garde) return garde;
   const { id } = await params;
   const formData = await req.formData();
@@ -22,16 +23,22 @@ export async function POST(
   const date_debut = formData.get("date_debut") as string;
   const date_fin = formData.get("date_fin") as string;
 
+  // Tarif urgence : permission supplémentaire requise
+  if (urgence) {
+    const urgGarde = await exigerPermissionApi(supabase, "perm_tarifs_urgence");
+    if (urgGarde) return urgGarde;
+  }
+
   // Valeurs avant modification : pour détecter un changement de
   // date_debut/date_fin/heure_arrivee/heure_depart sur un séjour et
   // déclencher le recalcul de montant_calcule.
-  const { data: avant } = await supabase
+  const { data: avant } = await supabaseAdmin
     .from("reservations")
     .select("type_reservation, date_debut, date_fin, heure_arrivee, heure_depart")
     .eq("id", id)
     .single();
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("reservations")
     .update({
       statut,
@@ -64,14 +71,14 @@ export async function POST(
   }
 
   if (box_id) {
-    await supabase.from("occupation_boxes").delete().eq("reservation_id", id);
-    const { data: resChiens } = await supabase
+    await supabaseAdmin.from("occupation_boxes").delete().eq("reservation_id", id);
+    const { data: resChiens } = await supabaseAdmin
       .from("reservation_chiens")
       .select("chien_id")
       .eq("reservation_id", id);
 
     if (resChiens && resChiens.length > 0) {
-      await supabase.from("occupation_boxes").insert(
+      await supabaseAdmin.from("occupation_boxes").insert(
         resChiens.map((rc: any) => ({
           box_id,
           chien_id: rc.chien_id,
@@ -83,7 +90,7 @@ export async function POST(
     }
   }
 
-  await supabase
+  await supabaseAdmin
     .from("checkin_checkout")
     .update({
       date_arrivee_prevue: heure_arrivee

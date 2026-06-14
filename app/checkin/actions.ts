@@ -1,13 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "../../src/utils/supabase/server";
+import { supabaseAdmin } from "../../src/lib/supabase-admin";
+import { verifierPermission } from "../../src/lib/verifierPermission";
 
 export async function fairerCheckin(formData: FormData) {
-  const supabase = await createClient();
+  const verif = await verifierPermission("perm_checkin");
+  if (verif.error) throw new Error(verif.error);
+
   const checkin_id = formData.get("checkin_id") as string;
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("checkin_checkout")
     .update({
       date_arrivee_reelle: new Date().toISOString(),
@@ -20,10 +23,12 @@ export async function fairerCheckin(formData: FormData) {
 }
 
 export async function fairerCheckout(formData: FormData) {
-  const supabase = await createClient();
+  const verif = await verifierPermission("perm_checkin");
+  if (verif.error) throw new Error(verif.error);
+
   const checkin_id = formData.get("checkin_id") as string;
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("checkin_checkout")
     .update({
       date_depart_reel: new Date().toISOString(),

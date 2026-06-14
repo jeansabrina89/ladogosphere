@@ -1,11 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "../../../src/utils/supabase/server";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
+import { verifierPermission } from "../../../src/lib/verifierPermission";
 
 export async function creerClient(formData: FormData) {
-  const supabase = await createClient();
+  const verif = await verifierPermission("perm_clients_creer");
+  if (verif.error) throw new Error(verif.error);
+
   const email = formData.get("email") as string;
 
   // Vérifier si un compte Auth existe déjà avec cet email
@@ -18,7 +20,7 @@ export async function creerClient(formData: FormData) {
     }
   }
 
-  const { data: client, error } = await supabase
+  const { data: client, error } = await supabaseAdmin
     .from("clients")
     .insert({
       prenom: formData.get("prenom") as string,
@@ -42,7 +44,7 @@ export async function creerClient(formData: FormData) {
 
   // Si on a trouvé un compte Auth, s'assurer que son profil est bien "client"
   if (auth_user_id) {
-    await supabase
+    await supabaseAdmin
       .from("profiles")
       .upsert({
         id: auth_user_id,

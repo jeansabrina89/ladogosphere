@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../src/utils/supabase/server";
-import { exigerPersonnel } from "../../../../src/lib/apiAuth";
+import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
+import { exigerPermissionApi } from "../../../../src/lib/apiAuth";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
-  const garde = await exigerPersonnel(supabase);
+  const garde = await exigerPermissionApi(supabase, "perm_encaissements");
   if (garde) return garde;
   const { client_id, annee, montant, mode_paiement, statut, date_paiement } = await req.json();
 
   // Enregistrer la cotisation
-  const { error: errCotisation } = await supabase
+  const { error: errCotisation } = await supabaseAdmin
     .from("cotisations_membres")
     .upsert({
       client_id,
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Activer le statut membre
-  const { error: errClient } = await supabase
+  const { error: errClient } = await supabaseAdmin
     .from("clients")
     .update({ membre: true })
     .eq("id", client_id);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../src/utils/supabase/server";
-import { exigerPersonnel } from "../../../../src/lib/apiAuth";
+import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
+import { exigerPersonnel, exigerPermissionApi } from "../../../../src/lib/apiAuth";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -10,7 +11,7 @@ export async function POST(req: NextRequest) {
   const { employe_id, date_debut, date_fin, nb_jours, note_employe } = body;
 
   // Vérifier si les dates se chevauchent avec d'autres demandes de cet employé
-  const { data: existantes } = await supabase
+  const { data: existantes } = await supabaseAdmin
     .from("demandes_vacances")
     .select("*")
     .eq("employe_id", employe_id)
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
     }, { status: 400 });
   }
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("demandes_vacances")
     .insert({ employe_id, date_debut, date_fin, nb_jours, note_employe });
 
@@ -33,12 +34,12 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const supabase = await createClient();
-  const garde = await exigerPersonnel(supabase);
+  const garde = await exigerPermissionApi(supabase, "perm_vacances_equipe");
   if (garde) return garde;
   const { id, statut, note_admin } = await req.json();
 
-  // Côté admin — pas de vérification de chevauchement
-  const { error } = await supabase
+  // Côté admin/responsable — pas de vérification de chevauchement
+  const { error } = await supabaseAdmin
     .from("demandes_vacances")
     .update({ statut, note_admin })
     .eq("id", id);

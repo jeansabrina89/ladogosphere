@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../src/utils/supabase/server";
-import { exigerPersonnel } from "../../../src/lib/apiAuth";
+import { supabaseAdmin } from "../../../src/lib/supabase-admin";
+import { exigerPermissionApi } from "../../../src/lib/apiAuth";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
-  const garde = await exigerPersonnel(supabase);
+  const garde = await exigerPermissionApi(supabase, "perm_reservations_creer");
   if (garde) return garde;
   const formData = await req.formData();
 
@@ -20,8 +21,14 @@ export async function POST(req: NextRequest) {
   const commentaire_admin = formData.get("commentaire_admin") as string || null;
   const chien_ids = formData.getAll("chien_ids") as string[];
 
+  // Tarif urgence : permission supplémentaire requise
+  if (urgence) {
+    const urgGarde = await exigerPermissionApi(supabase, "perm_tarifs_urgence");
+    if (urgGarde) return urgGarde;
+  }
+
   // Créer la réservation
-  const { data: reservation, error } = await supabase
+  const { data: reservation, error } = await supabaseAdmin
     .from("reservations")
     .insert({
       client_id,
@@ -42,12 +49,12 @@ export async function POST(req: NextRequest) {
 
   if (chien_ids.length > 0) {
     // Lier les chiens à la réservation
-    await supabase.from("reservation_chiens").insert(
+    await supabaseAdmin.from("reservation_chiens").insert(
       chien_ids.map(chien_id => ({ reservation_id: reservation.id, chien_id }))
     );
 
     // Créer les occupations de box
-    await supabase.from("occupation_boxes").insert(
+    await supabaseAdmin.from("occupation_boxes").insert(
       chien_ids.map(chien_id => ({
         box_id,
         chien_id,
@@ -61,7 +68,7 @@ export async function POST(req: NextRequest) {
     const heureArriveeStr = heure_arrivee || "09:00";
     const heureDepartStr = heure_depart || "17:00";
 
-    await supabase.from("checkin_checkout").insert(
+    await supabaseAdmin.from("checkin_checkout").insert(
       chien_ids.map(chien_id => ({
         reservation_id: reservation.id,
         chien_id,

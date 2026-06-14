@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "../../../src/utils/supabase/server";
+import { supabaseAdmin } from "../../../src/lib/supabase-admin";
+import { verifierPermission } from "../../../src/lib/verifierPermission";
 
 function calculerCategorie(poids: number): string {
   if (poids < 15) return "moins_15kg";
@@ -10,7 +11,9 @@ function calculerCategorie(poids: number): string {
 }
 
 export async function creerChien(formData: FormData) {
-  const supabase = await createClient();
+  const verif = await verifierPermission("perm_chiens_creer");
+  if (verif.error) throw new Error(verif.error);
+
   const client_id = formData.get("client_id") as string;
   const nom = formData.get("nom") as string;
   const race = formData.get("race") as string;
@@ -34,7 +37,7 @@ export async function creerChien(formData: FormData) {
   const remarques = formData.get("remarques") as string;
   const categorie_poids = calculerCategorie(poids);
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("chiens")
     .insert({
       client_id,

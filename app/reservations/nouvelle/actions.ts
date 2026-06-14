@@ -1,10 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "../../../src/utils/supabase/server";
+import { supabaseAdmin } from "../../../src/lib/supabase-admin";
+import { verifierPermission } from "../../../src/lib/verifierPermission";
 
 export async function creerReservation(formData: FormData) {
-  const supabase = await createClient();
+  const verif = await verifierPermission("perm_reservations_creer");
+  if (verif.error) throw new Error(verif.error);
+
   const client_id = formData.get("client_id") as string;
   const box_id = formData.get("box_id") as string;
   const type_reservation = formData.get("type_reservation") as string;
@@ -18,7 +21,7 @@ export async function creerReservation(formData: FormData) {
   const chien_ids = formData.getAll("chien_ids") as string[];
 
   // Créer la réservation
-  const { data: reservation, error } = await supabase
+  const { data: reservation, error } = await supabaseAdmin
     .from("reservations")
     .insert({
       client_id,
@@ -39,7 +42,7 @@ export async function creerReservation(formData: FormData) {
 
   // Lier les chiens à la réservation
   if (chien_ids.length > 0) {
-    const { error: errorChiens } = await supabase
+    const { error: errorChiens } = await supabaseAdmin
       .from("reservation_chiens")
       .insert(
         chien_ids.map(chien_id => ({
@@ -50,7 +53,7 @@ export async function creerReservation(formData: FormData) {
     if (errorChiens) throw new Error(errorChiens.message);
 
     // Créer les occupations de box
-    const { error: errorOccupations } = await supabase
+    const { error: errorOccupations } = await supabaseAdmin
       .from("occupation_boxes")
       .insert(
         chien_ids.map(chien_id => ({

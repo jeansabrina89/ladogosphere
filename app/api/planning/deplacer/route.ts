@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../src/utils/supabase/server";
-import { exigerPersonnel } from "../../../../src/lib/apiAuth";
+import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
+import { exigerPermissionApi } from "../../../../src/lib/apiAuth";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
-  const garde = await exigerPersonnel(supabase);
+  const garde = await exigerPermissionApi(supabase, "perm_box");
   if (garde) return garde;
   const { occupation_id, nouveau_box_id, mode, date_changement } = await req.json();
 
   // Récupérer l'occupation actuelle
-  const { data: occupation } = await supabase
+  const { data: occupation } = await supabaseAdmin
     .from("occupation_boxes")
     .select("*")
     .eq("id", occupation_id)
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
 
   if (mode === "tout") {
     // Déplacer pour tout le séjour
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from("occupation_boxes")
       .update({ box_id: nouveau_box_id })
       .eq("id", occupation_id);
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     // Mettre à jour la réservation
     if (occupation.reservation_id) {
-      await supabase
+      await supabaseAdmin
         .from("reservations")
         .update({ box_id: nouveau_box_id })
         .eq("id", occupation.reservation_id);
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     const dateFinPremierePeriode = veilleChangement.toISOString().split("T")[0];
 
     // Raccourcir l'occupation actuelle
-    const { error: errorUpdate } = await supabase
+    const { error: errorUpdate } = await supabaseAdmin
       .from("occupation_boxes")
       .update({ date_fin: dateFinPremierePeriode })
       .eq("id", occupation_id);
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
     if (errorUpdate) return NextResponse.json({ error: errorUpdate.message }, { status: 500 });
 
     // Créer une nouvelle occupation pour le nouveau box
-    const { error: errorInsert } = await supabase
+    const { error: errorInsert } = await supabaseAdmin
       .from("occupation_boxes")
       .insert({
         box_id: nouveau_box_id,

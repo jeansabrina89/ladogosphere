@@ -1,10 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../src/utils/supabase/server";
+import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
+import { verifierPermission } from "../../../../src/lib/verifierPermission";
 
 export async function modifierReservation(id: string, formData: FormData) {
-  const supabase = await createClient();
+  const verif = await verifierPermission("perm_reservations_modifier");
+  if (verif.error) throw new Error(verif.error);
+
   const statut = formData.get("statut") as string;
   const box_id = formData.get("box_id") as string || null;
   const commentaire_admin = formData.get("commentaire_admin") as string || null;
@@ -14,7 +17,7 @@ export async function modifierReservation(id: string, formData: FormData) {
   const date_debut = formData.get("date_debut") as string;
   const date_fin = formData.get("date_fin") as string;
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("reservations")
     .update({
       statut,
@@ -32,19 +35,19 @@ export async function modifierReservation(id: string, formData: FormData) {
 
   // Mettre à jour les occupations de boxes
   if (box_id) {
-    await supabase
+    await supabaseAdmin
       .from("occupation_boxes")
       .delete()
       .eq("reservation_id", id);
 
     // Récupérer les chiens de la réservation
-    const { data: resChiens } = await supabase
+    const { data: resChiens } = await supabaseAdmin
       .from("reservation_chiens")
       .select("chien_id")
       .eq("reservation_id", id);
 
     if (resChiens && resChiens.length > 0) {
-      await supabase.from("occupation_boxes").insert(
+      await supabaseAdmin.from("occupation_boxes").insert(
         resChiens.map((rc: any) => ({
           box_id,
           chien_id: rc.chien_id,
@@ -57,7 +60,7 @@ export async function modifierReservation(id: string, formData: FormData) {
   }
 
   // Mettre à jour checkin_checkout
-  await supabase
+  await supabaseAdmin
     .from("checkin_checkout")
     .update({
       date_arrivee_prevue: heure_arrivee
@@ -73,17 +76,19 @@ export async function modifierReservation(id: string, formData: FormData) {
 }
 
 export async function annulerReservation(formData: FormData) {
-  const supabase = await createClient();
+  const verif = await verifierPermission("perm_reservations_annuler");
+  if (verif.error) throw new Error(verif.error);
+
   const id = formData.get("id") as string;
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("reservations")
     .update({ statut: "annulee" })
     .eq("id", id);
 
   if (error) throw new Error(error.message);
 
-  await supabase
+  await supabaseAdmin
     .from("occupation_boxes")
     .delete()
     .eq("reservation_id", id);

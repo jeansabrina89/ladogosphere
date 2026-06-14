@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../src/utils/supabase/server";
+import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
+import { verifierPermission } from "../../../../src/lib/verifierPermission";
 
 function calculerCategorie(poids: number): string {
   if (poids < 15) return "moins_15kg";
@@ -10,12 +11,14 @@ function calculerCategorie(poids: number): string {
 }
 
 export async function modifierChien(id: string, formData: FormData) {
-  const supabase = await createClient();
+  const verif = await verifierPermission("perm_chiens_modifier");
+  if (verif.error) throw new Error(verif.error);
+
   const poids = Number(formData.get("poids"));
   const sterilisationRaw = formData.get("sterilisation") as string;
   const sterilisation = ["oui", "non", "chimique"].includes(sterilisationRaw) ? sterilisationRaw : "non";
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from("chiens")
     .update({
       nom: formData.get("nom"),

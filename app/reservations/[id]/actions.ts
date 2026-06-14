@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
+import { verifierPermission } from "../../../src/lib/verifierPermission";
 import { getSoldeAvoir } from "../../../src/lib/avoirs";
 import type { EcartType } from "../../../src/lib/facturation";
 import { calculerMontant } from "../../../src/lib/calculTarif";
@@ -116,7 +117,7 @@ async function recalculerTotalEtPaiement(reservationId: string, createdBy?: stri
  *   montant, puis on applique le nouveau (débit d'avoir si le nouveau mode est "avoir").
  */
 export async function enregistrerPaiement(formData: FormData): Promise<{ error?: string }> {
-  const verif = await verifierAdmin();
+  const verif = await verifierPermission("perm_encaissements");
   if (verif.error) return verif;
 
   const reservation_id = formData.get("reservation_id") as string;
@@ -195,7 +196,7 @@ export async function enregistrerPaiement(formData: FormData): Promise<{ error?:
  * puis recalcule le total dû et le paiement.
  */
 export async function enregistrerMontantCalcule(reservationId: string, montant: number): Promise<RecalculResult> {
-  const verif = await verifierAdmin();
+  const verif = await verifierPermission("perm_reservations_modifier");
   if (verif.error) return verif;
 
   if (!reservationId) return { error: "Réservation introuvable." };
@@ -231,7 +232,7 @@ export async function enregistrerMontantCalcule(reservationId: string, montant: 
  * heure_depart d'une réservation 'sejour'.
  */
 export async function recalculerMontantSejour(reservationId: string): Promise<RecalculResult> {
-  const verif = await verifierAdmin();
+  const verif = await verifierPermission("perm_reservations_modifier");
   if (verif.error) return verif;
 
   const { data: reservation, error: resError } = await supabaseAdmin
@@ -287,7 +288,7 @@ export async function recalculerMontantSejour(reservationId: string): Promise<Re
  * de sorte que montant_calcule + ajustement_manuel = nouveauPrixSejour. Puis recalcule.
  */
 export async function modifierPrixSejour(reservationId: string, nouveauPrixSejour: number): Promise<RecalculResult> {
-  const verif = await verifierAdmin();
+  const verif = await verifierPermission("perm_reservations_modifier");
   if (verif.error) return verif;
 
   if (!reservationId) return { error: "Réservation introuvable." };
@@ -319,7 +320,7 @@ export async function modifierPrixSejour(reservationId: string, nouveauPrixSejou
  * Ajoute une ligne supplémentaire (extra/remise, montant libre +/-) à la réservation, puis recalcule.
  */
 export async function ajouterExtraReservation(reservationId: string, libelle: string, montant: number): Promise<RecalculResult> {
-  const verif = await verifierAdmin();
+  const verif = await verifierPermission("perm_reservations_modifier");
   if (verif.error) return verif;
 
   if (!reservationId) return { error: "Réservation introuvable." };
@@ -351,7 +352,7 @@ export async function ajouterExtraReservation(reservationId: string, libelle: st
  * Supprime une ligne supplémentaire et recalcule le total et le paiement de sa réservation.
  */
 export async function supprimerExtraReservation(extraId: string): Promise<RecalculResult> {
-  const verif = await verifierAdmin();
+  const verif = await verifierPermission("perm_reservations_modifier");
   if (verif.error) return verif;
 
   if (!extraId) return { error: "Ligne introuvable." };
@@ -383,7 +384,7 @@ export async function supprimerExtraReservation(extraId: string): Promise<Recalc
 }
 
 export async function annulerPaiement(formData: FormData): Promise<{ error?: string }> {
-  const verif = await verifierAdmin();
+  const verif = await verifierPermission("perm_encaissements");
   if (verif.error) return verif;
 
   const reservation_id = formData.get("reservation_id") as string;
