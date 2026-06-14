@@ -42,6 +42,7 @@ export default function FormReservation({
   const [clientId, setClientId] = useState("");
   const [clientSearch, setClientSearch] = useState("");
   const [clientListOpen, setClientListOpen] = useState(false);
+  const [clientEditMode, setClientEditMode] = useState(false);
 
   // Chiens combobox
   const [chienSearch, setChienSearch] = useState("");
@@ -88,6 +89,7 @@ export default function FormReservation({
     setClientId(id);
     setClientSearch("");
     setClientListOpen(false);
+    setClientEditMode(false);
     setChiensSelectionnes(prev => prev.filter(chienId => {
       const chien = chiens.find(c => c.id === chienId);
       return chien?.client_id === id;
@@ -99,6 +101,7 @@ export default function FormReservation({
     setClientSearch("");
     setChiensSelectionnes([]);
     setChienSearch("");
+    setClientEditMode(false);
   };
 
   const chiensSelectionnesInfos = chiens.filter(c => chiensSelectionnes.includes(c.id));
@@ -370,14 +373,10 @@ export default function FormReservation({
           <div>
             <label className="block font-semibold mb-1">Client *</label>
             <input type="hidden" name="client_id" value={clientId} />
-            {clientSelectionne ? (
+            {clientSelectionne && !clientEditMode ? (
               <div className="flex items-center justify-between border rounded-xl p-3">
                 <button type="button"
-                  onClick={() => {
-                    setClientSearch(`${clientSelectionne.prenom} ${clientSelectionne.nom}`);
-                    setClientId("");
-                    setClientListOpen(true);
-                  }}
+                  onClick={() => { setClientEditMode(true); setClientSearch(""); setClientListOpen(true); }}
                   className="font-medium text-left flex-1 hover:underline">
                   {clientSelectionne.prenom} {clientSelectionne.nom}{clientSelectionne.membre ? " ⭐" : ""}
                 </button>
@@ -387,30 +386,39 @@ export default function FormReservation({
                 </button>
               </div>
             ) : (
-              <div className="relative">
-                <input
-                  type="text"
-                  value={clientSearch}
-                  onChange={e => { setClientSearch(e.target.value); setClientListOpen(true); }}
-                  onFocus={() => setClientListOpen(true)}
-                  onBlur={() => setTimeout(() => setClientListOpen(false), 150)}
-                  placeholder="Rechercher un client…"
-                  className="w-full border rounded-xl p-3"
-                />
-                {clientListOpen && (
-                  <div className="absolute z-10 w-full bg-white border rounded-xl shadow-lg mt-1 max-h-60 overflow-y-auto">
-                    {clientsFiltres.slice(0, 20).map(c => (
-                      <button key={c.id} type="button"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => handleClientSelect(c.id)}
-                        className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm">
-                        {c.prenom} {c.nom}{c.membre ? " ⭐" : ""}
-                      </button>
-                    ))}
-                    {clientsFiltres.length === 0 && (
-                      <p className="px-4 py-2 text-sm text-gray-400">Aucun résultat</p>
-                    )}
-                  </div>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={clientSearch}
+                    autoFocus={clientEditMode}
+                    onChange={e => { setClientSearch(e.target.value); setClientListOpen(true); }}
+                    onFocus={() => setClientListOpen(true)}
+                    onBlur={() => setTimeout(() => { setClientListOpen(false); setClientEditMode(false); }, 150)}
+                    placeholder="Rechercher un client…"
+                    className="w-full border rounded-xl p-3"
+                  />
+                  {clientListOpen && (
+                    <div className="absolute z-10 w-full bg-white border rounded-xl shadow-lg mt-1 max-h-60 overflow-y-auto">
+                      {clientsFiltres.slice(0, 20).map(c => (
+                        <button key={c.id} type="button"
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => handleClientSelect(c.id)}
+                          className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm">
+                          {c.prenom} {c.nom}{c.membre ? " ⭐" : ""}
+                        </button>
+                      ))}
+                      {clientsFiltres.length === 0 && (
+                        <p className="px-4 py-2 text-sm text-gray-400">Aucun résultat</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {clientSelectionne && (
+                  <button type="button" onClick={handleClientClear}
+                    className="text-gray-400 hover:text-red-500 font-bold text-lg leading-none flex-shrink-0">
+                    ✕
+                  </button>
                 )}
               </div>
             )}
