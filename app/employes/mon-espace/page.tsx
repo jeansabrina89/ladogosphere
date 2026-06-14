@@ -86,24 +86,44 @@ export default async function MonEspaceRHPage() {
   }
   const heuresSupAnnee = heuresTravailleesAnnee - heuresTheoAnnee;
 
-  const { data: demandesVacances } = await supabase
-    .from("demandes_vacances")
-    .select("*")
-    .eq("employe_id", employe.id)
-    .order("date_debut", { ascending: false })
-    .limit(5);
+  // Bornes de l'année de référence — la même pour les trois morceaux du solde
+  const debutAnnee = `${anneeActuelle}-01-01`;
+  const finAnnee   = `${anneeActuelle}-12-31`;
 
-  const { data: feriesTravailles } = await supabase
-    .from("planning_employes")
-    .select("id")
-    .eq("employe_id", employe.id)
-    .eq("statut", "ferie_travaille");
+  const [
+    { data: demandesVacances },
+    { data: vacancesAccepteesAnnee },
+    { data: feriesTravailles },
+  ] = await Promise.all([
+    // Affichage seulement : 5 dernières demandes, toutes années confondues
+    supabase
+      .from("demandes_vacances")
+      .select("*")
+      .eq("employe_id", employe.id)
+      .order("date_debut", { ascending: false })
+      .limit(5),
+    // Calcul du solde : demandes acceptées dont date_debut ∈ année de référence
+    supabase
+      .from("demandes_vacances")
+      .select("nb_jours")
+      .eq("employe_id", employe.id)
+      .eq("statut", "acceptee")
+      .gte("date_debut", debutAnnee)
+      .lte("date_debut", finAnnee),
+    // Bonus fériés travaillés : uniquement dans l'année de référence
+    supabase
+      .from("planning_employes")
+      .select("id")
+      .eq("employe_id", employe.id)
+      .eq("statut", "ferie_travaille")
+      .gte("date", debutAnnee)
+      .lte("date", finAnnee),
+  ]);
 
-  const bonusFeriers = feriesTravailles?.length ?? 0;
-  const joursVacancesTotal = 20 * employe.taux_travail / 100;
-  const joursVacancesPris = demandesVacances
-    ?.filter((d: any) => d.statut === "acceptee")
-    .reduce((acc: number, d: any) => acc + d.nb_jours, 0) ?? 0;
+  const bonusFeriers        = feriesTravailles?.length ?? 0;
+  const joursVacancesTotal  = 20 * employe.taux_travail / 100;
+  const joursVacancesPris   = vacancesAccepteesAnnee
+    ?.reduce((acc: number, d: any) => acc + d.nb_jours, 0) ?? 0;
   const joursVacancesRestants = joursVacancesTotal + bonusFeriers - joursVacancesPris;
 
   const { data: indisponibilites } = await supabase
