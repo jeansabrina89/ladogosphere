@@ -163,32 +163,80 @@ export default function GenerateurPlanning({
         });
       });
 
+      // Trier : repos décroissant (taux croissant) → les plus contraints d'abord
+      const empOrdres = [...employesActifs].sort((a, b) => a.taux_travail - b.taux_travail);
+
+      // Compteur de présence : nb d'employés au travail chaque jour
+      const presence: Record<string, number> = {};
+      semaine.forEach(d => { presence[d] = 0; });
+
       const joursChoisis: Record<string, Set<string>> = {};
       employesActifs.forEach(emp => { joursChoisis[emp.id] = new Set(); });
 
-      employesActifs.forEach(emp => {
+      // Score d'un décalage de bloc de repos : somme des carrés de présence après ajout.
+      // Minimiser → remplit les creux, évite les pics → couverture plate autour de 2.
+      const scorerOffset = (joursLibres: string[], reposCount: number, offset: number): number => {
+        const n = joursLibres.length;
+        const reposPos = new Set<number>();
+        for (let i = 0; i < reposCount; i++) reposPos.add((offset + i) % n);
+        const travailDays = new Set<string>(joursLibres.filter((_, i) => !reposPos.has(i)));
+        let score = 0;
+        semaine.forEach(d => { score += (presence[d] + (travailDays.has(d) ? 1 : 0)) ** 2; });
+        return score;
+      };
+
+      const choisirOffset = (joursLibres: string[], cible_actual: number): number => {
+        const n = joursLibres.length;
+        const reposCount = n - cible_actual;
+        // Par défaut idxSemaine % n pour varier d'une semaine à l'autre en cas d'ex-aequo
+        let bestOffset = idxSemaine % Math.max(1, n);
+        let bestScore = Infinity;
+        for (let off = 0; off < n; off++) {
+          const s = scorerOffset(joursLibres, reposCount, off);
+          if (s < bestScore) { bestScore = s; bestOffset = off; }
+        }
+        return bestOffset;
+      };
+
+      const appliquerOffset = (emp: Employe, joursLibres: string[], cible_actual: number, offset: number) => {
+        const n = joursLibres.length;
+        const reposCount = n - cible_actual;
+        const reposPos = new Set<number>();
+        for (let i = 0; i < reposCount; i++) reposPos.add((offset + i) % n);
+        joursLibres.forEach((d, idx) => {
+          if (!reposPos.has(idx)) { joursChoisis[emp.id].add(d); presence[d]++; }
+        });
+      };
+
+      // Placement initial : chaque employé choisit le décalage qui équilibre le mieux
+      empOrdres.forEach(emp => {
         const cible = joursTravaillesSemaine(emp.taux_travail, idxSemaine);
         const joursLibres = semaine.filter(d => !fixes[emp.id][d]);
         const n = joursLibres.length;
         if (n === 0) return;
-
         const cible_actual = Math.min(cible, n);
-        const repos_count = n - cible_actual;
-
-        if (repos_count <= 0) {
-          joursLibres.forEach(d => joursChoisis[emp.id].add(d));
+        if (cible_actual >= n) {
+          joursLibres.forEach(d => { joursChoisis[emp.id].add(d); presence[d]++; });
         } else {
-          // Décaler le début du bloc de repos d'une semaine à l'autre pour la rotation
-          const offset = idxSemaine % n;
-          const reposPositions = new Set<number>();
-          for (let i = 0; i < repos_count; i++) {
-            reposPositions.add((offset + i) % n);
-          }
-          joursLibres.forEach((d, idx) => {
-            if (!reposPositions.has(idx)) joursChoisis[emp.id].add(d);
-          });
+          appliquerOffset(emp, joursLibres, cible_actual, choisirOffset(joursLibres, cible_actual));
         }
       });
+
+      // 2 passes de ré-optimisation pour stabiliser l'équilibre global
+      for (let pass = 0; pass < 2; pass++) {
+        empOrdres.forEach(emp => {
+          const cible = joursTravaillesSemaine(emp.taux_travail, idxSemaine);
+          const joursLibres = semaine.filter(d => !fixes[emp.id][d]);
+          const n = joursLibres.length;
+          if (n === 0) return;
+          const cible_actual = Math.min(cible, n);
+          if (cible_actual >= n) return;
+          // Retirer la contribution actuelle, puis réoptimiser
+          joursChoisis[emp.id].forEach(d => { presence[d]--; });
+          joursChoisis[emp.id] = new Set();
+          appliquerOffset(emp, joursLibres, cible_actual, choisirOffset(joursLibres, cible_actual));
+        });
+      }
 
       semaine.forEach(dateStr => {
         if (fixes[employesActifs[0]?.id]?.[dateStr]) return;
