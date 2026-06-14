@@ -36,7 +36,12 @@ export default async function ModifierEmployePage({
 
   const rhData = rhParProfileId || rh || rhParEmail;
 
-  if (!emp && !rhData) return <div>Employé introuvable</div>;
+  // Si emp est null mais la fiche RH a un profile_id, charge le profil via ce lien
+  const empResolu = emp ?? (rhData?.profile_id ? (
+    await supabase.from("profiles").select("*").eq("id", rhData.profile_id).maybeSingle()
+  ).data : null);
+
+  if (!empResolu && !rhData) return <div>Employé introuvable</div>;
 
   const actionModifier = modifierEmploye.bind(null, id, rhData?.id || null);
 
@@ -47,7 +52,7 @@ export default async function ModifierEmployePage({
         <h1 className="text-3xl font-bold mb-2" style={{ color: "#1B2B5E" }}>
           ✏️ Modifier l'employé
         </h1>
-        <p className="text-gray-500 mb-6">{rhData?.prenom || emp?.prenom} {rhData?.nom || emp?.nom}</p>
+        <p className="text-gray-500 mb-6">{rhData?.prenom || empResolu?.prenom} {rhData?.nom || empResolu?.nom}</p>
 
         <form action={actionModifier} className="space-y-6">
 
@@ -60,26 +65,26 @@ export default async function ModifierEmployePage({
               <div>
                 <label className="block font-semibold mb-1 text-sm">Prénom</label>
                 <input name="prenom" type="text"
-                  defaultValue={rhData?.prenom || emp?.prenom || ""}
+                  defaultValue={rhData?.prenom || empResolu?.prenom || ""}
                   className="w-full border rounded-xl p-3" />
               </div>
               <div>
                 <label className="block font-semibold mb-1 text-sm">Nom</label>
                 <input name="nom" type="text"
-                  defaultValue={rhData?.nom || emp?.nom || ""}
+                  defaultValue={rhData?.nom || empResolu?.nom || ""}
                   className="w-full border rounded-xl p-3" />
               </div>
             </div>
             <div className="mt-4">
               <label className="block font-semibold mb-1 text-sm">Email</label>
               <input name="email" type="email"
-                defaultValue={rhData?.email || emp?.email || ""}
+                defaultValue={rhData?.email || empResolu?.email || ""}
                 className="w-full border rounded-xl p-3" />
             </div>
             <div className="mt-4">
               <label className="block font-semibold mb-1 text-sm">Téléphone</label>
               <input name="telephone" type="tel"
-                defaultValue={rhData?.telephone || emp?.telephone || ""}
+                defaultValue={rhData?.telephone || empResolu?.telephone || ""}
                 placeholder="+41 79 000 00 00"
                 className="w-full border rounded-xl p-3" />
             </div>
@@ -169,7 +174,7 @@ export default async function ModifierEmployePage({
           )}
 
           {/* Mot de passe */}
-          {emp && (
+          {empResolu && (
             <div>
               <h2 className="font-bold mb-3 text-sm uppercase tracking-wide text-gray-400">
                 Sécurité
@@ -187,7 +192,7 @@ export default async function ModifierEmployePage({
           )}
 
           {/* Permissions */}
-          {emp && emp.role === "employe" && (
+          {empResolu && empResolu.role === "employe" && (
             <div className="space-y-5">
               <h2 className="font-bold text-sm uppercase tracking-wide text-gray-400">
                 Permissions
@@ -241,7 +246,7 @@ export default async function ModifierEmployePage({
                     {items.map(({ key, label }) => (
                       <label key={key} className="flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" name={key}
-                          defaultChecked={(emp as any)[key] ?? false} />
+                          defaultChecked={(empResolu as any)[key] ?? false} />
                         <span className="text-sm">{label}</span>
                       </label>
                     ))}
@@ -269,10 +274,10 @@ export default async function ModifierEmployePage({
           </div>
         </form>
 
-        {emp && (
+        {empResolu && (
           <div className="border-t mt-8 pt-6">
             <h2 className="font-bold mb-3" style={{ color: "#E8847A" }}>⚠️ Zone dangereuse</h2>
-            <BoutonSupprimerEmploye id={id} nom={`${emp.prenom} ${emp.nom}`} />
+            <BoutonSupprimerEmploye id={id} nom={`${empResolu.prenom} ${empResolu.nom}`} />
           </div>
         )}
 
