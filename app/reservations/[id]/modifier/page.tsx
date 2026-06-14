@@ -6,6 +6,7 @@ import SuggestionBox from "./SuggestionBox";
 import { formatBoxLabel } from "../../../../src/lib/boxes";
 
 import { use } from "react";
+import SelectHeure from "../../../components/SelectHeure";
 
 export default function ModifierReservationPage({
   params,
@@ -128,16 +129,26 @@ export default function ModifierReservationPage({
           {/* Heures */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Heure arrivée</label>
-              <input name="heure_arrivee" type="time"
+              <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+                Heure arrivée
+                <span className="text-gray-400 font-normal text-xs ml-1">(7h30–19h)</span>
+              </label>
+              <SelectHeure
+                name="heure_arrivee"
                 defaultValue={res.heure_arrivee || ""}
-                className="w-full border rounded-xl p-3" />
+                className="w-full border rounded-xl p-3"
+              />
             </div>
             <div>
-              <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Heure départ</label>
-              <input name="heure_depart" type="time"
+              <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+                Heure départ
+                <span className="text-gray-400 font-normal text-xs ml-1">(7h30–19h)</span>
+              </label>
+              <SelectHeure
+                name="heure_depart"
                 defaultValue={res.heure_depart || ""}
-                className="w-full border rounded-xl p-3" />
+                className="w-full border rounded-xl p-3"
+              />
             </div>
           </div>
 

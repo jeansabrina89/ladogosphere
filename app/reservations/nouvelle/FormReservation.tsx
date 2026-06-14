@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { formatBoxLabel } from "../../../src/lib/boxes";
+import SelectHeure from "../../components/SelectHeure";
 
 type Client = { id: string; prenom: string; nom: string; membre: boolean };
 type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string; journee_essai_effectuee: boolean; journee_essai_invalide: boolean };
@@ -588,25 +589,26 @@ export default function FormReservation({
             <div>
               <label className="block font-semibold mb-1">
                 Heure arrivée
-                <span className="text-gray-400 font-normal text-xs ml-1">
-                  {type === "sejour" ? "(9h–10h ou 17h–18h)" :
-                   type === "essai" ? "(10h00)" : "(7h35–10h00)"}
-                </span>
+                <span className="text-gray-400 font-normal text-xs ml-1">(7h30–19h)</span>
               </label>
-              <input name="heure_arrivee" type="time"
+              <SelectHeure
+                name="heure_arrivee"
                 value={heureArrivee}
-                onChange={e => setHeureArrivee(e.target.value)}
-                className="w-full border rounded-xl p-3" />
+                onChange={setHeureArrivee}
+                className="w-full border rounded-xl p-3"
+              />
             </div>
             <div>
               <label className="block font-semibold mb-1">
                 Heure départ
-                <span className="text-gray-400 font-normal text-xs ml-1">(17h00–18h00)</span>
+                <span className="text-gray-400 font-normal text-xs ml-1">(7h30–19h)</span>
               </label>
-              <input name="heure_depart" type="time"
+              <SelectHeure
+                name="heure_depart"
                 value={heureDepart}
-                onChange={e => setHeureDepart(e.target.value)}
-                className="w-full border rounded-xl p-3" />
+                onChange={setHeureDepart}
+                className="w-full border rounded-xl p-3"
+              />
             </div>
           </div>
 
