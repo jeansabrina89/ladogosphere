@@ -234,7 +234,6 @@ export default async function ModifierEmployePage({
                 {
                   titre: "Planning & équipe (responsable)",
                   items: [
-                    { key: "perm_planning", label: "Gérer le planning de l'équipe" },
                     { key: "perm_timbrage_equipe", label: "Gérer le timbrage de l'équipe" },
                     { key: "perm_vacances_equipe", label: "Approuver les vacances de l'équipe" },
                   ],
