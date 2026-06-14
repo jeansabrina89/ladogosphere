@@ -21,36 +21,21 @@ type JourPlanning = {
   note?: string;
 };
 
-// val  = clé interne UI (unique, utilisé pour React keys et l'état)
-// dbVal = valeur réelle enregistrée en DB (doit respecter planning_employes_statut_check)
+// Chaque val = valeur stockée en DB telle quelle (11 valeurs acceptées par la contrainte)
 const STATUTS = [
-  { val: "travail",          dbVal: "travail",   label: "✅ Travail",     bg: "#E8F5F4", text: "#4AAEA0" },
-  { val: "repos",            dbVal: "repos",     label: "😴 Repos",       bg: "#F1F5F9", text: "#6B7280" },
-  { val: "vacances",         dbVal: "vacances",  label: "🏖️ Vacances",    bg: "#FEF9C3", text: "#CA8A04" },
-  { val: "absent",           dbVal: "autre",     label: "🚫 Absent",      bg: "#FEE2E2", text: "#DC2626" },
-  { val: "maladie",          dbVal: "maladie",   label: "🤒 Maladie",     bg: "#FEE2E2", text: "#DC2626" },
-  { val: "accident",         dbVal: "accident",  label: "🤕 Accident",    bg: "#FEE2E2", text: "#DC2626" },
-  { val: "militaire",        dbVal: "militaire", label: "🎖️ Militaire",   bg: "#EDE9FE", text: "#7C3AED" },
-  { val: "ferie_travaille",  dbVal: "ferie",     label: "🎉 Férié+1j",    bg: "#FEF3C7", text: "#D97706" },
-  { val: "heures_sup",       dbVal: "autre",     label: "⏱️ Déd. H.sup",  bg: "#DBEAFE", text: "#2563EB" },
-  { val: "autre",            dbVal: "autre",     label: "📋 Autre",       bg: "#F1F5F9", text: "#6B7280" },
+  { val: "travail",         label: "✅ Travail",           emoji: "✅",   bg: "#E8F5F4", text: "#4AAEA0" },
+  { val: "repos",           label: "😴 Repos",             emoji: "😴",   bg: "#F1F5F9", text: "#6B7280" },
+  { val: "vacances",        label: "🏖️ Vacances",          emoji: "🏖️",  bg: "#FEF9C3", text: "#CA8A04" },
+  { val: "absent",          label: "🚫 Absent",            emoji: "🚫",   bg: "#FEE2E2", text: "#DC2626" },
+  { val: "maladie",         label: "🤒 Maladie",           emoji: "🤒",   bg: "#FEE2E2", text: "#DC2626" },
+  { val: "accident",        label: "🤕 Accident",          emoji: "🤕",   bg: "#FEE2E2", text: "#DC2626" },
+  { val: "militaire",       label: "🎖️ Militaire",         emoji: "🎖️",  bg: "#EDE9FE", text: "#7C3AED" },
+  { val: "ferie",           label: "🎉 Férié (chômé)",     emoji: "🎉",   bg: "#FEF3C7", text: "#D97706" },
+  { val: "ferie_travaille", label: "🎉✅ Férié travaillé", emoji: "🎉✅", bg: "#FEF3C7", text: "#15803D" },
+  { val: "heures_sup",      label: "⏱️ Déd. H.sup",        emoji: "⏱️",  bg: "#DBEAFE", text: "#2563EB" },
+  { val: "autre",           label: "📋 Autre",             emoji: "📋",   bg: "#F1F5F9", text: "#6B7280" },
 ];
 
-// Conversion DB val → UI val au chargement
-const DB_VERS_UI: Record<string, string> = {
-  travail:   "travail",
-  repos:     "repos",
-  vacances:  "vacances",
-  maladie:   "maladie",
-  accident:  "accident",
-  militaire: "militaire",
-  ferie:     "ferie_travaille",
-  autre:     "absent",
-};
-
-function uiValDepuisDb(dbStatut: string): string {
-  return DB_VERS_UI[dbStatut] ?? "autre";
-}
 
 const JOURS_FERIES_2026 = [
   "2026-01-01", "2026-03-19", "2026-05-14", "2026-06-04",
@@ -96,7 +81,7 @@ export default function GenerateurPlanning({
   const joursParMois = new Date(annee, mois, 0).getDate();
   const joursFeries = getJoursFeries(annee);
 
-  // L'état interne stocke des UI vals ; on convertit les DB vals au chargement.
+  // Statut stocké tel quel en DB ; valeur inconnue → 'autre'
   const [planning, setPlanning] = useState<Record<string, Record<string, JourPlanning>>>(() => {
     const init: Record<string, Record<string, JourPlanning>> = {};
     employes.forEach(emp => {
@@ -104,7 +89,8 @@ export default function GenerateurPlanning({
       planningExistant
         .filter(p => p.employe_id === emp.id)
         .forEach(p => {
-          init[emp.id][p.date] = { ...p, statut: uiValDepuisDb(p.statut) };
+          const statut = STATUTS.find(s => s.val === p.statut) ? p.statut : "autre";
+          init[emp.id][p.date] = { ...p, statut };
         });
     });
     return init;
@@ -169,7 +155,6 @@ export default function GenerateurPlanning({
         fixes[emp.id] = {};
         semaine.forEach(d => {
           if (estEnVacances(emp.id, d)) fixes[emp.id][d] = "vacances";
-          // "absent" → dbVal "autre" via le mapping dans l'action
           else if (estIndispo(emp.id, d)) fixes[emp.id][d] = "absent";
         });
       });
@@ -214,12 +199,12 @@ export default function GenerateurPlanning({
               employe_id: emp.id, date: dateStr, statut: fixes[emp.id][dateStr]
             };
           } else if (joursChoisis[emp.id].has(dateStr)) {
-            // "ferie_travaille" → dbVal "ferie" via le mapping dans l'action
+            // Jour férié → 'ferie' (chômé) par défaut ; l'admin peut passer à 'ferie_travaille'
             const estJourFerie = joursFeries.includes(dateStr);
             nouveauPlanning[emp.id][dateStr] = {
               employe_id: emp.id,
               date: dateStr,
-              statut: estJourFerie ? "ferie_travaille" : "travail"
+              statut: estJourFerie ? "ferie" : "travail"
             };
           } else {
             nouveauPlanning[emp.id][dateStr] = {
@@ -360,7 +345,7 @@ export default function GenerateurPlanning({
                             backgroundColor: style.bg, color: style.text,
                             border: estActif ? "2px solid #4AAEA0" : estF ? "1px dashed #D97706" : "1px solid #E2E8F0",
                           }}>
-                          {statut ? STATUTS.find(s => s.val === statut)?.label.split(" ")[0] : estF ? "🎉" : ""}
+                          {statut ? (STATUTS.find(s => s.val === statut)?.emoji ?? "") : estF ? "🎉" : ""}
                         </button>
                         {estActif && (
                           <div className="absolute z-50 top-9 left-0 bg-white rounded-xl shadow-xl border p-2"

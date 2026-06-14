@@ -19,21 +19,14 @@ type JourPlanning = {
   note?: string;
 };
 
-// Valeurs acceptées par la contrainte planning_employes_statut_check
+// Les 11 valeurs acceptées par planning_employes_statut_check — chaque statut est stocké tel quel
 const DB_STATUTS_VALIDES = new Set([
-  "travail", "repos", "vacances", "maladie", "accident", "militaire", "ferie", "autre",
+  "travail", "repos", "vacances", "maladie", "accident", "militaire",
+  "ferie", "ferie_travaille", "absent", "heures_sup", "autre",
 ]);
 
-// Mapping UI val → DB val (pour les valeurs UI qui diffèrent de la clé DB)
-const UI_VERS_DB: Record<string, string> = {
-  absent:          "autre",
-  ferie_travaille: "ferie",
-  heures_sup:      "autre",
-};
-
 function toDbStatut(s: string): string {
-  if (DB_STATUTS_VALIDES.has(s)) return s;
-  return UI_VERS_DB[s] ?? "autre";
+  return DB_STATUTS_VALIDES.has(s) ? s : "autre";
 }
 
 export async function sauvegarderPlanning(lignes: JourPlanning[]): Promise<{ error?: string }> {
