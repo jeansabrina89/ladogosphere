@@ -3,7 +3,8 @@ import { createSupabaseServerClient } from "../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { createClient } from "../../src/utils/supabase/server";
 import BoutonSupprimerEmploye from "./BoutonSupprimerEmploye";
-import { creerAccesEmploye } from "./actions";
+import BoutonAccesEmploye from "./BoutonAccesEmploye";
+import { creerAccesEmploye, reinitialiserMotDePasseEmploye } from "./actions";
 
 export default async function EmployesPage() {
   const supabase = await createClient();
@@ -122,20 +123,28 @@ export default async function EmployesPage() {
                       style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
                       ✏️ Modifier
                     </Link>
+                    {emp.profile_id && (
+                      <BoutonAccesEmploye
+                        action={reinitialiserMotDePasseEmploye}
+                        id={emp.profile_id}
+                        idFieldName="profil_id"
+                        label="🔄 Réinitialiser le mot de passe"
+                        color="#C9A84C"
+                      />
+                    )}
                     <Link href={`/employes/fiches-salaire/creer?employe_id=${emp.id}`}
                       className="px-3 py-2 rounded-xl text-sm font-semibold text-white"
                       style={{ backgroundColor: "#E8847A" }}>
                       📊 Fiche
                     </Link>
-                    {!profil && (
-                      <form action={creerAccesEmploye}>
-                        <input type="hidden" name="fiche_id" value={emp.id} />
-                        <button type="submit"
-                          className="px-3 py-2 rounded-xl text-sm font-semibold text-white"
-                          style={{ backgroundColor: "#4AAEA0" }}>
-                          🔑 Créer un accès
-                        </button>
-                      </form>
+                    {!emp.profile_id && (
+                      <BoutonAccesEmploye
+                        action={creerAccesEmploye}
+                        id={emp.id}
+                        idFieldName="fiche_id"
+                        label="🔑 Créer un accès"
+                        color="#4AAEA0"
+                      />
                     )}
                     <BoutonSupprimerEmploye id={emp.id} nom={`${emp.prenom} ${emp.nom}`} />
                   </div>
