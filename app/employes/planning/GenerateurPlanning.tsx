@@ -154,7 +154,6 @@ export default function GenerateurPlanning({
     if (semaineCourante.length > 0) semaines.push(semaineCourante);
 
     // Rang de déphasage par employé : index parmi les collègues de même taux (tri déterministe par id)
-    // Pour un taux entier le décalage est neutre ; pour un taux .5 il inverse la parité → totaux stables
     const rangDephasage: Record<string, number> = {};
     const parTaux: Record<number, Employe[]> = {};
     employesActifs.forEach(emp => {
@@ -166,6 +165,56 @@ export default function GenerateurPlanning({
       groupe.forEach((emp, rang) => { rangDephasage[emp.id] = rang; });
     });
 
+    // Carry inter-semaines : nb de jours de travail consécutifs terminant la semaine précédente
+    const carry: Record<string, number> = {};
+    employesActifs.forEach(emp => { carry[emp.id] = 0; });
+
+    // Toutes les combinaisons de k éléments parmi arr (ordre préservé)
+    const combinations = (arr: string[], k: number): string[][] => {
+      if (k <= 0) return [[]];
+      if (k > arr.length) return [];
+      if (k === arr.length) return [arr.slice()];
+      const result: string[][] = [];
+      for (let i = 0; i <= arr.length - k; i++) {
+        const sub = combinations(arr.slice(i + 1), k - 1);
+        sub.forEach(c => result.push([arr[i], ...c]));
+      }
+      return result;
+    };
+
+    // Longueur max d'une série de travail consécutif, carryIn jours travaillés avant la semaine
+    const maxSerie = (
+      travailSet: Set<string>,
+      fixesEmp: Record<string, string>,
+      semaineLocal: string[],
+      carryIn: number,
+    ): number => {
+      let streak = carryIn;
+      let maxS = carryIn;
+      for (const d of semaineLocal) {
+        if (!fixesEmp[d] && travailSet.has(d)) { streak++; if (streak > maxS) maxS = streak; }
+        else { streak = 0; }
+      }
+      return maxS;
+    };
+
+    // Limite de jours consécutifs selon le taux
+    const maxConsecutif = (taux: number): { normal: number; exceptionnel: number } => {
+      const t: Record<number, { normal: number; exceptionnel: number }> = {
+        100: { normal: 5, exceptionnel: 6 },
+         90: { normal: 5, exceptionnel: 6 },
+         80: { normal: 4, exceptionnel: 5 },
+         70: { normal: 4, exceptionnel: 5 },
+         60: { normal: 3, exceptionnel: 4 },
+         50: { normal: 3, exceptionnel: 3 },
+         40: { normal: 3, exceptionnel: 4 },
+         30: { normal: 2, exceptionnel: 3 },
+         20: { normal: 2, exceptionnel: 2 },
+         10: { normal: 1, exceptionnel: 2 },
+      };
+      return t[taux] ?? { normal: 5, exceptionnel: 6 };
+    };
+
     semaines.forEach((semaine, idxSemaine) => {
       const fixes: Record<string, Record<string, string>> = {};
       employesActifs.forEach(emp => {
@@ -176,63 +225,67 @@ export default function GenerateurPlanning({
         });
       });
 
-      // Trier : repos décroissant (taux croissant) → les plus contraints d'abord
+      // Trier : taux croissant → les plus contraints (plus de repos) d'abord
       const empOrdres = [...employesActifs].sort((a, b) => a.taux_travail - b.taux_travail);
 
-      // Compteur de présence : nb d'employés au travail chaque jour
+      // Compteur de présence partagé pour l'équilibre de couverture
       const presence: Record<string, number> = {};
       semaine.forEach(d => { presence[d] = 0; });
 
       const joursChoisis: Record<string, Set<string>> = {};
       employesActifs.forEach(emp => { joursChoisis[emp.id] = new Set(); });
 
-      // Score d'un décalage de bloc de repos : somme des carrés de présence après ajout.
-      // Minimiser → remplit les creux, évite les pics → couverture plate autour de 2.
-      const scorerOffset = (joursLibres: string[], reposCount: number, offset: number): number => {
-        const n = joursLibres.length;
-        const reposPos = new Set<number>();
-        for (let i = 0; i < reposCount; i++) reposPos.add((offset + i) % n);
-        const travailDays = new Set<string>(joursLibres.filter((_, i) => !reposPos.has(i)));
-        let score = 0;
-        semaine.forEach(d => { score += (presence[d] + (travailDays.has(d) ? 1 : 0)) ** 2; });
-        return score;
-      };
-
-      const choisirOffset = (joursLibres: string[], cible_actual: number): number => {
-        const n = joursLibres.length;
-        const reposCount = n - cible_actual;
-        // Par défaut idxSemaine % n pour varier d'une semaine à l'autre en cas d'ex-aequo
-        let bestOffset = idxSemaine % Math.max(1, n);
-        let bestScore = Infinity;
-        for (let off = 0; off < n; off++) {
-          const s = scorerOffset(joursLibres, reposCount, off);
-          if (s < bestScore) { bestScore = s; bestOffset = off; }
+      // Choisir les jours de travail en énumérant toutes les combinaisons de repos :
+      // retient celle qui respecte la limite de série et minimise le déséquilibre de couverture,
+      // avec bonus si les repos sont contigus dans le calendrier.
+      const choisirEtAppliquerJours = (emp: Employe, joursLibres: string[], cible_actual: number) => {
+        const reposCount = joursLibres.length - cible_actual;
+        if (reposCount <= 0) {
+          joursLibres.forEach(d => { joursChoisis[emp.id].add(d); presence[d]++; });
+          return;
         }
-        return bestOffset;
+        const { normal, exceptionnel } = maxConsecutif(emp.taux_travail);
+        const carryIn = carry[emp.id];
+        const allCombos = combinations(joursLibres, reposCount);
+        // Rotation par idxSemaine pour varier le tiebreak d'une semaine à l'autre
+        const rot = idxSemaine % Math.max(1, allCombos.length);
+        const orderedCombos = [...allCombos.slice(rot), ...allCombos.slice(0, rot)];
+
+        const tryLimit = (limite: number): { score: number; contigu: boolean; travailSet: Set<string> } | null => {
+          let best: { score: number; contigu: boolean; travailSet: Set<string> } | null = null;
+          for (const reposDays of orderedCombos) {
+            const reposSet = new Set(reposDays);
+            const travailSet = new Set(joursLibres.filter(d => !reposSet.has(d)));
+            if (maxSerie(travailSet, fixes[emp.id], semaine, carryIn) > limite) continue;
+            let score = 0;
+            semaine.forEach(d => { score += (presence[d] + (travailSet.has(d) ? 1 : 0)) ** 2; });
+            // Bonus repos contigu dans le calendrier (indices consécutifs dans semaine)
+            const idxRepos = semaine.map((d, i) => reposSet.has(d) ? i : -1).filter(i => i >= 0);
+            let contigu = true;
+            for (let i = 1; i < idxRepos.length; i++) {
+              if (idxRepos[i] !== idxRepos[i - 1] + 1) { contigu = false; break; }
+            }
+            if (!best || score < best.score || (score === best.score && contigu && !best.contigu)) {
+              best = { score, contigu, travailSet };
+            }
+          }
+          return best;
+        };
+
+        let meilleur = tryLimit(normal) ?? tryLimit(exceptionnel);
+        if (!meilleur) {
+          // Fallback ultime (ne devrait pas arriver en pratique)
+          meilleur = { score: 0, contigu: true, travailSet: new Set(joursLibres.slice(reposCount)) };
+        }
+        meilleur.travailSet.forEach(d => { joursChoisis[emp.id].add(d); presence[d]++; });
       };
 
-      const appliquerOffset = (emp: Employe, joursLibres: string[], cible_actual: number, offset: number) => {
-        const n = joursLibres.length;
-        const reposCount = n - cible_actual;
-        const reposPos = new Set<number>();
-        for (let i = 0; i < reposCount; i++) reposPos.add((offset + i) % n);
-        joursLibres.forEach((d, idx) => {
-          if (!reposPos.has(idx)) { joursChoisis[emp.id].add(d); presence[d]++; }
-        });
-      };
-
-      // Placement initial : chaque employé choisit le décalage qui équilibre le mieux
+      // Placement initial
       empOrdres.forEach(emp => {
         const cible = joursTravaillesSemaine(emp.taux_travail, idxSemaine + rangDephasage[emp.id]);
         const joursLibres = semaine.filter(d => !fixes[emp.id][d]);
-        const n = joursLibres.length;
-        if (n === 0) return;
-        const cible_actual = Math.min(cible, n);
-        if (cible_actual >= n) {
-          joursLibres.forEach(d => { joursChoisis[emp.id].add(d); presence[d]++; });
-        } else {
-          appliquerOffset(emp, joursLibres, cible_actual, choisirOffset(joursLibres, cible_actual));
-        }
+        if (joursLibres.length === 0) return;
+        choisirEtAppliquerJours(emp, joursLibres, Math.min(cible, joursLibres.length));
       });
 
       // 2 passes de ré-optimisation pour stabiliser l'équilibre global
@@ -240,17 +293,16 @@ export default function GenerateurPlanning({
         empOrdres.forEach(emp => {
           const cible = joursTravaillesSemaine(emp.taux_travail, idxSemaine + rangDephasage[emp.id]);
           const joursLibres = semaine.filter(d => !fixes[emp.id][d]);
-          const n = joursLibres.length;
-          if (n === 0) return;
-          const cible_actual = Math.min(cible, n);
-          if (cible_actual >= n) return;
-          // Retirer la contribution actuelle, puis réoptimiser
+          if (joursLibres.length === 0) return;
+          const cible_actual = Math.min(cible, joursLibres.length);
+          if (cible_actual >= joursLibres.length) return;
           joursChoisis[emp.id].forEach(d => { presence[d]--; });
           joursChoisis[emp.id] = new Set();
-          appliquerOffset(emp, joursLibres, cible_actual, choisirOffset(joursLibres, cible_actual));
+          choisirEtAppliquerJours(emp, joursLibres, cible_actual);
         });
       }
 
+      // Secours : au moins 1 personne présente chaque jour
       semaine.forEach(dateStr => {
         if (fixes[employesActifs[0]?.id]?.[dateStr]) return;
         const travaillent = employesActifs.filter(emp =>
@@ -264,6 +316,7 @@ export default function GenerateurPlanning({
         }
       });
 
+      // Écrire les statuts dans nouveauPlanning
       employesActifs.forEach(emp => {
         semaine.forEach(dateStr => {
           if (fixes[emp.id][dateStr]) {
@@ -271,12 +324,10 @@ export default function GenerateurPlanning({
               employe_id: emp.id, date: dateStr, statut: fixes[emp.id][dateStr]
             };
           } else if (joursChoisis[emp.id].has(dateStr)) {
-            // Jour férié travaillé → 'ferie_travaille' ; sinon 'travail'
-            const estJourFerie = joursFeries.includes(dateStr);
             nouveauPlanning[emp.id][dateStr] = {
               employe_id: emp.id,
               date: dateStr,
-              statut: estJourFerie ? "ferie_travaille" : "travail"
+              statut: joursFeries.includes(dateStr) ? "ferie_travaille" : "travail"
             };
           } else {
             nouveauPlanning[emp.id][dateStr] = {
@@ -284,6 +335,17 @@ export default function GenerateurPlanning({
             };
           }
         });
+      });
+
+      // Mettre à jour le carry pour la semaine suivante
+      employesActifs.forEach(emp => {
+        let c = 0;
+        for (let i = semaine.length - 1; i >= 0; i--) {
+          const statut = nouveauPlanning[emp.id][semaine[i]]?.statut;
+          if (statut === "travail" || statut === "ferie_travaille") { c++; }
+          else { break; }
+        }
+        carry[emp.id] = c;
       });
     });
 
