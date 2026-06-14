@@ -3,8 +3,7 @@ import { createSupabaseServerClient } from "../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { createClient } from "../../src/utils/supabase/server";
 import BoutonSupprimerEmploye from "./BoutonSupprimerEmploye";
-import BoutonAccesEmploye from "./BoutonAccesEmploye";
-import { creerAccesEmploye, reinitialiserMotDePasseEmploye } from "./actions";
+import { BoutonCreerAcces, BoutonReinitialiserMdp } from "./BoutonAccesEmploye";
 
 export default async function EmployesPage() {
   const supabase = await createClient();
@@ -124,13 +123,7 @@ export default async function EmployesPage() {
                       ✏️ Modifier
                     </Link>
                     {emp.profile_id && (
-                      <BoutonAccesEmploye
-                        action={reinitialiserMotDePasseEmploye}
-                        id={emp.profile_id}
-                        idFieldName="profil_id"
-                        label="🔄 Réinitialiser le mot de passe"
-                        color="#C9A84C"
-                      />
+                      <BoutonReinitialiserMdp profilId={emp.profile_id} />
                     )}
                     <Link href={`/employes/fiches-salaire/creer?employe_id=${emp.id}`}
                       className="px-3 py-2 rounded-xl text-sm font-semibold text-white"
@@ -138,13 +131,7 @@ export default async function EmployesPage() {
                       📊 Fiche
                     </Link>
                     {!emp.profile_id && (
-                      <BoutonAccesEmploye
-                        action={creerAccesEmploye}
-                        id={emp.id}
-                        idFieldName="fiche_id"
-                        label="🔑 Créer un accès"
-                        color="#4AAEA0"
-                      />
+                      <BoutonCreerAcces ficheId={emp.id} />
                     )}
                     <BoutonSupprimerEmploye id={emp.id} nom={`${emp.prenom} ${emp.nom}`} />
                   </div>

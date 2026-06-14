@@ -1,37 +1,18 @@
 "use client";
 
-import { useActionState } from "react";
-import type { AccesEmployeState } from "./actions";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import {
+  creerAccesEmploye,
+  reinitialiserMotDePasseEmploye,
+  type AccesEmployeState,
+} from "./actions";
 
-export default function BoutonAccesEmploye({
-  action,
-  id,
-  idFieldName,
-  label,
-  color = "#4AAEA0",
-}: {
-  action: (prevState: AccesEmployeState, formData: FormData) => Promise<AccesEmployeState>;
-  id: string;
-  idFieldName: string;
-  label: string;
-  color?: string;
-}) {
-  const [state, formAction, isPending] = useActionState<AccesEmployeState, FormData>(action, {});
+function ResultatAcces({ state }: { state: AccesEmployeState | null }) {
+  if (!state) return null;
 
   return (
-    <div>
-      <form action={formAction}>
-        <input type="hidden" name={idFieldName} value={id} />
-        <button
-          type="submit"
-          disabled={isPending}
-          className="px-3 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
-          style={{ backgroundColor: color }}
-        >
-          {isPending ? "…" : label}
-        </button>
-      </form>
-
+    <>
       {state.password && (
         <div className="mt-2 p-3 rounded-xl border text-sm max-w-xs"
           style={{ backgroundColor: "#FEF9C3", borderColor: "#FBBF24" }}>
@@ -55,7 +36,13 @@ export default function BoutonAccesEmploye({
 
       {state.lien && (
         <p className="mt-2 text-sm font-semibold" style={{ color: "#4AAEA0" }}>
-          ✅ Compte existant relié avec succès.
+          ✅ Compte employé existant relié.
+        </p>
+      )}
+
+      {state.converti && (
+        <p className="mt-2 text-sm font-semibold" style={{ color: "#4AAEA0" }}>
+          ✅ Compte transformé en employé.
         </p>
       )}
 
@@ -64,6 +51,91 @@ export default function BoutonAccesEmploye({
           ❌ {state.error}
         </p>
       )}
+    </>
+  );
+}
+
+export function BoutonCreerAcces({ ficheId }: { ficheId: string }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [state, setState] = useState<AccesEmployeState | null>(null);
+
+  function lancer(confirmer: boolean) {
+    startTransition(async () => {
+      const res = await creerAccesEmploye(ficheId, confirmer);
+      setState(res);
+      if (res.lien || res.password || res.converti) router.refresh();
+    });
+  }
+
+  function handleConfirmer() {
+    const ok = window.confirm(
+      `Le compte existant pour ${state?.email} (rôle : ${state?.role}) va devenir un compte employé. ` +
+      `Il perdra son accès client. Continuer ?`
+    );
+    if (!ok) return;
+    lancer(true);
+  }
+
+  return (
+    <div>
+      <button
+        onClick={() => lancer(false)}
+        disabled={isPending}
+        className="px-3 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+        style={{ backgroundColor: "#4AAEA0" }}
+      >
+        {isPending ? "…" : "🔑 Créer un accès"}
+      </button>
+
+      <ResultatAcces state={state} />
+
+      {state?.besoinConfirmation && (
+        <div className="mt-2 p-3 rounded-xl border text-sm max-w-xs"
+          style={{ backgroundColor: "#FEF2F2", borderColor: "#FCA5A5" }}>
+          <p className="text-red-700">
+            Un compte client existe déjà pour <strong>{state.email}</strong>.
+            Le transformer en compte employé lui retirera l'accès client.
+            Confirmer ?
+          </p>
+          <button
+            type="button"
+            onClick={handleConfirmer}
+            disabled={isPending}
+            className="mt-2 px-3 py-1.5 rounded-xl text-xs font-semibold text-white disabled:opacity-50"
+            style={{ backgroundColor: "#C0392B" }}
+          >
+            {isPending ? "…" : "Confirmer la transformation"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function BoutonReinitialiserMdp({ profilId }: { profilId: string }) {
+  const [isPending, startTransition] = useTransition();
+  const [state, setState] = useState<AccesEmployeState | null>(null);
+
+  function lancer() {
+    startTransition(async () => {
+      const res = await reinitialiserMotDePasseEmploye(profilId);
+      setState(res);
+    });
+  }
+
+  return (
+    <div>
+      <button
+        onClick={lancer}
+        disabled={isPending}
+        className="px-3 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+        style={{ backgroundColor: "#C9A84C" }}
+      >
+        {isPending ? "…" : "🔄 Réinitialiser le mot de passe"}
+      </button>
+
+      <ResultatAcces state={state} />
     </div>
   );
 }

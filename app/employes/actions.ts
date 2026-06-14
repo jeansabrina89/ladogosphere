@@ -35,13 +35,35 @@ export async function supprimerEmploye(id: string): Promise<{ error?: string }> 
   return {};
 }
 
-export type AccesEmployeState = { password?: string; error?: string; lien?: boolean };
+export type AccesEmployeState = {
+  password?: string;
+  error?: string;
+  lien?: boolean;
+  besoinConfirmation?: boolean;
+  email?: string;
+  role?: string;
+  converti?: boolean;
+};
+
+// Permissions par défaut accordées à un nouveau compte employé.
+const PERMISSIONS_EMPLOYE_DEFAUT = {
+  perm_checkin: true,
+  perm_reservations_creer: true,
+  perm_reservations_modifier: true,
+  perm_reservations_annuler: true,
+  perm_clients_creer: true,
+  perm_clients_modifier: true,
+  perm_chiens_modifier: true,
+  perm_planning: true,
+  perm_tarifs_urgence: false,
+};
 
 // Crée un compte connectable (role 'employe') pour une fiche RH existante,
 // et lie la fiche au compte via employes_rh.profile_id.
+// confirmer=true autorise la conversion d'un compte non-employé existant (ex. client).
 export async function creerAccesEmploye(
-  _prevState: AccesEmployeState,
-  formData: FormData
+  ficheId: string,
+  confirmer: boolean = false
 ): Promise<AccesEmployeState> {
   const supabase = await createSupabaseServerClient();
 
@@ -51,8 +73,6 @@ export async function creerAccesEmploye(
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id).single();
   if (profile?.role !== "admin") return { error: "Accès réservé à l'admin" };
-
-  const ficheId = formData.get("fiche_id") as string;
 
   const { data: fiche, error: ficheError } = await supabaseAdmin
     .from("employes_rh")
@@ -66,16 +86,38 @@ export async function creerAccesEmploye(
   // Un compte existe déjà pour cet email ?
   const { data: profilExistant } = await supabaseAdmin
     .from("profiles")
-    .select("id, role")
+    .select("id, email, role")
     .eq("email", fiche.email)
     .maybeSingle();
 
   if (profilExistant) {
-    if (profilExistant.role !== "employe" && profilExistant.role !== "admin") {
+    // Compte employé/admin existant -> simple liaison
+    if (profilExistant.role === "employe" || profilExistant.role === "admin") {
+      const { error: updateError } = await supabaseAdmin
+        .from("employes_rh")
+        .update({ profile_id: profilExistant.id })
+        .eq("id", ficheId);
+      if (updateError) return { error: updateError.message };
+
+      revalidatePath("/employes");
+      return { lien: true };
+    }
+
+    // Compte non-employé (ex. client) -> nécessite confirmation
+    if (!confirmer) {
       return {
-        error: `Un compte existe déjà pour cet email (rôle : ${profilExistant.role}). Liaison annulée — utilise un autre email ou gère manuellement.`,
+        besoinConfirmation: true,
+        email: profilExistant.email ?? fiche.email,
+        role: profilExistant.role,
       };
     }
+
+    // Conversion confirmée : on transforme le compte existant en employé
+    const { error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .update({ role: "employe", ...PERMISSIONS_EMPLOYE_DEFAUT })
+      .eq("id", profilExistant.id);
+    if (profileError) return { error: profileError.message };
 
     const { error: updateError } = await supabaseAdmin
       .from("employes_rh")
@@ -84,7 +126,7 @@ export async function creerAccesEmploye(
     if (updateError) return { error: updateError.message };
 
     revalidatePath("/employes");
-    return { lien: true };
+    return { converti: true };
   }
 
   const motDePasseProvisoire = randomBytes(9).toString("base64url");
@@ -107,15 +149,7 @@ export async function creerAccesEmploye(
       nom: fiche.nom,
       role: "employe",
       actif: true,
-      perm_checkin: true,
-      perm_reservations_creer: true,
-      perm_reservations_modifier: true,
-      perm_reservations_annuler: true,
-      perm_clients_creer: true,
-      perm_clients_modifier: true,
-      perm_chiens_modifier: true,
-      perm_planning: true,
-      perm_tarifs_urgence: false,
+      ...PERMISSIONS_EMPLOYE_DEFAUT,
     });
   if (profileError) return { error: profileError.message };
 
@@ -131,8 +165,7 @@ export async function creerAccesEmploye(
 
 // Réinitialise le mot de passe d'un compte employé (génère un mot de passe temporaire).
 export async function reinitialiserMotDePasseEmploye(
-  _prevState: AccesEmployeState,
-  formData: FormData
+  profilId: string
 ): Promise<AccesEmployeState> {
   const supabase = await createSupabaseServerClient();
 
@@ -142,8 +175,6 @@ export async function reinitialiserMotDePasseEmploye(
   const { data: profile } = await supabase
     .from("profiles").select("role").eq("id", user.id).single();
   if (profile?.role !== "admin") return { error: "Accès réservé à l'admin" };
-
-  const profilId = formData.get("profil_id") as string;
 
   const nouveauMdp = randomBytes(9).toString("base64url");
 
