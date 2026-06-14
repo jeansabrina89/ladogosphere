@@ -153,6 +153,19 @@ export default function GenerateurPlanning({
     });
     if (semaineCourante.length > 0) semaines.push(semaineCourante);
 
+    // Rang de déphasage par employé : index parmi les collègues de même taux (tri déterministe par id)
+    // Pour un taux entier le décalage est neutre ; pour un taux .5 il inverse la parité → totaux stables
+    const rangDephasage: Record<string, number> = {};
+    const parTaux: Record<number, Employe[]> = {};
+    employesActifs.forEach(emp => {
+      if (!parTaux[emp.taux_travail]) parTaux[emp.taux_travail] = [];
+      parTaux[emp.taux_travail].push(emp);
+    });
+    Object.values(parTaux).forEach(groupe => {
+      groupe.sort((a, b) => a.id.localeCompare(b.id));
+      groupe.forEach((emp, rang) => { rangDephasage[emp.id] = rang; });
+    });
+
     semaines.forEach((semaine, idxSemaine) => {
       const fixes: Record<string, Record<string, string>> = {};
       employesActifs.forEach(emp => {
@@ -210,7 +223,7 @@ export default function GenerateurPlanning({
 
       // Placement initial : chaque employé choisit le décalage qui équilibre le mieux
       empOrdres.forEach(emp => {
-        const cible = joursTravaillesSemaine(emp.taux_travail, idxSemaine);
+        const cible = joursTravaillesSemaine(emp.taux_travail, idxSemaine + rangDephasage[emp.id]);
         const joursLibres = semaine.filter(d => !fixes[emp.id][d]);
         const n = joursLibres.length;
         if (n === 0) return;
@@ -225,7 +238,7 @@ export default function GenerateurPlanning({
       // 2 passes de ré-optimisation pour stabiliser l'équilibre global
       for (let pass = 0; pass < 2; pass++) {
         empOrdres.forEach(emp => {
-          const cible = joursTravaillesSemaine(emp.taux_travail, idxSemaine);
+          const cible = joursTravaillesSemaine(emp.taux_travail, idxSemaine + rangDephasage[emp.id]);
           const joursLibres = semaine.filter(d => !fixes[emp.id][d]);
           const n = joursLibres.length;
           if (n === 0) return;
