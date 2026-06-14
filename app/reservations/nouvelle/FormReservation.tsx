@@ -38,6 +38,14 @@ export default function FormReservation({
   const [suggestionBox, setSuggestionBox] = useState<{ message: string; raison: string } | null>(null);
   const [chargementSuggestion, setChargementSuggestion] = useState(false);
 
+  // Client combobox
+  const [clientId, setClientId] = useState("");
+  const [clientSearch, setClientSearch] = useState("");
+  const [clientListOpen, setClientListOpen] = useState(false);
+
+  // Filtre chiens
+  const [chienSearch, setChienSearch] = useState("");
+
   // Récurrence
   const [estRecurrente, setEstRecurrente] = useState(false);
   const [jourRecurrence, setJourRecurrence] = useState<number>(1); // jour de la semaine
@@ -64,14 +72,49 @@ export default function FormReservation({
   };
 
   const handleChienToggle = (id: string) => {
+    const adding = !chiensSelectionnes.includes(id);
     setChiensSelectionnes(prev =>
       prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
     );
+    if (adding && !clientId) {
+      const chien = chiens.find(c => c.id === id);
+      if (chien?.client_id) setClientId(chien.client_id);
+    }
+  };
+
+  const handleClientSelect = (id: string) => {
+    setClientId(id);
+    setClientSearch("");
+    setClientListOpen(false);
+    setChiensSelectionnes(prev => prev.filter(chienId => {
+      const chien = chiens.find(c => c.id === chienId);
+      return chien?.client_id === id;
+    }));
+  };
+
+  const handleClientClear = () => {
+    setClientId("");
+    setClientSearch("");
+    setChiensSelectionnes([]);
+    setChienSearch("");
   };
 
   const chiensSelectionnesInfos = chiens.filter(c => chiensSelectionnes.includes(c.id));
   const masquerEssai = chiensSelectionnesInfos.length > 0 &&
     chiensSelectionnesInfos.every(c => c.journee_essai_effectuee === true);
+
+  const clientSelectionne = clients.find(c => c.id === clientId) ?? null;
+  const clientsFiltres = clientSearch
+    ? clients.filter(c => `${c.prenom} ${c.nom}`.toLowerCase().includes(clientSearch.toLowerCase()))
+    : clients;
+  const chiensFiltres = chiens.filter(c => {
+    if (clientId && c.client_id !== clientId) return false;
+    if (chienSearch) {
+      const s = chienSearch.toLowerCase();
+      return c.nom.toLowerCase().includes(s) || (c.race ?? "").toLowerCase().includes(s);
+    }
+    return true;
+  });
 
   // Si "essai" n'est plus proposé (tous les chiens sélectionnés l'ont déjà validé), on retombe sur journée
   useEffect(() => {
@@ -321,34 +364,78 @@ export default function FormReservation({
           {/* Client */}
           <div>
             <label className="block font-semibold mb-1">Client *</label>
-            <select name="client_id" required className="w-full border rounded-xl p-3">
-              <option value="">-- Sélectionner un client --</option>
-              {clients.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.prenom} {c.nom} {c.membre ? "⭐" : ""}
-                </option>
-              ))}
-            </select>
+            <input type="hidden" name="client_id" value={clientId} />
+            {clientSelectionne ? (
+              <div className="flex items-center justify-between border rounded-xl p-3">
+                <span className="font-medium">
+                  {clientSelectionne.prenom} {clientSelectionne.nom}{clientSelectionne.membre ? " ⭐" : ""}
+                </span>
+                <button type="button" onClick={handleClientClear}
+                  className="text-gray-400 hover:text-red-500 ml-3 font-bold text-lg leading-none">
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  type="text"
+                  value={clientSearch}
+                  onChange={e => { setClientSearch(e.target.value); setClientListOpen(true); }}
+                  onFocus={() => setClientListOpen(true)}
+                  onBlur={() => setTimeout(() => setClientListOpen(false), 150)}
+                  placeholder="Rechercher un client…"
+                  className="w-full border rounded-xl p-3"
+                />
+                {clientListOpen && (
+                  <div className="absolute z-10 w-full bg-white border rounded-xl shadow-lg mt-1 max-h-60 overflow-y-auto">
+                    {clientsFiltres.slice(0, 20).map(c => (
+                      <button key={c.id} type="button"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => handleClientSelect(c.id)}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm">
+                        {c.prenom} {c.nom}{c.membre ? " ⭐" : ""}
+                      </button>
+                    ))}
+                    {clientsFiltres.length === 0 && (
+                      <p className="px-4 py-2 text-sm text-gray-400">Aucun résultat</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Chiens */}
           <div>
             <label className="block font-semibold mb-1">Chien(s) *</label>
+            <input
+              type="text"
+              value={chienSearch}
+              onChange={e => setChienSearch(e.target.value)}
+              placeholder={clientSelectionne ? `Chercher parmi les chiens de ${clientSelectionne.prenom}…` : "Rechercher un chien…"}
+              className="w-full border rounded-xl p-2 mb-2 text-sm"
+            />
             <div className="border rounded-xl p-3 space-y-2 max-h-48 overflow-y-auto">
-              {chiens.map(c => (
-                <label key={c.id} className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" name="chien_ids" value={c.id}
-                    checked={chiensSelectionnes.includes(c.id)}
-                    onChange={() => handleChienToggle(c.id)} />
-                  <span>
-                    {c.nom} — {c.race || "—"} —{" "}
-                    {c.poids ? `${c.poids} kg` : "?"} —{" "}
-                    {c.categorie_poids === "moins_15kg" ? "🟢 Petit" :
-                     c.categorie_poids === "15_30kg" ? "🟡 Moyen" :
-                     c.categorie_poids === "30_40kg" ? "🔴 Grand" : "—"}
-                  </span>
-                </label>
-              ))}
+              {chiensFiltres.length === 0 ? (
+                <p className="text-sm text-gray-400">
+                  {clientId ? "Aucun chien pour ce client" : "Aucun chien trouvé"}
+                </p>
+              ) : (
+                chiensFiltres.map(c => (
+                  <label key={c.id} className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="chien_ids" value={c.id}
+                      checked={chiensSelectionnes.includes(c.id)}
+                      onChange={() => handleChienToggle(c.id)} />
+                    <span>
+                      {c.nom} — {c.race || "—"} —{" "}
+                      {c.poids ? `${c.poids} kg` : "?"} —{" "}
+                      {c.categorie_poids === "moins_15kg" ? "🟢 Petit" :
+                       c.categorie_poids === "15_30kg" ? "🟡 Moyen" :
+                       c.categorie_poids === "30_40kg" ? "🔴 Grand" : "—"}
+                    </span>
+                  </label>
+                ))
+              )}
             </div>
           </div>
 
