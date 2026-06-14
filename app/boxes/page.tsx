@@ -1,20 +1,11 @@
-import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "../../src/lib/supabase-server";
-import { createClient } from "../../src/utils/supabase/server";
+import { exigerPersonnelPage } from "../../src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "../../src/lib/supabase-admin";
 import GestionBoxes from "./GestionBoxes";
 
 export default async function BoxesPage() {
-  const supabase = await createClient();
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
-  if (!user) redirect("/login");
+  await exigerPersonnelPage();
 
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") redirect("/");
-
-  const { data: boxes } = await supabase
+  const { data: boxes } = await supabaseAdmin
     .from("boxes")
     .select("*")
     .order("numero");

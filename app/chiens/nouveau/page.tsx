@@ -1,8 +1,10 @@
-import { createClient } from "../../../src/utils/supabase/server";
+import { exigerPersonnelPage } from "../../../src/lib/exigerPersonnelPage";
+import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import { creerChien } from "./actions";
 
 export default async function NouveauChienPage() {
-  const supabase = await createClient();
+  await exigerPersonnelPage();
+  const supabase = supabaseAdmin;
   const { data: clients } = await supabase
     .from("clients")
     .select("id, prenom, nom")

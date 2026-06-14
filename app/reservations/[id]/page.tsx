@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "../../../src/utils/supabase/server";
+import { exigerPersonnelPage } from "../../../src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import { getSoldeAvoir } from "../../../src/lib/avoirs";
 import BoutonAnnuler from "./BoutonAnnuler";
@@ -17,7 +17,8 @@ export default async function ReservationPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const supabase = await createClient();
+  await exigerPersonnelPage();
+  const supabase = supabaseAdmin;
   const { id } = await params;
 
   const { data: res } = await supabase

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { createClient } from "../../../src/utils/supabase/server";
+import { exigerPersonnelPage } from "../../../src/lib/exigerPersonnelPage";
+import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import BoutonArchiver from "./BoutonArchiver";
 import BoutonSupprimer from "./BoutonSupprimer";
 import Ententes from "./Ententes";
@@ -10,7 +11,8 @@ export default async function ChienPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const supabase = await createClient();
+  await exigerPersonnelPage();
+  const supabase = supabaseAdmin;
   const { id } = await params;
 
   const { data: chien } = await supabase

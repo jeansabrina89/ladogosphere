@@ -1,12 +1,14 @@
 import { modifierClient } from "./actions";
-import { createClient } from "../../../../src/utils/supabase/server";
+import { exigerPersonnelPage } from "../../../../src/lib/exigerPersonnelPage";
+import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 
 export default async function ModifierClientPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const supabase = await createClient();
+  await exigerPersonnelPage();
+  const supabase = supabaseAdmin;
   const { id } = await params;
 
   const { data: client } = await supabase

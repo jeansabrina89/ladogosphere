@@ -24,6 +24,7 @@ const liensEmploye = [
   { href: "/reservations", label: "📅 Réservations" },
   { href: "/planning", label: "🗂️ Planning" },
   { href: "/checkin", label: "✅ Check-in" },
+  { href: "/boxes", label: "🏠 Box" },
   { href: "/employes/mon-espace", label: "👤 Mon espace RH" },
 ];
 

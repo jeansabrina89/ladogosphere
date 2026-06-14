@@ -1,4 +1,5 @@
-import { createClient } from "../../src/utils/supabase/server";
+import { exigerPersonnelPage } from "../../src/lib/exigerPersonnelPage";
+import { supabaseAdmin } from "../../src/lib/supabase-admin";
 import PlanningNavigation from "./PlanningNavigation";
 import BoutonDeplacerChien from "./BoutonDeplacerChien";
 import BoutonMasquerBoxesVides from "./BoutonMasquerBoxesVides";
@@ -10,7 +11,8 @@ export default async function PlanningPage({
 }: {
   searchParams: Promise<{ date?: string; vue?: string; masquer?: string }>;
 }) {
-  const supabase = await createClient();
+  await exigerPersonnelPage();
+  const supabase = supabaseAdmin;
   const params = await searchParams;
   const aujourd_hui = aujourdhuiISO();
   const dateSelectionnee = params.date || aujourd_hui;

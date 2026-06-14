@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "../../../src/utils/supabase/server";
+import { exigerPersonnelPage } from "../../../src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import { getMouvementsAvoir, calculerSoldeAvoir } from "../../../src/lib/avoirs";
 import BoutonArchiverClient from "./BoutonArchiverClient";
@@ -13,7 +13,8 @@ export default async function ClientPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
+  await exigerPersonnelPage();
+  const supabase = supabaseAdmin;
 
   const { data: client } = await supabase
     .from("clients")

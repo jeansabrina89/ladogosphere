@@ -1,10 +1,12 @@
-import { createClient } from "../../src/utils/supabase/server";
+import { exigerPersonnelPage } from "../../src/lib/exigerPersonnelPage";
+import { supabaseAdmin } from "../../src/lib/supabase-admin";
 import { BoutonCheckin, BoutonCheckout } from "./BoutonsCheckin";
 import { formatBoxLabel } from "../../src/lib/boxes";
 import { aujourdhuiISO } from "../../src/lib/dates";
 
 export default async function CheckinPage() {
-  const supabase = await createClient();
+  await exigerPersonnelPage();
+  const supabase = supabaseAdmin;
   const aujourd_hui = aujourdhuiISO();
 
   const { data: checkins } = await supabase

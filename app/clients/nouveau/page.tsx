@@ -1,6 +1,8 @@
 import { creerClient } from "./actions";
+import { exigerPersonnelPage } from "../../../src/lib/exigerPersonnelPage";
 
-export default function NouveauClientPage() {
+export default async function NouveauClientPage() {
+  await exigerPersonnelPage();
   return (
     <main className="min-h-screen bg-slate-100 p-8">
       <div className="max-w-3xl mx-auto bg-white rounded-xl p-8 shadow">

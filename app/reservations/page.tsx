@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { createClient } from "../../src/utils/supabase/server";
+import { exigerPersonnelPage } from "../../src/lib/exigerPersonnelPage";
+import { supabaseAdmin } from "../../src/lib/supabase-admin";
 import { formatDate, aujourdhuiISO } from "../../src/lib/dates";
 import { formatBoxLabel } from "../../src/lib/boxes";
 import FiltresReservations from "./FiltresReservations";
@@ -12,7 +13,8 @@ export default async function ReservationsPage({
 }: {
   searchParams: Promise<{ filtre?: string; paiement?: string; recherche?: string }>;
 }) {
-  const supabase = await createClient();
+  await exigerPersonnelPage();
+  const supabase = supabaseAdmin;
   const params = await searchParams;
   const filtre = params.filtre || "toutes";
   const paiement = params.paiement || "tous";
