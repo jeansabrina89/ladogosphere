@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { sauvegarderPlanning } from "./actions";
+import BoutonPdf from "./BoutonPdf";
 
 type Employe = {
   id: string;
@@ -292,6 +293,7 @@ export default function GenerateurPlanning({
           style={{ backgroundColor: "#1B2B5E" }}>
           {saving ? "Sauvegarde..." : "💾 Sauvegarder"}
         </button>
+        <BoutonPdf mois={mois} annee={annee} />
       </div>
 
       {erreurSave && (
