@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { sauvegarderPlanning } from "./actions";
 import BoutonPdf from "./BoutonPdf";
+import { joursTravaillesSemaine } from "../../../src/lib/planningUtils";
 
 type Employe = {
   id: string;
@@ -54,12 +55,6 @@ function getJoursFeries(annee: number): string[] {
 const NOMS_MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
-const ROTATIONS: Record<number, number[][]> = {
-  100: [[6, 0], [5, 6], [0, 1], [4, 5]],
-  80:  [[5, 6, 0], [0, 1, 2], [3, 4, 5], [6, 0, 1]],
-  40:  [[6, 0], [1, 2], [4, 5], [6, 0]],
-  60:  [[1, 2, 3], [3, 4, 5], [5, 6, 0], [1, 2, 6]],
-};
 
 export default function GenerateurPlanning({
   employes, mois, annee, planningExistant, vacancesAcceptees, indisponibilites,
@@ -172,20 +167,27 @@ export default function GenerateurPlanning({
       employesActifs.forEach(emp => { joursChoisis[emp.id] = new Set(); });
 
       employesActifs.forEach(emp => {
-        const taux = emp.taux_travail;
-        const rotation = ROTATIONS[taux] || ROTATIONS[100];
-        const modele = rotation[idxSemaine % rotation.length];
-        const estRepos = taux >= 60;
+        const cible = joursTravaillesSemaine(emp.taux_travail, idxSemaine);
+        const joursLibres = semaine.filter(d => !fixes[emp.id][d]);
+        const n = joursLibres.length;
+        if (n === 0) return;
 
-        semaine.forEach(dateStr => {
-          if (fixes[emp.id][dateStr]) return;
-          const jourSemaine = new Date(dateStr + "T12:00:00").getDay();
-          if (estRepos) {
-            if (!modele.includes(jourSemaine)) joursChoisis[emp.id].add(dateStr);
-          } else {
-            if (modele.includes(jourSemaine)) joursChoisis[emp.id].add(dateStr);
+        const cible_actual = Math.min(cible, n);
+        const repos_count = n - cible_actual;
+
+        if (repos_count <= 0) {
+          joursLibres.forEach(d => joursChoisis[emp.id].add(d));
+        } else {
+          // Décaler le début du bloc de repos d'une semaine à l'autre pour la rotation
+          const offset = idxSemaine % n;
+          const reposPositions = new Set<number>();
+          for (let i = 0; i < repos_count; i++) {
+            reposPositions.add((offset + i) % n);
           }
-        });
+          joursLibres.forEach((d, idx) => {
+            if (!reposPositions.has(idx)) joursChoisis[emp.id].add(d);
+          });
+        }
       });
 
       semaine.forEach(dateStr => {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { moyenneJoursTravaillesSemaine } from "../../../../src/lib/planningUtils";
 
 export default function FormDemandeVacances({
   employe_id,
@@ -20,36 +21,28 @@ export default function FormDemandeVacances({
   const [success, setSuccess] = useState(false);
   const router = useRouter();
 
-  // Jours travaillés par semaine selon le taux
-  const joursParSemaine = Math.round(taux_travail / 100 * 5);
+  // Jours travaillés en moyenne par semaine selon le taux (source unique : planningUtils)
+  const joursParSemaine = moyenneJoursTravaillesSemaine(taux_travail);
 
   const calculerJoursVacances = (debut: string, fin: string): number => {
     if (!debut || !fin) return 0;
-    // Compter les semaines complètes et partielles
+    // Compter les jours ouvrables (lun-ven) dans la période
     let totalJours = 0;
     const d = new Date(debut + "T12:00:00");
     const f = new Date(fin + "T12:00:00");
-
-    // Compter les semaines entre les deux dates
     while (d <= f) {
       const jourSemaine = d.getDay();
-      // On compte les jours ouvrables (lun-ven)
-      if (jourSemaine !== 0 && jourSemaine !== 6) {
-        totalJours++;
-      }
+      if (jourSemaine !== 0 && jourSemaine !== 6) totalJours++;
       d.setDate(d.getDate() + 1);
     }
 
-    // Calculer le nombre de semaines pleines et le reste
+    // Convertir en semaines × jours/semaine + prorata du reste
     const nbSemainesCompletes = Math.floor(totalJours / 5);
     const joursRestants = totalJours % 5;
-
-    // Pour chaque semaine complète : joursParSemaine jours déduits
-    // Pour les jours restants : prorata
     const joursDeduitsComplets = nbSemainesCompletes * joursParSemaine;
-    const joursDeduitsReste = Math.round(joursRestants * joursParSemaine / 5);
+    const joursDeduitsReste = joursRestants * joursParSemaine / 5;
 
-    return joursDeduitsComplets + joursDeduitsReste;
+    return Math.round(joursDeduitsComplets + joursDeduitsReste);
   };
 
   const nbJours = calculerJoursVacances(dateDebut, dateFin);
