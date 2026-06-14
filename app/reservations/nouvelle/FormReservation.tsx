@@ -43,8 +43,9 @@ export default function FormReservation({
   const [clientSearch, setClientSearch] = useState("");
   const [clientListOpen, setClientListOpen] = useState(false);
 
-  // Filtre chiens
+  // Chiens combobox
   const [chienSearch, setChienSearch] = useState("");
+  const [chienListOpen, setChienListOpen] = useState(false);
 
   // Récurrence
   const [estRecurrente, setEstRecurrente] = useState(false);
@@ -408,33 +409,52 @@ export default function FormReservation({
           {/* Chiens */}
           <div>
             <label className="block font-semibold mb-1">Chien(s) *</label>
-            <input
-              type="text"
-              value={chienSearch}
-              onChange={e => setChienSearch(e.target.value)}
-              placeholder={clientSelectionne ? `Chercher parmi les chiens de ${clientSelectionne.prenom}…` : "Rechercher un chien…"}
-              className="w-full border rounded-xl p-2 mb-2 text-sm"
-            />
-            <div className="border rounded-xl p-3 space-y-2 max-h-48 overflow-y-auto">
-              {chiensFiltres.length === 0 ? (
-                <p className="text-sm text-gray-400">
-                  {clientId ? "Aucun chien pour ce client" : "Aucun chien trouvé"}
-                </p>
-              ) : (
-                chiensFiltres.map(c => (
-                  <label key={c.id} className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" name="chien_ids" value={c.id}
-                      checked={chiensSelectionnes.includes(c.id)}
-                      onChange={() => handleChienToggle(c.id)} />
-                    <span>
-                      {c.nom} — {c.race || "—"} —{" "}
-                      {c.poids ? `${c.poids} kg` : "?"} —{" "}
+            {chiensSelectionnesInfos.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {chiensSelectionnesInfos.map(c => (
+                  <span key={c.id} className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium"
+                    style={{ backgroundColor: "#E8F5F4", color: "#1B2B5E" }}>
+                    {c.nom}
+                    <button type="button"
+                      onClick={() => handleChienToggle(c.id)}
+                      className="ml-1 hover:text-red-500 font-bold leading-none">
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="relative">
+              <input
+                type="text"
+                value={chienSearch}
+                onChange={e => { setChienSearch(e.target.value); setChienListOpen(true); }}
+                onFocus={() => setChienListOpen(true)}
+                onBlur={() => setTimeout(() => setChienListOpen(false), 150)}
+                placeholder={clientSelectionne ? `Ajouter un chien de ${clientSelectionne.prenom}…` : "Rechercher un chien…"}
+                className="w-full border rounded-xl p-3"
+              />
+              {chienListOpen && (
+                <div className="absolute z-10 w-full bg-white border rounded-xl shadow-lg mt-1 max-h-60 overflow-y-auto">
+                  {chiensFiltres.filter(c => !chiensSelectionnes.includes(c.id)).slice(0, 20).map(c => (
+                    <button key={c.id} type="button"
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => { handleChienToggle(c.id); setChienSearch(""); }}
+                      className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm">
+                      {c.nom} — {c.race || "—"} — {c.poids ? `${c.poids} kg` : "?"} —{" "}
                       {c.categorie_poids === "moins_15kg" ? "🟢 Petit" :
                        c.categorie_poids === "15_30kg" ? "🟡 Moyen" :
                        c.categorie_poids === "30_40kg" ? "🔴 Grand" : "—"}
-                    </span>
-                  </label>
-                ))
+                    </button>
+                  ))}
+                  {chiensFiltres.filter(c => !chiensSelectionnes.includes(c.id)).length === 0 && (
+                    <p className="px-4 py-2 text-sm text-gray-400">
+                      {chiensSelectionnes.length > 0 && clientId
+                        ? "Tous les chiens de ce client sont sélectionnés"
+                        : clientId ? "Aucun chien pour ce client" : "Aucun chien trouvé"}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>
