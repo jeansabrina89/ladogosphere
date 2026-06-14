@@ -4,6 +4,7 @@ import { createClient } from "../../../src/utils/supabase/server";
 import { aujourdhuiISO } from "../../../src/lib/dates";
 import { getEmployeRhActuel } from "../../../src/lib/employeActuel";
 import Link from "next/link";
+import BoutonPdf from "../planning/BoutonPdf";
 
 export default async function MonEspaceRHPage() {
   const supabase = await createClient();
@@ -122,61 +123,6 @@ export default async function MonEspaceRHPage() {
         </h1>
         <p className="text-gray-500 mb-6">{employe.prenom} {employe.nom} — {employe.taux_travail}%</p>
 
-        {/* Stats mois */}
-        <h2 className="font-bold mb-3 text-sm uppercase tracking-wide text-gray-400">Ce mois</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p className="text-2xl font-bold" style={{ color: heuresSupMois >= 0 ? "#4AAEA0" : "#E8847A" }}>
-              {heuresSupMois >= 0 ? "+" : ""}{heuresSupMois.toFixed(1)}h
-            </p>
-            <p className="text-xs text-gray-500 mt-1">H.sup ce mois</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
-              {heuresTravailleesMois.toFixed(1)}h
-            </p>
-            <p className="text-xs text-gray-500 mt-1">Heures travaillées</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p className="text-2xl font-bold" style={{ color: heuresTheoMois >= 0 ? "#6B7280" : "#E8847A" }}>
-              {heuresTheoMois.toFixed(1)}h
-            </p>
-            <p className="text-xs text-gray-500 mt-1">Heures théoriques</p>
-          </div>
-        </div>
-
-        {/* Stats année */}
-        <h2 className="font-bold mb-3 text-sm uppercase tracking-wide text-gray-400">Cette année</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p className="text-2xl font-bold" style={{ color: heuresSupAnnee >= 0 ? "#4AAEA0" : "#E8847A" }}>
-              {heuresSupAnnee >= 0 ? "+" : ""}{heuresSupAnnee.toFixed(1)}h
-            </p>
-            <p className="text-xs text-gray-500 mt-1">Solde h.sup annuel</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p className="text-2xl font-bold" style={{ color: "#C9A84C" }}>
-              {joursVacancesRestants.toFixed(1)}j
-            </p>
-            <p className="text-xs text-gray-500 mt-1">Vacances restantes</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
-              {joursVacancesTotal}j
-              {bonusFeriers > 0 && (
-                <span className="text-sm text-orange-500 ml-1">+{bonusFeriers}🎉</span>
-              )}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">Droit annuel</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p className="text-2xl font-bold" style={{ color: "#E8847A" }}>
-              {joursVacancesPris}j
-            </p>
-            <p className="text-xs text-gray-500 mt-1">Vacances prises</p>
-          </div>
-        </div>
-
         {/* Actions rapides */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <Link href="/employes/mon-espace/timbrage"
@@ -212,11 +158,11 @@ export default async function MonEspaceRHPage() {
             )}
           </Link>
           <Link href="/employes/mon-espace/fiches-salaire"
-  className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition"
-  style={{ borderLeft: "4px solid #E8847A" }}>
-  <p className="font-bold" style={{ color: "#1B2B5E" }}>📊 Fiches de salaire</p>
-  <p className="text-xs text-gray-400 mt-1">Consulter mes fiches</p>
-</Link>
+            className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition"
+            style={{ borderLeft: "4px solid #E8847A" }}>
+            <p className="font-bold" style={{ color: "#1B2B5E" }}>📊 Fiches de salaire</p>
+            <p className="text-xs text-gray-400 mt-1">Consulter mes fiches</p>
+          </Link>
           <Link href="/employes/mon-espace/mot-de-passe"
             className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition"
             style={{ borderLeft: "4px solid #6B7280" }}>
@@ -225,9 +171,16 @@ export default async function MonEspaceRHPage() {
           </Link>
         </div>
 
+        {/* Téléchargement PDF du planning */}
+        <div className="bg-white rounded-xl p-5 shadow-sm mb-6" style={{ borderLeft: "4px solid #C9A84C" }}>
+          <p className="font-bold mb-1" style={{ color: "#1B2B5E" }}>📥 Planning équipe du mois</p>
+          <p className="text-xs text-gray-400 mb-3">Télécharger le planning complet de l'équipe en PDF</p>
+          <BoutonPdf mois={moisActuel} annee={anneeActuelle} />
+        </div>
+
         {/* Dernières demandes vacances */}
         {demandesVacances && demandesVacances.length > 0 && (
-          <div className="bg-white rounded-xl p-6 shadow-sm">
+          <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
             <h2 className="font-bold mb-4" style={{ color: "#1B2B5E" }}>
               🏖️ Mes demandes de vacances
             </h2>
@@ -254,6 +207,67 @@ export default async function MonEspaceRHPage() {
             </div>
           </div>
         )}
+
+        {/* Stats mois */}
+        <h2 className="font-bold mb-3 text-sm uppercase tracking-wide text-gray-400">Ce mois</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+            <p
+              className={heuresSupMois >= 0 ? "text-2xl font-bold" : "text-xl font-semibold"}
+              style={{ color: heuresSupMois >= 0 ? "#4AAEA0" : "#D97706" }}
+            >
+              {heuresSupMois >= 0 ? "+" : ""}{heuresSupMois.toFixed(1)}h
+            </p>
+            <p className="text-xs text-gray-500 mt-1">H.sup ce mois</p>
+          </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+            <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
+              {heuresTravailleesMois.toFixed(1)}h
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Heures travaillées</p>
+          </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+            <p className="text-2xl font-bold" style={{ color: "#6B7280" }}>
+              {heuresTheoMois.toFixed(1)}h
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Heures théoriques</p>
+          </div>
+        </div>
+
+        {/* Stats année */}
+        <h2 className="font-bold mb-3 text-sm uppercase tracking-wide text-gray-400">Cette année</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+            <p
+              className={heuresSupAnnee >= 0 ? "text-2xl font-bold" : "text-xl font-semibold"}
+              style={{ color: heuresSupAnnee >= 0 ? "#4AAEA0" : "#D97706" }}
+            >
+              {heuresSupAnnee >= 0 ? "+" : ""}{heuresSupAnnee.toFixed(1)}h
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Solde h.sup annuel</p>
+          </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+            <p className="text-2xl font-bold" style={{ color: "#C9A84C" }}>
+              {joursVacancesRestants.toFixed(1)}j
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Vacances restantes</p>
+          </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+            <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
+              {joursVacancesTotal}j
+              {bonusFeriers > 0 && (
+                <span className="text-sm text-orange-500 ml-1">+{bonusFeriers}🎉</span>
+              )}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Droit annuel</p>
+          </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+            <p className="text-2xl font-bold" style={{ color: "#E8847A" }}>
+              {joursVacancesPris}j
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Vacances prises</p>
+          </div>
+        </div>
 
       </div>
     </main>
