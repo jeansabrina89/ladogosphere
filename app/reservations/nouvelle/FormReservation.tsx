@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { formatBoxLabel } from "../../../src/lib/boxes";
 import SelectHeure from "../../components/SelectHeure";
 
@@ -46,6 +46,7 @@ export default function FormReservation({
   // Chiens combobox
   const [chienSearch, setChienSearch] = useState("");
   const [chienListOpen, setChienListOpen] = useState(false);
+  const chienSearchRef = useRef<HTMLInputElement>(null);
 
   // Récurrence
   const [estRecurrente, setEstRecurrente] = useState(false);
@@ -371,9 +372,15 @@ export default function FormReservation({
             <input type="hidden" name="client_id" value={clientId} />
             {clientSelectionne ? (
               <div className="flex items-center justify-between border rounded-xl p-3">
-                <span className="font-medium">
+                <button type="button"
+                  onClick={() => {
+                    setClientSearch(`${clientSelectionne.prenom} ${clientSelectionne.nom}`);
+                    setClientId("");
+                    setClientListOpen(true);
+                  }}
+                  className="font-medium text-left flex-1 hover:underline">
                   {clientSelectionne.prenom} {clientSelectionne.nom}{clientSelectionne.membre ? " ⭐" : ""}
-                </span>
+                </button>
                 <button type="button" onClick={handleClientClear}
                   className="text-gray-400 hover:text-red-500 ml-3 font-bold text-lg leading-none">
                   ✕
@@ -417,7 +424,11 @@ export default function FormReservation({
                 {chiensSelectionnesInfos.map(c => (
                   <span key={c.id} className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium"
                     style={{ backgroundColor: "#E8F5F4", color: "#1B2B5E" }}>
-                    {c.nom}
+                    <button type="button"
+                      onClick={() => chienSearchRef.current?.focus()}
+                      className="hover:underline">
+                      {c.nom}
+                    </button>
                     <button type="button"
                       onClick={() => handleChienToggle(c.id)}
                       className="ml-1 hover:text-red-500 font-bold leading-none">
@@ -429,6 +440,7 @@ export default function FormReservation({
             )}
             <div className="relative">
               <input
+                ref={chienSearchRef}
                 type="text"
                 value={chienSearch}
                 onChange={e => { setChienSearch(e.target.value); setChienListOpen(true); }}
