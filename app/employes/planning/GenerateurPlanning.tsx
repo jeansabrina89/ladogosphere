@@ -30,7 +30,6 @@ const STATUTS = [
   { val: "maladie",         label: "🤒 Maladie",           emoji: "🤒",   bg: "#FEE2E2", text: "#DC2626" },
   { val: "accident",        label: "🤕 Accident",          emoji: "🤕",   bg: "#FEE2E2", text: "#DC2626" },
   { val: "militaire",       label: "🎖️ Militaire",         emoji: "🎖️",  bg: "#EDE9FE", text: "#7C3AED" },
-  { val: "ferie",           label: "🎉 Férié (chômé)",     emoji: "🎉",   bg: "#FEF3C7", text: "#D97706" },
   { val: "ferie_travaille", label: "🎉✅ Férié travaillé", emoji: "🎉✅", bg: "#FEF3C7", text: "#15803D" },
   { val: "heures_sup",      label: "⏱️ Déd. H.sup",        emoji: "⏱️",  bg: "#DBEAFE", text: "#2563EB" },
   { val: "autre",           label: "📋 Autre",             emoji: "📋",   bg: "#F1F5F9", text: "#6B7280" },
@@ -80,8 +79,9 @@ export default function GenerateurPlanning({
 
   const joursParMois = new Date(annee, mois, 0).getDate();
   const joursFeries = getJoursFeries(annee);
+  const hasExistingPlanning = planningExistant.length > 0;
 
-  // Statut stocké tel quel en DB ; valeur inconnue → 'autre'
+  // 'ferie' (chômé) est supprimé ; les éventuelles lignes résiduelles sont traitées comme 'repos'
   const [planning, setPlanning] = useState<Record<string, Record<string, JourPlanning>>>(() => {
     const init: Record<string, Record<string, JourPlanning>> = {};
     employes.forEach(emp => {
@@ -89,7 +89,9 @@ export default function GenerateurPlanning({
       planningExistant
         .filter(p => p.employe_id === emp.id)
         .forEach(p => {
-          const statut = STATUTS.find(s => s.val === p.statut) ? p.statut : "autre";
+          const statut = p.statut === "ferie" ? "repos"
+            : STATUTS.find(s => s.val === p.statut) ? p.statut
+            : "autre";
           init[emp.id][p.date] = { ...p, statut };
         });
     });
@@ -133,6 +135,13 @@ export default function GenerateurPlanning({
   };
 
   const generer = async () => {
+    if (hasExistingPlanning) {
+      const ok = window.confirm(
+        "Régénérer remplacera le planning actuel de ce mois, y compris les modifications manuelles. Continuer ?"
+      );
+      if (!ok) return;
+    }
+
     setLoading(true);
     const dates = getDates();
     const nouveauPlanning: Record<string, Record<string, JourPlanning>> = {};
@@ -199,12 +208,12 @@ export default function GenerateurPlanning({
               employe_id: emp.id, date: dateStr, statut: fixes[emp.id][dateStr]
             };
           } else if (joursChoisis[emp.id].has(dateStr)) {
-            // Jour férié → 'ferie' (chômé) par défaut ; l'admin peut passer à 'ferie_travaille'
+            // Jour férié travaillé → 'ferie_travaille' ; sinon 'travail'
             const estJourFerie = joursFeries.includes(dateStr);
             nouveauPlanning[emp.id][dateStr] = {
               employe_id: emp.id,
               date: dateStr,
-              statut: estJourFerie ? "ferie" : "travail"
+              statut: estJourFerie ? "ferie_travaille" : "travail"
             };
           } else {
             nouveauPlanning[emp.id][dateStr] = {
@@ -271,7 +280,7 @@ export default function GenerateurPlanning({
         <button onClick={generer} disabled={loading}
           className="px-6 py-3 rounded-xl font-semibold text-white disabled:opacity-50"
           style={{ backgroundColor: "#4AAEA0" }}>
-          {loading ? "Génération..." : "⚡ Générer automatiquement"}
+          {loading ? "Génération..." : hasExistingPlanning ? "⚡ Régénérer" : "⚡ Générer automatiquement"}
         </button>
         <button onClick={sauvegarder} disabled={saving}
           className="px-6 py-3 rounded-xl font-semibold text-white disabled:opacity-50"

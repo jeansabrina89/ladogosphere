@@ -19,13 +19,14 @@ type JourPlanning = {
   note?: string;
 };
 
-// Les 11 valeurs acceptées par planning_employes_statut_check — chaque statut est stocké tel quel
+// 10 valeurs actives — 'ferie' (chômé) supprimé : anciennes lignes converties en 'repos' en base
 const DB_STATUTS_VALIDES = new Set([
   "travail", "repos", "vacances", "maladie", "accident", "militaire",
-  "ferie", "ferie_travaille", "absent", "heures_sup", "autre",
+  "ferie_travaille", "absent", "heures_sup", "autre",
 ]);
 
 function toDbStatut(s: string): string {
+  if (s === "ferie") return "repos"; // garde-fou : ne jamais réécrire 'ferie' en base
   return DB_STATUTS_VALIDES.has(s) ? s : "autre";
 }
 

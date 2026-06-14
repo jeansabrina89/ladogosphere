@@ -18,7 +18,6 @@ const PDF_STATUTS: Record<string, PdfStatut> = {
   maladie:         { abbr: "Ma",  bg: [254, 226, 226], text: [220,  38,  38], label: "Maladie" },
   accident:        { abbr: "Ac",  bg: [254, 226, 226], text: [220,  38,  38], label: "Accident" },
   militaire:       { abbr: "Mi",  bg: [237, 233, 254], text: [124,  58, 237], label: "Militaire" },
-  ferie:           { abbr: "F",   bg: [254, 243, 199], text: [217, 119,   6], label: "Ferie (chome)" },
   ferie_travaille: { abbr: "F+",  bg: [254, 243, 199], text: [21,  128,  61], label: "Ferie travaille" },
   heures_sup:      { abbr: "HS",  bg: [219, 234, 254], text: [37,   99, 235], label: "Heures sup." },
   autre:           { abbr: "Au",  bg: [241, 245, 249], text: [107, 114, 128], label: "Autre" },
@@ -26,7 +25,7 @@ const PDF_STATUTS: Record<string, PdfStatut> = {
 
 const LEGENDE_ORDRE: string[] = [
   "travail", "repos", "vacances", "maladie", "accident",
-  "militaire", "ferie", "ferie_travaille", "absent", "heures_sup", "autre",
+  "militaire", "ferie_travaille", "absent", "heures_sup", "autre",
 ];
 
 const NOMS_MOIS = [
