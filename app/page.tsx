@@ -1,15 +1,28 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "../src/utils/supabase/server";
-import { createSupabaseServerClient } from "../src/lib/supabase-server";
+import { supabaseAdmin } from "../src/lib/supabase-admin";
+import { getProfilePerms } from "../src/lib/getProfilePerms";
 import { aujourdhuiISO } from "../src/lib/dates";
 import CarteReservationAttente from "./components/CarteReservationAttente";
 import BoutonsCheckinDashboard from "./components/BoutonsCheckinDashboard";
 
 export default async function Home() {
+  // Garde personnalisée — exigerPersonnelPage() ne peut pas être utilisé ici
+  // car il redirige les non-personnels vers "/" ce qui crée une boucle infinie.
   const supabase = await createClient();
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (!["admin", "employe"].includes(profile?.role ?? "")) redirect("/mon-compte");
+
+  const perms = await getProfilePerms();
   const aujourd_hui = aujourdhuiISO();
 
   const [
@@ -21,16 +34,16 @@ export default async function Home() {
     { data: arrivees },
     { data: departs },
   ] = await Promise.all([
-    supabase.from("chiens").select("*", { count: "exact", head: true }).eq("actif", true),
-    supabase.from("clients").select("*", { count: "exact", head: true }).eq("actif", true),
-    supabase.from("reservations").select("*", { count: "exact", head: true }).eq("statut", "en_attente"),
-    supabase.from("checkin_checkout").select("*", { count: "exact", head: true }).eq("statut", "arrive"),
-    supabase.from("reservations")
+    supabaseAdmin.from("chiens").select("*", { count: "exact", head: true }).eq("actif", true),
+    supabaseAdmin.from("clients").select("*", { count: "exact", head: true }).eq("actif", true),
+    supabaseAdmin.from("reservations").select("*", { count: "exact", head: true }).eq("statut", "en_attente"),
+    supabaseAdmin.from("checkin_checkout").select("*", { count: "exact", head: true }).eq("statut", "arrive"),
+    supabaseAdmin.from("reservations")
       .select(`*, clients (prenom, nom), reservation_chiens (chiens (nom))`)
       .eq("statut", "en_attente")
       .order("created_at", { ascending: false })
       .limit(10),
-    supabase.from("checkin_checkout")
+    supabaseAdmin.from("checkin_checkout")
       .select(`
         id, statut, reservation_id,
         reservations (
@@ -42,7 +55,7 @@ export default async function Home() {
       .eq("statut", "attendu")
       .gte("date_arrivee_prevue", `${aujourd_hui}T00:00:00Z`)
       .lte("date_arrivee_prevue", `${aujourd_hui}T23:59:59Z`),
-    supabase.from("checkin_checkout")
+    supabaseAdmin.from("checkin_checkout")
       .select(`
         id, statut, reservation_id,
         reservations (
@@ -55,6 +68,13 @@ export default async function Home() {
       .gte("date_depart_prevu", `${aujourd_hui}T00:00:00Z`)
       .lte("date_depart_prevu", `${aujourd_hui}T23:59:59Z`),
   ]);
+
+  const accesRapides = [
+    perms.perm_checkin && { href: "/checkin", label: "✅ Check-in / Check-out", desc: "Gérer les arrivées et départs" },
+    perms.perm_box && { href: "/planning", label: "🏠 Planning des boxes", desc: "Vue semaine et mois" },
+    perms.perm_reservations_creer && { href: "/reservations/nouvelle", label: "📅 Nouvelle réservation", desc: "Créer une réservation admin" },
+    perms.perm_clients_creer && { href: "/clients/nouveau", label: "👤 Nouveau client", desc: "Ajouter un client" },
+  ].filter(Boolean) as { href: string; label: string; desc: string }[];
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -104,7 +124,7 @@ export default async function Home() {
 
           <div className="bg-white rounded-xl p-6 shadow-sm">
             <h2 className="text-xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
-              🐾 Arrivées aujourd'hui
+              🐾 Arrivées aujourd&apos;hui
               <span className="ml-2 px-2 py-0.5 rounded-full text-sm font-bold bg-green-100 text-green-700">
                 {arrivees?.length ?? 0}
               </span>
@@ -126,11 +146,13 @@ export default async function Home() {
                         {cc.reservations?.heure_arrivee && ` · ${cc.reservations.heure_arrivee}`}
                       </p>
                     </div>
-                    <BoutonsCheckinDashboard
-                      checkin_id={cc.id}
-                      statut={cc.statut}
-                      type="arrivee"
-                    />
+                    {perms.perm_checkin && (
+                      <BoutonsCheckinDashboard
+                        checkin_id={cc.id}
+                        statut={cc.statut}
+                        type="arrivee"
+                      />
+                    )}
                   </div>
                 );
               })}
@@ -139,7 +161,7 @@ export default async function Home() {
 
           <div className="bg-white rounded-xl p-6 shadow-sm">
             <h2 className="text-xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
-              🏠 Départs aujourd'hui
+              🏠 Départs aujourd&apos;hui
               <span className="ml-2 px-2 py-0.5 rounded-full text-sm font-bold bg-rose-100 text-rose-700">
                 {departs?.length ?? 0}
               </span>
@@ -161,11 +183,13 @@ export default async function Home() {
                         {cc.reservations?.heure_depart && ` · ${cc.reservations.heure_depart}`}
                       </p>
                     </div>
-                    <BoutonsCheckinDashboard
-                      checkin_id={cc.id}
-                      statut={cc.statut}
-                      type="depart"
-                    />
+                    {perms.perm_checkin && (
+                      <BoutonsCheckinDashboard
+                        checkin_id={cc.id}
+                        statut={cc.statut}
+                        type="depart"
+                      />
+                    )}
                   </div>
                 );
               })}
@@ -174,7 +198,7 @@ export default async function Home() {
 
         </div>
 
-        {/* Stats */}
+        {/* Stats opérationnelles */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-xl p-6 shadow-sm text-center">
             <p className="text-4xl font-bold" style={{ color: "#4AAEA0" }}>{chiensPresents}</p>
@@ -182,11 +206,11 @@ export default async function Home() {
           </div>
           <div className="bg-white rounded-xl p-6 shadow-sm text-center">
             <p className="text-4xl font-bold" style={{ color: "#E8847A" }}>{arrivees?.length ?? 0}</p>
-            <p className="text-gray-500 text-sm mt-1">Arrivées aujourd'hui</p>
+            <p className="text-gray-500 text-sm mt-1">Arrivées aujourd&apos;hui</p>
           </div>
           <div className="bg-white rounded-xl p-6 shadow-sm text-center">
             <p className="text-4xl font-bold" style={{ color: "#C9A84C" }}>{departs?.length ?? 0}</p>
-            <p className="text-gray-500 text-sm mt-1">Départs aujourd'hui</p>
+            <p className="text-gray-500 text-sm mt-1">Départs aujourd&apos;hui</p>
           </div>
           <div className="bg-white rounded-xl p-6 shadow-sm text-center">
             <p className="text-4xl font-bold" style={{ color: "#1B2B5E" }}>{reservationsAttente}</p>
@@ -219,22 +243,19 @@ export default async function Home() {
           </div>
         </div>
 
-        {/* Accès rapides */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { href: "/checkin", label: "✅ Check-in / Check-out", desc: "Gérer les arrivées et départs" },
-            { href: "/planning", label: "🏠 Planning des boxes", desc: "Vue semaine et mois" },
-            { href: "/reservations/nouvelle", label: "📅 Nouvelle réservation", desc: "Créer une réservation admin" },
-            { href: "/clients/nouveau", label: "👤 Nouveau client", desc: "Ajouter un client" },
-          ].map(({ href, label, desc }) => (
-            <Link key={href} href={href}
-              className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition text-left"
-              style={{ borderLeft: "4px solid #4AAEA0" }}>
-              <p className="font-bold" style={{ color: "#1B2B5E" }}>{label}</p>
-              <p className="text-gray-400 text-xs mt-1">{desc}</p>
-            </Link>
-          ))}
-        </div>
+        {/* Accès rapides — conditionné par les permissions */}
+        {accesRapides.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {accesRapides.map(({ href, label, desc }) => (
+              <Link key={href} href={href}
+                className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition text-left"
+                style={{ borderLeft: "4px solid #4AAEA0" }}>
+                <p className="font-bold" style={{ color: "#1B2B5E" }}>{label}</p>
+                <p className="text-gray-400 text-xs mt-1">{desc}</p>
+              </Link>
+            ))}
+          </div>
+        )}
 
       </div>
     </main>
