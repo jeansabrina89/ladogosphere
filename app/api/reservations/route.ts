@@ -27,6 +27,39 @@ export async function POST(req: NextRequest) {
     if (urgGarde) return urgGarde;
   }
 
+  // Validation statut_essai
+  if (chien_ids.length > 0) {
+    const { data: chiensData } = await supabaseAdmin
+      .from("chiens")
+      .select("id, nom, statut_essai")
+      .in("id", chien_ids);
+
+    const chiensRefuses = (chiensData ?? []).filter((c: any) => c.statut_essai === 'refuse');
+    if (chiensRefuses.length > 0) {
+      const nom = chiensRefuses[0].nom;
+      return NextResponse.json({
+        error: `${nom} n'a pas été accepté à l'issue de sa journée d'essai et ne peut donc pas faire l'objet d'une réservation. N'hésitez pas à nous contacter pour plus d'informations ou pour envisager une nouvelle journée d'essai.`,
+      }, { status: 400 });
+    }
+
+    if (type_reservation === 'essai') {
+      const tousValides = (chiensData ?? []).every((c: any) => c.statut_essai === 'valide');
+      if (tousValides) {
+        return NextResponse.json({
+          error: "Tous les chiens sélectionnés ont déjà validé leur journée d'essai. Veuillez choisir 'Journée' ou 'Séjour'.",
+        }, { status: 400 });
+      }
+    } else {
+      const chiensNonValides = (chiensData ?? []).filter((c: any) => c.statut_essai !== 'valide');
+      if (chiensNonValides.length > 0) {
+        const nom = chiensNonValides[0].nom;
+        return NextResponse.json({
+          error: `${nom} doit d'abord valider sa journée d'essai avant de pouvoir réserver une journée ou un séjour. Vous pouvez réserver une journée d'essai.`,
+        }, { status: 400 });
+      }
+    }
+  }
+
   // Créer la réservation
   const { data: reservation, error } = await supabaseAdmin
     .from("reservations")

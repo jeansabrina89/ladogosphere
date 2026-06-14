@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   // Vérifier que les chiens appartiennent bien à la fiche client connectée
   const { data: chiensOwned, error: chiensErr } = await supabaseServer
     .from("chiens")
-    .select("id, nom, journee_essai_effectuee, journee_essai_invalide")
+    .select("id, nom, statut_essai")
     .eq("client_id", fiche.id)
     .in("id", chien_ids);
 
@@ -51,14 +51,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Chien(s) invalide(s)." }, { status: 403 });
   }
 
-  // Séjour / journée : tous les chiens doivent avoir validé leur journée d'essai
-  if (type_reservation !== "essai") {
-    const chiensNonEligibles = chiensOwned.filter(
-      c => !c.journee_essai_effectuee || c.journee_essai_invalide
-    );
-    if (chiensNonEligibles.length > 0) {
+  // Chien refusé → blocage systématique
+  const chiensRefuses = chiensOwned.filter((c: any) => c.statut_essai === 'refuse');
+  if (chiensRefuses.length > 0) {
+    const nom = chiensRefuses[0].nom;
+    return NextResponse.json({
+      error: `${nom} n'a pas été accepté à l'issue de sa journée d'essai et ne peut donc pas faire l'objet d'une réservation. N'hésitez pas à nous contacter pour plus d'informations ou pour envisager une nouvelle journée d'essai.`,
+    }, { status: 400 });
+  }
+
+  if (type_reservation === 'essai') {
+    // Essai inutile si tous les chiens sont déjà validés
+    const tousValides = chiensOwned.every((c: any) => c.statut_essai === 'valide');
+    if (tousValides) {
       return NextResponse.json({
-        error: `${chiensNonEligibles.map(c => c.nom).join(", ")} doi${chiensNonEligibles.length > 1 ? "vent" : "t"} d'abord effectuer leur journée d'essai avant de pouvoir réserver un séjour ou une journée.`,
+        error: "Tous vos chiens ont déjà validé leur journée d'essai. Veuillez choisir 'Journée' ou 'Séjour'.",
+      }, { status: 400 });
+    }
+  } else {
+    // Journée ou séjour : tous les chiens doivent être validés
+    const chiensNonValides = chiensOwned.filter((c: any) => c.statut_essai !== 'valide');
+    if (chiensNonValides.length > 0) {
+      const noms = chiensNonValides.map((c: any) => c.nom).join(", ");
+      return NextResponse.json({
+        error: `${noms} ${chiensNonValides.length > 1 ? "doivent" : "doit"} d'abord valider ${chiensNonValides.length > 1 ? "leur" : "sa"} journée d'essai avant de pouvoir réserver une journée ou un séjour.`,
       }, { status: 400 });
     }
   }
