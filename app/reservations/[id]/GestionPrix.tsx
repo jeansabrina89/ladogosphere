@@ -166,7 +166,10 @@ export default function GestionPrix({
         <div className="border-t pt-3 flex justify-between items-center">
           <span className="font-semibold" style={{ color: "#1B2B5E" }}>Total dû</span>
           <span className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
-            {(Number(montant_final) || 0).toFixed(2)} CHF
+            {(
+              Number(montant_final) ||
+              Math.max(0, calcule + ajustement + extras.reduce((s, e) => s + Number(e.montant), 0))
+            ).toFixed(2)} CHF
           </span>
         </div>
 
