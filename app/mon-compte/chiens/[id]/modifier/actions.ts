@@ -30,8 +30,9 @@ export async function modifierChienClient(chien_id: string, formData: FormData) 
   const poids = formData.get("poids") ? Number(formData.get("poids")) : null;
   const sexe = (formData.get("sexe") as string || "").trim();
   const sterilisation = (formData.get("sterilisation") as string || "").trim();
+  const numero_puce = (formData.get("numero_puce") as string || "").trim();
 
-  if (!nom || !race || !couleur || !poids || !sexe || !["oui", "non", "chimique"].includes(sterilisation)) {
+  if (!nom || !race || !couleur || !poids || !sexe || !["oui", "non", "chimique"].includes(sterilisation) || !numero_puce) {
     throw new Error("Merci de remplir tous les champs obligatoires.");
   }
 
@@ -48,7 +49,7 @@ export async function modifierChienClient(chien_id: string, formData: FormData) 
       sterilisation,
       sterilise: sterilisation === "oui",
       date_naissance: formData.get("date_naissance") as string || null,
-      numero_puce: formData.get("numero_puce") as string || null,
+      numero_puce: numero_puce || null,
       allergies: formData.get("allergies") as string || null,
       traitements: formData.get("traitements") as string || null,
       remarques: formData.get("remarques") as string || null,

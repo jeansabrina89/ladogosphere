@@ -15,17 +15,21 @@ export async function creerChien(formData: FormData) {
   if (verif.error) throw new Error(verif.error);
 
   const client_id = formData.get("client_id") as string;
-  const nom = formData.get("nom") as string;
-  const race = formData.get("race") as string;
-  const couleur = formData.get("couleur") as string;
+  const nom = (formData.get("nom") as string || "").trim();
+  const race = (formData.get("race") as string || "").trim();
+  const couleur = (formData.get("couleur") as string || "").trim();
   const poids = Number(formData.get("poids"));
   const dateNaissanceValue = formData.get("date_naissance") as string;
   const date_naissance = dateNaissanceValue || null;
-  const sexe = formData.get("sexe") as string;
+  const sexe = (formData.get("sexe") as string || "").trim();
   const sterilisationRaw = formData.get("sterilisation") as string;
   const sterilisation = ["oui", "non", "chimique"].includes(sterilisationRaw) ? sterilisationRaw : "non";
   const sterilise = sterilisation === "oui";
-  const numero_puce = formData.get("numero_puce") as string;
+  const numero_puce = (formData.get("numero_puce") as string || "").trim();
+
+  if (!nom || !race || !numero_puce || !poids || !sexe) {
+    throw new Error("Merci de remplir tous les champs obligatoires (nom, race, puce, poids, sexe).");
+  }
   const niveau_energie = formData.get("niveau_energie") as string;
   const allergies = formData.get("allergies") as string;
   const traitements = formData.get("traitements") as string;

@@ -36,8 +36,8 @@ export default async function NouveauChienPage() {
           </div>
 
           <div>
-            <label className="block font-semibold mb-1">Race</label>
-            <input name="race" type="text" className="w-full border rounded-xl p-3" />
+            <label className="block font-semibold mb-1">Race *</label>
+            <input name="race" type="text" required className="w-full border rounded-xl p-3" />
           </div>
 
           <div>
@@ -77,8 +77,8 @@ export default async function NouveauChienPage() {
           </div>
 
           <div>
-            <label className="block font-semibold mb-1">Numéro de puce</label>
-            <input name="numero_puce" type="text" className="w-full border rounded-xl p-3" />
+            <label className="block font-semibold mb-1">Numéro de puce *</label>
+            <input name="numero_puce" type="text" required className="w-full border rounded-xl p-3" />
           </div>
 
           <div>

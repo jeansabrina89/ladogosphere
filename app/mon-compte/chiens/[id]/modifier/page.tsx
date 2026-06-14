@@ -78,8 +78,8 @@ export default async function ModifierChienClientPage({
             <input name="date_naissance" type="date" defaultValue={chien.date_naissance ? String(chien.date_naissance).slice(0, 10) : ""} className="w-full border rounded-xl p-3" />
           </div>
           <div>
-            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Numéro de puce</label>
-            <input name="numero_puce" type="text" defaultValue={chien.numero_puce ?? ""} className="w-full border rounded-xl p-3" />
+            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Numéro de puce *</label>
+            <input name="numero_puce" type="text" required defaultValue={chien.numero_puce ?? ""} className="w-full border rounded-xl p-3" />
           </div>
           <div>
             <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Allergies</label>

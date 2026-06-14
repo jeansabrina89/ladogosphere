@@ -17,12 +17,18 @@ export async function modifierChien(id: string, formData: FormData) {
   const poids = Number(formData.get("poids"));
   const sterilisationRaw = formData.get("sterilisation") as string;
   const sterilisation = ["oui", "non", "chimique"].includes(sterilisationRaw) ? sterilisationRaw : "non";
+  const race = (formData.get("race") as string || "").trim();
+  const numero_puce = (formData.get("numero_puce") as string || "").trim();
+
+  if (!race || !numero_puce) {
+    throw new Error("La race et le numéro de puce sont obligatoires.");
+  }
 
   const { error } = await supabaseAdmin
     .from("chiens")
     .update({
       nom: formData.get("nom"),
-      race: formData.get("race"),
+      race,
       couleur: formData.get("couleur"),
       poids,
       categorie_poids: calculerCategorie(poids),
@@ -30,7 +36,7 @@ export async function modifierChien(id: string, formData: FormData) {
       sexe: formData.get("sexe"),
       sterilisation,
       sterilise: sterilisation === "oui",
-      numero_puce: formData.get("numero_puce"),
+      numero_puce,
       niveau_energie: formData.get("niveau_energie"),
       allergies: formData.get("allergies"),
       traitements: formData.get("traitements"),

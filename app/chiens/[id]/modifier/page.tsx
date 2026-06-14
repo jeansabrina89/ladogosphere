@@ -38,8 +38,8 @@ export default async function ModifierChienPage({
           </div>
 
           <div>
-            <label className="block font-semibold mb-1">Race</label>
-            <input name="race" defaultValue={chien.race || ""}
+            <label className="block font-semibold mb-1">Race *</label>
+            <input name="race" required defaultValue={chien.race || ""}
               className="w-full border rounded-xl p-3" />
           </div>
 
@@ -91,8 +91,8 @@ export default async function ModifierChienPage({
           </div>
 
           <div>
-            <label className="block font-semibold mb-1">Numéro de puce</label>
-            <input name="numero_puce" defaultValue={chien.numero_puce || ""}
+            <label className="block font-semibold mb-1">Numéro de puce *</label>
+            <input name="numero_puce" required defaultValue={chien.numero_puce || ""}
               className="w-full border rounded-xl p-3" />
           </div>
 
