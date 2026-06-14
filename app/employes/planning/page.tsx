@@ -1,6 +1,6 @@
-import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
-import { redirect } from "next/navigation";
 import { createClient } from "../../../src/utils/supabase/server";
+import { supabaseAdmin } from "../../../src/lib/supabase-admin";
+import { redirect } from "next/navigation";
 import GenerateurPlanning from "./GenerateurPlanning";
 
 export default async function PlanningAdminPage({
@@ -9,8 +9,7 @@ export default async function PlanningAdminPage({
   searchParams: Promise<{ mois?: string; annee?: string }>;
 }) {
   const supabase = await createClient();
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase
@@ -22,35 +21,36 @@ export default async function PlanningAdminPage({
   const moisActuel = parseInt(params.mois || String(aujourd_hui.getMonth() + 1));
   const anneeActuelle = parseInt(params.annee || String(aujourd_hui.getFullYear()));
 
-  const { data: employes } = await supabase
-    .from("employes_rh")
-    .select("*")
-    .eq("actif", true)
-    .order("nom");
-
   const dateDebutMois = `${anneeActuelle}-${String(moisActuel).padStart(2, "0")}-01`;
   const dateFinMois = new Date(anneeActuelle, moisActuel, 0).toISOString().split("T")[0];
 
-  // Planning existant
-  const { data: planningExistant } = await supabase
-    .from("planning_employes")
-    .select("*")
-    .gte("date", dateDebutMois)
-    .lte("date", dateFinMois);
-
-  // Vacances acceptées
-  const { data: vacancesAcceptees } = await supabase
-    .from("demandes_vacances")
-    .select("*, employes_rh (id)")
-    .eq("statut", "acceptee")
-    .or(`and(date_debut.lte.${dateFinMois},date_fin.gte.${dateDebutMois})`);
-
-  // Indisponibilités
-  const { data: indisponibilites } = await supabase
-    .from("indisponibilites")
-    .select("*")
-    .gte("date", dateDebutMois)
-    .lte("date", dateFinMois);
+  const [
+    { data: employes },
+    { data: planningExistant },
+    { data: vacancesAcceptees },
+    { data: indisponibilites },
+  ] = await Promise.all([
+    supabaseAdmin
+      .from("employes_rh")
+      .select("*")
+      .eq("actif", true)
+      .order("nom"),
+    supabaseAdmin
+      .from("planning_employes")
+      .select("*")
+      .gte("date", dateDebutMois)
+      .lte("date", dateFinMois),
+    supabaseAdmin
+      .from("demandes_vacances")
+      .select("*, employes_rh (id)")
+      .eq("statut", "acceptee")
+      .or(`and(date_debut.lte.${dateFinMois},date_fin.gte.${dateDebutMois})`),
+    supabaseAdmin
+      .from("indisponibilites")
+      .select("*")
+      .gte("date", dateDebutMois)
+      .lte("date", dateFinMois),
+  ]);
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { sauvegarderPlanning } from "./actions";
 
 type Employe = {
   id: string;
@@ -50,37 +51,30 @@ function getJoursFeries(annee: number): string[] {
 const NOMS_MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
-// Modèles de repos rotatifs pour chaque taux
-// Index = numéro de semaine % nb_rotations
-// Valeur = jour de repos (1=Lun, 2=Mar, 3=Mer, 4=Jeu, 5=Ven, 6=Sam, 0=Dim)
 const ROTATIONS: Record<number, number[][]> = {
-  // 100% = 5j travail / 2j repos → rotation des 2j de repos
   100: [
-    [6, 0], // Sem 1: repos Sam+Dim
-    [5, 6], // Sem 2: repos Ven+Sam
-    [0, 1], // Sem 3: repos Dim+Lun
-    [4, 5], // Sem 4: repos Jeu+Ven
+    [6, 0],
+    [5, 6],
+    [0, 1],
+    [4, 5],
   ],
-  // 80% = 4j travail / 3j repos → rotation des 3j de repos
   80: [
-    [5, 6, 0], // Sem 1: repos Ven+Sam+Dim
-    [0, 1, 2], // Sem 2: repos Dim+Lun+Mar
-    [3, 4, 5], // Sem 3: repos Mer+Jeu+Ven
-    [6, 0, 1], // Sem 4: repos Sam+Dim+Lun
+    [5, 6, 0],
+    [0, 1, 2],
+    [3, 4, 5],
+    [6, 0, 1],
   ],
-  // 40% = 2j travail / 5j repos → rotation des 2j de travail
   40: [
-    [6, 0], // Sem 1: travail Sam+Dim
-    [1, 2], // Sem 2: travail Lun+Mar
-    [4, 5], // Sem 3: travail Jeu+Ven
-    [6, 0], // Sem 4: travail Sam+Dim
+    [6, 0],
+    [1, 2],
+    [4, 5],
+    [6, 0],
   ],
-  // 60% = 3j travail / 4j repos
   60: [
-    [1, 2, 3], // Sem 1: travail Lun+Mar+Mer
-    [3, 4, 5], // Sem 2: travail Mer+Jeu+Ven
-    [5, 6, 0], // Sem 3: travail Ven+Sam+Dim
-    [1, 2, 6], // Sem 4: travail Lun+Mar+Sam
+    [1, 2, 3],
+    [3, 4, 5],
+    [5, 6, 0],
+    [1, 2, 6],
   ],
 };
 
@@ -97,6 +91,7 @@ export default function GenerateurPlanning({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [erreurSave, setErreurSave] = useState<string | null>(null);
   const [celluleActive, setCelluleActive] = useState<{ employe_id: string; date: string } | null>(null);
 
   const joursParMois = new Date(annee, mois, 0).getDate();
@@ -155,7 +150,6 @@ export default function GenerateurPlanning({
 
     employes.forEach(emp => { nouveauPlanning[emp.id] = {}; });
 
-    // Grouper par semaine
     const semaines: string[][] = [];
     let semaineCourante: string[] = [];
     dates.forEach(dateStr => {
@@ -166,8 +160,6 @@ export default function GenerateurPlanning({
     if (semaineCourante.length > 0) semaines.push(semaineCourante);
 
     semaines.forEach((semaine, idxSemaine) => {
-
-      // ÉTAPE 1 : Statuts fixes
       const fixes: Record<string, Record<string, string>> = {};
       employesActifs.forEach(emp => {
         fixes[emp.id] = {};
@@ -177,7 +169,6 @@ export default function GenerateurPlanning({
         });
       });
 
-      // ÉTAPE 2 : Appliquer le modèle rotatif
       const joursChoisis: Record<string, Set<string>> = {};
       employesActifs.forEach(emp => { joursChoisis[emp.id] = new Set(); });
 
@@ -185,48 +176,32 @@ export default function GenerateurPlanning({
         const taux = emp.taux_travail;
         const rotation = ROTATIONS[taux] || ROTATIONS[100];
         const modele = rotation[idxSemaine % rotation.length];
-
-        // Pour 40% et 60% : modele = jours de TRAVAIL
-        // Pour 80% et 100% : modele = jours de REPOS
         const estRepos = taux >= 60;
 
         semaine.forEach(dateStr => {
           if (fixes[emp.id][dateStr]) return;
-
           const jourSemaine = new Date(dateStr + "T12:00:00").getDay();
-
           if (estRepos) {
-            // Travailler sauf les jours de repos du modèle
-            if (!modele.includes(jourSemaine)) {
-              joursChoisis[emp.id].add(dateStr);
-            }
+            if (!modele.includes(jourSemaine)) joursChoisis[emp.id].add(dateStr);
           } else {
-            // Travailler seulement les jours du modèle
-            if (modele.includes(jourSemaine)) {
-              joursChoisis[emp.id].add(dateStr);
-            }
+            if (modele.includes(jourSemaine)) joursChoisis[emp.id].add(dateStr);
           }
         });
       });
 
-      // ÉTAPE 3 : Vérifier couverture minimale
       semaine.forEach(dateStr => {
         if (fixes[employesActifs[0]?.id]?.[dateStr]) return;
         const travaillent = employesActifs.filter(emp =>
           joursChoisis[emp.id].has(dateStr) || fixes[emp.id][dateStr] === "travail"
         );
-
         if (travaillent.length === 0) {
-          // Forcer le 100% s'il est disponible
           const forceable = employesActifs.find(emp =>
             emp.taux_travail === 100 && !fixes[emp.id][dateStr]
           ) || employesActifs.find(emp => !fixes[emp.id][dateStr]);
-
           if (forceable) joursChoisis[forceable.id].add(dateStr);
         }
       });
 
-      // ÉTAPE 4 : Appliquer
       employesActifs.forEach(emp => {
         semaine.forEach(dateStr => {
           if (fixes[emp.id][dateStr]) {
@@ -234,12 +209,12 @@ export default function GenerateurPlanning({
               employe_id: emp.id, date: dateStr, statut: fixes[emp.id][dateStr]
             };
           } else if (joursChoisis[emp.id].has(dateStr)) {
-  const estJourFerie = joursFeries.includes(dateStr);
-  nouveauPlanning[emp.id][dateStr] = {
-    employe_id: emp.id,
-    date: dateStr,
-    statut: estJourFerie ? "ferie_travaille" : "travail"
-  };
+            const estJourFerie = joursFeries.includes(dateStr);
+            nouveauPlanning[emp.id][dateStr] = {
+              employe_id: emp.id,
+              date: dateStr,
+              statut: estJourFerie ? "ferie_travaille" : "travail"
+            };
           } else {
             nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut: "repos" };
           }
@@ -253,15 +228,18 @@ export default function GenerateurPlanning({
 
   const sauvegarder = async () => {
     setSaving(true);
+    setErreurSave(null);
     const lignes: JourPlanning[] = [];
-    Object.values(planning).forEach(p => Object.values(p).forEach(j => { if (j.statut) lignes.push(j); }));
-    await fetch("/api/rh/planning", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lignes }),
-    });
+    Object.values(planning).forEach(p =>
+      Object.values(p).forEach(j => { if (j.statut) lignes.push({ employe_id: j.employe_id, date: j.date, statut: j.statut, note: j.note }); })
+    );
+    const result = await sauvegarderPlanning(lignes);
     setSaving(false);
-    router.refresh();
+    if (result.error) {
+      setErreurSave(result.error);
+    } else {
+      router.refresh();
+    }
   };
 
   const dates = getDates();
@@ -294,7 +272,7 @@ export default function GenerateurPlanning({
         </a>
       </div>
 
-      <div className="flex gap-3 mb-6 flex-wrap">
+      <div className="flex gap-3 mb-4 flex-wrap items-center">
         <button onClick={generer} disabled={loading}
           className="px-6 py-3 rounded-xl font-semibold text-white disabled:opacity-50"
           style={{ backgroundColor: "#4AAEA0" }}>
@@ -306,6 +284,12 @@ export default function GenerateurPlanning({
           {saving ? "Sauvegarde..." : "💾 Sauvegarder"}
         </button>
       </div>
+
+      {erreurSave && (
+        <div className="mb-4 px-4 py-3 rounded-xl bg-red-100 text-red-700 text-sm font-semibold">
+          ❌ Erreur : {erreurSave}
+        </div>
+      )}
 
       <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
         <div className="flex flex-wrap gap-2">
