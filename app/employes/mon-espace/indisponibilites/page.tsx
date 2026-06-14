@@ -1,14 +1,13 @@
-import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
-import { redirect } from "next/navigation";
 import { createClient } from "../../../../src/utils/supabase/server";
+import { redirect } from "next/navigation";
 import { aujourdhuiISO } from "../../../../src/lib/dates";
 import { getEmployeRhActuel } from "../../../../src/lib/employeActuel";
 import FormIndisponibilites from "./FormIndisponibilites";
+import { supprimerIndisponibilite } from "./actions";
 
 export default async function IndisponibilitesPage() {
   const supabase = await createClient();
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase
@@ -38,7 +37,7 @@ export default async function IndisponibilitesPage() {
           Indiquez les jours où vous ne pouvez pas travailler. Ces jours seront pris en compte dans le générateur de planning.
         </p>
 
-        {/* Formulaire */}
+        {/* Formulaire d'ajout */}
         <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
           <h2 className="font-bold mb-4" style={{ color: "#1B2B5E" }}>
             ➕ Ajouter une indisponibilité
@@ -65,7 +64,16 @@ export default async function IndisponibilitesPage() {
                   </p>
                   {ind.note && <p className="text-xs text-gray-400 mt-0.5">{ind.note}</p>}
                 </div>
-                <BoutonSupprimerIndispo id={ind.id} />
+                <form action={async () => {
+                  "use server";
+                  await supprimerIndisponibilite(ind.id);
+                }}>
+                  <button type="submit"
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
+                    style={{ backgroundColor: "#E8847A" }}>
+                    ✖ Supprimer
+                  </button>
+                </form>
               </div>
             ))}
           </div>
@@ -73,17 +81,5 @@ export default async function IndisponibilitesPage() {
 
       </div>
     </main>
-  );
-}
-
-function BoutonSupprimerIndispo({ id }: { id: string }) {
-  return (
-    <form action={`/api/rh/indisponibilites?id=${id}`} method="DELETE">
-      <button type="submit"
-        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
-        style={{ backgroundColor: "#E8847A" }}>
-        ✖ Supprimer
-      </button>
-    </form>
   );
 }
