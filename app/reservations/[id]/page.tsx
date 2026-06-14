@@ -11,6 +11,7 @@ import BoutonEmail from "./BoutonEmail";
 import GestionPaiement from "./GestionPaiement";
 import { formatDate } from "../../../src/lib/dates";
 import { formatBoxLabel } from "../../../src/lib/boxes";
+import { getProfilePerms } from "../../../src/lib/getProfilePerms";
 
 export default async function ReservationPage({
   params,
@@ -18,6 +19,7 @@ export default async function ReservationPage({
   params: Promise<{ id: string }>;
 }) {
   await exigerPersonnelPage();
+  const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
   const { id } = await params;
 
@@ -187,6 +189,7 @@ export default async function ReservationPage({
           cotisation_en_attente={!!cotisation}
           cotisation_id={cotisation?.id}
           cotisation_montant={cotisation ? Number(cotisation.montant) : undefined}
+          perm_reservations_modifier={perms.perm_reservations_modifier}
         />
 
         {/* Prix retenu + lignes supplémentaires */}
@@ -197,6 +200,7 @@ export default async function ReservationPage({
           ajustement_manuel={res.ajustement_manuel}
           montant_final={res.montant_final}
           extras={res.reservation_extras ?? []}
+          perm_reservations_modifier={perms.perm_reservations_modifier}
         />
 
         {/* Paiement */}
@@ -209,16 +213,19 @@ export default async function ReservationPage({
           montant_paye={res.montant_paye}
           date_paiement={res.date_paiement}
           mode_paiement={res.mode_paiement}
+          perm_encaissements={perms.perm_encaissements}
         />
 
         {/* Boutons */}
         <div className="border-t pt-6 flex flex-wrap gap-4">
 
-          <Link href={`/reservations/${res.id}/modifier`}
-            className="px-4 py-2 rounded-xl font-semibold text-white"
-            style={{ backgroundColor: "#4AAEA0" }}>
-            ✏️ Modifier
-          </Link>
+          {perms.perm_reservations_modifier && (
+            <Link href={`/reservations/${res.id}/modifier`}
+              className="px-4 py-2 rounded-xl font-semibold text-white"
+              style={{ backgroundColor: "#4AAEA0" }}>
+              ✏️ Modifier
+            </Link>
+          )}
 
           {res.statut === "en_attente" && (
             <BoutonValiderReservation id={res.id} />
@@ -242,11 +249,11 @@ export default async function ReservationPage({
             />
           )}
 
-          {res.statut !== "annulee" && (
+          {res.statut !== "annulee" && perms.perm_reservations_annuler && (
             <BoutonAnnuler id={res.id} />
           )}
 
-          {peutSupprimerDefinitivement && (
+          {peutSupprimerDefinitivement && perms.isAdmin && (
             <BoutonSupprimerDefinitif id={res.id} />
           )}
 

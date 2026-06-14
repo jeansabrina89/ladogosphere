@@ -29,6 +29,7 @@ export default function GestionPaiement({
   montant_paye,
   date_paiement,
   mode_paiement,
+  perm_encaissements,
 }: {
   reservation_id: string;
   client_id?: string;
@@ -38,6 +39,7 @@ export default function GestionPaiement({
   montant_paye: number | null;
   date_paiement: string | null;
   mode_paiement: string | null;
+  perm_encaissements: boolean;
 }) {
   const [montantPaye, setMontantPaye] = useState(montant_paye?.toString() || "");
   const [date, setDate] = useState(date_paiement || "");
@@ -108,6 +110,26 @@ export default function GestionPaiement({
     router.refresh();
     setAnnulationLoading(false);
   };
+
+  if (!perm_encaissements) {
+    return (
+      <div className="border-t pt-6 mb-6">
+        <h2 className="text-2xl font-bold mb-4" style={{ color: "#1B2B5E" }}>💳 Paiement</h2>
+        <div className="bg-slate-50 rounded-xl p-4 space-y-2">
+          <span className="inline-block px-4 py-2 rounded-xl text-sm font-semibold text-white"
+            style={{ backgroundColor: statut === "paye" ? "#4AAEA0" : statut === "partiel" ? "#E0A23B" : "#E8847A" }}>
+            {STATUT_LABELS[statut] || statut}
+          </span>
+          {dejaPaye > 0 && (
+            <p className="text-sm text-gray-600">Montant payé : <strong>CHF {dejaPaye.toFixed(2)}</strong></p>
+          )}
+          {mode_paiement && (
+            <p className="text-sm text-gray-600">Mode : {mode_paiement}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="border-t pt-6 mb-6">

@@ -23,6 +23,7 @@ export default function BoutonDeplacerChien({
   date_debut,
   date_fin,
   reservation_id,
+  perm_box,
 }: {
   occupation_id: string;
   chien: any;
@@ -31,6 +32,7 @@ export default function BoutonDeplacerChien({
   date_debut: string;
   date_fin: string;
   reservation_id?: string;
+  perm_box: boolean;
 }) {
   const [ouvert, setOuvert] = useState(false);
   const [nouveauBox, setNouveauBox] = useState("");
@@ -100,6 +102,14 @@ export default function BoutonDeplacerChien({
     }
     setLoading(false);
   };
+
+  if (!perm_box) {
+    return (
+      <span className="text-xs px-2 py-1 font-semibold w-full block truncate">
+        {chien.sexe === "F" ? "♀️" : "♂️"} {chien.nom}
+      </span>
+    );
+  }
 
   return (
     <>

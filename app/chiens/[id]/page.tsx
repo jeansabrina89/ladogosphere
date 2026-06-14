@@ -5,6 +5,7 @@ import BoutonArchiver from "./BoutonArchiver";
 import BoutonSupprimer from "./BoutonSupprimer";
 import Ententes from "./Ententes";
 import BoutonsJourneeEssai from "./BoutonsJourneeEssai";
+import { getProfilePerms } from "../../../src/lib/getProfilePerms";
 
 export default async function ChienPage({
   params,
@@ -12,6 +13,7 @@ export default async function ChienPage({
   params: Promise<{ id: string }>;
 }) {
   await exigerPersonnelPage();
+  const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
   const { id } = await params;
 
@@ -163,19 +165,22 @@ export default async function ChienPage({
             journee_essai_effectuee={chien.journee_essai_effectuee}
             journee_essai_invalide={chien.journee_essai_invalide}
             journee_essai_note={chien.journee_essai_note}
+            perm_journee_essai={perms.perm_journee_essai}
           />
         </div>
 
-        <Ententes chien_id={chien.id} tous_chiens={tousChiens ?? []} doit_etre_isole={chien.doit_etre_isole} />
+        <Ententes chien_id={chien.id} tous_chiens={tousChiens ?? []} doit_etre_isole={chien.doit_etre_isole} perm_chiens_modifier={perms.perm_chiens_modifier} />
 
         <div className="border-t pt-6 flex flex-wrap gap-4">
-          <Link href={`/chiens/${chien.id}/modifier`}
-            className="px-4 py-2 rounded-xl font-semibold text-white"
-            style={{ backgroundColor: "#4AAEA0" }}>
-            ✏️ Modifier le chien
-          </Link>
-          <BoutonArchiver id={chien.id} actif={chien.actif} />
-          <BoutonSupprimer id={chien.id} nom={chien.nom} />
+          {perms.perm_chiens_modifier && (
+            <Link href={`/chiens/${chien.id}/modifier`}
+              className="px-4 py-2 rounded-xl font-semibold text-white"
+              style={{ backgroundColor: "#4AAEA0" }}>
+              ✏️ Modifier le chien
+            </Link>
+          )}
+          {perms.isAdmin && <BoutonArchiver id={chien.id} actif={chien.actif} />}
+          {perms.isAdmin && <BoutonSupprimer id={chien.id} nom={chien.nom} />}
           <Link href="/chiens"
             className="px-4 py-2 rounded-xl font-semibold"
             style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>

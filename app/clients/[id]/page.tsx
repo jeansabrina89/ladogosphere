@@ -6,6 +6,7 @@ import BoutonArchiverClient from "./BoutonArchiverClient";
 import BoutonSupprimerClient from "./BoutonSupprimerClient";
 import BoutonCotisation from "./BoutonCotisation";
 import GestionAvoir from "./GestionAvoir";
+import { getProfilePerms } from "../../../src/lib/getProfilePerms";
 
 export default async function ClientPage({
   params,
@@ -14,6 +15,7 @@ export default async function ClientPage({
 }) {
   const { id } = await params;
   await exigerPersonnelPage();
+  const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
 
   const { data: client } = await supabase
@@ -95,16 +97,18 @@ export default async function ClientPage({
           )}
 
           {/* Bouton enregistrer/renouveler */}
-          <BoutonCotisation
-            client_id={client.id}
-            client_nom={`${client.prenom} ${client.nom}`}
-            est_membre={client.membre}
-            cotisation_existante={!!cotisationAnneeActuelle}
-            montant={montantCotisation}
-            annee={anneeActuelle}
-            est_exempte={client.cotisation_exemptee}
-            raison_exemption={client.cotisation_exemptee_raison}
-          />
+          {perms.perm_encaissements && (
+            <BoutonCotisation
+              client_id={client.id}
+              client_nom={`${client.prenom} ${client.nom}`}
+              est_membre={client.membre}
+              cotisation_existante={!!cotisationAnneeActuelle}
+              montant={montantCotisation}
+              annee={anneeActuelle}
+              est_exempte={client.cotisation_exemptee}
+              raison_exemption={client.cotisation_exemptee_raison}
+            />
+          )}
 
           {/* Historique des cotisations */}
           {cotisations && cotisations.length > 0 && (
@@ -139,8 +143,10 @@ export default async function ClientPage({
           )}
         </div>
 
-        {/* Avoir client */}
-        <GestionAvoir client_id={client.id} solde={soldeAvoir} mouvements={mouvementsAvoir} />
+        {/* Avoir client — admin uniquement */}
+        {perms.isAdmin && (
+          <GestionAvoir client_id={client.id} solde={soldeAvoir} mouvements={mouvementsAvoir} />
+        )}
 
         {/* Contact d'urgence */}
         <div className="border-t pt-6 mb-8">
@@ -200,24 +206,28 @@ export default async function ClientPage({
               </Link>
             ))}
           </div>
-          <div className="mt-4">
-            <Link href="/chiens/nouveau"
-              className="text-sm font-semibold"
-              style={{ color: "#4AAEA0" }}>
-              ➕ Ajouter un chien à ce client
-            </Link>
-          </div>
+          {perms.perm_chiens_creer && (
+            <div className="mt-4">
+              <Link href="/chiens/nouveau"
+                className="text-sm font-semibold"
+                style={{ color: "#4AAEA0" }}>
+                ➕ Ajouter un chien à ce client
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Boutons */}
         <div className="border-t pt-6 flex flex-wrap gap-4">
-          <Link href={`/clients/${client.id}/modifier`}
-            className="px-4 py-2 rounded-xl font-semibold text-white"
-            style={{ backgroundColor: "#4AAEA0" }}>
-            ✏️ Modifier le client
-          </Link>
-          <BoutonArchiverClient id={client.id} actif={client.actif} />
-          <BoutonSupprimerClient id={client.id} nom={`${client.prenom} ${client.nom}`} />
+          {perms.perm_clients_modifier && (
+            <Link href={`/clients/${client.id}/modifier`}
+              className="px-4 py-2 rounded-xl font-semibold text-white"
+              style={{ backgroundColor: "#4AAEA0" }}>
+              ✏️ Modifier le client
+            </Link>
+          )}
+          {perms.isAdmin && <BoutonArchiverClient id={client.id} actif={client.actif} />}
+          {perms.isAdmin && <BoutonSupprimerClient id={client.id} nom={`${client.prenom} ${client.nom}`} />}
           <Link href="/clients"
             className="px-4 py-2 rounded-xl font-semibold"
             style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>

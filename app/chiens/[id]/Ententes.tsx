@@ -15,10 +15,12 @@ export default function Ententes({
   chien_id,
   tous_chiens,
   doit_etre_isole,
+  perm_chiens_modifier,
 }: {
   chien_id: string;
   tous_chiens: Chien[];
   doit_etre_isole?: boolean;
+  perm_chiens_modifier: boolean;
 }) {
   const [ententes, setEntentes] = useState<Entente[]>([]);
   const [chienCible, setChienCible] = useState("");
@@ -101,13 +103,20 @@ export default function Ententes({
           borderColor: familleUniquement ? "#E8847A" : "#E2E8F0",
           backgroundColor: familleUniquement ? "#FEF2F2" : "white"
         }}>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" checked={familleUniquement}
-            onChange={handleFamilleUniquement} />
-          <span className="font-semibold" style={{ color: "#1B2B5E" }}>
+        {perm_chiens_modifier ? (
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={familleUniquement}
+              onChange={handleFamilleUniquement} />
+            <span className="font-semibold" style={{ color: "#1B2B5E" }}>
+              🏠 Famille uniquement — ne pas mélanger avec d'autres chiens
+            </span>
+          </label>
+        ) : (
+          <p className="font-semibold" style={{ color: "#1B2B5E" }}>
             🏠 Famille uniquement — ne pas mélanger avec d'autres chiens
-          </span>
-        </label>
+            {familleUniquement ? " ✅" : " ❌"}
+          </p>
+        )}
       </div>
 
       {/* Option doit être isolé */}
@@ -116,13 +125,20 @@ export default function Ententes({
           borderColor: doitEtreIsole ? "#E8847A" : "#E2E8F0",
           backgroundColor: doitEtreIsole ? "#FEF2F2" : "white"
         }}>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" checked={doitEtreIsole}
-            onChange={handleDoitEtreIsole} />
-          <span className="font-semibold" style={{ color: "#1B2B5E" }}>
+        {perm_chiens_modifier ? (
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={doitEtreIsole}
+              onChange={handleDoitEtreIsole} />
+            <span className="font-semibold" style={{ color: "#1B2B5E" }}>
+              🚫 Doit être isolé — box exclusif, jamais avec d'autres chiens
+            </span>
+          </label>
+        ) : (
+          <p className="font-semibold" style={{ color: "#1B2B5E" }}>
             🚫 Doit être isolé — box exclusif, jamais avec d'autres chiens
-          </span>
-        </label>
+            {doitEtreIsole ? " ✅" : " ❌"}
+          </p>
+        )}
       </div>
 
       {/* Explication box_compatible */}
@@ -145,10 +161,12 @@ export default function Ententes({
                   </span>
                   {e.note && <p className="text-xs text-gray-500 mt-0.5">{e.note}</p>}
                 </div>
-                <button onClick={() => handleSupprimer(e.id)}
-                  className="text-xs text-red-400 hover:text-red-600">
-                  Supprimer
-                </button>
+                {perm_chiens_modifier && (
+                  <button onClick={() => handleSupprimer(e.id)}
+                    className="text-xs text-red-400 hover:text-red-600">
+                    Supprimer
+                  </button>
+                )}
               </div>
             );
           })}
@@ -156,7 +174,7 @@ export default function Ententes({
       )}
 
       {/* Ajouter une entente */}
-      {chiensDisponibles.length > 0 && (
+      {perm_chiens_modifier && chiensDisponibles.length > 0 && (
         <div className="border rounded-xl p-4 space-y-3 bg-slate-50">
           <p className="font-semibold text-sm" style={{ color: "#1B2B5E" }}>
             Ajouter une entente

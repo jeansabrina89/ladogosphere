@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { exigerPersonnelPage } from "../../src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "../../src/lib/supabase-admin";
+import { getProfilePerms } from "../../src/lib/getProfilePerms";
 
 export default async function ChiensPage() {
   await exigerPersonnelPage();
+  const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
   const { data: chiens } = await supabase
     .from("chiens")
@@ -16,11 +18,13 @@ export default async function ChiensPage() {
 
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-4xl font-bold" style={{ color: "#1B2B5E" }}>🐶 Chiens</h1>
-          <Link href="/chiens/nouveau"
-            className="px-4 py-2 rounded-xl font-semibold text-white"
-            style={{ backgroundColor: "#4AAEA0" }}>
-            ➕ Nouveau chien
-          </Link>
+          {perms.perm_chiens_creer && (
+            <Link href="/chiens/nouveau"
+              className="px-4 py-2 rounded-xl font-semibold text-white"
+              style={{ backgroundColor: "#4AAEA0" }}>
+              ➕ Nouveau chien
+            </Link>
+          )}
         </div>
 
         <p className="font-semibold mb-4" style={{ color: "#1B2B5E" }}>

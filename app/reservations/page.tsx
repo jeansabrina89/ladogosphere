@@ -7,6 +7,7 @@ import FiltresReservations from "./FiltresReservations";
 import BoutonPaiementRapide from "./BoutonPaiementRapide";
 import RechercheReservation from "./RechercheReservation";
 import { appliquerPeriodeEtTri } from "../../src/lib/reservationsFiltres";
+import { getProfilePerms } from "../../src/lib/getProfilePerms";
 
 export default async function ReservationsPage({
   searchParams,
@@ -14,6 +15,7 @@ export default async function ReservationsPage({
   searchParams: Promise<{ filtre?: string; paiement?: string; recherche?: string }>;
 }) {
   await exigerPersonnelPage();
+  const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
   const params = await searchParams;
   const filtre = params.filtre || "toutes";
@@ -54,13 +56,15 @@ export default async function ReservationsPage({
         <h1 className="text-4xl font-bold mb-2" style={{ color: "#1B2B5E" }}>📅 Réservations</h1>
         <p className="text-gray-600 mb-6">Liste de toutes les réservations</p>
 
-        <div className="mb-6">
-          <Link href="/reservations/nouvelle"
-            className="px-4 py-2 rounded-xl font-semibold text-white"
-            style={{ backgroundColor: "#4AAEA0" }}>
-            ➕ Nouvelle réservation
-          </Link>
-        </div>
+        {perms.perm_reservations_creer && (
+          <div className="mb-6">
+            <Link href="/reservations/nouvelle"
+              className="px-4 py-2 rounded-xl font-semibold text-white"
+              style={{ backgroundColor: "#4AAEA0" }}>
+              ➕ Nouvelle réservation
+            </Link>
+          </div>
+        )}
 
         <RechercheReservation valeurInitiale={recherche} />
 
@@ -140,7 +144,7 @@ export default async function ReservationsPage({
                         {res.montant_final} CHF
                       </p>
                     )}
-                    {res.statut_paiement !== "paye" && res.statut !== "annulee" && (
+                    {perms.perm_encaissements && res.statut_paiement !== "paye" && res.statut !== "annulee" && (
                       <BoutonPaiementRapide
                         reservation_id={res.id}
                         montant_final={res.montant_final}

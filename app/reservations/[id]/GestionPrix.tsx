@@ -16,6 +16,7 @@ export default function GestionPrix({
   ajustement_manuel,
   montant_final,
   extras,
+  perm_reservations_modifier,
 }: {
   reservation_id: string;
   statut: string | null;
@@ -23,9 +24,11 @@ export default function GestionPrix({
   ajustement_manuel: number | null;
   montant_final: number | null;
   extras: Extra[];
+  perm_reservations_modifier: boolean;
 }) {
   const router = useRouter();
   const cloturee = !!statut && STATUTS_CLOTURES.includes(statut);
+  const editable = !cloturee && perm_reservations_modifier;
 
   const calcule = Number(montant_calcule) || 0;
   const ajustement = Number(ajustement_manuel) || 0;
@@ -92,7 +95,7 @@ export default function GestionPrix({
           <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>
             Prix du séjour retenu {!cloturee && "(modifiable)"}
           </label>
-          {cloturee ? (
+          {!editable ? (
             <p className="font-semibold">{prixRetenuInitial.toFixed(2)} CHF</p>
           ) : (
             <div className="flex gap-2">
@@ -129,7 +132,7 @@ export default function GestionPrix({
                     <span className={Number(e.montant) < 0 ? "text-green-600 font-semibold" : "font-semibold"}>
                       {Number(e.montant) > 0 ? "+" : ""}{Number(e.montant).toFixed(2)} CHF
                     </span>
-                    {!cloturee && (
+                    {editable && (
                       <button onClick={() => handleSupprimerExtra(e.id)} disabled={suppressionId === e.id}
                         className="text-red-600 hover:underline disabled:opacity-50">
                         Supprimer
@@ -141,7 +144,7 @@ export default function GestionPrix({
             </ul>
           )}
 
-          {!cloturee && (
+          {editable && (
             <div className="flex flex-wrap gap-2 mt-3">
               <input type="text" placeholder="Libellé"
                 value={libelleExtra}

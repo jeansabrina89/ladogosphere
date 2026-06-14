@@ -5,6 +5,7 @@ import BoutonDeplacerChien from "./BoutonDeplacerChien";
 import BoutonMasquerBoxesVides from "./BoutonMasquerBoxesVides";
 import { formatBoxLabel } from "../../src/lib/boxes";
 import { aujourdhuiISO } from "../../src/lib/dates";
+import { getProfilePerms } from "../../src/lib/getProfilePerms";
 
 export default async function PlanningPage({
   searchParams,
@@ -12,6 +13,7 @@ export default async function PlanningPage({
   searchParams: Promise<{ date?: string; vue?: string; masquer?: string }>;
 }) {
   await exigerPersonnelPage();
+  const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
   const params = await searchParams;
   const aujourd_hui = aujourdhuiISO();
@@ -159,6 +161,7 @@ export default async function PlanningPage({
                                   date_debut={occ.date_debut}
                                   date_fin={occ.date_fin}
                                   reservation_id={occ.reservation_id}
+                                  perm_box={perms.perm_box}
                                 />
                               </div>
                             ))}

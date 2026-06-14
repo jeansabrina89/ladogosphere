@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { exigerPersonnelPage } from "../../src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "../../src/lib/supabase-admin";
+import { getProfilePerms } from "../../src/lib/getProfilePerms";
 
 export default async function ClientsPage() {
   await exigerPersonnelPage();
+  const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
   const { data: clients } = await supabase
     .from("clients")
@@ -21,12 +23,14 @@ export default async function ClientsPage() {
         <p className="text-gray-600 mb-2">Liste des clients enregistrés</p>
         <p className="font-semibold mb-6">Total : {clients?.length ?? 0} client(s)</p>
 
-        <div className="mb-6">
-          <Link href="/clients/nouveau"
-            className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700">
-            ➕ Ajouter un client
-          </Link>
-        </div>
+        {perms.perm_clients_creer && (
+          <div className="mb-6">
+            <Link href="/clients/nouveau"
+              className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700">
+              ➕ Ajouter un client
+            </Link>
+          </div>
+        )}
 
         <div className="grid gap-4">
           {clients?.map(client => (

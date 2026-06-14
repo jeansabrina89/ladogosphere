@@ -8,12 +8,15 @@ export default function BoutonsJourneeEssai({
   journee_essai_effectuee,
   journee_essai_invalide,
   journee_essai_note,
+  perm_journee_essai,
 }: {
   chien_id: string;
   journee_essai_effectuee: boolean;
   journee_essai_invalide: boolean;
   journee_essai_note: string | null;
+  perm_journee_essai: boolean;
 }) {
+  if (!perm_journee_essai) return null;
   const [note, setNote] = useState(journee_essai_note || "");
   const [loading, setLoading] = useState(false);
   const router = useRouter();

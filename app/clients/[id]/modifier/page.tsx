@@ -1,6 +1,7 @@
 import { modifierClient } from "./actions";
 import { exigerPersonnelPage } from "../../../../src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
+import { getProfilePerms } from "../../../../src/lib/getProfilePerms";
 
 export default async function ModifierClientPage({
   params,
@@ -8,6 +9,7 @@ export default async function ModifierClientPage({
   params: Promise<{ id: string }>;
 }) {
   await exigerPersonnelPage();
+  const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
   const { id } = await params;
 
@@ -75,23 +77,25 @@ export default async function ModifierClientPage({
             </label>
           </div>
 
-          {/* Exemption de cotisation */}
-          <div className="border-t pt-4">
-            <div className="flex items-center gap-2">
-              <input type="checkbox" name="cotisation_exemptee" id="cotisation_exemptee"
-                defaultChecked={client.cotisation_exemptee} />
-              <label htmlFor="cotisation_exemptee" className="font-semibold">
-                🎟️ Exempté d'adhésion
-              </label>
+          {/* Exemption de cotisation — admin uniquement */}
+          {perms.isAdmin && (
+            <div className="border-t pt-4">
+              <div className="flex items-center gap-2">
+                <input type="checkbox" name="cotisation_exemptee" id="cotisation_exemptee"
+                  defaultChecked={client.cotisation_exemptee} />
+                <label htmlFor="cotisation_exemptee" className="font-semibold">
+                  🎟️ Exempté d'adhésion
+                </label>
+              </div>
+              <div className="mt-3">
+                <label className="block font-semibold mb-1">Raison de l'exemption</label>
+                <input name="cotisation_exemptee_raison" type="text"
+                  defaultValue={client.cotisation_exemptee_raison || ""}
+                  className="w-full border rounded-xl p-3"
+                  placeholder="Ex : employée, bénévole…" />
+              </div>
             </div>
-            <div className="mt-3">
-              <label className="block font-semibold mb-1">Raison de l'exemption</label>
-              <input name="cotisation_exemptee_raison" type="text"
-                defaultValue={client.cotisation_exemptee_raison || ""}
-                className="w-full border rounded-xl p-3"
-                placeholder="Ex : employée, bénévole…" />
-            </div>
-          </div>
+          )}
 
           {/* Contact d'urgence */}
           <div className="border-t pt-4">

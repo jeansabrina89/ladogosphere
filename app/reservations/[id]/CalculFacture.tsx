@@ -18,6 +18,7 @@ export default function CalculFacture({
   cotisation_en_attente,
   cotisation_id,
   cotisation_montant,
+  perm_reservations_modifier,
 }: {
   reservation: any;
   nb_chiens: number;
@@ -28,6 +29,7 @@ export default function CalculFacture({
   cotisation_en_attente?: boolean;
   cotisation_id?: string;
   cotisation_montant?: number;
+  perm_reservations_modifier: boolean;
 }) {
   const router = useRouter();
   const [est_privatif, setEstPrivatif] = useState(!!chien_isole);
@@ -99,8 +101,8 @@ export default function CalculFacture({
         <div className="flex items-center gap-3">
           <input type="checkbox" id="privatif"
             checked={est_privatif}
-            disabled={chien_isole}
-            onChange={e => setEstPrivatif(e.target.checked)} />
+            disabled={chien_isole || !perm_reservations_modifier}
+            onChange={e => perm_reservations_modifier && setEstPrivatif(e.target.checked)} />
           <label htmlFor="privatif" className="font-semibold cursor-pointer">
             Box privatif
           </label>
@@ -144,7 +146,7 @@ export default function CalculFacture({
         </div>
 
         {/* Cotisation en attente */}
-        {cotisation_en_attente && cotisation_montant && (
+        {perm_reservations_modifier && cotisation_en_attente && cotisation_montant && (
           <div className="border rounded-xl p-3 bg-yellow-50 border-yellow-200">
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox"
@@ -184,10 +186,12 @@ export default function CalculFacture({
                   Total dû actuel : {montant_actuel} CHF
                 </p>
               )}
-              <button onClick={handleSauvegarder} disabled={loading}
-                className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-50">
-                {sauvegarde ? "✅ Sauvegardé" : loading ? "..." : "💾 Sauvegarder"}
-              </button>
+              {perm_reservations_modifier && (
+                <button onClick={handleSauvegarder} disabled={loading}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-50">
+                  {sauvegarde ? "✅ Sauvegardé" : loading ? "..." : "💾 Sauvegarder"}
+                </button>
+              )}
             </div>
           </div>
           {ecartMsg && (

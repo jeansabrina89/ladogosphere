@@ -3,9 +3,11 @@ import { supabaseAdmin } from "../../src/lib/supabase-admin";
 import { BoutonCheckin, BoutonCheckout } from "./BoutonsCheckin";
 import { formatBoxLabel } from "../../src/lib/boxes";
 import { aujourdhuiISO } from "../../src/lib/dates";
+import { getProfilePerms } from "../../src/lib/getProfilePerms";
 
 export default async function CheckinPage() {
   await exigerPersonnelPage();
+  const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
   const aujourd_hui = aujourdhuiISO();
 
@@ -99,7 +101,7 @@ const partis = departs?.filter(c => c.statut === "parti") ?? [];
                 <p className="text-gray-400 text-sm">Aucune arrivée prévue</p>
               )}
               {arrivesAttendus.map(c => (
-                <CarteCheckin key={c.id} checkin={c} action={<BoutonCheckin checkin_id={c.id} />} />
+                <CarteCheckin key={c.id} checkin={c} action={perms.perm_checkin ? <BoutonCheckin checkin_id={c.id} /> : undefined} />
               ))}
             </div>
           </div>
@@ -129,7 +131,7 @@ const partis = departs?.filter(c => c.statut === "parti") ?? [];
                 <p className="text-gray-400 text-sm">Aucun départ prévu</p>
               )}
               {departsAttendus.map(c => (
-                <CarteCheckin key={c.id} checkin={c} action={<BoutonCheckout checkin_id={c.id} />} />
+                <CarteCheckin key={c.id} checkin={c} action={perms.perm_checkin ? <BoutonCheckout checkin_id={c.id} /> : undefined} />
               ))}
             </div>
           </div>
