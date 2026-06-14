@@ -5,7 +5,7 @@ import { formatBoxLabel } from "../../../src/lib/boxes";
 import SelectHeure from "../../components/SelectHeure";
 
 type Client = { id: string; prenom: string; nom: string; membre: boolean };
-type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string; statut_essai: string };
+type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string; journee_essai_effectuee: boolean; journee_essai_invalide: boolean };
 type Box = { id: string; numero: number; nom?: string | null };
 
 const JOURS_SEMAINE = [
@@ -101,10 +101,10 @@ export default function FormReservation({
   };
 
   const chiensSelectionnesInfos = chiens.filter(c => chiensSelectionnes.includes(c.id));
-  const chiensRefusesSel = chiensSelectionnesInfos.filter(c => c.statut_essai === 'refuse');
-  const chiensNonValidesSel = chiensSelectionnesInfos.filter(
-    c => c.statut_essai === 'non_programme' || c.statut_essai === 'programme'
+  const chiensRefusesSel = chiensSelectionnesInfos.filter(
+    c => c.journee_essai_effectuee && c.journee_essai_invalide
   );
+  const chiensNonValidesSel = chiensSelectionnesInfos.filter(c => !c.journee_essai_effectuee);
   const reservationBloquee = chiensRefusesSel.length > 0;
   const seulEssaiAutorise = !reservationBloquee && chiensNonValidesSel.length > 0;
   const tousValidesSel = chiensSelectionnesInfos.length > 0 && !reservationBloquee && chiensNonValidesSel.length === 0;

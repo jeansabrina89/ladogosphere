@@ -31,10 +31,10 @@ export async function POST(req: NextRequest) {
   if (chien_ids.length > 0) {
     const { data: chiensData } = await supabaseAdmin
       .from("chiens")
-      .select("id, nom, statut_essai")
+      .select("id, nom, journee_essai_effectuee, journee_essai_invalide")
       .in("id", chien_ids);
 
-    const chiensRefuses = (chiensData ?? []).filter((c: any) => c.statut_essai === 'refuse');
+    const chiensRefuses = (chiensData ?? []).filter((c: any) => c.journee_essai_effectuee && c.journee_essai_invalide);
     if (chiensRefuses.length > 0) {
       const nom = chiensRefuses[0].nom;
       return NextResponse.json({
@@ -43,14 +43,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (type_reservation === 'essai') {
-      const tousValides = (chiensData ?? []).every((c: any) => c.statut_essai === 'valide');
+      const tousValides = (chiensData ?? []).every((c: any) => c.journee_essai_effectuee && !c.journee_essai_invalide);
       if (tousValides) {
         return NextResponse.json({
           error: "Tous les chiens sélectionnés ont déjà validé leur journée d'essai. Veuillez choisir 'Journée' ou 'Séjour'.",
         }, { status: 400 });
       }
     } else {
-      const chiensNonValides = (chiensData ?? []).filter((c: any) => c.statut_essai !== 'valide');
+      const chiensNonValides = (chiensData ?? []).filter((c: any) => !c.journee_essai_effectuee);
       if (chiensNonValides.length > 0) {
         const nom = chiensNonValides[0].nom;
         return NextResponse.json({

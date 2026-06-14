@@ -11,7 +11,7 @@ export default async function NouvelleDemandeReservationPage() {
   // Chercher le profil client — peut être null si pas encore créé par admin
   const { data: client } = await supabase
     .from("clients")
-    .select("*, chiens (id, nom, race, poids, categorie_poids, statut_essai)")
+    .select("*, chiens (id, nom, race, poids, categorie_poids, journee_essai_effectuee, journee_essai_invalide)")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
@@ -43,10 +43,10 @@ export default async function NouvelleDemandeReservationPage() {
   const chiens = client.chiens ?? [];
 
   // Tous les chiens validés → accès complet (journée + séjour)
-  const acces_complet = chiens.length > 0 && chiens.every((c: any) => c.statut_essai === 'valide');
+  const acces_complet = chiens.length > 0 && chiens.every((c: any) => c.journee_essai_effectuee && !c.journee_essai_invalide);
 
   // Tous les chiens refusés → aucune réservation possible
-  const tousRefuses = chiens.length > 0 && chiens.every((c: any) => c.statut_essai === 'refuse');
+  const tousRefuses = chiens.length > 0 && chiens.every((c: any) => c.journee_essai_effectuee && c.journee_essai_invalide);
 
   if (tousRefuses) {
     return (

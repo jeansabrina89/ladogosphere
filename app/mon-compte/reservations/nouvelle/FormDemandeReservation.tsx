@@ -9,7 +9,8 @@ type Chien = {
   race: string;
   poids: number;
   categorie_poids: string;
-  statut_essai: string;
+  journee_essai_effectuee: boolean;
+  journee_essai_invalide: boolean;
 };
 
 const JOURS_SEMAINE = [
@@ -76,13 +77,11 @@ export default function FormDemandeReservation({
 
   const router = useRouter();
 
-  const chiensRefuses = chiens.filter(c => c.statut_essai === 'refuse');
-  const chiensDisponibles = chiens.filter(c => c.statut_essai !== 'refuse');
+  const chiensRefuses = chiens.filter(c => c.journee_essai_effectuee && c.journee_essai_invalide);
+  const chiensDisponibles = chiens.filter(c => !(c.journee_essai_effectuee && c.journee_essai_invalide));
 
   const chiensSelectionnes = chiens.filter(c => chienIdsSelectionnes.includes(c.id));
-  const chiensNonValidesSel = chiensSelectionnes.filter(
-    c => c.statut_essai === 'non_programme' || c.statut_essai === 'programme'
-  );
+  const chiensNonValidesSel = chiensSelectionnes.filter(c => !c.journee_essai_effectuee);
   const tousValidesSelection = chiensSelectionnes.length > 0 && chiensNonValidesSel.length === 0;
   // Tant qu'aucun chien n'est sélectionné, on se base sur l'accès global du client
   const afficherChoixComplet = chienIdsSelectionnes.length > 0 ? tousValidesSelection : acces_complet;
@@ -357,7 +356,7 @@ export default function FormDemandeReservation({
                   {c.categorie_poids === "moins_15kg" ? "🟢 Petit" :
                    c.categorie_poids === "15_30kg" ? "🟡 Moyen" :
                    c.categorie_poids === "30_40kg" ? "🔴 Grand" : "—"}
-                  {c.statut_essai === 'valide' && <span className="ml-1 text-green-600">✅</span>}
+                  {c.journee_essai_effectuee && !c.journee_essai_invalide && <span className="ml-1 text-green-600">✅</span>}
                 </span>
               </label>
             ))}

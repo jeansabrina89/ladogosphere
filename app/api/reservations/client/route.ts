@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   // Vérifier que les chiens appartiennent bien à la fiche client connectée
   const { data: chiensOwned, error: chiensErr } = await supabaseServer
     .from("chiens")
-    .select("id, nom, statut_essai")
+    .select("id, nom, journee_essai_effectuee, journee_essai_invalide")
     .eq("client_id", fiche.id)
     .in("id", chien_ids);
 
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Chien refusé → blocage systématique
-  const chiensRefuses = chiensOwned.filter((c: any) => c.statut_essai === 'refuse');
+  const chiensRefuses = chiensOwned.filter((c: any) => c.journee_essai_effectuee && c.journee_essai_invalide);
   if (chiensRefuses.length > 0) {
     const nom = chiensRefuses[0].nom;
     return NextResponse.json({
@@ -62,15 +62,15 @@ export async function POST(req: NextRequest) {
 
   if (type_reservation === 'essai') {
     // Essai inutile si tous les chiens sont déjà validés
-    const tousValides = chiensOwned.every((c: any) => c.statut_essai === 'valide');
+    const tousValides = chiensOwned.every((c: any) => c.journee_essai_effectuee && !c.journee_essai_invalide);
     if (tousValides) {
       return NextResponse.json({
         error: "Tous vos chiens ont déjà validé leur journée d'essai. Veuillez choisir 'Journée' ou 'Séjour'.",
       }, { status: 400 });
     }
   } else {
-    // Journée ou séjour : tous les chiens doivent être validés
-    const chiensNonValides = chiensOwned.filter((c: any) => c.statut_essai !== 'valide');
+    // Journée ou séjour : tous les chiens doivent avoir validé leur essai
+    const chiensNonValides = chiensOwned.filter((c: any) => !c.journee_essai_effectuee);
     if (chiensNonValides.length > 0) {
       const noms = chiensNonValides.map((c: any) => c.nom).join(", ");
       return NextResponse.json({
