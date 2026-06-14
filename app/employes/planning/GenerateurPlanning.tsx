@@ -138,20 +138,55 @@ export default function GenerateurPlanning({
     }
 
     setLoading(true);
-    const dates = getDates();
     const nouveauPlanning: Record<string, Record<string, JourPlanning>> = {};
     const employesActifs = employes.filter(e => e.actif);
 
     employes.forEach(emp => { nouveauPlanning[emp.id] = {}; });
 
-    const semaines: string[][] = [];
-    let semaineCourante: string[] = [];
-    dates.forEach(dateStr => {
-      const j = new Date(dateStr + "T12:00:00").getDay();
-      if (j === 1 && semaineCourante.length > 0) { semaines.push(semaineCourante); semaineCourante = []; }
-      semaineCourante.push(dateStr);
-    });
-    if (semaineCourante.length > 0) semaines.push(semaineCourante);
+    // Préfixe du mois cible pour filtrer les jours hors mois lors de l'écriture
+    const datePrefix = `${annee}-${String(mois).padStart(2, "0")}-`;
+
+    // Helper : Date JS → "YYYY-MM-DD"
+    const toDateStr = (d: Date): string => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const j = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${j}`;
+    };
+
+    // Semaines calendaires lun→dim chevauchant le mois.
+    // La 1re semaine peut commencer avant le 1er, la dernière peut finir après le dernier.
+    // Les jours hors mois servent au calcul mais ne sont jamais écrits en base.
+    const d1 = new Date(annee, mois - 1, 1, 12, 0, 0);
+    const jourD1 = d1.getDay(); // 0=dim,1=lun,...,6=sam
+    const offsetLundi = jourD1 === 0 ? -6 : 1 - jourD1;
+    const lundiDepart = new Date(d1);
+    lundiDepart.setDate(d1.getDate() + offsetLundi);
+
+    const dLast = new Date(annee, mois - 1, joursParMois, 12, 0, 0);
+    const jourDLast = dLast.getDay();
+    const offsetDimanche = jourDLast === 0 ? 0 : 7 - jourDLast;
+    const dimancheFin = new Date(dLast);
+    dimancheFin.setDate(dLast.getDate() + offsetDimanche);
+
+    // Index continu de semaine depuis lundi 2024-01-01 (lui-même un lundi).
+    // Garantit une parité stable d'un mois à l'autre pour l'alternance des demis.
+    const lundiRef = new Date(2024, 0, 1, 12, 0, 0);
+
+    const semaines: { days: string[]; idxCal: number }[] = [];
+    const dCur = new Date(lundiDepart);
+    while (dCur <= dimancheFin) {
+      const semaineDays: string[] = [];
+      for (let i = 0; i < 7; i++) {
+        semaineDays.push(toDateStr(dCur));
+        dCur.setDate(dCur.getDate() + 1);
+      }
+      const idxCal = Math.round(
+        (new Date(semaineDays[0] + "T12:00:00").getTime() - lundiRef.getTime()) /
+        (7 * 24 * 60 * 60 * 1000)
+      );
+      semaines.push({ days: semaineDays, idxCal });
+    }
 
     // Rang de déphasage par employé : index parmi les collègues de même taux (tri déterministe par id)
     const rangDephasage: Record<string, number> = {};
@@ -215,7 +250,7 @@ export default function GenerateurPlanning({
       return t[taux] ?? { normal: 5, exceptionnel: 6 };
     };
 
-    semaines.forEach((semaine, idxSemaine) => {
+    semaines.forEach(({ days: semaine, idxCal: idxSemaine }) => {
       const fixes: Record<string, Record<string, string>> = {};
       employesActifs.forEach(emp => {
         fixes[emp.id] = {};
@@ -228,7 +263,7 @@ export default function GenerateurPlanning({
       // Trier : taux croissant → les plus contraints (plus de repos) d'abord
       const empOrdres = [...employesActifs].sort((a, b) => a.taux_travail - b.taux_travail);
 
-      // Compteur de présence partagé pour l'équilibre de couverture
+      // Compteur de présence partagé pour l'équilibre de couverture (sur les 7 jours)
       const presence: Record<string, number> = {};
       semaine.forEach(d => { presence[d] = 0; });
 
@@ -302,8 +337,9 @@ export default function GenerateurPlanning({
         });
       }
 
-      // Secours : au moins 1 personne présente chaque jour
+      // Secours : au moins 1 personne présente chaque jour DU MOIS CIBLE
       semaine.forEach(dateStr => {
+        if (!dateStr.startsWith(datePrefix)) return; // pas de secours pour les jours hors mois
         if (fixes[employesActifs[0]?.id]?.[dateStr]) return;
         const travaillent = employesActifs.filter(emp =>
           joursChoisis[emp.id].has(dateStr) || fixes[emp.id][dateStr] === "travail"
@@ -316,9 +352,10 @@ export default function GenerateurPlanning({
         }
       });
 
-      // Écrire les statuts dans nouveauPlanning
+      // Écrire les statuts dans nouveauPlanning (UNIQUEMENT les jours du mois cible)
       employesActifs.forEach(emp => {
         semaine.forEach(dateStr => {
+          if (!dateStr.startsWith(datePrefix)) return; // hors du mois cible, pas d'écriture
           if (fixes[emp.id][dateStr]) {
             nouveauPlanning[emp.id][dateStr] = {
               employe_id: emp.id, date: dateStr, statut: fixes[emp.id][dateStr]
@@ -337,12 +374,12 @@ export default function GenerateurPlanning({
         });
       });
 
-      // Mettre à jour le carry pour la semaine suivante
+      // Mettre à jour le carry pour la semaine suivante (sur les 7 jours, hors mois inclus)
       employesActifs.forEach(emp => {
         let c = 0;
         for (let i = semaine.length - 1; i >= 0; i--) {
-          const statut = nouveauPlanning[emp.id][semaine[i]]?.statut;
-          if (statut === "travail" || statut === "ferie_travaille") { c++; }
+          const d = semaine[i];
+          if (!fixes[emp.id][d] && joursChoisis[emp.id].has(d)) { c++; }
           else { break; }
         }
         carry[emp.id] = c;
