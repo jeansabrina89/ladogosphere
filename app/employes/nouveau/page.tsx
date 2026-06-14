@@ -46,26 +46,67 @@ export default async function NouvelEmployePage() {
               className="w-full border rounded-xl p-3" />
           </div>
 
-          <div className="border-t pt-4">
-            <p className="font-bold mb-3">🔐 Permissions</p>
-            <div className="space-y-2">
-              {[
-                { key: "perm_checkin", label: "Check-in / Check-out" },
-                { key: "perm_reservations_creer", label: "Créer des réservations" },
-                { key: "perm_reservations_modifier", label: "Modifier des réservations" },
-                { key: "perm_reservations_annuler", label: "Annuler des réservations" },
-                { key: "perm_clients_creer", label: "Créer des clients" },
-                { key: "perm_clients_modifier", label: "Modifier des clients" },
-                { key: "perm_chiens_modifier", label: "Modifier des chiens" },
-                { key: "perm_planning", label: "Voir le planning" },
-                { key: "perm_tarifs_urgence", label: "Appliquer tarifs urgence" },
-              ].map(({ key, label }) => (
-                <label key={key} className="flex items-center gap-2">
-                  <input type="checkbox" name={key} defaultChecked={key !== "perm_tarifs_urgence"} />
-                  {label}
-                </label>
-              ))}
-            </div>
+          <div className="border-t pt-4 space-y-5">
+            <p className="font-bold">🔐 Permissions</p>
+
+            {[
+              {
+                titre: "Opérationnel — chiens & clients",
+                items: [
+                  { key: "perm_chiens_creer", label: "Ajouter des chiens", defaut: true },
+                  { key: "perm_chiens_modifier", label: "Modifier les chiens", defaut: true },
+                  { key: "perm_clients_creer", label: "Créer des clients", defaut: true },
+                  { key: "perm_clients_modifier", label: "Modifier les clients", defaut: true },
+                ],
+              },
+              {
+                titre: "Réservations & journées d'essai",
+                items: [
+                  { key: "perm_reservations_creer", label: "Créer des réservations", defaut: true },
+                  { key: "perm_reservations_modifier", label: "Modifier des réservations", defaut: true },
+                  { key: "perm_reservations_annuler", label: "Annuler des réservations", defaut: true },
+                  { key: "perm_journee_essai", label: "Gérer les journées d'essai (valider / invalider)", defaut: true },
+                ],
+              },
+              {
+                titre: "Encaissements",
+                items: [
+                  { key: "perm_encaissements", label: "Encaissements (enregistrer un paiement, marquer payé, avoirs)", defaut: true },
+                  { key: "perm_tarifs_urgence", label: "Appliquer le tarif d'urgence", defaut: false },
+                ],
+              },
+              {
+                titre: "Check-in & box",
+                items: [
+                  { key: "perm_checkin", label: "Check-in / check-out", defaut: true },
+                  { key: "perm_box", label: "Attribuer / gérer les box", defaut: true },
+                ],
+              },
+              {
+                titre: "Planning & équipe (responsable)",
+                items: [
+                  { key: "perm_planning", label: "Gérer le planning de l'équipe", defaut: true },
+                  { key: "perm_timbrage_equipe", label: "Gérer le timbrage de l'équipe", defaut: false },
+                  { key: "perm_vacances_equipe", label: "Approuver les vacances de l'équipe", defaut: false },
+                ],
+              },
+            ].map(({ titre, items }) => (
+              <div key={titre}>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">{titre}</p>
+                <div className="space-y-1.5 pl-1">
+                  {items.map(({ key, label, defaut }) => (
+                    <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" name={key} defaultChecked={defaut} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <p className="text-xs text-gray-400 italic pt-1">
+              Acquis pour tout employé, sans réglage : son propre espace RH, la lecture des tarifs et la lecture du planning de toute l'équipe.
+            </p>
           </div>
 
           <div className="flex gap-3 pt-4 border-t">

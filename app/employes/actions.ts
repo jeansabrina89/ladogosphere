@@ -47,15 +47,21 @@ export type AccesEmployeState = {
 
 // Permissions par défaut accordées à un nouveau compte employé.
 const PERMISSIONS_EMPLOYE_DEFAUT = {
-  perm_checkin: true,
+  perm_chiens_creer: true,
+  perm_chiens_modifier: true,
+  perm_clients_creer: true,
+  perm_clients_modifier: true,
   perm_reservations_creer: true,
   perm_reservations_modifier: true,
   perm_reservations_annuler: true,
-  perm_clients_creer: true,
-  perm_clients_modifier: true,
-  perm_chiens_modifier: true,
-  perm_planning: true,
+  perm_journee_essai: true,
+  perm_encaissements: true,
   perm_tarifs_urgence: false,
+  perm_checkin: true,
+  perm_box: true,
+  perm_planning: true,
+  perm_timbrage_equipe: false,
+  perm_vacances_equipe: false,
 };
 
 // Crée un compte connectable (role 'employe') pour une fiche RH existante,
