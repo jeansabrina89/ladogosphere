@@ -3,7 +3,7 @@ import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 import Link from "next/link";
 import { formatDateFR, formatHeure } from "../../../../src/lib/dates";
 import { formatBoxLabel } from "../../../../src/lib/boxes";
-import { getMouvementsAvoirReservation } from "../../../../src/lib/avoirs";
+import { getMouvementsAvoirReservation, getSoldeAvoir } from "../../../../src/lib/avoirs";
 import { getCoordonneesPaiement } from "../../../../src/lib/coordonneesPaiement";
 import BoutonPaiementClient from "../BoutonPaiementClient";
 
@@ -52,9 +52,11 @@ export default async function DetailReservationClientPage({
   const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens?.nom).filter(Boolean) ?? [];
   const resteAPayer = (res.montant_final || 0) - (res.montant_paye || 0);
 
-  const mouvementsAvoir = await getMouvementsAvoirReservation(supabase, res.client_id, id);
-
-  const coords = await getCoordonneesPaiement(supabaseAdmin);
+  const [mouvementsAvoir, coords, soldeAvoir] = await Promise.all([
+    getMouvementsAvoirReservation(supabase, res.client_id, id),
+    getCoordonneesPaiement(supabaseAdmin),
+    getSoldeAvoir(supabaseAdmin, res.client_id),
+  ]);
 
   const peutPayer =
     (res.statut === "validee" || res.statut === "terminee") &&
@@ -118,6 +120,7 @@ export default async function DetailReservationClientPage({
               montant_final={res.montant_final || 0}
               montant_paye={res.montant_paye || 0}
               statut_paiement={res.statut_paiement || "impaye"}
+              soldeAvoir={soldeAvoir}
             />
           </div>
         )}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { CreditCard, Smartphone, Landmark } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CreditCard, Smartphone, Landmark, Wallet } from "lucide-react";
 
 export default function BoutonPaiementClient({
   reservation_id,
@@ -11,6 +12,7 @@ export default function BoutonPaiementClient({
   montant_final,
   montant_paye,
   statut_paiement,
+  soldeAvoir,
 }: {
   reservation_id: string;
   numero: number;
@@ -19,18 +21,39 @@ export default function BoutonPaiementClient({
   montant_final: number;
   montant_paye: number;
   statut_paiement: string;
+  soldeAvoir: number;
 }) {
+  const router = useRouter();
   const [ouvert, setOuvert] = useState(false);
-  const [methode, setMethode] = useState<"" | "iban" | "stripe" | "twint">("");
+  const [methode, setMethode] = useState<"" | "iban" | "stripe" | "twint" | "avoir">("");
   const resteInitial = Math.max(0, montant_final - (montant_paye || 0));
   const [montantASaisir, setMontantASaisir] = useState(resteInitial.toFixed(2));
+  const [avoirLoading, setAvoirLoading] = useState(false);
+  const [avoirErreur, setAvoirErreur] = useState<string | null>(null);
 
   const montantNum = parseFloat(montantASaisir) || 0;
 
   const reset = () => {
     setMethode("");
     setMontantASaisir(resteInitial.toFixed(2));
+    setAvoirErreur(null);
     setOuvert(false);
+  };
+
+  const payerAvecAvoir = async () => {
+    setAvoirLoading(true);
+    setAvoirErreur(null);
+    const res = await fetch(`/api/reservations/${reservation_id}/payer-avoir`, {
+      method: "POST",
+    });
+    if (res.ok) {
+      router.refresh();
+      reset();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setAvoirErreur(data.error || "Erreur lors du paiement.");
+    }
+    setAvoirLoading(false);
   };
 
   return (
@@ -113,6 +136,24 @@ export default function BoutonPaiementClient({
                     </div>
                   </button>
 
+                  {soldeAvoir > 0 && (
+                    <button
+                      onClick={() => { setAvoirErreur(null); setMethode("avoir"); }}
+                      disabled={soldeAvoir < resteInitial}
+                      className="w-full border-2 rounded-xl p-4 flex items-center gap-3 hover:bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ borderColor: "#E2E8F0" }}>
+                      <Wallet size={24} style={{ color: "#4AAEA0" }} />
+                      <div className="text-left">
+                        <p className="font-semibold" style={{ color: "#1B2B5E" }}>Mon avoir</p>
+                        <p className="text-xs" style={{ color: soldeAvoir >= resteInitial ? "#6B7280" : "#DC2626" }}>
+                          {soldeAvoir >= resteInitial
+                            ? `Solde disponible : ${soldeAvoir.toFixed(2)} CHF`
+                            : `Solde insuffisant — ${soldeAvoir.toFixed(2)} CHF disponibles`}
+                        </p>
+                      </div>
+                    </button>
+                  )}
+
                   <button onClick={reset}
                     className="w-full py-2 rounded-xl text-sm font-semibold"
                     style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
@@ -120,6 +161,43 @@ export default function BoutonPaiementClient({
                   </button>
                 </div>
               </>
+            )}
+
+            {methode === "avoir" && (
+              <div className="space-y-4">
+                <div className="rounded-xl p-4" style={{ backgroundColor: "#E8F5F4" }}>
+                  <p className="font-bold mb-3" style={{ color: "#1B2B5E" }}>👛 Paiement par avoir</p>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Mon avoir disponible</span>
+                      <span className="font-semibold" style={{ color: "#4AAEA0" }}>
+                        {soldeAvoir.toFixed(2)} CHF
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2 mt-2">
+                      <span className="text-gray-500">Montant à payer</span>
+                      <span className="font-bold text-lg" style={{ color: "#1B2B5E" }}>
+                        {resteInitial.toFixed(2)} CHF
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {avoirErreur && <p className="text-xs text-red-600">{avoirErreur}</p>}
+                <div className="flex gap-3">
+                  <button onClick={() => setMethode("")}
+                    className="flex-1 py-2 rounded-xl font-semibold text-sm"
+                    style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
+                    ← Retour
+                  </button>
+                  <button
+                    onClick={payerAvecAvoir}
+                    disabled={avoirLoading}
+                    className="flex-1 py-2 rounded-xl font-semibold text-sm text-white disabled:opacity-50"
+                    style={{ backgroundColor: "#4AAEA0" }}>
+                    {avoirLoading ? "…" : `✅ Confirmer ${resteInitial.toFixed(2)} CHF`}
+                  </button>
+                </div>
+              </div>
             )}
 
             {methode === "iban" && (

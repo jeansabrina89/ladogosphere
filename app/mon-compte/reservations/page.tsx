@@ -8,6 +8,7 @@ import BoutonPaiementClient from "./BoutonPaiementClient";
 import FiltresPeriode from "./FiltresPeriode";
 import { appliquerPeriodeEtTri, aujourdhuiISO } from "../../../src/lib/reservationsFiltres";
 import { getCoordonneesPaiement } from "../../../src/lib/coordonneesPaiement";
+import { getSoldeAvoir } from "../../../src/lib/avoirs";
 
 function libelleType(t: string): string {
   if (t === "journee") return "Journée";
@@ -45,8 +46,11 @@ export default async function MesReservationsPage({
   query = appliquerPeriodeEtTri(query, filtre || "toutes", aujourd_hui);
   const { data: reservations } = await query;
 
-  // Coordonnées de paiement lues côté serveur (table parametres réservée à l'admin)
-  const coords = await getCoordonneesPaiement(supabaseAdmin);
+  // Coordonnées de paiement et solde avoir lus côté serveur
+  const [coords, soldeAvoir] = await Promise.all([
+    getCoordonneesPaiement(supabaseAdmin),
+    getSoldeAvoir(supabaseAdmin, client.id),
+  ]);
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -135,6 +139,7 @@ export default async function MesReservationsPage({
                         montant_final={res.montant_final || 0}
                         montant_paye={res.montant_paye || 0}
                         statut_paiement={res.statut_paiement || "impaye"}
+                        soldeAvoir={soldeAvoir}
                       />
                     )}
                   </div>
