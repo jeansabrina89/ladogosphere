@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { exigerPersonnelPage } from "../../../src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
-import { getSoldeAvoir } from "../../../src/lib/avoirs";
+import { getSoldeAvoir, getAvoirAppliqueReservation } from "../../../src/lib/avoirs";
 import BoutonAnnuler from "./BoutonAnnuler";
 import BoutonSupprimerDefinitif from "./BoutonSupprimerDefinitif";
 import CalculFacture from "./CalculFacture";
@@ -48,18 +48,22 @@ export default async function ReservationPage({
   const chien_isole = chiens.some((c: any) => c.doit_etre_isole);
   const est_membre = res.clients?.membre ?? false;
   const anneeActuelle = new Date().getFullYear();
+  const client_id = res.clients?.id;
 
   // Chercher cotisation en attente pour ce client
   const { data: cotisation } = await supabase
     .from("cotisations_membres")
     .select("*")
-    .eq("client_id", res.clients?.id)
+    .eq("client_id", client_id)
     .eq("statut", "en_attente")
     .eq("annee", anneeActuelle)
     .maybeSingle();
 
-  // Solde d'avoir du client (pour le paiement par avoir)
-  const soldeAvoir = res.clients?.id ? await getSoldeAvoir(supabaseAdmin, res.clients.id) : 0;
+  // Solde d'avoir du client + avoir appliqué sur cette réservation
+  const [soldeAvoir, avoirApplique] = await Promise.all([
+    client_id ? getSoldeAvoir(supabaseAdmin, client_id) : Promise.resolve(0),
+    client_id ? getAvoirAppliqueReservation(supabaseAdmin, client_id, id) : Promise.resolve(0),
+  ]);
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -198,8 +202,9 @@ export default async function ReservationPage({
         {/* Paiement */}
         <GestionPaiement
           reservation_id={res.id}
-          client_id={res.clients?.id}
+          client_id={client_id}
           solde_avoir={soldeAvoir}
+          avoirApplique={avoirApplique}
           montant_final={res.montant_final}
           statut_paiement={res.statut_paiement}
           montant_paye={res.montant_paye}

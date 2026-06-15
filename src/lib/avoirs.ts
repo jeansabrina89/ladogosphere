@@ -54,3 +54,26 @@ export async function getMouvementsAvoirReservation(
 
   return (data ?? []).map((m) => ({ ...m, montant: Number(m.montant) }));
 }
+
+/**
+ * Retourne le montant d'avoir NET actuellement appliqué sur une réservation.
+ * = -(SUM(montant) des lignes type IN ('utilisation','annulation_paiement') liées à cette résa).
+ * Positif = avoir consommé ; 0 si rien ou si tout a été repris.
+ */
+export async function getAvoirAppliqueReservation(
+  supabase: SupabaseClient,
+  client_id: string,
+  reservation_id: string
+): Promise<number> {
+  const { data, error } = await supabase
+    .from("avoirs_mouvements")
+    .select("montant")
+    .eq("client_id", client_id)
+    .eq("reservation_id", reservation_id)
+    .in("type", ["utilisation", "annulation_paiement"]);
+
+  if (error) throw new Error(error.message);
+
+  const somme = (data ?? []).reduce((s, m) => s + Number(m.montant), 0);
+  return Math.round(-somme * 100) / 100;
+}

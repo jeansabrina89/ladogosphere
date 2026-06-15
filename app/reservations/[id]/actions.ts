@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import { verifierPermission } from "../../../src/lib/verifierPermission";
-import { getSoldeAvoir } from "../../../src/lib/avoirs";
+import { getSoldeAvoir, getAvoirAppliqueReservation } from "../../../src/lib/avoirs";
 import type { EcartType } from "../../../src/lib/facturation";
 import { calculerMontant } from "../../../src/lib/calculTarif";
 
@@ -110,11 +110,11 @@ async function recalculerTotalEtPaiement(reservationId: string, createdBy?: stri
 }
 
 /**
- * Enregistre OU modifie le paiement d'une réservation (modèle option 1 : un paiement sur la résa).
- * - Plafonne le montant payé au total (montant_final) : on ne peut jamais payer plus que dû.
- * - Recalcule le statut automatiquement (impaye / partiel / paye).
- * - Cohérence des avoirs : si le paiement ACTUEL était en mode "avoir", on re-crédite d'abord ce
- *   montant, puis on applique le nouveau (débit d'avoir si le nouveau mode est "avoir").
+ * Enregistre OU modifie le paiement d'une réservation (partie hors-avoir uniquement).
+ * - Plafonne le montant payé au total.
+ * - Refuse si le montant saisi est inférieur à l'avoir déjà utilisé sur la résa.
+ * - Recalcule le statut automatiquement.
+ * - Ne touche pas aux avoirs_mouvements.
  */
 export async function enregistrerPaiement(formData: FormData): Promise<{ error?: string }> {
   const verif = await verifierPermission("perm_encaissements");
@@ -131,50 +131,27 @@ export async function enregistrerPaiement(formData: FormData): Promise<{ error?:
 
   const { data: reservation, error: resError } = await supabaseAdmin
     .from("reservations")
-    .select("montant_paye, mode_paiement, montant_final, montant_calcule")
+    .select("montant_final, montant_calcule")
     .eq("id", reservation_id)
     .single();
   if (resError || !reservation) return { error: "Réservation introuvable." };
 
   const total = Number(reservation.montant_final ?? reservation.montant_calcule ?? 0);
-  const ancienMontant = Number(reservation.montant_paye) || 0;
-  const ancienMode = reservation.mode_paiement;
 
   // Plafond : jamais plus que le total dû
   let nouveauMontant = montantSaisi;
   if (total > 0 && nouveauMontant > total) nouveauMontant = total;
 
-  // 1) Réverser l'avoir consommé par le paiement ACTUEL (mode "avoir" => tout le montant)
-  if (ancienMode === "avoir" && ancienMontant > 0) {
-    if (!client_id) return { error: "Client introuvable (réversion de l'avoir impossible)." };
-    const { error: e } = await supabaseAdmin.from("avoirs_mouvements").insert({
-      client_id,
-      montant: ancienMontant,
-      type: "annulation_paiement",
-      motif: "Correction paiement (réversion avoir)",
-      reservation_id,
-    });
-    if (e) return { error: e.message };
+  // Garde : le montant total payé ne peut pas descendre sous l'avoir déjà utilisé
+  const avoirApplique = client_id
+    ? await getAvoirAppliqueReservation(supabaseAdmin, client_id, reservation_id)
+    : 0;
+  if (nouveauMontant < avoirApplique) {
+    return {
+      error: `Le montant payé (CHF ${nouveauMontant.toFixed(2)}) ne peut pas être inférieur à l'avoir déjà utilisé sur cette réservation (CHF ${avoirApplique.toFixed(2)}). Cliquez d'abord « Reprendre l'avoir utilisé ».`,
+    };
   }
 
-  // 2) Si le NOUVEAU mode est "avoir", vérifier le solde (recalculé) et débiter
-  if (mode === "avoir" && nouveauMontant > 0) {
-    if (!client_id) return { error: "Client introuvable." };
-    const solde = await getSoldeAvoir(supabaseAdmin, client_id);
-    if (nouveauMontant > solde) {
-      return { error: `Paiement par avoir impossible : solde disponible CHF ${solde.toFixed(2)}.` };
-    }
-    const { error: e } = await supabaseAdmin.from("avoirs_mouvements").insert({
-      client_id,
-      montant: -nouveauMontant,
-      type: "utilisation",
-      motif: "Paiement par avoir",
-      reservation_id,
-    });
-    if (e) return { error: e.message };
-  }
-
-  // 3) Statut dérivé + mise à jour de la réservation
   const statut = calculerStatut(nouveauMontant, total);
   const { error: updateError } = await supabaseAdmin
     .from("reservations")
@@ -383,19 +360,24 @@ export async function supprimerExtraReservation(extraId: string): Promise<Recalc
   return result;
 }
 
+/**
+ * Annule le paiement d'une réservation (remet à zéro).
+ * - Restitue toujours l'avoir consommé sur la résa (lignes utilisation/annulation_paiement).
+ * - La partie cash (hors-avoir) suit le choix mettre_en_avoir.
+ */
 export async function annulerPaiement(formData: FormData): Promise<{ error?: string }> {
   const verif = await verifierPermission("perm_encaissements");
   if (verif.error) return verif;
 
   const reservation_id = formData.get("reservation_id") as string;
-  const client_id = formData.get("client_id") as string;
+  const client_id = (formData.get("client_id") as string) || null;
   const mettreEnAvoir = formData.get("mettre_en_avoir") === "true";
 
   if (!reservation_id) return { error: "Réservation introuvable." };
 
   const { data: reservation, error: resError } = await supabaseAdmin
     .from("reservations")
-    .select("montant_paye, mode_paiement, montant_final, montant_calcule, numero")
+    .select("montant_paye, montant_final, montant_calcule, numero")
     .eq("id", reservation_id)
     .single();
   if (resError || !reservation) return { error: "Réservation introuvable." };
@@ -405,28 +387,37 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
     return { error: "Aucun paiement à annuler pour cette réservation." };
   }
 
-  // Si le paiement annulé était par avoir, on réverse TOUJOURS le débit d'origine
-  // (sinon le client perd son crédit), indépendamment du choix "mettre_en_avoir".
-  if (reservation.mode_paiement === "avoir") {
+  const avoirApplique = client_id
+    ? await getAvoirAppliqueReservation(supabaseAdmin, client_id, reservation_id)
+    : 0;
+
+  // 1) Restituer l'avoir consommé sur la résa (toujours, indépendamment du choix cash)
+  if (avoirApplique > 0) {
     if (!client_id) return { error: "Client introuvable." };
-    const { error: mouvementError } = await supabaseAdmin.from("avoirs_mouvements").insert({
+    const { error: e1 } = await supabaseAdmin.from("avoirs_mouvements").insert({
       client_id,
-      montant: montantPaye,
+      montant: avoirApplique,
       type: "annulation_paiement",
-      motif: `Annulation paiement avoir résa #${reservation.numero ?? reservation_id}`,
+      motif: `Reprise avoir (annulation paiement résa #${reservation.numero ?? reservation_id})`,
       reservation_id,
+      created_by: verif.userId ?? null,
     });
-    if (mouvementError) return { error: mouvementError.message };
-  } else if (mettreEnAvoir) {
+    if (e1) return { error: e1.message };
+  }
+
+  // 2) La partie cash suit le choix mettre_en_avoir
+  const cashPaye = Math.max(0, montantPaye - avoirApplique);
+  if (cashPaye > 0 && mettreEnAvoir) {
     if (!client_id) return { error: "Client introuvable." };
-    const { error: mouvementError } = await supabaseAdmin.from("avoirs_mouvements").insert({
+    const { error: e2 } = await supabaseAdmin.from("avoirs_mouvements").insert({
       client_id,
-      montant: montantPaye,
+      montant: cashPaye,
       type: "annulation_paiement",
       motif: "Annulation de paiement",
       reservation_id,
+      created_by: verif.userId ?? null,
     });
-    if (mouvementError) return { error: mouvementError.message };
+    if (e2) return { error: e2.message };
   }
 
   const total = Number(reservation.montant_final ?? reservation.montant_calcule ?? 0);
@@ -439,6 +430,117 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
       statut_paiement: statut,
       mode_paiement: null,
       date_paiement: null,
+    })
+    .eq("id", reservation_id);
+  if (updateError) return { error: updateError.message };
+
+  revalidatePath(`/reservations/${reservation_id}`);
+  return {};
+}
+
+/**
+ * Applique l'avoir disponible du client sur cette réservation.
+ * Consomme min(solde, resteDu) en créant une ligne 'utilisation' (montant négatif).
+ * Ne touche pas à mode_paiement ni date_paiement.
+ */
+export async function appliquerAvoir(formData: FormData): Promise<{ error?: string }> {
+  const verif = await verifierPermission("perm_encaissements");
+  if (verif.error) return verif;
+
+  const reservation_id = formData.get("reservation_id") as string;
+  const client_id = (formData.get("client_id") as string) || null;
+
+  if (!reservation_id) return { error: "Réservation introuvable." };
+  if (!client_id) return { error: "Client introuvable." };
+
+  const { data: reservation, error: resError } = await supabaseAdmin
+    .from("reservations")
+    .select("montant_final, montant_calcule, montant_paye, numero")
+    .eq("id", reservation_id)
+    .single();
+  if (resError || !reservation) return { error: "Réservation introuvable." };
+
+  const total = Number(reservation.montant_final ?? reservation.montant_calcule ?? 0);
+  const resteDu = total - Number(reservation.montant_paye || 0);
+  if (resteDu <= 0) return { error: "Rien à payer sur cette réservation." };
+
+  const solde = await getSoldeAvoir(supabaseAdmin, client_id);
+  if (solde <= 0) return { error: "Aucun avoir disponible." };
+
+  const montantAvoir = Math.round(Math.min(solde, resteDu) * 100) / 100;
+
+  const { error: insertError } = await supabaseAdmin.from("avoirs_mouvements").insert({
+    client_id,
+    montant: -montantAvoir,
+    type: "utilisation",
+    motif: "Paiement par avoir",
+    reservation_id,
+    created_by: verif.userId ?? null,
+  });
+  if (insertError) return { error: insertError.message };
+
+  const nouveauPaye = Number(reservation.montant_paye || 0) + montantAvoir;
+  const statut = calculerStatut(nouveauPaye, total);
+
+  const { error: updateError } = await supabaseAdmin
+    .from("reservations")
+    .update({
+      montant_paye: nouveauPaye,
+      statut_paiement: statut,
+    })
+    .eq("id", reservation_id);
+  if (updateError) return { error: updateError.message };
+
+  revalidatePath(`/reservations/${reservation_id}`);
+  return {};
+}
+
+/**
+ * Reprend l'avoir utilisé sur cette réservation.
+ * Crée une ligne 'annulation_paiement' (montant positif = restitution).
+ * Si plus aucun paiement cash, remet mode_paiement et date_paiement à null.
+ */
+export async function reprendreAvoir(formData: FormData): Promise<{ error?: string }> {
+  const verif = await verifierPermission("perm_encaissements");
+  if (verif.error) return verif;
+
+  const reservation_id = formData.get("reservation_id") as string;
+  const client_id = (formData.get("client_id") as string) || null;
+
+  if (!reservation_id) return { error: "Réservation introuvable." };
+  if (!client_id) return { error: "Client introuvable." };
+
+  const avoirApplique = await getAvoirAppliqueReservation(supabaseAdmin, client_id, reservation_id);
+  if (avoirApplique <= 0) return { error: "Aucun avoir à reprendre sur cette réservation." };
+
+  const { data: reservation, error: resError } = await supabaseAdmin
+    .from("reservations")
+    .select("montant_final, montant_calcule, montant_paye, mode_paiement, date_paiement")
+    .eq("id", reservation_id)
+    .single();
+  if (resError || !reservation) return { error: "Réservation introuvable." };
+
+  const { error: insertError } = await supabaseAdmin.from("avoirs_mouvements").insert({
+    client_id,
+    montant: avoirApplique,
+    type: "annulation_paiement",
+    motif: "Reprise de l'avoir utilisé",
+    reservation_id,
+    created_by: verif.userId ?? null,
+  });
+  if (insertError) return { error: insertError.message };
+
+  const total = Number(reservation.montant_final ?? reservation.montant_calcule ?? 0);
+  const nouveauPaye = Math.max(0, Number(reservation.montant_paye || 0) - avoirApplique);
+  const statut = calculerStatut(nouveauPaye, total);
+
+  const { error: updateError } = await supabaseAdmin
+    .from("reservations")
+    .update({
+      montant_paye: nouveauPaye,
+      statut_paiement: statut,
+      mode_paiement: nouveauPaye > 0 ? reservation.mode_paiement : null,
+      date_paiement: nouveauPaye > 0 ? reservation.date_paiement : null,
     })
     .eq("id", reservation_id);
   if (updateError) return { error: updateError.message };
