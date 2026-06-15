@@ -11,6 +11,7 @@ const liensAdmin = [
   { href: "/reservations", label: "📅 Réservations" },
   { href: "/planning", label: "🗂️ Planning" },
   { href: "/checkin", label: "✅ Check-in" },
+  { href: "/chiens-du-jour", label: "🐾 Chiens du jour" },
   { href: "/boxes", label: "🏠 Box" },
   { href: "/employes", label: "👥 Équipe" },
   { href: "/tarifs", label: "💰 Tarifs" },
@@ -24,6 +25,7 @@ const liensEmploye = [
   { href: "/reservations", label: "📅 Réservations" },
   { href: "/planning", label: "🗂️ Planning" },
   { href: "/checkin", label: "✅ Check-in" },
+  { href: "/chiens-du-jour", label: "🐾 Chiens du jour" },
   { href: "/boxes", label: "🏠 Box" },
   { href: "/employes/mon-espace", label: "👤 Mon espace RH" },
 ];

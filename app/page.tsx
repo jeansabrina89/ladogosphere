@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "../src/utils/supabase/server";
 import { supabaseAdmin } from "../src/lib/supabase-admin";
 import { getProfilePerms } from "../src/lib/getProfilePerms";
-import { aujourdhuiISO } from "../src/lib/dates";
+import { aujourdhuiISO, formatHeure } from "../src/lib/dates";
 import CarteReservationAttente from "./components/CarteReservationAttente";
 import BoutonsCheckinDashboard from "./components/BoutonsCheckinDashboard";
 
@@ -143,7 +143,7 @@ export default async function Home() {
                       </p>
                       <p className="text-xs text-gray-500">
                         {cc.reservations?.clients?.prenom} {cc.reservations?.clients?.nom}
-                        {cc.reservations?.heure_arrivee && ` · ${cc.reservations.heure_arrivee}`}
+                        {cc.reservations?.heure_arrivee && ` · ${formatHeure(cc.reservations.heure_arrivee)}`}
                       </p>
                     </div>
                     {perms.perm_checkin && (
@@ -180,7 +180,7 @@ export default async function Home() {
                       </p>
                       <p className="text-xs text-gray-500">
                         {cc.reservations?.clients?.prenom} {cc.reservations?.clients?.nom}
-                        {cc.reservations?.heure_depart && ` · ${cc.reservations.heure_depart}`}
+                        {cc.reservations?.heure_depart && ` · ${formatHeure(cc.reservations.heure_depart)}`}
                       </p>
                     </div>
                     {perms.perm_checkin && (
