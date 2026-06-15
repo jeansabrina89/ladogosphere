@@ -19,7 +19,7 @@ export default async function ChienPage({
 
   const { data: chien } = await supabase
     .from("chiens")
-    .select(`*, clients (prenom, nom)`)
+    .select(`*, clients (id, prenom, nom)`)
     .eq("id", id)
     .single();
 
@@ -64,8 +64,21 @@ export default async function ChienPage({
           🐶 {chien.nom}
         </h1>
 
+        {/* Infos de base */}
         <div className="space-y-3 mb-8">
-          <p><strong>👤 Propriétaire :</strong> {chien.clients?.prenom} {chien.clients?.nom}</p>
+          <p>
+            <strong>👤 Propriétaire :</strong>{" "}
+            {chien.clients?.id ? (
+              <Link
+                href={`/clients/${chien.clients.id}`}
+                className="underline hover:opacity-75"
+                style={{ color: "#4AAEA0" }}>
+                {chien.clients.prenom} {chien.clients.nom}
+              </Link>
+            ) : (
+              <>{chien.clients?.prenom} {chien.clients?.nom}</>
+            )}
+          </p>
           <p><strong>Race :</strong> {chien.race || "-"}</p>
           <p><strong>Couleur :</strong> {chien.couleur || "-"}</p>
           <p><strong>Âge :</strong> {calculerAge(chien.date_naissance)} an(s)</p>
@@ -84,6 +97,7 @@ export default async function ChienPage({
           <p><strong>Numéro de puce :</strong> {chien.numero_puce || "-"}</p>
         </div>
 
+        {/* Santé */}
         <div className="border-t pt-6 mb-8">
           <h2 className="text-2xl font-bold mb-4">🩺 Santé</h2>
           <p><strong>Allergies :</strong> {chien.allergies || "Aucune"}</p>
@@ -92,6 +106,7 @@ export default async function ChienPage({
           <p><strong>Téléphone vétérinaire :</strong> {chien.veterinaire_telephone || "-"}</p>
         </div>
 
+        {/* Comportement */}
         <div className="border-t pt-6 mb-8">
           <h2 className="text-2xl font-bold mb-4">🐾 Comportement</h2>
           <p className="mb-3">{chien.comportement || "-"}</p>
@@ -116,24 +131,6 @@ export default async function ChienPage({
             <p><strong>Autres :</strong> {chien.comportement_autre}</p>
           )}
           <p className="mt-3"><strong>Remarques :</strong> {chien.remarques || "-"}</p>
-        </div>
-
-        <div className="border-t pt-6 mb-8">
-          <h2 className="text-2xl font-bold mb-4">🤝 Compatibilités générales</h2>
-          <ul className="space-y-2">
-            <li>{chien.compatible_males_castres ? "✅" : "❌"} Mâles castrés</li>
-            <li>{chien.compatible_males_entiers ? "✅" : "❌"} Mâles entiers</li>
-            <li>{chien.compatible_femelles_sterilisees ? "✅" : "❌"} Femelles stérilisées</li>
-            <li>{chien.compatible_femelles_entieres ? "✅" : "❌"} Femelles entières</li>
-            <li>{chien.compatible_moins_15kg ? "✅" : "❌"} Moins de 15 kg</li>
-            <li>{chien.compatible_15_30kg ? "✅" : "❌"} 15 à 30 kg</li>
-            <li>{chien.compatible_30_40kg ? "✅" : "❌"} Plus de 30 kg</li>
-          </ul>
-          {chien.doit_etre_isole && (
-            <span className="inline-block mt-3 px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-700">
-              🚫🐕 Doit être isolé (box seul, tarif privatif)
-            </span>
-          )}
         </div>
 
         {/* Journée d'essai */}
@@ -169,8 +166,29 @@ export default async function ChienPage({
           />
         </div>
 
+        {/* Ententes individuelles */}
         <Ententes chien_id={chien.id} tous_chiens={tousChiens ?? []} doit_etre_isole={chien.doit_etre_isole} perm_chiens_modifier={perms.perm_chiens_modifier} />
 
+        {/* Compatibilités générales — en dernier */}
+        <div className="border-t pt-6 mb-8">
+          <h2 className="text-2xl font-bold mb-4">🤝 Compatibilités générales</h2>
+          <ul className="space-y-2">
+            <li>{chien.compatible_males_castres ? "✅" : "❌"} Mâles castrés</li>
+            <li>{chien.compatible_males_entiers ? "✅" : "❌"} Mâles entiers</li>
+            <li>{chien.compatible_femelles_sterilisees ? "✅" : "❌"} Femelles stérilisées</li>
+            <li>{chien.compatible_femelles_entieres ? "✅" : "❌"} Femelles entières</li>
+            <li>{chien.compatible_moins_15kg ? "✅" : "❌"} Moins de 15 kg</li>
+            <li>{chien.compatible_15_30kg ? "✅" : "❌"} 15 à 30 kg</li>
+            <li>{chien.compatible_30_40kg ? "✅" : "❌"} Plus de 30 kg</li>
+          </ul>
+          {chien.doit_etre_isole && (
+            <span className="inline-block mt-3 px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-700">
+              🚫🐕 Doit être isolé (box seul, tarif privatif)
+            </span>
+          )}
+        </div>
+
+        {/* Boutons */}
         <div className="border-t pt-6 flex flex-wrap gap-4">
           {perms.perm_chiens_modifier && (
             <Link href={`/chiens/${chien.id}/modifier`}

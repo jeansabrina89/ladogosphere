@@ -73,7 +73,7 @@ export default async function ClientPage({
           </span>
         </div>
 
-        {/* Infos principales */}
+        {/* 1. Coordonnées */}
         <div className="space-y-2 mb-8">
           <p><strong>Email :</strong> {client.email}</p>
           <p><strong>Téléphone :</strong> {client.telephone || "—"}</p>
@@ -81,13 +81,12 @@ export default async function ClientPage({
           <p><strong>Client depuis :</strong> {new Date(client.created_at).toLocaleDateString("fr-CH")}</p>
         </div>
 
-        {/* Section cotisation membre */}
+        {/* 2. Adhésion membre */}
         <div className="border-t pt-6 mb-8">
           <h2 className="text-2xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
             ⭐ Adhésion membre
           </h2>
 
-          {/* Alerte si cotisation manquante pour l'année en cours */}
           {client.membre && !cotisationAnneeActuelle && (
             <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-4">
               <p className="text-orange-700 font-semibold text-sm">
@@ -96,7 +95,6 @@ export default async function ClientPage({
             </div>
           )}
 
-          {/* Bouton enregistrer/renouveler */}
           {perms.perm_encaissements && (
             <BoutonCotisation
               client_id={client.id}
@@ -110,7 +108,6 @@ export default async function ClientPage({
             />
           )}
 
-          {/* Historique des cotisations */}
           {cotisations && cotisations.length > 0 && (
             <div className="mt-4 space-y-2">
               <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Historique</p>
@@ -143,12 +140,7 @@ export default async function ClientPage({
           )}
         </div>
 
-        {/* Avoir client — admin ou employé avec perm_encaissements */}
-        {(perms.isAdmin || perms.perm_encaissements) && (
-          <GestionAvoir client_id={client.id} solde={soldeAvoir} mouvements={mouvementsAvoir} />
-        )}
-
-        {/* Contact d'urgence */}
+        {/* 3. Contact d'urgence */}
         <div className="border-t pt-6 mb-8">
           <h2 className="text-2xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
             🚨 Contact d'urgence
@@ -175,7 +167,7 @@ export default async function ClientPage({
           )}
         </div>
 
-        {/* Chiens */}
+        {/* 4. Chiens */}
         <div className="border-t pt-6 mb-8">
           <h2 className="text-2xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
             🐶 Chiens ({client.chiens?.length ?? 0})
@@ -216,6 +208,11 @@ export default async function ClientPage({
             </div>
           )}
         </div>
+
+        {/* 5. Avoir client — admin ou employé avec perm_encaissements */}
+        {(perms.isAdmin || perms.perm_encaissements) && (
+          <GestionAvoir client_id={client.id} solde={soldeAvoir} mouvements={mouvementsAvoir} />
+        )}
 
         {/* Boutons */}
         <div className="border-t pt-6 flex flex-wrap gap-4">
