@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../src/utils/supabase/server";
+import { formatDateFR } from "../../../src/lib/dates";
 import { getEmployeRhActuel } from "../../../src/lib/employeActuel";
 import { calculerDecompteHeures } from "../../../src/lib/decompteHeures";
 import Link from "next/link";
@@ -188,8 +189,8 @@ export default async function MonEspaceRHPage() {
                 <div key={d.id} className="flex justify-between items-center border rounded-xl p-3">
                   <div>
                     <p className="text-sm font-semibold" style={{ color: "#1B2B5E" }}>
-                      {new Date(d.date_debut).toLocaleDateString("fr-CH")} →{" "}
-                      {new Date(d.date_fin).toLocaleDateString("fr-CH")}
+                      {formatDateFR(d.date_debut)} →{" "}
+                      {formatDateFR(d.date_fin)}
                     </p>
                     <p className="text-xs text-gray-500">{d.nb_jours}j</p>
                   </div>

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "../../../../src/utils/supabase/server";
 import CertificatEditeur from "./CertificatEditeur";
 import Link from "next/link";
+import { formatDateFR } from "../../../../src/lib/dates";
 
 export default async function CertificatSalaireAnnuelPage({
   searchParams,
@@ -73,7 +74,7 @@ export default async function CertificatSalaireAnnuelPage({
   const ijm = sumLabel(["maladie", "ijm"]);
 
   const dateDebut = employe.date_entree && new Date(employe.date_entree) > new Date(`${annee}-01-01`)
-    ? new Date(employe.date_entree).toLocaleDateString("fr-CH")
+    ? formatDateFR(employe.date_entree)
     : `01.01.${annee}`;
 
   const remarquesInitiales = [

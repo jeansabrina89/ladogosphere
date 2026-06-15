@@ -1,6 +1,6 @@
 import { exigerPersonnelPage } from "../../../../src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
-import { formatDate } from "../../../../src/lib/dates";
+import { formatDateFR, formatHeure } from "../../../../src/lib/dates";
 import { formatBoxLabel } from "../../../../src/lib/boxes";
 import { getCoordonneesPaiement } from "../../../../src/lib/coordonneesPaiement";
 import BoutonImprimer from "./BoutonImprimer";
@@ -40,7 +40,7 @@ export default async function FacturePage({
 
   // Numéro de facture
   const numeroFacture = `FAC-${res.id.substring(0, 8).toUpperCase()}`;
-  const dateFacture = new Date().toLocaleDateString("fr-CH");
+  const dateFacture = formatDateFR(new Date());
 
   return (
     <>
@@ -133,11 +133,11 @@ export default async function FacturePage({
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Date d'arrivée</span>
-              <span className="font-semibold">{formatDate(res.date_debut)}{res.heure_arrivee ? ` à ${res.heure_arrivee}` : ""}</span>
+              <span className="font-semibold">{formatDateFR(res.date_debut)}{res.heure_arrivee ? ` à ${formatHeure(res.heure_arrivee)}` : ""}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Date de départ</span>
-              <span className="font-semibold">{formatDate(res.date_fin)}{res.heure_depart ? ` à ${res.heure_depart}` : ""}</span>
+              <span className="font-semibold">{formatDateFR(res.date_fin)}{res.heure_depart ? ` à ${formatHeure(res.heure_depart)}` : ""}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Chien(s)</span>

@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
 import Link from "next/link";
+import { formatDateFR } from "../../../../src/lib/dates";
 
 export default async function FicheChienClientPage({
   params,
@@ -52,7 +53,7 @@ export default async function FicheChienClientPage({
             chien.sterilisation === "oui" ? "Stérilisé" :
             chien.sterilisation === "chimique" ? "Castré chimiquement" : "Non stérilisé"
           }</p>
-          <p><strong>Date de naissance :</strong> {chien.date_naissance ? new Date(chien.date_naissance).toLocaleDateString("fr-CH") : "—"}</p>
+          <p><strong>Date de naissance :</strong> {chien.date_naissance ? formatDateFR(chien.date_naissance) : "—"}</p>
           <p><strong>Numéro de puce :</strong> {chien.numero_puce || "—"}</p>
         </div>
 

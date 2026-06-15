@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { exigerPersonnelPage } from "../../../src/lib/exigerPersonnelPage";
+import { formatDateFR } from "../../../src/lib/dates";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import { getMouvementsAvoir, calculerSoldeAvoir } from "../../../src/lib/avoirs";
 import BoutonArchiverClient from "./BoutonArchiverClient";
@@ -78,7 +79,7 @@ export default async function ClientPage({
           <p><strong>Email :</strong> {client.email}</p>
           <p><strong>Téléphone :</strong> {client.telephone || "—"}</p>
           <p><strong>Adresse :</strong> {client.adresse || "—"}</p>
-          <p><strong>Client depuis :</strong> {new Date(client.created_at).toLocaleDateString("fr-CH")}</p>
+          <p><strong>Client depuis :</strong> {formatDateFR(new Date(client.created_at))}</p>
         </div>
 
         {/* 2. Adhésion membre */}
@@ -121,7 +122,7 @@ export default async function ClientPage({
                       {c.mode_paiement === "cash" ? "💵 Cash" :
                        c.mode_paiement === "virement" ? "🏦 Virement IBAN" :
                        c.mode_paiement === "prochaine_resa" ? "📅 Prochaine réservation" : "—"}
-                      {c.date_paiement && ` — ${new Date(c.date_paiement).toLocaleDateString("fr-CH")}`}
+                      {c.date_paiement && ` — ${formatDateFR(c.date_paiement)}`}
                     </p>
                   </div>
                   <div className="text-right">

@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
 import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 import Link from "next/link";
-import { formatDate } from "../../../../src/lib/dates";
+import { formatDateFR, formatHeure } from "../../../../src/lib/dates";
 import { formatBoxLabel } from "../../../../src/lib/boxes";
 import { getMouvementsAvoirReservation } from "../../../../src/lib/avoirs";
 import { getCoordonneesPaiement } from "../../../../src/lib/coordonneesPaiement";
@@ -71,9 +71,9 @@ export default async function DetailReservationClientPage({
 
         <div className="space-y-2 mb-6">
           <p><strong>Type :</strong> {libelleType(res.type_reservation)}</p>
-          <p><strong>Dates :</strong> {formatDate(res.date_debut)} → {formatDate(res.date_fin)}</p>
+          <p><strong>Dates :</strong> {formatDateFR(res.date_debut)} → {formatDateFR(res.date_fin)}</p>
           {(res.heure_arrivee || res.heure_depart) && (
-            <p><strong>Horaires :</strong> {res.heure_arrivee ? String(res.heure_arrivee).slice(0, 5) : "—"} → {res.heure_depart ? String(res.heure_depart).slice(0, 5) : "—"}</p>
+            <p><strong>Horaires :</strong> {formatHeure(res.heure_arrivee) || "—"} → {formatHeure(res.heure_depart) || "—"}</p>
           )}
           <p><strong>Box :</strong> {formatBoxLabel(res.boxes)}</p>
           <p><strong>Statut :</strong> {
@@ -133,7 +133,7 @@ export default async function DetailReservationClientPage({
                       {LABELS_TYPE_AVOIR_RESERVATION[m.type] ?? m.type}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {m.motif ? `${m.motif} — ` : ""}{new Date(m.created_at).toLocaleDateString("fr-CH")}
+                      {m.motif ? `${m.motif} — ` : ""}{formatDateFR(new Date(m.created_at))}
                     </p>
                   </div>
                   <p className="font-bold text-sm" style={{ color: m.montant < 0 ? "#DC2626" : "#4AAEA0" }}>

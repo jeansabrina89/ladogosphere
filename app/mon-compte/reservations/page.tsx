@@ -2,7 +2,7 @@ import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
 import { createClient } from "../../../src/utils/supabase/server";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import Link from "next/link";
-import { formatDate } from "../../../src/lib/dates";
+import { formatDateFR } from "../../../src/lib/dates";
 import { formatBoxLabel } from "../../../src/lib/boxes";
 import BoutonPaiementClient from "./BoutonPaiementClient";
 import FiltresPeriode from "./FiltresPeriode";
@@ -86,7 +86,7 @@ export default async function MesReservationsPage({
                       🐶 {chiens.join(", ") || "—"}
                     </p>
                     <p className="text-sm text-gray-500 mt-1">
-                      📅 {formatDate(res.date_debut)} → {formatDate(res.date_fin)}
+                      📅 {formatDateFR(res.date_debut)} → {formatDateFR(res.date_fin)}
                     </p>
                     <p className="text-sm text-gray-500">
                       🏠 {formatBoxLabel(res.boxes)} · {libelleType(res.type_reservation)}

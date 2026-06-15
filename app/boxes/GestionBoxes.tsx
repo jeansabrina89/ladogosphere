@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { creerBox, modifierBox, ajouterIndisponibilite, supprimerIndisponibilite } from "./actions";
 import { formatBoxLabel } from "../../src/lib/boxes";
-import { formatDate } from "../../src/lib/dates";
+import { formatDateFR } from "../../src/lib/dates";
 
 type Indisponibilite = {
   id: string;
@@ -236,7 +236,7 @@ export default function GestionBoxes({
                           <div key={i.id} className="flex justify-between items-center bg-slate-50 rounded-lg p-3 text-sm">
                             <div>
                               <p className="font-semibold" style={{ color: "#1B2B5E" }}>
-                                {formatDate(i.date_debut)} → {formatDate(i.date_fin)}
+                                {formatDateFR(i.date_debut)} → {formatDateFR(i.date_fin)}
                               </p>
                               {i.motif && <p className="text-gray-500">{i.motif}</p>}
                             </div>

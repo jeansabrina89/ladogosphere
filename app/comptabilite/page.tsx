@@ -1,5 +1,5 @@
 import { createClient } from "../../src/utils/supabase/server";
-import { formatDate } from "../../src/lib/dates";
+import { formatDateFR } from "../../src/lib/dates";
 import ExportCompta from "./ExportCompta";
 import Statistiques from "./Statistiques";
 import { createSupabaseServerClient } from "../../src/lib/supabase-server";
@@ -268,7 +268,7 @@ export default async function ComptabilitePage({
                       {res.clients?.membre && <span className="ml-1 text-green-600 text-xs">⭐</span>}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {formatDate(res.date_debut)} → {formatDate(res.date_fin)}
+                      {formatDateFR(res.date_debut)} → {formatDateFR(res.date_fin)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">{chiens}</td>
                     <td className="px-4 py-3 text-sm text-right font-semibold" style={{ color: "#1B2B5E" }}>
@@ -331,7 +331,7 @@ export default async function ComptabilitePage({
                       {c.clients?.prenom} {c.clients?.nom} ⭐
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {c.date_paiement ? new Date(c.date_paiement).toLocaleDateString("fr-CH") : "—"}
+                      {c.date_paiement ? formatDateFR(c.date_paiement) : "—"}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500 capitalize">
                       {c.mode_paiement === "cash" ? "💵 Cash" :

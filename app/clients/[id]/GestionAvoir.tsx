@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ajouterAvoir, retirerAvoir, modifierMouvementAvoir, supprimerMouvementAvoir } from "./actions";
 import type { MouvementAvoir } from "../../../src/lib/avoirs";
+import { formatDateFR } from "../../../src/lib/dates";
 
 const LABELS_TYPE: Record<string, string> = {
   ajout_manuel:       "➕ Ajout manuel",
@@ -236,7 +237,7 @@ export default function GestionAvoir({
                       )}
                     </div>
                     <p className="text-xs text-gray-500 truncate">
-                      {m.motif || "—"} — {new Date(m.created_at).toLocaleDateString("fr-CH")}
+                      {m.motif || "—"} — {formatDateFR(new Date(m.created_at))}
                     </p>
                   </div>
 

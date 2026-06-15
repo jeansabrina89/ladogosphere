@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { formatDateFR } from "../../../../src/lib/dates";
 
 type Chien = {
   id: string;
@@ -478,7 +479,7 @@ export default function FormDemandeReservation({
                   <div className="flex flex-wrap gap-2">
                     {datesExclues.map(d => (
                       <span key={d} className="flex items-center gap-1 px-2 py-1 bg-red-50 text-red-600 rounded-lg text-xs">
-                        {new Date(d + "T12:00:00").toLocaleDateString("fr-CH")}
+                        {formatDateFR(d + "T12:00:00")}
                         <button type="button" onClick={() => setDatesExclues(datesExclues.filter(x => x !== d))}>✕</button>
                       </span>
                     ))}
@@ -496,10 +497,10 @@ export default function FormDemandeReservation({
                     {apercu.map((d, i) => (
                       <p key={i} className="text-xs text-gray-600">
                         {type === "journee"
-                          ? new Date(d + "T12:00:00").toLocaleDateString("fr-CH", { weekday: "long", day: "numeric", month: "long" })
+                          ? formatDateFR(d + "T12:00:00")
                           : (() => {
                               const [dDebut, dFin] = d.split("→");
-                              return `${new Date(dDebut + "T12:00:00").toLocaleDateString("fr-CH", { weekday: "short", day: "numeric", month: "short" })} → ${new Date(dFin + "T12:00:00").toLocaleDateString("fr-CH", { weekday: "short", day: "numeric", month: "short" })}`;
+                              return `${formatDateFR(dDebut + "T12:00:00")} → ${formatDateFR(dFin + "T12:00:00")}`;
                             })()
                         }
                       </p>

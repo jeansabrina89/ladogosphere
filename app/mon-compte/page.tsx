@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from "../../src/lib/supabase-server";
 import { createClient } from "../../src/utils/supabase/server";
 import Link from "next/link";
-import { formatDate, aujourdhuiISO } from "../../src/lib/dates";
+import { formatDateFR, formatHeure, aujourdhuiISO } from "../../src/lib/dates";
 import { formatBoxLabel } from "../../src/lib/boxes";
 import { getSoldeAvoir } from "../../src/lib/avoirs";
 
@@ -177,7 +177,7 @@ export default async function MonComptePage() {
                           🐶 {chiens.join(", ") || "—"}
                         </p>
                         <p className="text-sm text-gray-500">
-                          📅 {formatDate(res.date_debut)} → {formatDate(res.date_fin)}
+                          📅 {formatDateFR(res.date_debut)} → {formatDateFR(res.date_fin)}
                         </p>
                         <p className="text-sm text-gray-500">
                           {res.type_reservation === "essai" ? "🧪 Journée d'essai" :
@@ -211,13 +211,13 @@ export default async function MonComptePage() {
                           🐶 {chiens.join(", ") || "—"}
                         </p>
                         <p className="text-sm text-gray-500">
-                          📅 {formatDate(res.date_debut)} → {formatDate(res.date_fin)}
+                          📅 {formatDateFR(res.date_debut)} → {formatDateFR(res.date_fin)}
                         </p>
                         <p className="text-sm text-gray-500">
                           🏠 {formatBoxLabel(res.boxes)} · {res.type_reservation === "journee" ? "Journée" : "Séjour"}
                         </p>
                         {res.heure_arrivee && (
-                          <p className="text-sm text-gray-500">🕐 Arrivée : {String(res.heure_arrivee).slice(0, 5)}</p>
+                          <p className="text-sm text-gray-500">🕐 Arrivée : {formatHeure(res.heure_arrivee)}</p>
                         )}
                         <p className="text-xs text-green-700 font-semibold mt-1">✅ Confirmée</p>
                       </div>
@@ -254,7 +254,7 @@ export default async function MonComptePage() {
                               🐶 {chiens.join(", ") || "—"}
                             </p>
                             <p className="text-sm text-gray-500">
-                              📅 {formatDate(res.date_debut)} → {formatDate(res.date_fin)}
+                              📅 {formatDateFR(res.date_debut)} → {formatDateFR(res.date_fin)}
                             </p>
                           </div>
                           <div className="text-right">

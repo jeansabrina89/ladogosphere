@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../src/utils/supabase/server";
 import BoutonGestionVacances from "./BoutonGestionVacances";
+import { formatDateFR } from "../../../src/lib/dates";
 
 export default async function GestionVacancesPage() {
   const supabase = await createClient();
@@ -61,8 +62,8 @@ export default async function GestionVacancesPage() {
                       </span>
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
-                      📅 {new Date(d.date_debut + "T12:00:00").toLocaleDateString("fr-CH")} →{" "}
-                      {new Date(d.date_fin + "T12:00:00").toLocaleDateString("fr-CH")}
+                      📅 {formatDateFR(d.date_debut)} →{" "}
+                      {formatDateFR(d.date_fin)}
                       <span className="ml-2 font-semibold">{d.nb_jours}j</span>
                     </p>
                     {d.note_employe && (
@@ -93,8 +94,8 @@ export default async function GestionVacancesPage() {
                       {d.employes_rh?.prenom} {d.employes_rh?.nom}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {new Date(d.date_debut + "T12:00:00").toLocaleDateString("fr-CH")} →{" "}
-                      {new Date(d.date_fin + "T12:00:00").toLocaleDateString("fr-CH")} · {d.nb_jours}j
+                      {formatDateFR(d.date_debut)} →{" "}
+                      {formatDateFR(d.date_fin)} · {d.nb_jours}j
                     </p>
                     {d.note_admin && (
                       <p className="text-xs text-blue-500 mt-1">Note : "{d.note_admin}"</p>

@@ -9,7 +9,7 @@ import GestionPrix from "./GestionPrix";
 import BoutonValiderReservation from "../../components/BoutonValiderReservation";
 import BoutonEmail from "./BoutonEmail";
 import GestionPaiement from "./GestionPaiement";
-import { formatDate } from "../../../src/lib/dates";
+import { formatDateFR, formatHeure } from "../../../src/lib/dates";
 import { formatBoxLabel } from "../../../src/lib/boxes";
 import { getProfilePerms } from "../../../src/lib/getProfilePerms";
 
@@ -165,10 +165,10 @@ export default async function ReservationPage({
             res.type_reservation === "sejour" ? "Séjour" : "Journée d'essai"
           }</p>
           <p><strong>Box :</strong> {formatBoxLabel(res.boxes)}</p>
-          <p><strong>Date début :</strong> {formatDate(res.date_debut)}</p>
-          <p><strong>Date fin :</strong> {formatDate(res.date_fin)}</p>
-          <p><strong>Heure arrivée :</strong> {res.heure_arrivee || "—"}</p>
-          <p><strong>Heure départ :</strong> {res.heure_depart || "—"}</p>
+          <p><strong>Date début :</strong> {formatDateFR(res.date_debut)}</p>
+          <p><strong>Date fin :</strong> {formatDateFR(res.date_fin)}</p>
+          <p><strong>Heure arrivée :</strong> {formatHeure(res.heure_arrivee) || "—"}</p>
+          <p><strong>Heure départ :</strong> {formatHeure(res.heure_depart) || "—"}</p>
           {res.commentaire_admin && (
             <p><strong>Commentaire :</strong> {res.commentaire_admin}</p>
           )}

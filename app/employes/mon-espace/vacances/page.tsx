@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "../../../../src/utils/supabase/server";
 import { getEmployeRhActuel } from "../../../../src/lib/employeActuel";
 import FormDemandeVacances from "./FormDemandeVacances";
+import { formatDateFR } from "../../../../src/lib/dates";
 
 export default async function VacancesPage() {
   const supabase = await createClient();
@@ -97,8 +98,8 @@ export default async function VacancesPage() {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-semibold text-sm" style={{ color: "#1B2B5E" }}>
-                      {new Date(d.date_debut + "T12:00:00").toLocaleDateString("fr-CH")} →{" "}
-                      {new Date(d.date_fin + "T12:00:00").toLocaleDateString("fr-CH")}
+                      {formatDateFR(d.date_debut)} →{" "}
+                      {formatDateFR(d.date_fin)}
                     </p>
                     <p className="text-xs text-gray-500">{d.nb_jours}j</p>
                     {d.note_employe && (

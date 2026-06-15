@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { exigerPersonnelPage } from "../../src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "../../src/lib/supabase-admin";
-import { formatDate, aujourdhuiISO } from "../../src/lib/dates";
+import { formatDateFR, aujourdhuiISO } from "../../src/lib/dates";
 import { formatBoxLabel } from "../../src/lib/boxes";
 import FiltresReservations from "./FiltresReservations";
 import BoutonPaiementRapide from "./BoutonPaiementRapide";
@@ -106,7 +106,7 @@ export default async function ReservationsPage({
                        res.type_reservation === "sejour" ? "Séjour" : "Journée d'essai"}
                     </p>
                     <p className="text-gray-500 text-sm">
-                      📅 {formatDate(res.date_debut)} → {formatDate(res.date_fin)}
+                      📅 {formatDateFR(res.date_debut)} → {formatDateFR(res.date_fin)}
                     </p>
                   </Link>
 

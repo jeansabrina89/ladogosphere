@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { formatDateFR } from "../../../../src/lib/dates";
 
 type Props = {
   annee: number;
@@ -25,7 +26,7 @@ export default function CertificatEditeur({
 }: Props) {
 
   const dateFin = `31.12.${annee}`;
-  const dateGeneration = new Date().toLocaleDateString("fr-CH");
+  const dateGeneration = formatDateFR(new Date());
   const case9 = avs_ai_apg + ac + aanp;
 
   // Cases éditables
@@ -202,7 +203,7 @@ export default function CertificatEditeur({
                 {employe.adresse && <>{employe.adresse}<br/></>}
                 {employe.date_naissance && (
                   <span style={{ fontSize: "9px", color: "#666" }}>
-                    Né(e) le : {new Date(employe.date_naissance).toLocaleDateString("fr-CH")}<br/>
+                    Né(e) le : {formatDateFR(employe.date_naissance)}<br/>
                   </span>
                 )}
                 {employe.poste === "Autre" ? employe.poste_autre : employe.poste} — {employe.taux_travail}%
