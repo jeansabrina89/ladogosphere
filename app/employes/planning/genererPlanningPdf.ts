@@ -13,6 +13,7 @@ interface PdfStatut {
 const PDF_STATUTS: Record<string, PdfStatut> = {
   travail:         { abbr: "T",   bg: [232, 245, 244], text: [74,  174, 160], label: "Travail" },
   repos:           { abbr: "R",   bg: [241, 245, 249], text: [107, 114, 128], label: "Repos" },
+  repos_vacances:  { abbr: "RV",  bg: [255, 251, 235], text: [217, 119,   6], label: "Repos vacances" },
   vacances:        { abbr: "V",   bg: [254, 249, 195], text: [202, 138,   4], label: "Vacances" },
   absent:          { abbr: "Ab",  bg: [254, 226, 226], text: [220,  38,  38], label: "Absent" },
   maladie:         { abbr: "Ma",  bg: [254, 226, 226], text: [220,  38,  38], label: "Maladie" },
@@ -24,7 +25,7 @@ const PDF_STATUTS: Record<string, PdfStatut> = {
 };
 
 const LEGENDE_ORDRE: string[] = [
-  "travail", "repos", "vacances", "maladie", "accident",
+  "travail", "repos", "repos_vacances", "vacances", "maladie", "accident",
   "militaire", "ferie_travaille", "absent", "heures_sup", "autre",
 ];
 

@@ -58,6 +58,7 @@ export default async function MonPlanningPage({
     switch (statut) {
       case "travail": return { bg: "#E8F5F4", text: "#4AAEA0", label: "✅ Travail" };
       case "repos": return { bg: "#F1F5F9", text: "#6B7280", label: "😴 Repos" };
+      case "repos_vacances": return { bg: "#FFFBEB", text: "#D97706", label: "🏖️ RV" };
       case "vacances": return { bg: "#FEF9C3", text: "#CA8A04", label: "🏖️ Vacances" };
       case "maladie": return { bg: "#FEE2E2", text: "#DC2626", label: "🤒 Maladie" };
       case "accident": return { bg: "#FEE2E2", text: "#DC2626", label: "🤕 Accident" };
@@ -202,6 +203,7 @@ export default async function MonPlanningPage({
             {[
               { statut: "travail", label: "Travail" },
               { statut: "repos", label: "Repos" },
+              { statut: "repos_vacances", label: "Repos vacances" },
               { statut: "vacances", label: "Vacances" },
               { statut: "maladie", label: "Maladie" },
               { statut: "ferie_travaille", label: "Férié+1j" },

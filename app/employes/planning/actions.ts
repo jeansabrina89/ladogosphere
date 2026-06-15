@@ -19,9 +19,9 @@ type JourPlanning = {
   note?: string;
 };
 
-// 10 valeurs actives — 'ferie' (chômé) supprimé : anciennes lignes converties en 'repos' en base
+// 11 valeurs actives — 'ferie' (chômé) supprimé : anciennes lignes converties en 'repos' en base
 const DB_STATUTS_VALIDES = new Set([
-  "travail", "repos", "vacances", "maladie", "accident", "militaire",
+  "travail", "repos", "repos_vacances", "vacances", "maladie", "accident", "militaire",
   "ferie_travaille", "absent", "heures_sup", "autre",
 ]);
 
@@ -50,6 +50,81 @@ export async function sauvegarderPlanning(lignes: JourPlanning[]): Promise<{ err
     .upsert(lignesSanitizees, { onConflict: "employe_id,date" });
 
   if (error) return { error: error.message };
+
+  // ── Réconciliation des timbrages vacances ──────────────────────────────────
+  // Périmètre : tous les employés du batch × [date min .. date max]
+  // Cible     : paires (employe_id, date) dont le statut sauvegardé est 'vacances'
+  // Action    : créer le timbrage manquant / supprimer les timbrages 'vacances' obsolètes
+  // 'repos_vacances' ne génère AUCUN timbrage.
+
+  const employeIds = [...new Set(lignesSanitizees.map(l => l.employe_id))];
+
+  if (employeIds.length > 0) {
+    const datesSorted = lignesSanitizees.map(l => l.date).sort();
+    const dateMin = datesSorted[0];
+    const dateMax = datesSorted[datesSorted.length - 1];
+
+    // Ensemble cible : clés "employe_id|date" dont statut = 'vacances'
+    const ciblesVacances = new Set<string>(
+      lignesSanitizees
+        .filter(l => l.statut === "vacances")
+        .map(l => `${l.employe_id}|${l.date}`)
+    );
+
+    // Un seul fetch pour tous les timbrages existants sur la plage
+    const { data: timbragesExistants, error: errTimbrage } = await supabaseAdmin
+      .from("timbrage")
+      .select("id, employe_id, date, type_absence")
+      .in("employe_id", employeIds)
+      .gte("date", dateMin)
+      .lte("date", dateMax);
+    if (errTimbrage) return { error: errTimbrage.message };
+
+    // Index : clé → existence d'un timbrage (quel qu'il soit)
+    const pairesAvecTimbrage = new Set<string>();
+    const timbragesVacancesObsoletes: string[] = [];
+
+    timbragesExistants?.forEach((t: any) => {
+      const key = `${t.employe_id}|${t.date}`;
+      pairesAvecTimbrage.add(key);
+
+      // Timbrage 'vacances' hors cible → à supprimer
+      if ((t.type_absence ?? null) === "vacances" && !ciblesVacances.has(key)) {
+        timbragesVacancesObsoletes.push(t.id);
+      }
+    });
+
+    // Créer les timbrages manquants pour les jours 'vacances' sans aucun timbrage
+    const aCreer: {
+      employe_id: string;
+      date: string;
+      type_absence: string;
+      valide_admin: boolean;
+      note: string;
+    }[] = [];
+
+    for (const key of ciblesVacances) {
+      if (!pairesAvecTimbrage.has(key)) {
+        const [employe_id, date] = key.split("|");
+        aCreer.push({ employe_id, date, type_absence: "vacances", valide_admin: true, note: "Vacances (auto)" });
+      }
+    }
+
+    if (aCreer.length > 0) {
+      const { error: errCreate } = await supabaseAdmin.from("timbrage").insert(aCreer);
+      if (errCreate) return { error: errCreate.message };
+    }
+
+    // Supprimer les timbrages 'vacances' devenus obsolètes (filtrés sur type_absence='vacances')
+    if (timbragesVacancesObsoletes.length > 0) {
+      const { error: errDel } = await supabaseAdmin
+        .from("timbrage")
+        .delete()
+        .in("id", timbragesVacancesObsoletes);
+      if (errDel) return { error: errDel.message };
+    }
+  }
+  // ── Fin réconciliation ─────────────────────────────────────────────────────
 
   revalidatePath("/employes/planning");
   return {};

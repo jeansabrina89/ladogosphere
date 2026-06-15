@@ -26,6 +26,7 @@ type JourPlanning = {
 const STATUTS = [
   { val: "travail",         label: "✅ Travail",           emoji: "✅",   bg: "#E8F5F4", text: "#4AAEA0" },
   { val: "repos",           label: "😴 Repos",             emoji: "😴",   bg: "#F1F5F9", text: "#6B7280" },
+  { val: "repos_vacances",  label: "🏖️ Repos vacances",    emoji: "RV",   bg: "#FFFBEB", text: "#D97706" },
   { val: "vacances",        label: "🏖️ Vacances",          emoji: "🏖️",  bg: "#FEF9C3", text: "#CA8A04" },
   { val: "absent",          label: "🚫 Absent",            emoji: "🚫",   bg: "#FEE2E2", text: "#DC2626" },
   { val: "maladie",         label: "🤒 Maladie",           emoji: "🤒",   bg: "#FEE2E2", text: "#DC2626" },
@@ -255,8 +256,9 @@ export default function GenerateurPlanning({
       employesActifs.forEach(emp => {
         fixes[emp.id] = {};
         semaine.forEach(d => {
-          if (estEnVacances(emp.id, d)) fixes[emp.id][d] = "vacances";
-          else if (estIndispo(emp.id, d)) fixes[emp.id][d] = "absent";
+          // Les jours de vacances ne sont PLUS fixés : ils participent au placement normal
+          // et reçoivent statut 'vacances' (travail) ou 'repos_vacances' à l'écriture.
+          if (estIndispo(emp.id, d)) fixes[emp.id][d] = "absent";
         });
       });
 
@@ -357,19 +359,21 @@ export default function GenerateurPlanning({
         semaine.forEach(dateStr => {
           if (!dateStr.startsWith(datePrefix)) return; // hors du mois cible, pas d'écriture
           if (fixes[emp.id][dateStr]) {
+            // Seul fix restant : 'absent' (vacances retiré des fixes)
             nouveauPlanning[emp.id][dateStr] = {
               employe_id: emp.id, date: dateStr, statut: fixes[emp.id][dateStr]
             };
           } else if (joursChoisis[emp.id].has(dateStr)) {
-            nouveauPlanning[emp.id][dateStr] = {
-              employe_id: emp.id,
-              date: dateStr,
-              statut: joursFeries.includes(dateStr) ? "ferie_travaille" : "travail"
-            };
+            // Jour travaillé : ferie_travaille > vacances > travail (priorité décroissante)
+            let statut: string;
+            if (joursFeries.includes(dateStr)) statut = "ferie_travaille";
+            else if (estEnVacances(emp.id, dateStr)) statut = "vacances";
+            else statut = "travail";
+            nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut };
           } else {
-            nouveauPlanning[emp.id][dateStr] = {
-              employe_id: emp.id, date: dateStr, statut: "repos"
-            };
+            // Jour de repos : repos_vacances si dans la plage, repos sinon
+            const statut = estEnVacances(emp.id, dateStr) ? "repos_vacances" : "repos";
+            nouveauPlanning[emp.id][dateStr] = { employe_id: emp.id, date: dateStr, statut };
           }
         });
       });

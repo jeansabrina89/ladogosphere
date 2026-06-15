@@ -103,6 +103,16 @@ export async function PATCH(req: NextRequest) {
       if (errUpdate) return NextResponse.json({ error: errUpdate.message }, { status: 500 });
     }
 
+    // Jours de repos dans la plage → 'repos_vacances' (visible, sans décompte)
+    const { error: errRepos } = await supabaseAdmin
+      .from("planning_employes")
+      .update({ statut: "repos_vacances", note: "Vacances (repos dans la plage)" })
+      .eq("employe_id", employe_id)
+      .gte("date", date_debut)
+      .lte("date", date_fin)
+      .eq("statut", "repos");
+    if (errRepos) return NextResponse.json({ error: errRepos.message }, { status: 500 });
+
     // Timbrages existants sur la plage (batch, une seule requête)
     const { data: timbragesRange } = await supabaseAdmin
       .from("timbrage")
@@ -117,11 +127,12 @@ export async function PATCH(req: NextRequest) {
       timbragesParDate[t.date].push(t.type_absence ?? null);
     });
 
-    // Pour chaque jour basculé : créer un timbrage si absent
+    // Pour chaque jour basculé en 'vacances' : créer un timbrage si absent
+    // ('repos_vacances' ne génère AUCUN timbrage)
     for (const row of aBasculer) {
       const types = timbragesParDate[row.date] ?? [];
       const dejaVacances  = types.includes("vacances");
-      const aVraiesHeures = types.includes(null); // timbrage avec heures réelles
+      const aVraiesHeures = types.includes(null);
       if (!dejaVacances && !aVraiesHeures) {
         const { error: errT } = await supabaseAdmin
           .from("timbrage")
@@ -141,7 +152,7 @@ export async function PATCH(req: NextRequest) {
     let nouvelleNoteAdmin: string | null = note_admin ?? null;
 
     if (planningComplet) {
-      // Planning connu pour toute la plage → décompte exact
+      // Planning connu pour toute la plage → décompte exact (jours travail seulement)
       nouveauNbJours = aBasculer.length;
     } else {
       // Planning partiel ou absent → décompte théorique
@@ -171,7 +182,17 @@ export async function PATCH(req: NextRequest) {
       .eq("statut", "vacances");
     if (errRevert) return NextResponse.json({ error: errRevert.message }, { status: 500 });
 
-    // Supprimer les timbrages type_absence='vacances' (laisse intact les vraies heures)
+    // Repasser 'repos_vacances' → 'repos'
+    const { error: errRV } = await supabaseAdmin
+      .from("planning_employes")
+      .update({ statut: "repos", note: null })
+      .eq("employe_id", employe_id)
+      .gte("date", date_debut)
+      .lte("date", date_fin)
+      .eq("statut", "repos_vacances");
+    if (errRV) return NextResponse.json({ error: errRV.message }, { status: 500 });
+
+    // Supprimer les timbrages type_absence='vacances' auto-créés (laisse intact les vraies heures)
     const { error: errDel } = await supabaseAdmin
       .from("timbrage")
       .delete()
