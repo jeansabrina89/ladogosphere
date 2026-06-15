@@ -1,3 +1,8 @@
+export const HEURES_JOURNEE_PLEINE = 8.5;
+export const JOURS_PLEIN_TEMPS = 5;
+export const HEURES_HEBDO_PLEIN = HEURES_JOURNEE_PLEINE * JOURS_PLEIN_TEMPS; // 42.5
+export const ABSENCES_CREDITEES = ['vacances', 'maladie', 'accident', 'militaire', 'ferie'] as const;
+
 /**
  * Nombre de jours travaillés pour un employé durant une semaine donnée.
  *

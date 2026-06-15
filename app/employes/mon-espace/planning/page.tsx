@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "../../../../src/lib/supabase-server"
 import { redirect } from "next/navigation";
 import { createClient } from "../../../../src/utils/supabase/server";
 import { getEmployeRhActuel } from "../../../../src/lib/employeActuel";
+import { HEURES_JOURNEE_PLEINE } from "../../../../src/lib/planningUtils";
 
 export default async function MonPlanningPage({
   searchParams,
@@ -126,7 +127,7 @@ export default async function MonPlanningPage({
           ) : (
             <div className="bg-white rounded-xl p-4 shadow-sm text-center">
               <p className="text-2xl font-bold" style={{ color: "#C9A84C" }}>
-                {(joursOuvres * 8.4).toFixed(1)}h
+                {(joursOuvres * HEURES_JOURNEE_PLEINE).toFixed(1)}h
               </p>
               <p className="text-xs text-gray-500 mt-1">Heures prévues</p>
             </div>

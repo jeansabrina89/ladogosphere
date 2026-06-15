@@ -3,6 +3,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "../../../src/utils/supabase/server";
 import { aujourdhuiISO } from "../../../src/lib/dates";
 import { getEmployeRhActuel } from "../../../src/lib/employeActuel";
+import {
+  HEURES_JOURNEE_PLEINE,
+  ABSENCES_CREDITEES,
+} from "../../../src/lib/planningUtils";
 import Link from "next/link";
 import BoutonPdf from "../planning/BoutonPdf";
 
@@ -59,30 +63,24 @@ export default async function MonEspaceRHPage() {
 
   let heuresTravailleesMois = 0;
   timbragesMois?.forEach((t: any) => {
-    if (!t.type_absence) {
-      heuresTravailleesMois += calculerDuree(t.heure_debut_matin, t.heure_fin_matin);
-      heuresTravailleesMois += calculerDuree(t.heure_debut_aprem, t.heure_fin_aprem);
-    }
+    heuresTravailleesMois += heuresPourTimbrage(t);
   });
 
   let heuresTravailleesAnnee = 0;
   timbragesAnnee?.forEach((t: any) => {
-    if (!t.type_absence) {
-      heuresTravailleesAnnee += calculerDuree(t.heure_debut_matin, t.heure_fin_matin);
-      heuresTravailleesAnnee += calculerDuree(t.heure_debut_aprem, t.heure_fin_aprem);
-    }
+    heuresTravailleesAnnee += heuresPourTimbrage(t);
   });
 
-  // Heures théoriques ce mois
+  // Heures théoriques ce mois (8,5 h/jour ouvrable × taux)
   const joursOuvrablesMois = compterJoursOuvrables(anneeActuelle, moisActuel);
-  const heuresTheoMois = joursOuvrablesMois * (42 / 5) * (employe.taux_travail / 100);
+  const heuresTheoMois = joursOuvrablesMois * HEURES_JOURNEE_PLEINE * (employe.taux_travail / 100);
   const heuresSupMois = heuresTravailleesMois - heuresTheoMois;
 
   // Heures théoriques cette année (jusqu'au mois actuel)
   let heuresTheoAnnee = 0;
   for (let m = 1; m <= moisActuel; m++) {
     const jo = compterJoursOuvrables(anneeActuelle, m);
-    heuresTheoAnnee += jo * (42 / 5) * (employe.taux_travail / 100);
+    heuresTheoAnnee += jo * HEURES_JOURNEE_PLEINE * (employe.taux_travail / 100);
   }
   const heuresSupAnnee = heuresTravailleesAnnee - heuresTheoAnnee;
 
@@ -292,6 +290,21 @@ export default async function MonEspaceRHPage() {
       </div>
     </main>
   );
+}
+
+// Nombre d'heures à créditer pour une ligne de timbrage :
+// - absence justifiée → HEURES_JOURNEE_PLEINE
+// - jour travaillé   → somme des deux plages horaires
+// - autre absence    → 0
+function heuresPourTimbrage(t: any): number {
+  if (!t.type_absence) {
+    return calculerDuree(t.heure_debut_matin, t.heure_fin_matin)
+      + calculerDuree(t.heure_debut_aprem, t.heure_fin_aprem);
+  }
+  if ((ABSENCES_CREDITEES as readonly string[]).includes(t.type_absence)) {
+    return HEURES_JOURNEE_PLEINE;
+  }
+  return 0;
 }
 
 function calculerDuree(debut: string, fin: string): number {

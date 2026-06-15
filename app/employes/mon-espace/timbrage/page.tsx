@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "../../../../src/utils/supabase/server";
 import { aujourdhuiISO } from "../../../../src/lib/dates";
 import { getEmployeRhActuel } from "../../../../src/lib/employeActuel";
+import { HEURES_JOURNEE_PLEINE, ABSENCES_CREDITEES } from "../../../../src/lib/planningUtils";
 import FormTimbrage from "./FormTimbrage";
 
 export default async function TimbrageePage({
@@ -102,9 +103,10 @@ export default async function TimbrageePage({
           </h2>
           <div className="space-y-2">
             {timbrages?.filter(t => t.date !== dateSelectionnee).map((t: any) => {
-              const heures = t.type_absence ? null :
-                calculerDuree(t.heure_debut_matin, t.heure_fin_matin) +
-                calculerDuree(t.heure_debut_aprem, t.heure_fin_aprem);
+              const heures = !t.type_absence
+                ? calculerDuree(t.heure_debut_matin, t.heure_fin_matin) + calculerDuree(t.heure_debut_aprem, t.heure_fin_aprem)
+                : (ABSENCES_CREDITEES as readonly string[]).includes(t.type_absence) ? HEURES_JOURNEE_PLEINE
+                : null;
 
               return (
                 <a key={t.id} href={`/employes/mon-espace/timbrage?date=${t.date}`}
