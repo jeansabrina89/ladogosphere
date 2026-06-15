@@ -439,8 +439,8 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
 }
 
 /**
- * Applique l'avoir disponible du client sur cette réservation.
- * Consomme min(solde, resteDu) en créant une ligne 'utilisation' (montant négatif).
+ * Applique un montant d'avoir choisi par l'admin sur cette réservation.
+ * Consomme min(montantDemande, solde, resteDu) en créant une ligne 'utilisation' (négatif).
  * Ne touche pas à mode_paiement ni date_paiement.
  */
 export async function appliquerAvoir(formData: FormData): Promise<{ error?: string }> {
@@ -449,27 +449,32 @@ export async function appliquerAvoir(formData: FormData): Promise<{ error?: stri
 
   const reservation_id = formData.get("reservation_id") as string;
   const client_id = (formData.get("client_id") as string) || null;
+  const montantDemande = parseFloat((formData.get("montant_avoir") as string) || "0");
 
   if (!reservation_id) return { error: "Réservation introuvable." };
   if (!client_id) return { error: "Client introuvable." };
+  if (isNaN(montantDemande) || montantDemande <= 0) return { error: "Montant invalide." };
 
-  const { data: reservation, error: resError } = await supabaseAdmin
+  const { data: reservation, error: resErr } = await supabaseAdmin
     .from("reservations")
-    .select("montant_final, montant_calcule, montant_paye, numero")
+    .select("montant_final, montant_calcule, montant_paye")
     .eq("id", reservation_id)
     .single();
-  if (resError || !reservation) return { error: "Réservation introuvable." };
+  if (resErr || !reservation) return { error: "Réservation introuvable." };
 
   const total = Number(reservation.montant_final ?? reservation.montant_calcule ?? 0);
-  const resteDu = total - Number(reservation.montant_paye || 0);
+  const dejaPaye = Number(reservation.montant_paye || 0);
+  const resteDu = total - dejaPaye;
   if (resteDu <= 0) return { error: "Rien à payer sur cette réservation." };
 
   const solde = await getSoldeAvoir(supabaseAdmin, client_id);
   if (solde <= 0) return { error: "Aucun avoir disponible." };
 
-  const montantAvoir = Math.round(Math.min(solde, resteDu) * 100) / 100;
+  // On ne prélève jamais plus que ce qui est demandé, ni que le solde, ni que le reste dû
+  const montantAvoir = Math.round(Math.min(montantDemande, solde, resteDu) * 100) / 100;
+  if (montantAvoir <= 0) return { error: "Montant à utiliser invalide." };
 
-  const { error: insertError } = await supabaseAdmin.from("avoirs_mouvements").insert({
+  const { error: insErr } = await supabaseAdmin.from("avoirs_mouvements").insert({
     client_id,
     montant: -montantAvoir,
     type: "utilisation",
@@ -477,19 +482,16 @@ export async function appliquerAvoir(formData: FormData): Promise<{ error?: stri
     reservation_id,
     created_by: verif.userId ?? null,
   });
-  if (insertError) return { error: insertError.message };
+  if (insErr) return { error: insErr.message };
 
-  const nouveauPaye = Number(reservation.montant_paye || 0) + montantAvoir;
+  const nouveauPaye = Math.round((dejaPaye + montantAvoir) * 100) / 100;
   const statut = calculerStatut(nouveauPaye, total);
 
-  const { error: updateError } = await supabaseAdmin
+  const { error: updErr } = await supabaseAdmin
     .from("reservations")
-    .update({
-      montant_paye: nouveauPaye,
-      statut_paiement: statut,
-    })
+    .update({ montant_paye: nouveauPaye, statut_paiement: statut })
     .eq("id", reservation_id);
-  if (updateError) return { error: updateError.message };
+  if (updErr) return { error: updErr.message };
 
   revalidatePath(`/reservations/${reservation_id}`);
   return {};

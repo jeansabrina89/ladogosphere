@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Smartphone, Banknote, Landmark, CreditCard, MoreHorizontal } from "lucide-react";
 import { enregistrerPaiement, annulerPaiement, appliquerAvoir, reprendreAvoir } from "./actions";
@@ -50,7 +50,15 @@ export default function GestionPaiement({
   const [annulationLoading, setAnnulationLoading] = useState(false);
   const [avoirLoading, setAvoirLoading] = useState(false);
   const [reprendreLoading, setReprendreLoading] = useState(false);
+  const [montantAvoir, setMontantAvoir] = useState("");
   const router = useRouter();
+
+  // Synchronise les états avec les props après router.refresh()
+  useEffect(() => { setMontantPaye(montant_paye?.toString() || ""); }, [montant_paye]);
+  useEffect(() => { setDate(date_paiement || ""); }, [date_paiement]);
+  useEffect(() => { setMode(mode_paiement || ""); }, [mode_paiement]);
+  // Réinitialise le champ avoir quand le solde ou le paiement change
+  useEffect(() => { setMontantAvoir(""); }, [solde_avoir, montant_paye]);
 
   const total = Number(montant_final ?? 0);
   const statut = statut_paiement || "impaye";
@@ -59,6 +67,8 @@ export default function GestionPaiement({
   const montantSaisi = parseFloat(montantPaye || "0");
   const resteSaisi = total > 0 ? total - (isNaN(montantSaisi) ? 0 : montantSaisi) : 0;
   const resteDu = total - dejaPaye;
+  const maxAvoir = Math.min(solde_avoir ?? 0, resteDu > 0 ? resteDu : 0);
+  const montantAvoirValue = montantAvoir !== "" ? montantAvoir : (maxAvoir > 0 ? maxAvoir.toFixed(2) : "");
 
   const handleSauvegarder = async () => {
     if (montantSaisi > 0 && !mode) { alert("Choisis un mode de paiement."); return; }
@@ -116,10 +126,16 @@ export default function GestionPaiement({
   };
 
   const handleAppliquerAvoir = async () => {
+    const montant = parseFloat(montantAvoirValue);
+    if (isNaN(montant) || montant <= 0 || montant > maxAvoir) {
+      alert(`Montant invalide (max CHF ${maxAvoir.toFixed(2)}).`);
+      return;
+    }
     setAvoirLoading(true);
     const formData = new FormData();
     formData.set("reservation_id", reservation_id);
     formData.set("client_id", client_id || "");
+    formData.set("montant_avoir", montant.toString());
     const res = await appliquerAvoir(formData);
     if (res?.error) {
       alert(res.error);
@@ -246,29 +262,53 @@ export default function GestionPaiement({
               </p>
             )}
 
-            <div className="flex flex-wrap gap-2">
-              {typeof solde_avoir === "number" && solde_avoir > 0 && resteDu > 0 && (
+            {typeof solde_avoir === "number" && solde_avoir > 0 && resteDu > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+                      Montant à utiliser sur l'avoir (CHF)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.05"
+                      min="0"
+                      max={maxAvoir}
+                      value={montantAvoirValue}
+                      onChange={e => setMontantAvoir(e.target.value)}
+                      className="border rounded-xl p-2 text-sm w-36"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMontantAvoir(maxAvoir.toFixed(2))}
+                    className="mt-5 text-xs px-2 py-1 rounded-lg border"
+                    style={{ borderColor: "#4AAEA0", color: "#4AAEA0", backgroundColor: "white" }}>
+                    Tout (CHF {maxAvoir.toFixed(2)})
+                  </button>
+                </div>
+
                 <button
                   type="button"
                   onClick={handleAppliquerAvoir}
                   disabled={avoirLoading}
                   className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
                   style={{ backgroundColor: "#4AAEA0" }}>
-                  {avoirLoading ? "…" : `💳 Utiliser l'avoir (CHF ${solde_avoir.toFixed(2)} disponibles)`}
+                  {avoirLoading ? "…" : "💳 Utiliser l'avoir"}
                 </button>
-              )}
+              </div>
+            )}
 
-              {avoirApplique > 0 && (
-                <button
-                  type="button"
-                  onClick={handleReprendreAvoir}
-                  disabled={reprendreLoading}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
-                  style={{ backgroundColor: "#FEF3C7", color: "#92400E", border: "1px solid #FDE68A" }}>
-                  {reprendreLoading ? "…" : `↩️ Reprendre l'avoir utilisé (CHF ${avoirApplique.toFixed(2)})`}
-                </button>
-              )}
-            </div>
+            {avoirApplique > 0 && (
+              <button
+                type="button"
+                onClick={handleReprendreAvoir}
+                disabled={reprendreLoading}
+                className="px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
+                style={{ backgroundColor: "#FEF3C7", color: "#92400E", border: "1px solid #FDE68A" }}>
+                {reprendreLoading ? "…" : `↩️ Reprendre l'avoir utilisé (CHF ${avoirApplique.toFixed(2)})`}
+              </button>
+            )}
           </div>
         )}
 
@@ -282,19 +322,31 @@ export default function GestionPaiement({
             className="w-full border rounded-xl p-3" />
         </div>
 
-        {/* Résumé */}
+        {/* Résumé — utilise dejaPaye (prop) pour le montant déjà réglé,
+            resteSaisi (état) pour le preview de la saisie en cours */}
         {total > 0 && (
-          <div className="flex justify-between items-center pt-2 border-t">
-            <div>
+          <div className="space-y-1 pt-2 border-t">
+            <div className="flex justify-between items-center">
               <p className="text-sm text-gray-500">Total facturé</p>
-              <p className="text-xl font-bold" style={{ color: "#1B2B5E" }}>{total.toFixed(2)} CHF</p>
+              <p className="text-lg font-bold" style={{ color: "#1B2B5E" }}>{total.toFixed(2)} CHF</p>
             </div>
-            <div className="text-right">
+            {dejaPaye > 0 && (
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-gray-500">Déjà payé</p>
+                <p className="text-lg font-semibold" style={{ color: "#4AAEA0" }}>{dejaPaye.toFixed(2)} CHF</p>
+              </div>
+            )}
+            <div className="flex justify-between items-center">
               <p className="text-sm text-gray-500">Reste à payer</p>
-              <p className="text-xl font-bold" style={{ color: resteSaisi > 0 ? "#E0A23B" : "#4AAEA0" }}>
-                {(resteSaisi > 0 ? resteSaisi : 0).toFixed(2)} CHF
+              <p className="text-xl font-bold" style={{ color: resteDu > 0 ? "#E0A23B" : "#4AAEA0" }}>
+                {(resteDu > 0 ? resteDu : 0).toFixed(2)} CHF
               </p>
             </div>
+            {!isNaN(montantSaisi) && montantSaisi !== dejaPaye && montantSaisi >= 0 && (
+              <p className="text-xs text-gray-400 text-right">
+                Après saisie : {Math.max(0, total - montantSaisi).toFixed(2)} CHF restant
+              </p>
+            )}
           </div>
         )}
 
