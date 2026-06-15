@@ -85,3 +85,44 @@ export async function DELETE(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
+
+export async function PATCH(req: NextRequest) {
+  const supabase = await createClient();
+  const garde = await exigerPersonnel(supabase);
+  if (garde) return garde;
+
+  const { employe_id, mois, valide_admin = true } = await req.json();
+  if (!employe_id || !mois)
+    return NextResponse.json({ error: "employe_id et mois requis" }, { status: 400 });
+
+  const [anneeStr, moisStr] = String(mois).split("-");
+  const annee  = parseInt(anneeStr);
+  const moisNum = parseInt(moisStr);
+  if (!annee || !moisNum || moisNum < 1 || moisNum > 12)
+    return NextResponse.json({ error: "Format mois invalide (attendu YYYY-MM)" }, { status: 400 });
+
+  const dateDebut = `${annee}-${String(moisNum).padStart(2, "0")}-01`;
+  // new Date(annee, moisNum, 0) → dernier jour du mois moisNum
+  const dateFin   = new Date(annee, moisNum, 0).toISOString().split("T")[0];
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const role = await getProfileRole(supabase, user!.id);
+
+  if (role !== "admin") {
+    const monId = await getMonEmployeId(user!.id);
+    if (!monId || employe_id !== monId) {
+      const permGarde = await exigerPermissionApi(supabase, "perm_timbrage_equipe");
+      if (permGarde) return permGarde;
+    }
+  }
+
+  const { error } = await supabaseAdmin
+    .from("timbrage")
+    .update({ valide_admin })
+    .eq("employe_id", employe_id)
+    .gte("date", dateDebut)
+    .lte("date", dateFin);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

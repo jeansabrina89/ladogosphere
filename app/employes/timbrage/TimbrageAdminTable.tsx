@@ -314,6 +314,8 @@ export default function TimbrageAdminTable({
 }) {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [validerLoading, setValiderLoading] = useState(false);
+  const [validerErreur, setValiderErreur] = useState<string | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
   // Scroll vers le formulaire quand une case est ouverte
@@ -325,6 +327,25 @@ export default function TimbrageAdminTable({
       return () => clearTimeout(id);
     }
   }, [selectedDate]);
+
+  const handleToutValider = async () => {
+    const moisStr = `${annee}-${moisPad}`;
+    if (!window.confirm(`Valider tous les timbrages du mois ${moisStr} pour cet employé ?`)) return;
+    setValiderLoading(true);
+    setValiderErreur(null);
+    const res = await fetch("/api/rh/timbrage", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employe_id: empId, mois: moisStr }),
+    });
+    setValiderLoading(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setValiderErreur(data.error ?? "Erreur réseau");
+      return;
+    }
+    router.refresh();
+  };
 
   // Index par date
   const planningParDate: Record<string, string> = {};
@@ -343,6 +364,18 @@ export default function TimbrageAdminTable({
 
   return (
     <div>
+      {/* ── Bouton tout valider ── */}
+      <div className="flex justify-end items-center gap-3 mb-3">
+        {validerErreur && (
+          <span className="text-xs text-red-500 font-semibold">❌ {validerErreur}</span>
+        )}
+        <button type="button" onClick={handleToutValider} disabled={validerLoading}
+          className="px-4 py-2 rounded-xl font-semibold text-white text-sm disabled:opacity-50"
+          style={{ backgroundColor: "#16A34A" }}>
+          {validerLoading ? "En cours…" : "✓ Tout valider le mois"}
+        </button>
+      </div>
+
       {/* ── Grille calendrier ── */}
       <div className="bg-white rounded-xl shadow-sm p-3 md:p-4">
         <div className="overflow-x-auto">
