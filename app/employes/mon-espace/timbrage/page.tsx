@@ -1,17 +1,21 @@
 import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../../src/utils/supabase/server";
-import { aujourdhuiISO } from "../../../../src/lib/dates";
 import { getEmployeRhActuel } from "../../../../src/lib/employeActuel";
-import { HEURES_JOURNEE_PLEINE, ABSENCES_CREDITEES } from "../../../../src/lib/planningUtils";
-import FormTimbrage from "./FormTimbrage";
+import { calculerDecompteHeures } from "../../../../src/lib/decompteHeures";
+import TimbrageCalendrier from "../../timbrage/TimbrageCalendrier";
 
-export default async function TimbrageePage({
+const NOMS_MOIS = [
+  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+];
+
+export default async function TimbrageEmployePage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ mois?: string }>;
 }) {
-  const supabase = await createClient();
+  const supabase       = await createClient();
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
   if (!user) redirect("/login");
@@ -23,135 +27,147 @@ export default async function TimbrageePage({
   const employe = await getEmployeRhActuel(supabase, user.id, profile?.email);
   if (!employe) redirect("/employes/mon-espace");
 
+  // Mois sélectionné (défaut : mois courant)
+  const maintenant = new Date();
   const params = await searchParams;
-  const aujourd_hui = aujourdhuiISO();
-  const dateSelectionnee = params.date || aujourd_hui;
+  const moisParam = params.mois
+    || `${maintenant.getFullYear()}-${String(maintenant.getMonth() + 1).padStart(2, "0")}`;
 
-  const moisActuel = new Date().getMonth() + 1;
-  const anneeActuelle = new Date().getFullYear();
+  const [anneeStr, moisStr] = moisParam.split("-");
+  const annee    = parseInt(anneeStr);
+  const moisNum  = parseInt(moisStr);
 
-  // Timbrage pour la date sélectionnée
-  const { data: timbrageDate } = await supabase
-    .from("timbrage")
-    .select("*")
-    .eq("employe_id", employe.id)
-    .eq("date", dateSelectionnee)
-    .maybeSingle();
+  const aujourd_hui = [
+    maintenant.getFullYear(),
+    String(maintenant.getMonth() + 1).padStart(2, "0"),
+    String(maintenant.getDate()).padStart(2, "0"),
+  ].join("-");
 
-  // Timbrages du mois
-  const { data: timbrages } = await supabase
-    .from("timbrage")
-    .select("*")
-    .eq("employe_id", employe.id)
-    .gte("date", `${anneeActuelle}-${String(moisActuel).padStart(2, "0")}-01`)
-    .order("date", { ascending: false });
+  const dateDebutMois  = `${moisParam}-01`;
+  const dateFinMois    = new Date(annee, moisNum, 0).toISOString().split("T")[0];
+  const dateDebutAnnee = `${annee}-01-01`;
+
+  const [
+    { data: planningMoisData },
+    { data: timbragesMoisData },
+    { data: planningAnneeData },
+    { data: timbragesAnneeData },
+  ] = await Promise.all([
+    supabase.from("planning_employes")
+      .select("date, statut").eq("employe_id", employe.id)
+      .gte("date", dateDebutMois).lte("date", dateFinMois),
+    supabase.from("timbrage")
+      .select("date, type_absence, heure_debut_matin, heure_fin_matin, heure_debut_aprem, heure_fin_aprem, valide_admin, note")
+      .eq("employe_id", employe.id)
+      .gte("date", dateDebutMois).lte("date", dateFinMois),
+    supabase.from("planning_employes")
+      .select("date, statut").eq("employe_id", employe.id)
+      .gte("date", dateDebutAnnee).lte("date", dateFinMois),
+    supabase.from("timbrage")
+      .select("date, type_absence, heure_debut_matin, heure_fin_matin, heure_debut_aprem, heure_fin_aprem, valide_admin")
+      .eq("employe_id", employe.id)
+      .gte("date", dateDebutAnnee).lte("date", dateFinMois),
+  ]);
+
+  const decompteMois = calculerDecompteHeures({
+    planning:  planningMoisData  ?? [],
+    timbrages: timbragesMoisData ?? [],
+    dateDebut: dateDebutMois,
+    dateFin:   dateFinMois,
+    asOf:      aujourd_hui,
+  });
+
+  const decompteAnnee = calculerDecompteHeures({
+    planning:  planningAnneeData  ?? [],
+    timbrages: timbragesAnneeData ?? [],
+    dateDebut: dateDebutAnnee,
+    dateFin:   dateFinMois,
+    asOf:      aujourd_hui,
+  });
+
+  // Navigation mois
+  const moisPrecNum  = moisNum === 1  ? 12 : moisNum - 1;
+  const anneePrecNum = moisNum === 1  ? annee - 1 : annee;
+  const moisSuivNum  = moisNum === 12 ? 1  : moisNum + 1;
+  const anneeSuivNum = moisNum === 12 ? annee + 1 : annee;
+  const moisPrecedent = `${anneePrecNum}-${String(moisPrecNum).padStart(2, "0")}`;
+  const moisSuivant   = `${anneeSuivNum}-${String(moisSuivNum).padStart(2, "0")}`;
+
+  const soldeMois  = decompteMois.solde;
+  const soldeAnnee = decompteAnnee.solde;
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-3xl mx-auto">
 
-        <h1 className="text-3xl font-bold mb-2" style={{ color: "#1B2B5E" }}>
-          ⏱️ Timbrage
-        </h1>
+        <h1 className="text-3xl font-bold mb-6" style={{ color: "#1B2B5E" }}>⏱️ Mon timbrage</h1>
 
-        {/* Sélecteur de date */}
-        <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
-          <h2 className="font-bold mb-4" style={{ color: "#1B2B5E" }}>
-            📅 Sélectionner une date
+        {/* Navigation mois */}
+        <div className="flex justify-between items-center mb-4">
+          <a href={`/employes/mon-espace/timbrage?mois=${moisPrecedent}`}
+            className="px-4 py-2 rounded-xl font-semibold text-sm"
+            style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
+            ← {NOMS_MOIS[moisPrecNum - 1]}
+          </a>
+          <h2 className="text-xl font-bold" style={{ color: "#1B2B5E" }}>
+            {NOMS_MOIS[moisNum - 1]} {annee}
           </h2>
-          <form method="GET">
-            <div className="flex gap-3 items-end">
-              <div className="flex-1">
-                <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>
-                  Date
-                </label>
-                <input type="date" name="date"
-                  defaultValue={dateSelectionnee}
-                  max={aujourd_hui}
-                  className="w-full border rounded-xl p-3" />
-              </div>
-              <button type="submit"
-                className="px-6 py-3 rounded-xl font-semibold text-white"
-                style={{ backgroundColor: "#4AAEA0" }}>
-                Charger
-              </button>
-            </div>
-          </form>
-          {dateSelectionnee !== aujourd_hui && (
-            <p className="text-xs text-orange-500 mt-2">
-              ⚠️ Vous timbrez pour le {new Date(dateSelectionnee + "T12:00:00").toLocaleDateString("fr-CH")}
+          <a href={`/employes/mon-espace/timbrage?mois=${moisSuivant}`}
+            className="px-4 py-2 rounded-xl font-semibold text-sm"
+            style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
+            {NOMS_MOIS[moisSuivNum - 1]} →
+          </a>
+        </div>
+
+        {/* Totaux compacts */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+            <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
+              {decompteMois.heuresFaites.toFixed(1)}h
             </p>
-          )}
-        </div>
-
-        {/* Formulaire timbrage */}
-        <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
-          <h2 className="font-bold mb-4" style={{ color: "#1B2B5E" }}>
-            {dateSelectionnee === aujourd_hui ? "📅 Aujourd'hui" : `📅 ${new Date(dateSelectionnee + "T12:00:00").toLocaleDateString("fr-CH", { weekday: "long", day: "numeric", month: "long" })}`}
-          </h2>
-          <FormTimbrage
-            employe_id={employe.id}
-            date={dateSelectionnee}
-            timbrage={timbrageDate}
-          />
-        </div>
-
-        {/* Historique du mois */}
-        <div className="bg-white rounded-xl p-6 shadow-sm">
-          <h2 className="font-bold mb-4" style={{ color: "#1B2B5E" }}>
-            📋 Historique du mois
-          </h2>
-          <div className="space-y-2">
-            {timbrages?.filter(t => t.date !== dateSelectionnee).map((t: any) => {
-              const heures = !t.type_absence
-                ? calculerDuree(t.heure_debut_matin, t.heure_fin_matin) + calculerDuree(t.heure_debut_aprem, t.heure_fin_aprem)
-                : (ABSENCES_CREDITEES as readonly string[]).includes(t.type_absence) ? HEURES_JOURNEE_PLEINE
-                : null;
-
-              return (
-                <a key={t.id} href={`/employes/mon-espace/timbrage?date=${t.date}`}
-                  className="flex justify-between items-center border rounded-xl p-3 hover:bg-slate-50 transition">
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: "#1B2B5E" }}>
-                      {new Date(t.date + "T12:00:00").toLocaleDateString("fr-CH", { weekday: "short", day: "numeric", month: "short" })}
-                    </p>
-                    {t.type_absence ? (
-                      <p className="text-xs text-orange-500 font-semibold capitalize">{t.type_absence}</p>
-                    ) : (
-                      <p className="text-xs text-gray-500">
-                        {t.heure_debut_matin?.slice(0,5)}–{t.heure_fin_matin?.slice(0,5)} · {t.heure_debut_aprem?.slice(0,5)}–{t.heure_fin_aprem?.slice(0,5)}
-                      </p>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    {heures !== null && (
-                      <p className="text-sm font-bold" style={{ color: "#4AAEA0" }}>
-                        {heures.toFixed(1)}h
-                      </p>
-                    )}
-                    {t.type_absence && (
-                      <span className="px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-700 font-semibold capitalize">
-                        {t.type_absence}
-                      </span>
-                    )}
-                  </div>
-                </a>
-              );
-            })}
-            {timbrages?.length === 0 && (
-              <p className="text-gray-400 text-sm">Aucun timbrage ce mois.</p>
-            )}
+            <p className="text-xs text-gray-500 mt-1">Faites ce mois</p>
           </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+            <p className="text-2xl font-bold text-gray-400">
+              {decompteMois.heuresDues.toFixed(1)}h
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Dues ce mois</p>
+          </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+            <p className="text-2xl font-bold"
+              style={{ color: soldeMois >= 0 ? "#4AAEA0" : "#D97706" }}>
+              {soldeMois >= 0 ? "+" : ""}{soldeMois.toFixed(1)}h
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Solde du mois</p>
+          </div>
+          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+            <p className="text-2xl font-bold"
+              style={{ color: soldeAnnee >= 0 ? "#4AAEA0" : "#D97706" }}>
+              {soldeAnnee >= 0 ? "+" : ""}{soldeAnnee.toFixed(1)}h
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Solde {annee}</p>
+          </div>
+        </div>
+
+        {/* Calendrier interactif */}
+        <TimbrageCalendrier
+          employeId={employe.id}
+          mois={moisParam}
+          planning={planningMoisData ?? []}
+          timbrages={(timbragesMoisData ?? []) as any[]}
+          decompteJours={decompteMois.jours}
+          mode="employe"
+        />
+
+        <div className="mt-6">
+          <a href="/employes/mon-espace"
+            className="text-sm font-semibold"
+            style={{ color: "#4AAEA0" }}>
+            ← Mon espace
+          </a>
         </div>
 
       </div>
     </main>
   );
-}
-
-function calculerDuree(debut: string, fin: string): number {
-  if (!debut || !fin) return 0;
-  const [hD, mD] = debut.split(":").map(Number);
-  const [hF, mF] = fin.split(":").map(Number);
-  return (hF * 60 + mF - (hD * 60 + mD)) / 60;
 }

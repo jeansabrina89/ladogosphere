@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "../../../src/utils/supabase/server";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import { calculerDecompteHeures } from "../../../src/lib/decompteHeures";
-import TimbrageAdminTable from "./TimbrageAdminTable";
+import TimbrageCalendrier from "./TimbrageCalendrier";
+import BoutonToutValider from "./BoutonToutValider";
 
 const NOMS_MOIS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -249,16 +250,19 @@ export default async function TimbrageAdminPage({
           </div>
         </div>
 
-        {/* Tableau jour par jour — Client Component interactif */}
-        <TimbrageAdminTable
-          empId={emp.id}
-          annee={annee}
-          mois={mois}
-          moisPad={moisPad}
-          aujourd_hui={aujourd_hui}
-          planningData={planningMoisData ?? []}
-          timbragesData={(timbragesMoisData ?? []) as any[]}
-          joursDecompte={decompteMois.jours}
+        {/* Bouton validation groupée */}
+        <div className="flex justify-end mb-3">
+          <BoutonToutValider empId={emp.id} mois={moisParam} />
+        </div>
+
+        {/* Calendrier interactif — partagé admin/employé */}
+        <TimbrageCalendrier
+          employeId={emp.id}
+          mois={moisParam}
+          planning={planningMoisData ?? []}
+          timbrages={(timbragesMoisData ?? []) as any[]}
+          decompteJours={decompteMois.jours}
+          mode="admin"
         />
 
         <p className="text-xs text-gray-400 mt-3 text-right">
