@@ -3,29 +3,16 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "../../../src/utils/supabase/server";
-import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import { getSoldeAvoir } from "../../../src/lib/avoirs";
-
-async function verifierAdmin(): Promise<{ error?: string }> {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Non connecté" };
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return { error: "Accès réservé à l'admin" };
-  return {};
-}
+import { verifierPermission } from "../../../src/lib/verifierPermission";
 
 // Types crédit (montant positif) vs débit (montant négatif)
 const TYPES_CREDIT = ["ajout_manuel", "annulation_paiement", "trop_percu"];
 
 export async function ajouterAvoir(formData: FormData): Promise<{ error?: string }> {
-  const verif = await verifierAdmin();
+  const verif = await verifierPermission("perm_encaissements");
   if (verif.error) return verif;
-
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
 
   const client_id = formData.get("client_id") as string;
   const montant = parseFloat(formData.get("montant") as string);
@@ -40,7 +27,7 @@ export async function ajouterAvoir(formData: FormData): Promise<{ error?: string
     montant,
     type: "ajout_manuel",
     motif,
-    created_by: user?.id ?? null,
+    created_by: verif.userId ?? null,
   });
 
   if (error) return { error: error.message };
@@ -50,11 +37,8 @@ export async function ajouterAvoir(formData: FormData): Promise<{ error?: string
 }
 
 export async function retirerAvoir(formData: FormData): Promise<{ error?: string }> {
-  const verif = await verifierAdmin();
+  const verif = await verifierPermission("perm_encaissements");
   if (verif.error) return verif;
-
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
 
   const client_id = formData.get("client_id") as string;
   const montant = parseFloat(formData.get("montant") as string);
@@ -74,7 +58,7 @@ export async function retirerAvoir(formData: FormData): Promise<{ error?: string
     montant: -montant,
     type: "retrait_manuel",
     motif,
-    created_by: user?.id ?? null,
+    created_by: verif.userId ?? null,
   });
 
   if (error) return { error: error.message };
@@ -84,7 +68,7 @@ export async function retirerAvoir(formData: FormData): Promise<{ error?: string
 }
 
 export async function modifierMouvementAvoir(formData: FormData): Promise<{ error?: string }> {
-  const verif = await verifierAdmin();
+  const verif = await verifierPermission("perm_encaissements");
   if (verif.error) return verif;
 
   const mouvement_id  = (formData.get("mouvement_id") as string)?.trim();
@@ -134,7 +118,7 @@ export async function modifierMouvementAvoir(formData: FormData): Promise<{ erro
 }
 
 export async function supprimerMouvementAvoir(formData: FormData): Promise<{ error?: string }> {
-  const verif = await verifierAdmin();
+  const verif = await verifierPermission("perm_encaissements");
   if (verif.error) return verif;
 
   const mouvement_id = (formData.get("mouvement_id") as string)?.trim();

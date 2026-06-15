@@ -143,8 +143,8 @@ export default async function ClientPage({
           )}
         </div>
 
-        {/* Avoir client — admin uniquement */}
-        {perms.isAdmin && (
+        {/* Avoir client — admin ou employé avec perm_encaissements */}
+        {(perms.isAdmin || perms.perm_encaissements) && (
           <GestionAvoir client_id={client.id} solde={soldeAvoir} mouvements={mouvementsAvoir} />
         )}
 
