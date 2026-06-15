@@ -1,17 +1,13 @@
 import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { createClient } from "../../../src/utils/supabase/server";
-import { aujourdhuiISO } from "../../../src/lib/dates";
 import { getEmployeRhActuel } from "../../../src/lib/employeActuel";
-import {
-  HEURES_JOURNEE_PLEINE,
-  ABSENCES_CREDITEES,
-} from "../../../src/lib/planningUtils";
+import { calculerDecompteHeures } from "../../../src/lib/decompteHeures";
 import Link from "next/link";
 import BoutonPdf from "../planning/BoutonPdf";
 
 export default async function MonEspaceRHPage() {
-  const supabase = await createClient();
+  const supabase       = await createClient();
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
   if (!user) redirect("/login");
@@ -34,103 +30,88 @@ export default async function MonEspaceRHPage() {
     </main>
   );
 
-  const aujourd_hui = aujourdhuiISO();
-  const moisActuel = new Date().getMonth() + 1;
-  const anneeActuelle = new Date().getFullYear();
+  // Dates de référence (heure locale)
+  const maintenant    = new Date();
+  const moisActuel    = maintenant.getMonth() + 1;
+  const anneeActuelle = maintenant.getFullYear();
+  const moisPad       = String(moisActuel).padStart(2, "0");
+  const aujourd_hui   = `${anneeActuelle}-${moisPad}-${String(maintenant.getDate()).padStart(2, "0")}`;
 
-  const { data: timbrageAujourdhui } = await supabase
-    .from("timbrage")
-    .select("*")
-    .eq("employe_id", employe.id)
-    .eq("date", aujourd_hui)
-    .maybeSingle();
-
-  // Heures sup cumulées sur toute l'année
-  const { data: timbragesAnnee } = await supabase
-    .from("timbrage")
-    .select("*")
-    .eq("employe_id", employe.id)
-    .gte("date", `${anneeActuelle}-01-01`)
-    .lte("date", aujourd_hui);
-
-  // Heures sup du mois en cours
-  const { data: timbragesMois } = await supabase
-    .from("timbrage")
-    .select("*")
-    .eq("employe_id", employe.id)
-    .gte("date", `${anneeActuelle}-${String(moisActuel).padStart(2, "0")}-01`)
-    .lte("date", aujourd_hui);
-
-  let heuresTravailleesMois = 0;
-  timbragesMois?.forEach((t: any) => {
-    heuresTravailleesMois += heuresPourTimbrage(t);
-  });
-
-  let heuresTravailleesAnnee = 0;
-  timbragesAnnee?.forEach((t: any) => {
-    heuresTravailleesAnnee += heuresPourTimbrage(t);
-  });
-
-  // Heures théoriques ce mois (8,5 h/jour ouvrable × taux)
-  const joursOuvrablesMois = compterJoursOuvrables(anneeActuelle, moisActuel);
-  const heuresTheoMois = joursOuvrablesMois * HEURES_JOURNEE_PLEINE * (employe.taux_travail / 100);
-  const heuresSupMois = heuresTravailleesMois - heuresTheoMois;
-
-  // Heures théoriques cette année (jusqu'au mois actuel)
-  let heuresTheoAnnee = 0;
-  for (let m = 1; m <= moisActuel; m++) {
-    const jo = compterJoursOuvrables(anneeActuelle, m);
-    heuresTheoAnnee += jo * HEURES_JOURNEE_PLEINE * (employe.taux_travail / 100);
-  }
-  const heuresSupAnnee = heuresTravailleesAnnee - heuresTheoAnnee;
-
-  // Bornes de l'année de référence — la même pour les trois morceaux du solde
-  const debutAnnee = `${anneeActuelle}-01-01`;
-  const finAnnee   = `${anneeActuelle}-12-31`;
+  const dateDebutMois  = `${anneeActuelle}-${moisPad}-01`;
+  const dateFinMois    = new Date(anneeActuelle, moisActuel, 0).toISOString().split("T")[0];
+  const dateDebutAnnee = `${anneeActuelle}-01-01`;
+  const finAnnee       = `${anneeActuelle}-12-31`;
 
   const [
+    { data: timbrageAujourdhui },
+    { data: planningMoisData },
+    { data: timbragesMoisData },
+    { data: planningAnneeData },
+    { data: timbragesAnneeData },
     { data: demandesVacances },
     { data: vacancesAccepteesAnnee },
     { data: feriesTravailles },
+    { data: indisponibilites },
   ] = await Promise.all([
-    // Affichage seulement : 5 dernières demandes, toutes années confondues
-    supabase
-      .from("demandes_vacances")
-      .select("*")
+    supabase.from("timbrage")
+      .select("id").eq("employe_id", employe.id).eq("date", aujourd_hui).maybeSingle(),
+    supabase.from("planning_employes")
+      .select("date, statut").eq("employe_id", employe.id)
+      .gte("date", dateDebutMois).lte("date", dateFinMois),
+    supabase.from("timbrage")
+      .select("date, type_absence, heure_debut_matin, heure_fin_matin, heure_debut_aprem, heure_fin_aprem, valide_admin")
       .eq("employe_id", employe.id)
-      .order("date_debut", { ascending: false })
-      .limit(5),
-    // Calcul du solde : demandes acceptées dont date_debut ∈ année de référence
-    supabase
-      .from("demandes_vacances")
-      .select("nb_jours")
+      .gte("date", dateDebutMois).lte("date", dateFinMois),
+    supabase.from("planning_employes")
+      .select("date, statut").eq("employe_id", employe.id)
+      .gte("date", dateDebutAnnee).lte("date", dateFinMois),
+    supabase.from("timbrage")
+      .select("date, type_absence, heure_debut_matin, heure_fin_matin, heure_debut_aprem, heure_fin_aprem, valide_admin")
       .eq("employe_id", employe.id)
-      .eq("statut", "acceptee")
-      .gte("date_debut", debutAnnee)
-      .lte("date_debut", finAnnee),
-    // Bonus fériés travaillés : uniquement dans l'année de référence
-    supabase
-      .from("planning_employes")
-      .select("id")
-      .eq("employe_id", employe.id)
-      .eq("statut", "ferie_travaille")
-      .gte("date", debutAnnee)
-      .lte("date", finAnnee),
+      .gte("date", dateDebutAnnee).lte("date", dateFinMois),
+    // Affichage : 5 dernières demandes, toutes années confondues
+    supabase.from("demandes_vacances")
+      .select("*").eq("employe_id", employe.id)
+      .order("date_debut", { ascending: false }).limit(5),
+    // Calcul solde : demandes acceptées dans l'année de référence
+    supabase.from("demandes_vacances")
+      .select("nb_jours").eq("employe_id", employe.id).eq("statut", "acceptee")
+      .gte("date_debut", dateDebutAnnee).lte("date_debut", finAnnee),
+    // Bonus fériés travaillés dans l'année de référence
+    supabase.from("planning_employes")
+      .select("id").eq("employe_id", employe.id).eq("statut", "ferie_travaille")
+      .gte("date", dateDebutAnnee).lte("date", finAnnee),
+    supabase.from("indisponibilites")
+      .select("*").eq("employe_id", employe.id)
+      .gte("date", aujourd_hui).order("date", { ascending: true }).limit(3),
   ]);
 
+  // Décomptes via la même fonction que la page timbrage
+  const decompteMois = calculerDecompteHeures({
+    planning:  planningMoisData  ?? [],
+    timbrages: timbragesMoisData ?? [],
+    dateDebut: dateDebutMois,
+    dateFin:   dateFinMois,
+    asOf:      aujourd_hui,
+  });
+
+  const decompteAnnee = calculerDecompteHeures({
+    planning:  planningAnneeData  ?? [],
+    timbrages: timbragesAnneeData ?? [],
+    dateDebut: dateDebutAnnee,
+    dateFin:   dateFinMois,
+    asOf:      aujourd_hui,
+  });
+
+  // Solde vacances (inchangé)
   const bonusFeriers        = feriesTravailles?.length ?? 0;
   const joursVacancesTotal  = 20 * employe.taux_travail / 100;
   const joursVacancesPris   = vacancesAccepteesAnnee
     ?.reduce((acc: number, d: any) => acc + d.nb_jours, 0) ?? 0;
   const joursVacancesRestants = joursVacancesTotal + bonusFeriers - joursVacancesPris;
 
-  const { data: indisponibilites } = await supabase
-    .from("indisponibilites")
-    .select("*")
-    .eq("employe_id", employe.id)
-    .gte("date", aujourd_hui)
-    .order("date", { ascending: true })
-    .limit(3);
+  const soldeMois  = decompteMois.solde;
+  const soldeAnnee = decompteAnnee.solde;
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -214,11 +195,11 @@ export default async function MonEspaceRHPage() {
                   </div>
                   <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                     d.statut === "acceptee" ? "bg-green-100 text-green-700" :
-                    d.statut === "refusee" ? "bg-red-100 text-red-700" :
+                    d.statut === "refusee"  ? "bg-red-100 text-red-700" :
                     "bg-yellow-100 text-yellow-700"
                   }`}>
                     {d.statut === "acceptee" ? "✅ Acceptée" :
-                     d.statut === "refusee" ? "❌ Refusée" : "⏳ En attente"}
+                     d.statut === "refusee"  ? "❌ Refusée" : "⏳ En attente"}
                   </span>
                 </div>
               ))}
@@ -226,41 +207,37 @@ export default async function MonEspaceRHPage() {
           </div>
         )}
 
-        {/* Stats mois */}
+        {/* Stats mois — alignées sur calculerDecompteHeures */}
         <h2 className="font-bold mb-3 text-sm uppercase tracking-wide text-gray-400">Ce mois</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
           <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p
-              className={heuresSupMois >= 0 ? "text-2xl font-bold" : "text-xl font-semibold"}
-              style={{ color: heuresSupMois >= 0 ? "#4AAEA0" : "#D97706" }}
-            >
-              {heuresSupMois >= 0 ? "+" : ""}{heuresSupMois.toFixed(1)}h
+            <p className={soldeMois >= 0 ? "text-2xl font-bold" : "text-xl font-semibold"}
+              style={{ color: soldeMois >= 0 ? "#4AAEA0" : "#D97706" }}>
+              {soldeMois >= 0 ? "+" : ""}{soldeMois.toFixed(1)}h
             </p>
-            <p className="text-xs text-gray-500 mt-1">H.sup ce mois</p>
+            <p className="text-xs text-gray-500 mt-1">Solde ce mois</p>
           </div>
           <div className="bg-white rounded-xl p-4 shadow-sm text-center">
             <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
-              {heuresTravailleesMois.toFixed(1)}h
+              {decompteMois.heuresFaites.toFixed(1)}h
             </p>
-            <p className="text-xs text-gray-500 mt-1">Heures travaillées</p>
+            <p className="text-xs text-gray-500 mt-1">Heures faites</p>
           </div>
           <div className="bg-white rounded-xl p-4 shadow-sm text-center">
             <p className="text-2xl font-bold" style={{ color: "#6B7280" }}>
-              {heuresTheoMois.toFixed(1)}h
+              {decompteMois.heuresDues.toFixed(1)}h
             </p>
-            <p className="text-xs text-gray-500 mt-1">Heures théoriques</p>
+            <p className="text-xs text-gray-500 mt-1">Heures dues</p>
           </div>
         </div>
 
-        {/* Stats année */}
+        {/* Stats année — alignées sur calculerDecompteHeures */}
         <h2 className="font-bold mb-3 text-sm uppercase tracking-wide text-gray-400">Cette année</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p
-              className={heuresSupAnnee >= 0 ? "text-2xl font-bold" : "text-xl font-semibold"}
-              style={{ color: heuresSupAnnee >= 0 ? "#4AAEA0" : "#D97706" }}
-            >
-              {heuresSupAnnee >= 0 ? "+" : ""}{heuresSupAnnee.toFixed(1)}h
+            <p className={soldeAnnee >= 0 ? "text-2xl font-bold" : "text-xl font-semibold"}
+              style={{ color: soldeAnnee >= 0 ? "#4AAEA0" : "#D97706" }}>
+              {soldeAnnee >= 0 ? "+" : ""}{soldeAnnee.toFixed(1)}h
             </p>
             <p className="text-xs text-gray-500 mt-1">Solde h.sup annuel</p>
           </div>
@@ -290,36 +267,4 @@ export default async function MonEspaceRHPage() {
       </div>
     </main>
   );
-}
-
-// Nombre d'heures à créditer pour une ligne de timbrage :
-// - absence justifiée → HEURES_JOURNEE_PLEINE
-// - jour travaillé   → somme des deux plages horaires
-// - autre absence    → 0
-function heuresPourTimbrage(t: any): number {
-  if (!t.type_absence) {
-    return calculerDuree(t.heure_debut_matin, t.heure_fin_matin)
-      + calculerDuree(t.heure_debut_aprem, t.heure_fin_aprem);
-  }
-  if ((ABSENCES_CREDITEES as readonly string[]).includes(t.type_absence)) {
-    return HEURES_JOURNEE_PLEINE;
-  }
-  return 0;
-}
-
-function calculerDuree(debut: string, fin: string): number {
-  if (!debut || !fin) return 0;
-  const [hD, mD] = debut.split(":").map(Number);
-  const [hF, mF] = fin.split(":").map(Number);
-  return (hF * 60 + mF - (hD * 60 + mD)) / 60;
-}
-
-function compterJoursOuvrables(annee: number, mois: number): number {
-  const daysInMonth = new Date(annee, mois, 0).getDate();
-  let count = 0;
-  for (let d = 1; d <= daysInMonth; d++) {
-    const jour = new Date(annee, mois - 1, d).getDay();
-    if (jour !== 0 && jour !== 6) count++;
-  }
-  return count;
 }
