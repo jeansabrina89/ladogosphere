@@ -126,6 +126,71 @@ export async function sauvegarderPlanning(lignes: JourPlanning[]): Promise<{ err
   }
   // ── Fin réconciliation ─────────────────────────────────────────────────────
 
+  // ── Resync nb_jours des demandes_vacances ──────────────────────────────────
+  // Pour chaque demande 'acceptee' chevauchant la plage sauvegardée :
+  //   - si la plage de la demande est entièrement couverte par le planning → nb_jours exact
+  //   - sinon → on ne touche pas (on garde l'estimation théorique posée à l'acceptation)
+
+  if (employeIds.length > 0) {
+    const datesSortedR = lignesSanitizees.map(l => l.date).sort();
+    const dateMinR = datesSortedR[0];
+    const dateMaxR = datesSortedR[datesSortedR.length - 1];
+
+    const { data: demandes, error: errDemandes } = await supabaseAdmin
+      .from("demandes_vacances")
+      .select("id, employe_id, date_debut, date_fin, nb_jours, note_admin")
+      .in("employe_id", employeIds)
+      .eq("statut", "acceptee")
+      .lte("date_debut", dateMaxR)
+      .gte("date_fin", dateMinR);
+    if (errDemandes) return { error: errDemandes.message };
+
+    for (const demande of demandes ?? []) {
+      const { id, employe_id, date_debut, date_fin, nb_jours, note_admin } = demande;
+
+      // Nombre de jours calendaires de la plage complète de la demande
+      const MS_JOUR = 24 * 60 * 60 * 1000;
+      const joursCalendaires =
+        Math.round(
+          (new Date(date_fin + "T12:00:00").getTime() -
+            new Date(date_debut + "T12:00:00").getTime()) /
+            MS_JOUR
+        ) + 1;
+
+      // Lire le planning de l'employé sur la plage COMPLÈTE de la demande
+      const { data: planningDemande, error: errPlan } = await supabaseAdmin
+        .from("planning_employes")
+        .select("statut")
+        .eq("employe_id", employe_id)
+        .gte("date", date_debut)
+        .lte("date", date_fin);
+      if (errPlan) return { error: errPlan.message };
+
+      // Plage entièrement couverte ?
+      if ((planningDemande?.length ?? 0) < joursCalendaires) continue;
+
+      const nbVacancesReel = planningDemande!.filter(r => r.statut === "vacances").length;
+
+      // Nettoyer le marqueur '[auto]' de la note si présent (décompte désormais exact)
+      const MARQUEUR_AUTO = "[auto] décompte théorique, affiné à la génération.";
+      let nouvelleNote: string | null = note_admin ?? null;
+      if (typeof nouvelleNote === "string" && nouvelleNote.startsWith(MARQUEUR_AUTO)) {
+        const reste = nouvelleNote.slice(MARQUEUR_AUTO.length).trimStart();
+        nouvelleNote = reste || null;
+      }
+
+      // Ne mettre à jour que si quelque chose a changé
+      if (nbVacancesReel === nb_jours && nouvelleNote === (note_admin ?? null)) continue;
+
+      const { error: errUpdate } = await supabaseAdmin
+        .from("demandes_vacances")
+        .update({ nb_jours: nbVacancesReel, note_admin: nouvelleNote })
+        .eq("id", id);
+      if (errUpdate) return { error: errUpdate.message };
+    }
+  }
+  // ── Fin resync nb_jours ────────────────────────────────────────────────────
+
   revalidatePath("/employes/planning");
   return {};
 }
