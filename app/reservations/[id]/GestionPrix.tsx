@@ -164,7 +164,7 @@ export default function GestionPrix({
         </div>
 
         <div className="border-t pt-3 flex justify-between items-center">
-          <span className="font-semibold" style={{ color: "#1B2B5E" }}>Total dû</span>
+          <span className="font-semibold" style={{ color: "#1B2B5E" }}>Montant total</span>
           <span className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
             {(
               Number(montant_final) ||

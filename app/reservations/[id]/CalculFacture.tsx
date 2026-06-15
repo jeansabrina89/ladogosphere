@@ -183,7 +183,7 @@ export default function CalculFacture({
             <div className="text-right">
               {(montant_actuel != null) && (
                 <p className="text-sm text-gray-400 mb-1">
-                  Total dû actuel : {(Number(montant_actuel) || montantTotal).toFixed(2)} CHF
+                  Montant total : {(Number(montant_actuel) || montantTotal).toFixed(2)} CHF
                 </p>
               )}
               {perm_reservations_modifier && (
