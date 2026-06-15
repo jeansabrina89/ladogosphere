@@ -62,6 +62,11 @@ export default async function EmployesPage() {
               style={{ backgroundColor: "#1B2B5E" }}>
               📅 Planning
             </Link>
+            <Link href="/employes/timbrage"
+              className="px-4 py-2 rounded-xl font-semibold text-white text-sm"
+              style={{ backgroundColor: "#4AAEA0" }}>
+              ⏱️ Timbrage
+            </Link>
             <Link href="/employes/fiches-salaire"
               className="px-4 py-2 rounded-xl font-semibold text-white text-sm"
               style={{ backgroundColor: "#E8847A" }}>
@@ -125,6 +130,11 @@ export default async function EmployesPage() {
                     {emp.profile_id && (
                       <BoutonReinitialiserMdp profilId={emp.profile_id} />
                     )}
+                    <Link href={`/employes/timbrage?employe=${emp.id}`}
+                      className="px-3 py-2 rounded-xl text-sm font-semibold text-white"
+                      style={{ backgroundColor: "#4AAEA0" }}>
+                      ⏱️ Heures
+                    </Link>
                     <Link href={`/employes/fiches-salaire/creer?employe_id=${emp.id}`}
                       className="px-3 py-2 rounded-xl text-sm font-semibold text-white"
                       style={{ backgroundColor: "#E8847A" }}>
