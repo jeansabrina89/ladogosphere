@@ -6,6 +6,9 @@ export type MouvementAvoir = {
   type: string;
   motif: string | null;
   created_at: string;
+  // Champs optionnels : présents dans getMouvementsAvoir, absents dans getMouvementsAvoirReservation
+  reservation_id?: string | null;
+  reservations?: { numero: number | null } | null;
 };
 
 export async function getMouvementsAvoir(
@@ -14,7 +17,7 @@ export async function getMouvementsAvoir(
 ): Promise<MouvementAvoir[]> {
   const { data, error } = await supabase
     .from("avoirs_mouvements")
-    .select("id, montant, type, motif, created_at")
+    .select("id, montant, type, motif, created_at, reservation_id, reservations(numero)")
     .eq("client_id", client_id)
     .order("created_at", { ascending: false });
 
