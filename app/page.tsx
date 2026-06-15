@@ -52,7 +52,7 @@ export default async function Home() {
           reservation_chiens (chiens (id, nom))
         )
       `)
-      .eq("statut", "attendu")
+      .in("statut", ["attendu", "arrive"])
       .gte("date_arrivee_prevue", `${aujourd_hui}T00:00:00Z`)
       .lte("date_arrivee_prevue", `${aujourd_hui}T23:59:59Z`),
     supabaseAdmin.from("checkin_checkout")
@@ -64,7 +64,7 @@ export default async function Home() {
           reservation_chiens (chiens (id, nom))
         )
       `)
-      .in("statut", ["arrive", "a_recuperer"])
+      .in("statut", ["arrive", "a_recuperer", "parti"])
       .gte("date_depart_prevu", `${aujourd_hui}T00:00:00Z`)
       .lte("date_depart_prevu", `${aujourd_hui}T23:59:59Z`),
   ]);

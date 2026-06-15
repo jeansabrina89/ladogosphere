@@ -10,11 +10,29 @@ export async function POST(
   const garde = await exigerPersonnel(supabase);
   if (garde) return garde;
   const { id } = await params;
-  const { statut } = await req.json();
+  const body = await req.json();
+  const action = body.action as string | undefined;
 
-  const updates: any = { statut };
-  if (statut === "arrive") updates.date_arrivee_reelle = new Date().toISOString();
-  if (statut === "parti") updates.date_depart_reel = new Date().toISOString();
+  let updates: Record<string, any>;
+  switch (action) {
+    case "checkin":
+      updates = { statut: "arrive", date_arrivee_reelle: new Date().toISOString() };
+      break;
+    case "checkout":
+      updates = { statut: "parti", date_depart_reel: new Date().toISOString() };
+      break;
+    case "annuler_checkin":
+      updates = { statut: "attendu", date_arrivee_reelle: null };
+      break;
+    case "annuler_checkout":
+      updates = { statut: "arrive", date_depart_reel: null };
+      break;
+    default:
+      return NextResponse.json(
+        { error: `Action inconnue : "${action}"` },
+        { status: 400 }
+      );
+  }
 
   const { error } = await supabase
     .from("checkin_checkout")
@@ -23,8 +41,8 @@ export async function POST(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Si check-in effectué → vérifier si c'est une journée d'essai
-  if (statut === "arrive") {
+  // Bonus essai : si check-in effectué sur une journée d'essai → marquer journee_essai_effectuee
+  if (action === "checkin") {
     const { data: cc } = await supabase
       .from("checkin_checkout")
       .select(`reservation_id, reservations!inner (type_reservation, reservation_chiens (chien_id))`)
