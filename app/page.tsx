@@ -29,7 +29,6 @@ export default async function Home() {
     { count: totalChiens },
     { count: totalClients },
     { count: reservationsAttente },
-    { count: chiensPresents },
     { data: dernieresReservations },
     { data: arrivees },
     { data: departs },
@@ -37,7 +36,6 @@ export default async function Home() {
     supabaseAdmin.from("chiens").select("*", { count: "exact", head: true }).eq("actif", true),
     supabaseAdmin.from("clients").select("*", { count: "exact", head: true }).eq("actif", true),
     supabaseAdmin.from("reservations").select("*", { count: "exact", head: true }).eq("statut", "en_attente"),
-    supabaseAdmin.from("checkin_checkout").select("*", { count: "exact", head: true }).eq("statut", "arrive"),
     supabaseAdmin.from("reservations")
       .select(`*, clients (prenom, nom), reservation_chiens (chiens (nom))`)
       .eq("statut", "en_attente")
@@ -196,26 +194,6 @@ export default async function Home() {
             </div>
           </div>
 
-        </div>
-
-        {/* Stats opérationnelles */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-            <p className="text-4xl font-bold" style={{ color: "#4AAEA0" }}>{chiensPresents}</p>
-            <p className="text-gray-500 text-sm mt-1">Chiens présents</p>
-          </div>
-          <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-            <p className="text-4xl font-bold" style={{ color: "#E8847A" }}>{arrivees?.length ?? 0}</p>
-            <p className="text-gray-500 text-sm mt-1">Arrivées aujourd&apos;hui</p>
-          </div>
-          <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-            <p className="text-4xl font-bold" style={{ color: "#C9A84C" }}>{departs?.length ?? 0}</p>
-            <p className="text-gray-500 text-sm mt-1">Départs aujourd&apos;hui</p>
-          </div>
-          <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-            <p className="text-4xl font-bold" style={{ color: "#1B2B5E" }}>{reservationsAttente}</p>
-            <p className="text-gray-500 text-sm mt-1">En attente</p>
-          </div>
         </div>
 
         {/* Stats globales */}
