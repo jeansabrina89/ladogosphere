@@ -32,7 +32,7 @@ export async function creerChienClient(client_id: string, formData: FormData) {
   const sterilisation = (formData.get("sterilisation") as string || "").trim();
   const numero_puce = (formData.get("numero_puce") as string || "").trim();
 
-  if (!nom || !race || !couleur || !poids || !sexe || !["oui", "non", "chimique"].includes(sterilisation) || !numero_puce) {
+  if (!nom || !race || !couleur || !poids || !sexe || !["oui", "non", "chimique"].includes(sterilisation)) {
     throw new Error("Merci de remplir tous les champs obligatoires.");
   }
 

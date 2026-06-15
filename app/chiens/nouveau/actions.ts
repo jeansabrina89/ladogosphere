@@ -27,8 +27,8 @@ export async function creerChien(formData: FormData) {
   const sterilise = sterilisation === "oui";
   const numero_puce = (formData.get("numero_puce") as string || "").trim();
 
-  if (!nom || !race || !numero_puce || !poids || !sexe) {
-    throw new Error("Merci de remplir tous les champs obligatoires (nom, race, puce, poids, sexe).");
+  if (!nom || !race || !couleur || !numero_puce || !poids || !sexe) {
+    throw new Error("Merci de remplir tous les champs obligatoires (nom, race, couleur, puce, poids, sexe).");
   }
   const niveau_energie = formData.get("niveau_energie") as string;
   const allergies = formData.get("allergies") as string;

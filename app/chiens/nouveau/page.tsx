@@ -41,8 +41,8 @@ export default async function NouveauChienPage() {
           </div>
 
           <div>
-            <label className="block font-semibold mb-1">Couleur</label>
-            <input name="couleur" type="text" className="w-full border rounded-xl p-3" />
+            <label className="block font-semibold mb-1">Couleur *</label>
+            <input name="couleur" type="text" required className="w-full border rounded-xl p-3" />
           </div>
 
           <div>

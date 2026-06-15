@@ -88,8 +88,8 @@ export default async function NouveauChienClientPage() {
           </div>
 
           <div>
-            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Numéro de puce *</label>
-            <input name="numero_puce" type="text" required className="w-full border rounded-xl p-3" />
+            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Numéro de puce</label>
+            <input name="numero_puce" type="text" className="w-full border rounded-xl p-3" />
           </div>
 
           <div>
