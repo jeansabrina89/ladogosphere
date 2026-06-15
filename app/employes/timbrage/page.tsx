@@ -262,7 +262,7 @@ export default async function TimbrageAdminPage({
         />
 
         <p className="text-xs text-gray-400 mt-3 text-right">
-          ⚠ = non validé par l'admin · › = jour à venir (non inclus dans les totaux)
+          Totaux calculés jusqu'à aujourd'hui uniquement.
         </p>
 
       </div>
