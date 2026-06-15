@@ -131,10 +131,14 @@ export async function enregistrerPaiement(formData: FormData): Promise<{ error?:
 
   const { data: reservation, error: resError } = await supabaseAdmin
     .from("reservations")
-    .select("montant_final, montant_calcule")
+    .select("montant_final, montant_calcule, statut")
     .eq("id", reservation_id)
     .single();
   if (resError || !reservation) return { error: "Réservation introuvable." };
+
+  if (reservation.statut === "annulee") {
+    return { error: "Réservation annulée : aucun nouveau paiement ni avoir ne peut être appliqué. Utilisez « Annuler le paiement » pour corriger." };
+  }
 
   const total = Number(reservation.montant_final ?? reservation.montant_calcule ?? 0);
 
@@ -457,10 +461,14 @@ export async function appliquerAvoir(formData: FormData): Promise<{ error?: stri
 
   const { data: reservation, error: resErr } = await supabaseAdmin
     .from("reservations")
-    .select("montant_final, montant_calcule, montant_paye")
+    .select("montant_final, montant_calcule, montant_paye, statut")
     .eq("id", reservation_id)
     .single();
   if (resErr || !reservation) return { error: "Réservation introuvable." };
+
+  if (reservation.statut === "annulee") {
+    return { error: "Réservation annulée : aucun nouveau paiement ni avoir ne peut être appliqué. Utilisez « Annuler le paiement » pour corriger." };
+  }
 
   const total = Number(reservation.montant_final ?? reservation.montant_calcule ?? 0);
   const dejaPaye = Number(reservation.montant_paye || 0);
@@ -517,10 +525,14 @@ export async function reprendreAvoir(formData: FormData): Promise<{ error?: stri
 
   const { data: reservation, error: resError } = await supabaseAdmin
     .from("reservations")
-    .select("montant_final, montant_calcule, montant_paye, mode_paiement, date_paiement")
+    .select("montant_final, montant_calcule, montant_paye, mode_paiement, date_paiement, statut")
     .eq("id", reservation_id)
     .single();
   if (resError || !reservation) return { error: "Réservation introuvable." };
+
+  if (reservation.statut === "annulee") {
+    return { error: "Réservation annulée : aucun nouveau paiement ni avoir ne peut être appliqué. Utilisez « Annuler le paiement » pour corriger." };
+  }
 
   const { error: insertError } = await supabaseAdmin.from("avoirs_mouvements").insert({
     client_id,

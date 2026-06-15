@@ -211,6 +211,7 @@ export default async function ReservationPage({
           date_paiement={res.date_paiement}
           mode_paiement={res.mode_paiement}
           perm_encaissements={perms.perm_encaissements}
+          statut={res.statut}
         />
 
         {/* Boutons */}
