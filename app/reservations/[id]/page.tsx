@@ -247,7 +247,11 @@ export default async function ReservationPage({
           )}
 
           {res.statut !== "annulee" && perms.perm_reservations_annuler && (
-            <BoutonAnnuler id={res.id} />
+            <BoutonAnnuler
+              id={res.id}
+              montant_paye={Number(res.montant_paye) || 0}
+              client_id={client_id ?? null}
+            />
           )}
 
           {res.statut === "annulee" && perms.isAdmin && (

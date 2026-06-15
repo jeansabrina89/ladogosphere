@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 import { verifierPermission } from "../../../../src/lib/verifierPermission";
+import { getAvoirAppliqueReservation } from "../../../../src/lib/avoirs";
 
 export async function modifierReservation(id: string, formData: FormData) {
   const verif = await verifierPermission("perm_reservations_modifier");
@@ -80,18 +81,61 @@ export async function annulerReservation(formData: FormData) {
   if (verif.error) throw new Error(verif.error);
 
   const id = formData.get("id") as string;
+  const client_id = (formData.get("client_id") as string) || null;
+  const mettreEnAvoir = formData.get("mettre_en_avoir") === "true";
 
+  // Charger l'état de paiement
+  const { data: resa } = await supabaseAdmin
+    .from("reservations")
+    .select("montant_paye, numero")
+    .eq("id", id)
+    .single();
+  const montantPaye = Number(resa?.montant_paye || 0);
+
+  // Si demandé : mettre le montant payé en avoir AVANT d'annuler
+  if (mettreEnAvoir && montantPaye > 0 && client_id) {
+    // a) restituer l'avoir éventuellement consommé sur cette résa
+    const avoirApplique = await getAvoirAppliqueReservation(supabaseAdmin, client_id, id);
+    if (avoirApplique > 0) {
+      const { error: e1 } = await supabaseAdmin.from("avoirs_mouvements").insert({
+        client_id,
+        montant: avoirApplique,
+        type: "annulation_paiement",
+        motif: `Reprise avoir (annulation résa #${resa?.numero ?? id})`,
+        reservation_id: id,
+        created_by: verif.userId ?? null,
+      });
+      if (e1) throw new Error(e1.message);
+    }
+    // b) mettre la partie cash (non-avoir) en avoir
+    const cashPaye = Math.max(0, montantPaye - avoirApplique);
+    if (cashPaye > 0) {
+      const { error: e2 } = await supabaseAdmin.from("avoirs_mouvements").insert({
+        client_id,
+        montant: cashPaye,
+        type: "annulation_paiement",
+        motif: `Mise en avoir (annulation résa #${resa?.numero ?? id})`,
+        reservation_id: id,
+        created_by: verif.userId ?? null,
+      });
+      if (e2) throw new Error(e2.message);
+    }
+    // c) remettre le paiement à zéro sur la résa
+    const { error: e3 } = await supabaseAdmin
+      .from("reservations")
+      .update({ montant_paye: 0, statut_paiement: "impaye", mode_paiement: null, date_paiement: null })
+      .eq("id", id);
+    if (e3) throw new Error(e3.message);
+  }
+
+  // Annuler la réservation
   const { error } = await supabaseAdmin
     .from("reservations")
     .update({ statut: "annulee" })
     .eq("id", id);
-
   if (error) throw new Error(error.message);
 
-  await supabaseAdmin
-    .from("occupation_boxes")
-    .delete()
-    .eq("reservation_id", id);
+  await supabaseAdmin.from("occupation_boxes").delete().eq("reservation_id", id);
 
   redirect(`/reservations/${id}`);
 }
