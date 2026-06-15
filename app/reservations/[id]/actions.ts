@@ -454,32 +454,53 @@ export async function supprimerReservationDefinitivement(formData: FormData): Pr
   const id = formData.get("id") as string;
   if (!id) return { error: "Réservation introuvable." };
 
+  // ── 1. Charger la réservation ─────────────────────────────────────────────
   const { data: reservation, error: resError } = await supabaseAdmin
     .from("reservations")
-    .select("id, statut")
+    .select("id, statut, montant_paye, statut_paiement")
     .eq("id", id)
     .single();
   if (resError || !reservation) return { error: "Réservation introuvable." };
 
+  // ── 2. Gardes métier (fail-closed) ────────────────────────────────────────
   if (reservation.statut !== "annulee") {
-    return { error: "Suppression impossible : la réservation n'est pas annulée." };
+    return { error: "Seule une réservation annulée peut être supprimée." };
+  }
+  if (Number(reservation.montant_paye) > 0 || reservation.statut_paiement !== "impaye") {
+    return { error: "Un paiement est rattaché à cette réservation : impossible de supprimer." };
   }
 
-  const { count, error: factureError } = await supabaseAdmin
-    .from("factures")
-    .select("id", { count: "exact", head: true })
-    .eq("reservation_id", id);
-  if (factureError) return { error: factureError.message };
+  const { count: facturesCount, error: factureErr } = await supabaseAdmin
+    .from("factures").select("id", { count: "exact", head: true }).eq("reservation_id", id);
+  if (factureErr) return { error: factureErr.message };
+  if ((facturesCount ?? 0) > 0) return { error: "Une facture est liée à cette réservation : impossible de supprimer." };
 
-  if ((count ?? 0) > 0) {
-    return { error: "Suppression impossible : une facture existe pour cette réservation." };
-  }
+  const { count: avoirsCount, error: avoirErr } = await supabaseAdmin
+    .from("avoirs_mouvements").select("id", { count: "exact", head: true }).eq("reservation_id", id);
+  if (avoirErr) return { error: avoirErr.message };
+  if ((avoirsCount ?? 0) > 0) return { error: "Un avoir est lié à cette réservation : impossible de supprimer." };
 
-  const { error: deleteError } = await supabaseAdmin
-    .from("reservations")
-    .delete()
-    .eq("id", id);
-  if (deleteError) return { error: deleteError.message };
+  const { count: cotisationsCount, error: cotisationErr } = await supabaseAdmin
+    .from("cotisations_membres").select("id", { count: "exact", head: true }).eq("reservation_id", id);
+  if (cotisationErr) return { error: cotisationErr.message };
+  if ((cotisationsCount ?? 0) > 0) return { error: "Une cotisation est liée à cette réservation : impossible de supprimer." };
 
+  // ── 3. Suppression dans l'ordre (lignes liées avant la réservation) ───────
+  const { error: e1 } = await supabaseAdmin.from("reservation_extras").delete().eq("reservation_id", id);
+  if (e1) return { error: `Erreur suppression extras : ${e1.message}` };
+
+  const { error: e2 } = await supabaseAdmin.from("reservation_chiens").delete().eq("reservation_id", id);
+  if (e2) return { error: `Erreur suppression chiens : ${e2.message}` };
+
+  const { error: e3 } = await supabaseAdmin.from("occupation_boxes").delete().eq("reservation_id", id);
+  if (e3) return { error: `Erreur suppression occupation : ${e3.message}` };
+
+  const { error: e4 } = await supabaseAdmin.from("checkin_checkout").delete().eq("reservation_id", id);
+  if (e4) return { error: `Erreur suppression checkin : ${e4.message}` };
+
+  const { error: e5 } = await supabaseAdmin.from("reservations").delete().eq("id", id);
+  if (e5) return { error: `Erreur suppression réservation : ${e5.message}` };
+
+  revalidatePath("/reservations");
   redirect("/reservations");
 }

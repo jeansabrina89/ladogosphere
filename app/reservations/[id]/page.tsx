@@ -58,14 +58,6 @@ export default async function ReservationPage({
     .eq("annee", anneeActuelle)
     .maybeSingle();
 
-  // Suppression définitive possible uniquement si annulée et sans facture liée
-  const { count: facturesCount } = await supabaseAdmin
-    .from("factures")
-    .select("id", { count: "exact", head: true })
-    .eq("reservation_id", id);
-
-  const peutSupprimerDefinitivement = res.statut === "annulee" && (facturesCount ?? 0) === 0;
-
   // Solde d'avoir du client (pour le paiement par avoir)
   const soldeAvoir = res.clients?.id ? await getSoldeAvoir(supabaseAdmin, res.clients.id) : 0;
 
@@ -253,7 +245,7 @@ export default async function ReservationPage({
             <BoutonAnnuler id={res.id} />
           )}
 
-          {peutSupprimerDefinitivement && perms.isAdmin && (
+          {res.statut === "annulee" && perms.isAdmin && (
             <BoutonSupprimerDefinitif id={res.id} />
           )}
 
