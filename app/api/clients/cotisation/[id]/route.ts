@@ -11,15 +11,22 @@ export async function POST(
   const garde = await exigerPermissionApi(supabase, "perm_encaissements");
   if (garde) return garde;
   const { id } = await params;
-  const { date_paiement } = await req.json();
+  let body: Record<string, unknown> = {};
+  try { body = await req.json(); } catch { /* corps vide */ }
+  const { date_paiement, mode_paiement } = body as { date_paiement?: string; mode_paiement?: string };
+
+  const champsModeAcceptes = ["cash", "virement"];
+  const updateData: Record<string, unknown> = {
+    statut: "payee",
+    date_paiement: date_paiement || new Date().toISOString().split("T")[0],
+  };
+  if (mode_paiement && champsModeAcceptes.includes(mode_paiement)) {
+    updateData.mode_paiement = mode_paiement;
+  }
 
   const { error } = await supabaseAdmin
     .from("cotisations_membres")
-    .update({
-      statut: "payee",
-      mode_paiement: "virement",
-      date_paiement: date_paiement || new Date().toISOString().split("T")[0],
-    })
+    .update(updateData)
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

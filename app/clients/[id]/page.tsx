@@ -6,6 +6,7 @@ import { getMouvementsAvoir, calculerSoldeAvoir } from "../../../src/lib/avoirs"
 import BoutonArchiverClient from "./BoutonArchiverClient";
 import BoutonSupprimerClient from "./BoutonSupprimerClient";
 import BoutonCotisation from "./BoutonCotisation";
+import BoutonConfirmerCotisation from "./BoutonConfirmerCotisation";
 import GestionAvoir from "./GestionAvoir";
 import { getProfilePerms } from "../../../src/lib/getProfilePerms";
 
@@ -134,6 +135,11 @@ export default async function ClientPage({
                     }`}>
                       {c.statut === "payee" ? "✅ Payée" : "⏳ En attente"}
                     </span>
+                    <BoutonConfirmerCotisation
+                      cotisation_id={c.id}
+                      statut={c.statut}
+                      perm_encaissements={perms.perm_encaissements}
+                    />
                   </div>
                 </div>
               ))}
