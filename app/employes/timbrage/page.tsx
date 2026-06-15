@@ -4,73 +4,12 @@ import { redirect } from "next/navigation";
 import { createClient } from "../../../src/utils/supabase/server";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import { calculerDecompteHeures } from "../../../src/lib/decompteHeures";
+import TimbrageAdminTable from "./TimbrageAdminTable";
 
 const NOMS_MOIS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
 ];
-
-const NOMS_JOURS_COURT = ["Di", "Lu", "Ma", "Me", "Je", "Ve", "Sa"];
-
-function labelStatut(statut: string | null): string {
-  switch (statut) {
-    case "travail":         return "Travail";
-    case "ferie_travaille": return "Ferie+";
-    case "repos":           return "Repos";
-    case "repos_vacances":  return "RV";
-    case "vacances":        return "Vacances";
-    case "absent":          return "Absent";
-    case "maladie":         return "Maladie";
-    case "accident":        return "Accident";
-    case "militaire":       return "Militaire";
-    case "heures_sup":      return "H.sup";
-    case "autre":           return "Autre";
-    default:                return "—";
-  }
-}
-
-function bgStatut(statut: string | null): string {
-  switch (statut) {
-    case "travail":         return "#E8F5F4";
-    case "ferie_travaille": return "#FEF3C7";
-    case "repos":           return "#F1F5F9";
-    case "repos_vacances":  return "#FFFBEB";
-    case "vacances":        return "#FEF9C3";
-    case "absent":
-    case "maladie":
-    case "accident":        return "#FEE2E2";
-    case "militaire":       return "#EDE9FE";
-    case "heures_sup":      return "#DBEAFE";
-    default:                return "#F1F5F9";
-  }
-}
-
-function textStatut(statut: string | null): string {
-  switch (statut) {
-    case "travail":         return "#4AAEA0";
-    case "ferie_travaille": return "#D97706";
-    case "repos":           return "#6B7280";
-    case "repos_vacances":  return "#D97706";
-    case "vacances":        return "#CA8A04";
-    case "absent":
-    case "maladie":
-    case "accident":        return "#DC2626";
-    case "militaire":       return "#7C3AED";
-    case "heures_sup":      return "#2563EB";
-    default:                return "#9CA3AF";
-  }
-}
-
-function labelAbsence(type: string | null): string {
-  switch (type) {
-    case "maladie":   return "Maladie";
-    case "accident":  return "Accident";
-    case "militaire": return "Militaire";
-    case "vacances":  return "Vacances";
-    case "autre":     return "Autre";
-    default:          return type ?? "";
-  }
-}
 
 export default async function TimbrageAdminPage({
   searchParams,
@@ -117,15 +56,14 @@ export default async function TimbrageAdminPage({
   const [anneeStr, moisStr] = moisParam.split("-");
   const annee = parseInt(anneeStr);
   const mois = parseInt(moisStr);
+  const moisPad = String(mois).padStart(2, "0");
 
   const emp = employes.find((e: any) => e.id === params.employe) ?? employes[0];
 
-  const moisPad = String(mois).padStart(2, "0");
   const dateDebutMois = `${annee}-${moisPad}-01`;
   const dateFinMois = new Date(annee, mois, 0).toISOString().split("T")[0];
   const dateDebutAnnee = `${annee}-01-01`;
 
-  // Charge planning + timbrage du MOIS et de l'ANNÉE en parallèle
   const [
     { data: planningMoisData },
     { data: timbragesMoisData },
@@ -137,8 +75,9 @@ export default async function TimbrageAdminPage({
     supabaseAdmin.from("planning_employes")
       .select("date, statut").eq("employe_id", emp.id)
       .gte("date", dateDebutMois).lte("date", dateFinMois),
+    // Note mensuelle : inclut 'note' pour le formulaire d'édition
     supabaseAdmin.from("timbrage")
-      .select("date, type_absence, heure_debut_matin, heure_fin_matin, heure_debut_aprem, heure_fin_aprem, valide_admin")
+      .select("date, type_absence, heure_debut_matin, heure_fin_matin, heure_debut_aprem, heure_fin_aprem, valide_admin, note")
       .eq("employe_id", emp.id).gte("date", dateDebutMois).lte("date", dateFinMois),
     supabaseAdmin.from("planning_employes")
       .select("date, statut").eq("employe_id", emp.id)
@@ -154,6 +93,7 @@ export default async function TimbrageAdminPage({
       .gte("date", `${annee}-01-01`).lte("date", `${annee}-12-31`),
   ]);
 
+  // Décomptes (plafonnés à aujourd'hui — totaux seulement)
   const decompteMois = calculerDecompteHeures({
     planning: planningMoisData ?? [],
     timbrages: timbragesMoisData ?? [],
@@ -170,6 +110,7 @@ export default async function TimbrageAdminPage({
     asOf: aujourd_hui,
   });
 
+  // Solde vacances
   const joursVacancesTotal = 20 * emp.taux_travail / 100;
   const bonusFeriers = feriesTravailles?.length ?? 0;
   const joursVacancesPris = vacancesAcceptees?.reduce(
@@ -185,11 +126,6 @@ export default async function TimbrageAdminPage({
   const moisPrecedent = `${anneePrecNum}-${String(moisPrecNum).padStart(2, "0")}`;
   const moisSuivant = `${anneeSuivNum}-${String(moisSuivNum).padStart(2, "0")}`;
 
-  // Index des jours du décompte pour accès rapide
-  const joursParDate: Record<string, typeof decompteMois.jours[0]> = {};
-  decompteMois.jours.forEach(j => { joursParDate[j.date] = j; });
-
-  const nbJoursMois = new Date(annee, mois, 0).getDate();
   const nonValides = decompteMois.jours.filter(j => j.valideAdmin === false).length;
 
   return (
@@ -200,7 +136,7 @@ export default async function TimbrageAdminPage({
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold" style={{ color: "#1B2B5E" }}>⏱️ Timbrage équipe</h1>
-            <p className="text-gray-500 mt-1">Consultation — lecture seule</p>
+            <p className="text-gray-500 mt-1">Consultation et édition</p>
           </div>
           <Link href="/employes" className="px-4 py-2 rounded-xl font-semibold text-sm"
             style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>← Équipe</Link>
@@ -214,9 +150,7 @@ export default async function TimbrageAdminPage({
               <select name="employe" defaultValue={emp.id}
                 className="border border-gray-200 rounded-xl p-2 text-sm min-w-48">
                 {employes.map((e: any) => (
-                  <option key={e.id} value={e.id}>
-                    {e.prenom} {e.nom} — {e.taux_travail}%
-                  </option>
+                  <option key={e.id} value={e.id}>{e.prenom} {e.nom} — {e.taux_travail}%</option>
                 ))}
               </select>
             </div>
@@ -315,130 +249,20 @@ export default async function TimbrageAdminPage({
           </div>
         </div>
 
-        {/* Tableau jour par jour */}
-        <div className="bg-white rounded-xl shadow-sm overflow-x-auto">
-          <table className="min-w-full">
-            <thead>
-              <tr style={{ backgroundColor: "#1B2B5E" }}>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-white">Jour</th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-white">Statut</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-white">Dû</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-white">Fait</th>
-                <th className="px-3 py-2 text-right text-xs font-semibold text-white">Solde</th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-white">Absence</th>
-                <th className="px-3 py-2 text-center text-xs font-semibold text-white">Valid.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from({ length: nbJoursMois }, (_, i) => {
-                const jour = i + 1;
-                const dateStr = `${annee}-${moisPad}-${String(jour).padStart(2, "0")}`;
-                const jourSemaine = new Date(dateStr + "T12:00:00").getDay();
-                const estWeekend = jourSemaine === 0 || jourSemaine === 6;
-                const estFutur = dateStr > aujourd_hui;
-                const j = joursParDate[dateStr] ?? null;
-                const soldeJour = j ? j.pointe - j.du : null;
-
-                let bgRow = "white";
-                if (estFutur) bgRow = "#FAFAFA";
-                else if (estWeekend) bgRow = "#F1F5F9";
-
-                return (
-                  <tr key={dateStr}
-                    style={{
-                      backgroundColor: bgRow,
-                      borderBottom: "1px solid #E2E8F0",
-                      opacity: estFutur ? 0.45 : 1,
-                    }}>
-                    {/* Jour */}
-                    <td className="px-3 py-1.5 text-sm whitespace-nowrap">
-                      <span className="font-bold" style={{ color: estWeekend ? "#94A3B8" : "#1B2B5E" }}>
-                        {jour}
-                      </span>
-                      <span className="ml-1 text-xs text-gray-400">
-                        {NOMS_JOURS_COURT[jourSemaine]}
-                      </span>
-                    </td>
-
-                    {/* Statut planning */}
-                    <td className="px-3 py-1.5">
-                      {j?.statut ? (
-                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
-                          style={{
-                            backgroundColor: bgStatut(j.statut),
-                            color: textStatut(j.statut),
-                          }}>
-                          {labelStatut(j.statut)}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-gray-300">—</span>
-                      )}
-                    </td>
-
-                    {/* Dû */}
-                    <td className="px-3 py-1.5 text-right text-sm">
-                      {j && j.du > 0
-                        ? <span className="font-semibold text-gray-600">{j.du.toFixed(1)}h</span>
-                        : <span className="text-gray-300">—</span>
-                      }
-                    </td>
-
-                    {/* Fait */}
-                    <td className="px-3 py-1.5 text-right text-sm">
-                      {j?.timbreExiste && j.pointe > 0 ? (
-                        <span className="font-semibold" style={{ color: "#1B2B5E" }}>
-                          {j.pointe.toFixed(1)}h
-                        </span>
-                      ) : j?.timbreExiste && j.typeAbsence !== null ? (
-                        <span className="text-gray-400 text-xs">—</span>
-                      ) : !j?.timbreExiste && j?.du && j.du > 0 ? (
-                        <span className="text-orange-400 text-xs font-semibold">manquant</span>
-                      ) : (
-                        <span className="text-gray-300">—</span>
-                      )}
-                    </td>
-
-                    {/* Solde jour */}
-                    <td className="px-3 py-1.5 text-right text-sm">
-                      {j && j.du > 0 && j.timbreExiste ? (
-                        <span className="font-bold"
-                          style={{ color: (soldeJour ?? 0) >= 0 ? "#4AAEA0" : "#D97706" }}>
-                          {(soldeJour ?? 0) >= 0 ? "+" : ""}{(soldeJour ?? 0).toFixed(1)}h
-                        </span>
-                      ) : (
-                        <span className="text-gray-300">—</span>
-                      )}
-                    </td>
-
-                    {/* Type absence */}
-                    <td className="px-3 py-1.5">
-                      {j?.typeAbsence && (
-                        <span className="px-2 py-0.5 rounded-full text-xs"
-                          style={{ backgroundColor: "#FFF7ED", color: "#C2410C" }}>
-                          {labelAbsence(j.typeAbsence)}
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Validation */}
-                    <td className="px-3 py-1.5 text-center">
-                      {j?.valideAdmin === false ? (
-                        <span className="text-orange-400 text-sm font-bold" title="Non validé par l'admin">⚠</span>
-                      ) : j?.valideAdmin === true ? (
-                        <span className="text-green-500 text-sm" title="Validé">✓</span>
-                      ) : (
-                        <span className="text-gray-200">·</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        {/* Tableau jour par jour — Client Component interactif */}
+        <TimbrageAdminTable
+          empId={emp.id}
+          annee={annee}
+          mois={mois}
+          moisPad={moisPad}
+          aujourd_hui={aujourd_hui}
+          planningData={planningMoisData ?? []}
+          timbragesData={(timbragesMoisData ?? []) as any[]}
+          joursDecompte={decompteMois.jours}
+        />
 
         <p className="text-xs text-gray-400 mt-3 text-right">
-          ⚠ = timbrage non validé par l'admin · Lecture seule
+          ⚠ = non validé par l'admin · › = jour à venir (non inclus dans les totaux)
         </p>
 
       </div>

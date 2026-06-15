@@ -3,40 +3,84 @@ import { createClient } from "../../../../src/utils/supabase/server";
 import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 import { exigerPersonnel, exigerPermissionApi } from "../../../../src/lib/apiAuth";
 
+async function getProfileRole(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
+  const { data } = await supabase.from("profiles").select("role").eq("id", userId).single();
+  return data?.role ?? null;
+}
+
+async function getMonEmployeId(userId: string): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from("employes_rh").select("id").eq("profile_id", userId).maybeSingle();
+  return data?.id ?? null;
+}
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const garde = await exigerPersonnel(supabase);
   if (garde) return garde;
 
   const body = await req.json();
-  const employe_id_cible = body.employe_id;
+  const {
+    employe_id, date,
+    heure_debut_matin, heure_fin_matin,
+    heure_debut_aprem, heure_fin_aprem,
+    type_absence, note, valide_admin,
+  } = body;
 
-  // Déterminer si ce timbrage concerne l'utilisateur courant
   const { data: { user } } = await supabase.auth.getUser();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user!.id)
-    .single();
+  const role = await getProfileRole(supabase, user!.id);
 
-  if (profile?.role !== "admin") {
-    // Trouver la fiche RH de l'utilisateur courant
-    const { data: monEmploye } = await supabaseAdmin
-      .from("employes_rh")
-      .select("id")
-      .eq("profile_id", user!.id)
-      .maybeSingle();
+  if (role !== "admin") {
+    const monId = await getMonEmployeId(user!.id);
+    if (!monId || employe_id !== monId) {
+      const permGarde = await exigerPermissionApi(supabase, "perm_timbrage_equipe");
+      if (permGarde) return permGarde;
+    }
+  }
 
-    // Si le timbrage ne concerne pas soi-même, exiger perm_timbrage_equipe
-    if (!monEmploye || employe_id_cible !== monEmploye.id) {
+  const ligne: Record<string, unknown> = {
+    employe_id, date,
+    heure_debut_matin: heure_debut_matin ?? null,
+    heure_fin_matin:   heure_fin_matin   ?? null,
+    heure_debut_aprem: heure_debut_aprem ?? null,
+    heure_fin_aprem:   heure_fin_aprem   ?? null,
+    type_absence: type_absence ?? null,
+    note: note ?? null,
+  };
+  // L'admin peut explicitement passer valide_admin ; les non-admins ne peuvent pas
+  if (role === "admin" && valide_admin !== undefined) {
+    ligne.valide_admin = valide_admin;
+  }
+
+  const { error } = await supabaseAdmin
+    .from("timbrage").upsert(ligne, { onConflict: "employe_id,date" });
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(req: NextRequest) {
+  const supabase = await createClient();
+  const garde = await exigerPersonnel(supabase);
+  if (garde) return garde;
+
+  const { employe_id, date } = await req.json();
+  if (!employe_id || !date)
+    return NextResponse.json({ error: "employe_id et date requis" }, { status: 400 });
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const role = await getProfileRole(supabase, user!.id);
+
+  if (role !== "admin") {
+    const monId = await getMonEmployeId(user!.id);
+    if (!monId || employe_id !== monId) {
       const permGarde = await exigerPermissionApi(supabase, "perm_timbrage_equipe");
       if (permGarde) return permGarde;
     }
   }
 
   const { error } = await supabaseAdmin
-    .from("timbrage")
-    .upsert(body, { onConflict: "employe_id,date" });
+    .from("timbrage").delete().eq("employe_id", employe_id).eq("date", date);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
