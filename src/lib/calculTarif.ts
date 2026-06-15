@@ -119,6 +119,14 @@ export function calculerMontant({
     return nb_nuits * prixSejour + supplement_journee * prixJournee;
   }
 
+  if (type_reservation === "essai") {
+    // Tarif = une journée membre, quel que soit le statut réel du client
+    return resoudrePrixUnitaire({
+      tarifs, type_reservation: "journee", nb_chiens,
+      est_membre: true, est_urgence, est_privatif,
+    });
+  }
+
   const debut = new Date(date_debut);
   const fin = new Date(date_fin);
   const nb_jours = Math.max(

@@ -4,6 +4,8 @@ import { supabaseAdmin } from "../../../../../src/lib/supabase-admin";
 import { envoyerEmailReservationValidee, envoyerEmailReservationAnnulee } from "../../../../../src/lib/email";
 import { formatBoxLabel } from "../../../../../src/lib/boxes";
 import { exigerPermissionApi } from "../../../../../src/lib/apiAuth";
+import { calculerMontant } from "../../../../../src/lib/calculTarif";
+import { recalculerMontantSejour, enregistrerMontantCalcule } from "../../../../reservations/[id]/actions";
 
 export async function POST(
   req: NextRequest,
@@ -21,6 +23,53 @@ export async function POST(
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Calcul automatique du montant à la validation (seulement si pas déjà calculé)
+  if (statut === "validee") {
+    try {
+      const { data: resa } = await supabaseAdmin
+        .from("reservations")
+        .select(`
+          type_reservation, urgence, date_debut, date_fin, heure_arrivee, heure_depart,
+          montant_calcule,
+          clients (membre),
+          reservation_chiens (chiens (doit_etre_isole))
+        `)
+        .eq("id", id)
+        .single();
+
+      if (resa && !resa.montant_calcule) {
+        if (resa.type_reservation === "sejour") {
+          await recalculerMontantSejour(id);
+        } else {
+          const { data: tarifs } = await supabaseAdmin
+            .from("tarifs")
+            .select("categorie, membre, prix")
+            .eq("actif", true);
+          if (tarifs) {
+            const chiens = (resa.reservation_chiens ?? [])
+              .map((rc: any) => rc.chiens)
+              .filter(Boolean);
+            const montant = calculerMontant({
+              tarifs,
+              type_reservation: resa.type_reservation,
+              nb_chiens: chiens.length,
+              est_membre: (resa.clients as any)?.membre ?? false,
+              est_urgence: !!resa.urgence,
+              est_privatif: chiens.some((c: any) => c.doit_etre_isole),
+              date_debut: resa.date_debut,
+              date_fin: resa.date_fin,
+              heure_arrivee: resa.heure_arrivee,
+              heure_depart: resa.heure_depart,
+            });
+            await enregistrerMontantCalcule(id, montant);
+          }
+        }
+      }
+    } catch (calcError) {
+      console.error("Erreur calcul montant à la validation:", calcError);
+    }
+  }
 
   // Envoyer email selon le statut
   try {
