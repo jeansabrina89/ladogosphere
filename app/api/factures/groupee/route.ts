@@ -144,6 +144,17 @@ export async function POST(req: NextRequest) {
     );
 
   if (lignesErr) {
+    // Violation d'unicité = course concurrente sur l'index uniq_reservation_facture_active
+    if (
+      lignesErr.code === "23505" ||
+      lignesErr.message.includes("uniq_reservation_facture_active")
+    ) {
+      await supabaseAdmin.from("factures").delete().eq("id", facture.id);
+      return NextResponse.json(
+        { error: "Une de ces réservations vient d'être facturée. Actualise et réessaie." },
+        { status: 409 }
+      );
+    }
     return NextResponse.json({ error: lignesErr.message }, { status: 500 });
   }
 

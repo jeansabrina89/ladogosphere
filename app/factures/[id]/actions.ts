@@ -102,6 +102,13 @@ export async function annulerFacture(
     .eq("id", factureId);
   if (updErr) return { error: updErr.message };
 
+  // Libérer les réservations pour re-facturation (index unique partiel)
+  const { error: liensErr } = await supabaseAdmin
+    .from("facture_reservations")
+    .update({ facture_annulee: true })
+    .eq("facture_id", factureId);
+  if (liensErr) return { error: liensErr.message };
+
   revalidatePath(`/factures/${factureId}`);
   revalidatePath("/reservations");
   return {};
