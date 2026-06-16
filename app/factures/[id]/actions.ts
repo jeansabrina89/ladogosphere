@@ -77,3 +77,32 @@ export async function marquerFactureReglee(
   revalidatePath("/reservations");
   return {};
 }
+
+export async function annulerFacture(
+  factureId: string
+): Promise<{ error?: string }> {
+  const verif = await verifierPermission("perm_encaissements");
+  if (verif.error) return verif;
+
+  const { data: facture, error: facErr } = await supabaseAdmin
+    .from("factures")
+    .select("id, statut")
+    .eq("id", factureId)
+    .single();
+
+  if (facErr || !facture) return { error: "Facture introuvable." };
+  if (facture.statut === "acquittee") {
+    return { error: "Impossible d'annuler une facture déjà réglée." };
+  }
+  if (facture.statut === "annulee") return {};
+
+  const { error: updErr } = await supabaseAdmin
+    .from("factures")
+    .update({ statut: "annulee" })
+    .eq("id", factureId);
+  if (updErr) return { error: updErr.message };
+
+  revalidatePath(`/factures/${factureId}`);
+  revalidatePath("/reservations");
+  return {};
+}

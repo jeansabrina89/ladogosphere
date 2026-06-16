@@ -5,6 +5,7 @@ import { formatDateFR } from "../../../src/lib/dates";
 import { getCoordonneesPaiement } from "../../../src/lib/coordonneesPaiement";
 import BoutonImprimer from "./BoutonImprimer";
 import BoutonReglement from "./BoutonReglement";
+import BoutonAnnulerFacture from "./BoutonAnnulerFacture";
 
 function libelleType(t: string): string {
   if (t === "journee") return "Journée";
@@ -218,6 +219,19 @@ export default async function FactureGroupeePage({
           </div>
         )}
 
+        {/* Badge annulée */}
+        {estAnnulee && (
+          <div
+            className="border rounded-xl p-4 mb-8 text-center"
+            style={{ borderColor: "#9CA3AF", backgroundColor: "#F9FAFB" }}
+          >
+            <p className="font-bold text-gray-500 text-lg">🚫 Facture annulée</p>
+            <p className="text-sm text-gray-400 mt-1">
+              Les réservations liées restent impayées et peuvent être refacturées.
+            </p>
+          </div>
+        )}
+
         {/* Badge acquittement */}
         {estAcquittee && (
           <div
@@ -236,13 +250,21 @@ export default async function FactureGroupeePage({
           </div>
         )}
 
-        {/* Contrôle de règlement — no-print, admin / perm_encaissements */}
+        {/* Contrôles admin — no-print */}
         {peutRegler && !estAcquittee && !estAnnulee && (
-          <div
-            className="no-print border rounded-xl p-4 mb-8"
-            style={{ borderColor: "#4AAEA0", backgroundColor: "#F0FAFA" }}
-          >
-            <BoutonReglement facture_id={facture.id} />
+          <div className="no-print space-y-3 mb-8">
+            <div
+              className="border rounded-xl p-4"
+              style={{ borderColor: "#4AAEA0", backgroundColor: "#F0FAFA" }}
+            >
+              <BoutonReglement facture_id={facture.id} />
+            </div>
+            <div
+              className="border rounded-xl p-4"
+              style={{ borderColor: "#FCA5A5", backgroundColor: "#FFF5F5" }}
+            >
+              <BoutonAnnulerFacture facture_id={facture.id} />
+            </div>
           </div>
         )}
 
