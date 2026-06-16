@@ -56,10 +56,23 @@ export default async function ComptabilitePage({
       return d.getFullYear() === anneePrec && d.getMonth() === idx;
     }) ?? [];
 
-    const ca = resAnnee.reduce((s, r) => s + (r.montant_final || 0), 0);
-    const caPrec = resAnneePrec.reduce((s, r) => s + (r.montant_final || 0), 0);
+    // CA facturé : par date_debut, COALESCE(montant_final, montant_calcule, 0) + ajustement_manuel
+    const caFacture = resAnnee.reduce((s, r) => {
+      return s + Number(r.montant_final ?? r.montant_calcule ?? 0) + Number(r.ajustement_manuel ?? 0);
+    }, 0);
+    const caPrec = resAnneePrec.reduce((s, r) => {
+      return s + Number(r.montant_final ?? r.montant_calcule ?? 0) + Number(r.ajustement_manuel ?? 0);
+    }, 0);
 
-    // Cotisations du mois
+    // CA encaissé : par date_paiement
+    const resEncaisseMois = reservations?.filter(r => {
+      if (!r.date_paiement) return false;
+      const d = new Date(r.date_paiement);
+      return d.getFullYear() === annee && d.getMonth() === idx;
+    }) ?? [];
+    const caEncaisse = resEncaisseMois.reduce((s, r) => s + Number(r.montant_paye ?? 0), 0);
+
+    // Cotisations du mois (par date_paiement)
     const cotisMois = cotisations?.filter(c => {
       if (!c.date_paiement) return false;
       const d = new Date(c.date_paiement);
@@ -83,20 +96,22 @@ export default async function ComptabilitePage({
 
     return {
       mois: label,
-      ca: Math.round(ca * 100) / 100,
+      ca_facture: Math.round(caFacture * 100) / 100,
+      ca_encaisse: Math.round(caEncaisse * 100) / 100,
       ca_annee_prec: Math.round(caPrec * 100) / 100,
       ca_cotisations: Math.round(caCotis * 100) / 100,
-      ca_total: Math.round((ca + caCotis) * 100) / 100,
+      ca_total: Math.round((caFacture + caCotis) * 100) / 100,
       nb_reservations: resAnnee.length,
       nb_chiens_total: nbChiens,
       taux_remplissage: taux,
     };
   });
 
-  const totalAnnee = statsMois.reduce((s, m) => s + m.ca, 0);
+  const totalAnneeFacture = statsMois.reduce((s, m) => s + m.ca_facture, 0);
+  const totalAnneeEncaisse = statsMois.reduce((s, m) => s + m.ca_encaisse, 0);
   const totalAnneePrec = statsMois.reduce((s, m) => s + m.ca_annee_prec, 0);
   const totalCotisations = statsMois.reduce((s, m) => s + m.ca_cotisations, 0);
-  const totalGeneral = totalAnnee + totalCotisations;
+  const totalEncaisse = totalAnneeEncaisse + totalCotisations;
 
   // Stats journalières
   const moisActuel = new Date().getMonth();
@@ -134,14 +149,31 @@ export default async function ComptabilitePage({
       })
     : cotisations;
 
-  // Totaux globaux
-  const totalFacture = reservationsFiltrees?.reduce((s, r) => s + (r.montant_final || 0), 0) ?? 0;
-  const totalPaye = reservationsFiltrees?.reduce((s, r) => s + (r.montant_paye || 0), 0) ?? 0;
-  const totalImpaye = totalFacture - totalPaye;
+  // Totaux pour les cards (période = année + mois si filtre actif, toujours filtrées par année)
+  const periodLabel = moisFiltre ? `${moisLabels[moisFiltre - 1]} ${annee}` : String(annee);
+
+  const resPeriodeFacture = reservations?.filter(r => {
+    const d = new Date(r.date_debut);
+    return d.getFullYear() === annee && (!moisFiltre || d.getMonth() + 1 === moisFiltre);
+  }) ?? [];
+
+  const resPeriodeEncaisse = reservations?.filter(r => {
+    if (!r.date_paiement) return false;
+    const d = new Date(r.date_paiement);
+    return d.getFullYear() === annee && (!moisFiltre || d.getMonth() + 1 === moisFiltre);
+  }) ?? [];
+
+  const caFacturePeriode = resPeriodeFacture.reduce((s, r) => {
+    return s + Number(r.montant_final ?? r.montant_calcule ?? 0) + Number(r.ajustement_manuel ?? 0);
+  }, 0);
+  const caEncaissePeriode = resPeriodeEncaisse.reduce((s, r) => s + Number(r.montant_paye ?? 0), 0);
+  const totalCotisFiltrees = cotisationsFiltrees?.reduce((s, c) => s + Number(c.montant), 0) ?? 0;
+  const totalEncaissePeriode = caEncaissePeriode + totalCotisFiltrees;
+  const resteAPayer = caFacturePeriode - caEncaissePeriode;
+
   const nbPaye = reservationsFiltrees?.filter(r => r.statut_paiement === "paye").length ?? 0;
   const nbPartiel = reservationsFiltrees?.filter(r => r.statut_paiement === "partiel").length ?? 0;
   const nbImpaye = reservationsFiltrees?.filter(r => !r.statut_paiement || r.statut_paiement === "impaye").length ?? 0;
-  const totalCotisFiltrees = cotisationsFiltrees?.reduce((s, c) => s + Number(c.montant), 0) ?? 0;
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -177,35 +209,44 @@ export default async function ComptabilitePage({
           statsMois={statsMois}
           statsJours={statsJours}
           annee={annee}
-          totalAnnee={totalAnnee}
+          totalAnneeFacture={totalAnneeFacture}
+          totalAnneeEncaisse={totalAnneeEncaisse}
           totalAnneePrec={totalAnneePrec}
           totalCotisations={totalCotisations}
-          totalGeneral={totalGeneral}
+          totalEncaisse={totalEncaisse}
         />
 
-        {/* Résumé paiements */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 my-8">
+        {/* Résumé paiements — période filtrée */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 my-8">
           <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-            <p className="text-3xl font-bold" style={{ color: "#1B2B5E" }}>{totalFacture.toFixed(2)} CHF</p>
-            <p className="text-gray-500 text-sm mt-1">
-              Réservations facturées {moisFiltre ? `(${moisLabels[moisFiltre - 1]})` : "(toutes années)"}
-            </p>
+            <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>{caFacturePeriode.toFixed(2)} CHF</p>
+            <p className="text-gray-500 text-sm mt-1">CA facturé (prestations)</p>
+            <p className="text-xs text-gray-400">{periodLabel}</p>
           </div>
           <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-            <p className="text-3xl font-bold" style={{ color: "#4AAEA0" }}>{totalCotisFiltrees.toFixed(2)} CHF</p>
-            <p className="text-gray-500 text-sm mt-1">
-              ⭐ Adhésions {moisFiltre ? `(${moisLabels[moisFiltre - 1]})` : `(${annee})`}
-            </p>
+            <p className="text-2xl font-bold text-green-600">{caEncaissePeriode.toFixed(2)} CHF</p>
+            <p className="text-gray-500 text-sm mt-1">CA encaissé (prestations)</p>
+            <p className="text-xs text-gray-400">{periodLabel}</p>
           </div>
           <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-            <p className="text-3xl font-bold text-green-600">{totalPaye.toFixed(2)} CHF</p>
-            <p className="text-gray-500 text-sm mt-1">Total encaissé</p>
+            <p className="text-2xl font-bold" style={{ color: "#4AAEA0" }}>{totalCotisFiltrees.toFixed(2)} CHF</p>
+            <p className="text-gray-500 text-sm mt-1">⭐ Adhésions encaissées</p>
+            <p className="text-xs text-gray-400">{periodLabel}</p>
           </div>
           <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-            <p className="text-3xl font-bold text-red-600">{totalImpaye.toFixed(2)} CHF</p>
-            <p className="text-gray-500 text-sm mt-1">Total à encaisser</p>
+            <p className="text-2xl font-bold" style={{ color: "#C9A84C" }}>{totalEncaissePeriode.toFixed(2)} CHF</p>
+            <p className="text-gray-500 text-sm mt-1">💰 Total encaissé</p>
+            <p className="text-xs text-gray-400">{periodLabel}</p>
+          </div>
+          <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+            <p className="text-2xl font-bold text-red-600">{resteAPayer.toFixed(2)} CHF</p>
+            <p className="text-gray-500 text-sm mt-1">Reste à encaisser</p>
+            <p className="text-xs text-gray-400">{periodLabel}</p>
           </div>
         </div>
+        <p className="text-xs text-gray-400 -mt-6 mb-6">
+          Facturé = prestations dues sur la période (par date de séjour). Encaissé = montants perçus (par date de paiement).
+        </p>
 
         <div className="grid grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-xl p-4 shadow-sm text-center">

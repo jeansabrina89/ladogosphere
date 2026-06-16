@@ -8,7 +8,8 @@ import {
 
 type StatMois = {
   mois: string;
-  ca: number;
+  ca_facture: number;
+  ca_encaisse: number;
   ca_annee_prec: number;
   ca_cotisations: number;
   ca_total: number;
@@ -27,23 +28,25 @@ export default function Statistiques({
   statsMois,
   statsJours,
   annee,
-  totalAnnee,
+  totalAnneeFacture,
+  totalAnneeEncaisse,
   totalAnneePrec,
   totalCotisations,
-  totalGeneral,
+  totalEncaisse,
 }: {
   statsMois: StatMois[];
   statsJours: StatJour[];
   annee: number;
-  totalAnnee: number;
+  totalAnneeFacture: number;
+  totalAnneeEncaisse: number;
   totalAnneePrec: number;
   totalCotisations: number;
-  totalGeneral: number;
+  totalEncaisse: number;
 }) {
   const [vue, setVue] = useState<"ca" | "chiens" | "remplissage">("ca");
 
   const evolution = totalAnneePrec > 0
-    ? ((totalAnnee - totalAnneePrec) / totalAnneePrec * 100).toFixed(1)
+    ? ((totalAnneeFacture - totalAnneePrec) / totalAnneePrec * 100).toFixed(1)
     : null;
 
   const exporterExcel = () => {
@@ -52,15 +55,16 @@ export default function Statistiques({
 
       const wsCA = XLSX.utils.json_to_sheet(statsMois.map(m => ({
         "Mois": m.mois,
-        [`CA ${annee} (CHF)`]: m.ca,
+        [`CA facturé ${annee} (CHF)`]: m.ca_facture,
+        [`CA encaissé ${annee} (CHF)`]: m.ca_encaisse,
         [`Adhésions ${annee} (CHF)`]: m.ca_cotisations,
         [`Total ${annee} (CHF)`]: m.ca_total,
-        [`CA ${annee - 1} (CHF)`]: m.ca_annee_prec,
+        [`CA facturé ${annee - 1} (CHF)`]: m.ca_annee_prec,
         "Évolution (%)": m.ca_annee_prec > 0
-          ? ((m.ca - m.ca_annee_prec) / m.ca_annee_prec * 100).toFixed(1)
+          ? ((m.ca_facture - m.ca_annee_prec) / m.ca_annee_prec * 100).toFixed(1)
           : "—",
       })));
-      wsCA["!cols"] = [{ wch: 8 }, { wch: 15 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 12 }];
+      wsCA["!cols"] = [{ wch: 8 }, { wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 15 }, { wch: 20 }, { wch: 12 }];
       XLSX.utils.book_append_sheet(wb, wsCA, `CA ${annee}`);
 
       const wsChiens = XLSX.utils.json_to_sheet(statsMois.map(m => ({
@@ -96,12 +100,12 @@ export default function Statistiques({
     <div className="space-y-6">
 
       {/* Résumé annuel */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-          <p className="text-3xl font-bold" style={{ color: "#1B2B5E" }}>
-            {totalAnnee.toFixed(2)} CHF
+          <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
+            {totalAnneeFacture.toFixed(2)} CHF
           </p>
-          <p className="text-gray-500 text-sm mt-1">CA réservations {annee}</p>
+          <p className="text-gray-500 text-sm mt-1">CA facturé (prestations) {annee}</p>
           {evolution && (
             <p className={`text-sm font-semibold mt-1 ${parseFloat(evolution) >= 0 ? "text-green-600" : "text-red-600"}`}>
               {parseFloat(evolution) >= 0 ? "▲" : "▼"} {Math.abs(parseFloat(evolution))}% vs {annee - 1}
@@ -109,24 +113,33 @@ export default function Statistiques({
           )}
         </div>
         <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-          <p className="text-3xl font-bold" style={{ color: "#4AAEA0" }}>
+          <p className="text-2xl font-bold text-green-600">
+            {totalAnneeEncaisse.toFixed(2)} CHF
+          </p>
+          <p className="text-gray-500 text-sm mt-1">CA encaissé (prestations) {annee}</p>
+        </div>
+        <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+          <p className="text-2xl font-bold" style={{ color: "#4AAEA0" }}>
             {totalCotisations.toFixed(2)} CHF
           </p>
-          <p className="text-gray-500 text-sm mt-1">⭐ Adhésions {annee}</p>
+          <p className="text-gray-500 text-sm mt-1">⭐ Adhésions encaissées {annee}</p>
         </div>
         <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-          <p className="text-3xl font-bold" style={{ color: "#C9A84C" }}>
-            {totalGeneral.toFixed(2)} CHF
+          <p className="text-2xl font-bold" style={{ color: "#C9A84C" }}>
+            {totalEncaisse.toFixed(2)} CHF
           </p>
-          <p className="text-gray-500 text-sm mt-1">💰 Total général {annee}</p>
+          <p className="text-gray-500 text-sm mt-1">💰 Total encaissé {annee}</p>
         </div>
         <div className="bg-white rounded-xl p-6 shadow-sm text-center">
-          <p className="text-3xl font-bold" style={{ color: "#E8847A" }}>
+          <p className="text-2xl font-bold" style={{ color: "#E8847A" }}>
             {totalAnneePrec.toFixed(2)} CHF
           </p>
-          <p className="text-gray-500 text-sm mt-1">CA total {annee - 1}</p>
+          <p className="text-gray-500 text-sm mt-1">CA facturé {annee - 1}</p>
         </div>
       </div>
+      <p className="text-xs text-gray-400 mt-2">
+        Facturé = prestations dues sur la période (par date de séjour). Encaissé = montants perçus (par date de paiement).
+      </p>
 
       {/* Graphiques */}
       <div className="bg-white rounded-xl p-6 shadow-sm">
@@ -156,7 +169,7 @@ export default function Statistiques({
         </div>
 
         <h3 className="font-bold mb-3" style={{ color: "#1B2B5E" }}>
-          {vue === "ca" ? `Chiffre d'affaires mensuel — ${annee} vs ${annee - 1}` :
+          {vue === "ca" ? `Facturé vs encaissé par mois — ${annee} (comparaison ${annee - 1})` :
            vue === "chiens" ? `Chiens par mois — ${annee}` :
            `Taux de remplissage mensuel — ${annee}`}
         </h3>
@@ -169,9 +182,9 @@ export default function Statistiques({
               <YAxis />
               <Tooltip formatter={(v: any) => `${v} CHF`} />
               <Legend />
-              <Bar dataKey="ca" name={`CA ${annee}`} fill="#4AAEA0" radius={[4,4,0,0]} />
-              <Bar dataKey="ca_cotisations" name={`Adhésions ${annee}`} fill="#C9A84C" radius={[4,4,0,0]} />
-              <Bar dataKey="ca_annee_prec" name={`CA ${annee - 1}`} fill="#E8847A" radius={[4,4,0,0]} />
+              <Bar dataKey="ca_facture" name={`Facturé ${annee}`} fill="#4AAEA0" radius={[4,4,0,0]} />
+              <Bar dataKey="ca_encaisse" name={`Encaissé ${annee}`} fill="#1B2B5E" radius={[4,4,0,0]} />
+              <Bar dataKey="ca_annee_prec" name={`Facturé ${annee - 1}`} fill="#E8847A" radius={[4,4,0,0]} />
             </BarChart>
           ) : vue === "chiens" ? (
             <BarChart data={statsMois}>
@@ -220,10 +233,11 @@ export default function Statistiques({
           <thead>
             <tr style={{ backgroundColor: "#1B2B5E" }}>
               <th className="px-4 py-3 text-left text-sm font-semibold text-white">Mois</th>
-              <th className="px-4 py-3 text-right text-sm font-semibold text-white">CA {annee}</th>
+              <th className="px-4 py-3 text-right text-sm font-semibold text-white">Facturé {annee}</th>
+              <th className="px-4 py-3 text-right text-sm font-semibold text-white">Encaissé {annee}</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">⭐ Adhésions</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">💰 Total</th>
-              <th className="px-4 py-3 text-right text-sm font-semibold text-white">CA {annee - 1}</th>
+              <th className="px-4 py-3 text-right text-sm font-semibold text-white">Facturé {annee - 1}</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">Évolution</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">Réservations</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">Chiens</th>
@@ -233,7 +247,7 @@ export default function Statistiques({
           <tbody>
             {statsMois.map((m, idx) => {
               const evol = m.ca_annee_prec > 0
-                ? ((m.ca - m.ca_annee_prec) / m.ca_annee_prec * 100).toFixed(1)
+                ? ((m.ca_facture - m.ca_annee_prec) / m.ca_annee_prec * 100).toFixed(1)
                 : null;
               return (
                 <tr key={m.mois}
@@ -243,7 +257,10 @@ export default function Statistiques({
                     {m.mois}
                   </td>
                   <td className="px-4 py-3 text-sm text-right font-semibold" style={{ color: "#4AAEA0" }}>
-                    {m.ca > 0 ? `${m.ca.toFixed(2)} CHF` : "—"}
+                    {m.ca_facture > 0 ? `${m.ca_facture.toFixed(2)} CHF` : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-right font-semibold text-green-600">
+                    {m.ca_encaisse > 0 ? `${m.ca_encaisse.toFixed(2)} CHF` : "—"}
                   </td>
                   <td className="px-4 py-3 text-sm text-right font-semibold" style={{ color: "#C9A84C" }}>
                     {m.ca_cotisations > 0 ? `${m.ca_cotisations.toFixed(2)} CHF` : "—"}
