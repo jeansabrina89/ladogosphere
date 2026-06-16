@@ -71,9 +71,7 @@ export default function SelectionFactureGroupee({
         setErreur(data.error ?? "Erreur inconnue.");
         return;
       }
-      setSucces(`Facture ${data.numero} créée — Total : CHF ${Number(data.total).toFixed(2)}`);
-      setSelectedIds(new Set());
-      router.refresh();
+      router.push(`/factures/${data.facture_id}`);
     } catch {
       setErreur("Erreur réseau.");
     } finally {
