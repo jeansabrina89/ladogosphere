@@ -8,6 +8,7 @@ import { verifierPermission } from "../../../src/lib/verifierPermission";
 import { getSoldeAvoir, getAvoirAppliqueReservation } from "../../../src/lib/avoirs";
 import type { EcartType } from "../../../src/lib/facturation";
 import { calculerMontant } from "../../../src/lib/calculTarif";
+import { calculerStatut } from "../../../src/lib/factures";
 
 async function verifierAdmin(): Promise<{ error?: string; userId?: string }> {
   const supabase = await createSupabaseServerClient();
@@ -17,12 +18,6 @@ async function verifierAdmin(): Promise<{ error?: string; userId?: string }> {
     .from("profiles").select("role").eq("id", user.id).single();
   if (profile?.role !== "admin") return { error: "Accès réservé à l'admin" };
   return { userId: user.id };
-}
-
-function calculerStatut(montantPaye: number, total: number): string {
-  if (montantPaye <= 0) return "impaye";
-  if (total > 0 && montantPaye >= total) return "paye";
-  return "partiel";
 }
 
 const STATUTS_CLOTURES = ["terminee", "annulee", "refusee"];

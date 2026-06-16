@@ -6,6 +6,7 @@ import Link from "next/link";
 import { formatDateFR } from "../../src/lib/dates";
 import { formatBoxLabel } from "../../src/lib/boxes";
 import BoutonPaiementRapide from "./BoutonPaiementRapide";
+import { montantDuReservation } from "../../src/lib/montants";
 
 function estFacturable(res: any): boolean {
   if (!["validee", "terminee"].includes(res.statut)) return false;
@@ -200,9 +201,9 @@ export default function SelectionFactureGroupee({
                       Reste {reste.toFixed(2)} CHF
                     </p>
                   )}
-                  {res.statut_paiement === "impaye" && res.montant_final != null && (
+                  {res.statut_paiement === "impaye" && (
                     <p className="font-bold text-sm" style={{ color: "#1B2B5E" }}>
-                      {res.montant_final} CHF
+                      {montantDuReservation(res).toFixed(2)} CHF
                     </p>
                   )}
                   {permEncaissements &&

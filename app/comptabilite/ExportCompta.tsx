@@ -5,12 +5,19 @@ import { useState } from "react";
 export default function ExportCompta() {
   const [mois, setMois] = useState("");
   const [annee, setAnnee] = useState(new Date().getFullYear().toString());
+  const [erreur, setErreur] = useState<string | null>(null);
 
   const handleExport = () => {
-    const params = new URLSearchParams();
-    if (mois) params.set("mois", mois);
-    if (annee) params.set("annee", annee);
-    window.open(`/api/comptabilite/export?${params.toString()}`, "_blank");
+    setErreur(null);
+    try {
+      const params = new URLSearchParams();
+      if (mois) params.set("mois", mois);
+      if (annee) params.set("annee", annee);
+      const w = window.open(`/api/comptabilite/export?${params.toString()}`, "_blank");
+      if (!w) setErreur("Échec de l'export, réessaie.");
+    } catch {
+      setErreur("Échec de l'export, réessaie.");
+    }
   };
 
   return (
@@ -38,6 +45,10 @@ export default function ExportCompta() {
         style={{ backgroundColor: "#C9A84C" }}>
         📥 Journal des encaissements
       </button>
+
+      {erreur && (
+        <p className="text-sm text-red-600">{erreur}</p>
+      )}
 
     </div>
   );

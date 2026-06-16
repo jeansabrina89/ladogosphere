@@ -4,11 +4,7 @@ import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import { verifierPermission } from "../../../src/lib/verifierPermission";
 import { montantDuReservation } from "../../../src/lib/montants";
-function calculerStatut(montantPaye: number, total: number): string {
-  if (montantPaye <= 0) return "impaye";
-  if (total > 0 && montantPaye >= total) return "paye";
-  return "partiel";
-}
+import { calculerStatut } from "../../../src/lib/factures";
 
 export async function marquerFactureReglee(
   factureId: string,
