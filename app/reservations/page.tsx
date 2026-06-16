@@ -38,7 +38,7 @@ export default async function ReservationsPage({
     if (!isNaN(numero)) {
       query = query.eq("numero", numero);
     }
-    query = query.order("date_debut", { ascending: false });
+    query = query.order("date_debut", { ascending: false }).order("created_at", { ascending: false });
   } else {
     query = appliquerPeriodeEtTri(query, filtre || "toutes", aujourd_hui);
     if (paiement !== "tous") {
