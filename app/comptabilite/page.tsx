@@ -5,6 +5,7 @@ import Statistiques from "./Statistiques";
 import { createSupabaseServerClient } from "../../src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import FiltresMois from "./FiltresMois";
+import { montantDuReservation } from "../../src/lib/montants";
 
 export default async function ComptabilitePage({
   searchParams,
@@ -96,13 +97,9 @@ export default async function ComptabilitePage({
       return parts[0] === String(anneePrec) && parts[1] === moisStr;
     }) ?? [];
 
-    // CA facturé : par date_debut, COALESCE(montant_final, montant_calcule, 0) + ajustement_manuel
-    const caFacture = resAnnee.reduce((s, r) => {
-      return s + Number(r.montant_final ?? r.montant_calcule ?? 0) + Number(r.ajustement_manuel ?? 0);
-    }, 0);
-    const caPrec = resAnneePrec.reduce((s, r) => {
-      return s + Number(r.montant_final ?? r.montant_calcule ?? 0) + Number(r.ajustement_manuel ?? 0);
-    }, 0);
+    // CA facturé : par date_debut, montant net définitif via helper
+    const caFacture = resAnnee.reduce((s, r) => s + montantDuReservation(r), 0);
+    const caPrec = resAnneePrec.reduce((s, r) => s + montantDuReservation(r), 0);
 
     // CA encaissé : par date_paiement
     const resEncaisseMois = reservations?.filter(r => {

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import { verifierPermission } from "../../../src/lib/verifierPermission";
+import { montantDuReservation } from "../../../src/lib/montants";
 function calculerStatut(montantPaye: number, total: number): string {
   if (montantPaye <= 0) return "impaye";
   if (total > 0 && montantPaye >= total) return "paye";
@@ -40,7 +41,7 @@ export async function marquerFactureReglee(
   for (const ligne of lignes) {
     const r = ligne.reservations;
     if (!r) continue;
-    const montantDu = Number(r.montant_final ?? r.montant_calcule ?? 0) + Number(r.ajustement_manuel ?? 0);
+    const montantDu = montantDuReservation(r);
     if (montantDu <= 0) {
       return { error: "Montant à régler invalide (0 CHF) sur une réservation — vérifie le tarif." };
     }
@@ -50,7 +51,7 @@ export async function marquerFactureReglee(
   for (const ligne of lignes) {
     const r = ligne.reservations;
     if (!r) continue;
-    const montantDu = Number(r.montant_final ?? r.montant_calcule ?? 0) + Number(r.ajustement_manuel ?? 0);
+    const montantDu = montantDuReservation(r);
     const { error: updErr } = await supabaseAdmin
       .from("reservations")
       .update({

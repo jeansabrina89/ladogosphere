@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
 import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
 import { exigerPermissionApi } from "../../../../src/lib/apiAuth";
+import { resteAPayer } from "../../../../src/lib/montants";
 
 const STATUTS_FACTURABLES = ["validee", "terminee"];
 const PAIEMENTS_FACTURABLES = ["impaye", "partiel"];
@@ -60,9 +61,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const montantDu = Number(r.montant_final ?? r.montant_calcule ?? 0) + Number(r.ajustement_manuel ?? 0);
-    const paye = Number(r.montant_paye ?? 0);
-    if (montantDu - paye <= 0) {
+    if (resteAPayer(r) <= 0) {
       return NextResponse.json(
         { error: `Aucun reste à payer pour la réservation #${r.id}.` },
         { status: 400 }
@@ -89,14 +88,10 @@ export async function POST(req: NextRequest) {
   }
 
   // 6. Calcul des montants par réservation et du total
-  const lignes = reservations.map(r => {
-    const montantDu = Number(r.montant_final ?? r.montant_calcule ?? 0) + Number(r.ajustement_manuel ?? 0);
-    const paye = Number(r.montant_paye ?? 0);
-    return {
-      reservation_id: r.id,
-      montant: Math.round((montantDu - paye) * 100) / 100,
-    };
-  });
+  const lignes = reservations.map(r => ({
+    reservation_id: r.id,
+    montant: Math.round(resteAPayer(r) * 100) / 100,
+  }));
   const montantTotal = Math.round(
     lignes.reduce((s, l) => s + l.montant, 0) * 100
   ) / 100;
