@@ -17,6 +17,10 @@ export async function POST(
   const { id } = await params;
   const { statut } = await req.json();
 
+  const STATUTS_VALIDES = ["en_attente", "validee", "refusee", "annulee", "terminee"];
+  if (!statut) return NextResponse.json({ error: "statut manquant" }, { status: 400 });
+  if (!STATUTS_VALIDES.includes(statut)) return NextResponse.json({ error: "statut invalide" }, { status: 400 });
+
   const { error } = await supabaseAdmin
     .from("reservations")
     .update({ statut })

@@ -14,14 +14,16 @@ export default function BoutonReglement({ facture_id }: { facture_id: string }) 
     if (!confirm(`Marquer cette facture comme réglée par ${label} ?\nToutes les réservations liées seront marquées payées.`)) return;
     setLoading(true);
     setErreur(null);
-    const res = await marquerFactureReglee(facture_id, mode);
-    if (res.error) {
-      setErreur(res.error);
+    try {
+      const res = await marquerFactureReglee(facture_id, mode);
+      if (res.error) {
+        setErreur(res.error);
+        return;
+      }
+      router.refresh();
+    } finally {
       setLoading(false);
-      return;
     }
-    router.refresh();
-    setLoading(false);
   };
 
   return (

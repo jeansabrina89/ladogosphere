@@ -84,14 +84,16 @@ export default async function ComptabilitePage({
   const statsMois = moisLabels.map((label, idx) => {
     const moisNum = idx + 1;
 
+    const moisStr = String(moisNum).padStart(2, "0");
+
     const resAnnee = reservations?.filter(r => {
-      const d = new Date(r.date_debut);
-      return d.getFullYear() === annee && d.getMonth() === idx;
+      const parts = (r.date_debut ?? "").split("-");
+      return parts[0] === String(annee) && parts[1] === moisStr;
     }) ?? [];
 
     const resAnneePrec = reservations?.filter(r => {
-      const d = new Date(r.date_debut);
-      return d.getFullYear() === anneePrec && d.getMonth() === idx;
+      const parts = (r.date_debut ?? "").split("-");
+      return parts[0] === String(anneePrec) && parts[1] === moisStr;
     }) ?? [];
 
     // CA facturé : par date_debut, COALESCE(montant_final, montant_calcule, 0) + ajustement_manuel
@@ -105,16 +107,16 @@ export default async function ComptabilitePage({
     // CA encaissé : par date_paiement
     const resEncaisseMois = reservations?.filter(r => {
       if (!r.date_paiement) return false;
-      const d = new Date(r.date_paiement);
-      return d.getFullYear() === annee && d.getMonth() === idx;
+      const parts = (r.date_paiement as string).split("-");
+      return parts[0] === String(annee) && parts[1] === moisStr;
     }) ?? [];
     const caEncaisse = resEncaisseMois.reduce((s, r) => s + Number(r.montant_paye ?? 0), 0);
 
     // Cotisations du mois (par date_paiement)
     const cotisMois = cotisations?.filter(c => {
       if (!c.date_paiement) return false;
-      const d = new Date(c.date_paiement);
-      return d.getFullYear() === annee && d.getMonth() === idx;
+      const parts = (c.date_paiement as string).split("-");
+      return parts[0] === String(annee) && parts[1] === moisStr;
     }) ?? [];
     const caCotis = cotisMois.reduce((s, c) => s + Number(c.montant), 0);
 
