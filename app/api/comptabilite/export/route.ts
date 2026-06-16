@@ -1,107 +1,122 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../src/utils/supabase/server";
-import { formatBoxLabel } from "../../../../src/lib/boxes";
 import * as XLSX from "xlsx";
 import { exigerPersonnel } from "../../../../src/lib/apiAuth";
+
+type Ligne = {
+  "Date": string;
+  "Pièce": string;
+  "Client": string;
+  "Libellé": string;
+  "Mode": string;
+  "Montant TTC": number;
+  "HT": number;
+  "TVA": number;
+};
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
   const garde = await exigerPersonnel(supabase);
   if (garde) return garde;
+
   const { searchParams } = new URL(req.url);
   const mois = searchParams.get("mois");
-  const annee = searchParams.get("annee");
-  const paiement = searchParams.get("paiement");
+  const annee = searchParams.get("annee") ?? new Date().getFullYear().toString();
 
-  let query = supabase
+  const debut = mois
+    ? `${annee}-${mois.padStart(2, "0")}-01`
+    : `${annee}-01-01`;
+  const fin = mois
+    ? new Date(parseInt(annee), parseInt(mois), 0).toISOString().split("T")[0]
+    : `${annee}-12-31`;
+
+  // Source A — encaissements de réservations (filtrés par date_paiement)
+  const { data: reservations } = await supabase
     .from("reservations")
     .select(`
-      *,
-      clients (prenom, nom, email, telephone, membre),
-      boxes (numero, nom),
-      reservation_chiens (chiens (nom))
+      numero, date_paiement, montant_paye, mode_paiement,
+      clients (prenom, nom),
+      facture_reservations (factures (numero, statut))
     `)
-    .neq("statut", "annulee")
-    .order("date_debut", { ascending: true });
+    .not("date_paiement", "is", null)
+    .gt("montant_paye", 0)
+    .gte("date_paiement", debut)
+    .lte("date_paiement", fin);
 
-  if (mois && annee) {
-    const debut = `${annee}-${mois.padStart(2, "0")}-01`;
-    const fin = new Date(parseInt(annee), parseInt(mois), 0).toISOString().split("T")[0];
-    query = query.gte("date_debut", debut).lte("date_debut", fin);
+  // Source B — cotisations payées (filtrées par date_paiement)
+  const { data: cotisations } = await supabase
+    .from("cotisations_membres")
+    .select(`montant, date_paiement, mode_paiement, clients (prenom, nom)`)
+    .eq("statut", "payee")
+    .not("date_paiement", "is", null)
+    .gte("date_paiement", debut)
+    .lte("date_paiement", fin);
+
+  const lignes: Ligne[] = [];
+
+  for (const res of reservations ?? []) {
+    const c = res.clients as { prenom?: string; nom?: string } | null;
+    const client = `${c?.prenom ?? ""} ${c?.nom ?? ""}`.trim();
+    const facResas = (res.facture_reservations ?? []) as { factures: { numero: string; statut: string } | null }[];
+    const factureActive = facResas.map(fr => fr.factures).find(f => f && f.statut !== "annulee");
+    const piece = factureActive?.numero ?? `Résa #${res.numero}`;
+    const montant = Number(res.montant_paye ?? 0);
+    lignes.push({
+      "Date": res.date_paiement as string,
+      "Pièce": piece,
+      "Client": client,
+      "Libellé": `Pension chien(s) — ${client}`,
+      "Mode": res.mode_paiement || "—",
+      "Montant TTC": montant,
+      "HT": montant,
+      "TVA": 0,
+    });
   }
 
-  if (paiement) {
-    query = query.eq("statut_paiement", paiement);
+  for (const cot of cotisations ?? []) {
+    const c = cot.clients as { prenom?: string; nom?: string } | null;
+    const client = `${c?.prenom ?? ""} ${c?.nom ?? ""}`.trim();
+    const montant = Number(cot.montant ?? 0);
+    lignes.push({
+      "Date": cot.date_paiement as string,
+      "Pièce": "Adhésion",
+      "Client": client,
+      "Libellé": `Cotisation membre — ${client}`,
+      "Mode": cot.mode_paiement || "—",
+      "Montant TTC": montant,
+      "HT": montant,
+      "TVA": 0,
+    });
   }
 
-  const { data: reservations } = await query;
+  lignes.sort((a, b) => a["Date"].localeCompare(b["Date"]));
 
-  if (!reservations) {
-    return NextResponse.json({ error: "Erreur" }, { status: 500 });
-  }
-
-  const lignes = reservations.map((res: any) => {
-    const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens?.nom).filter(Boolean).join(", ") || "—";
-    return {
-      "Date début": res.date_debut,
-      "Date fin": res.date_fin,
-      "Client": `${res.clients?.prenom} ${res.clients?.nom}`,
-      "Email": res.clients?.email || "—",
-      "Téléphone": res.clients?.telephone || "—",
-      "Membre": res.clients?.membre ? "Oui" : "Non",
-      "Chien(s)": chiens,
-      "Box": formatBoxLabel(res.boxes),
-      "Type": res.type_reservation === "journee" ? "Journée" : "Séjour",
-      "Urgence": res.urgence ? "Oui" : "Non",
-      "Statut réservation": res.statut,
-      "Montant facturé (CHF)": res.montant_final || 0,
-      "Statut paiement": res.statut_paiement === "paye" ? "Payé" :
-                         res.statut_paiement === "partiel" ? "Partiel" : "Impayé",
-      "Montant payé (CHF)": res.montant_paye || 0,
-      "Reste à payer (CHF)": (res.montant_final || 0) - (res.montant_paye || 0),
-      "Mode paiement": res.mode_paiement || "—",
-      "Date paiement": res.date_paiement || "—",
-    };
+  const totalTTC = lignes.reduce((s, l) => s + l["Montant TTC"], 0);
+  const totalHT  = lignes.reduce((s, l) => s + l["HT"], 0);
+  const totalTVA = lignes.reduce((s, l) => s + l["TVA"], 0);
+  lignes.push({
+    "Date": "",
+    "Pièce": "",
+    "Client": "",
+    "Libellé": "TOTAL",
+    "Mode": "",
+    "Montant TTC": Math.round(totalTTC * 100) / 100,
+    "HT": Math.round(totalHT * 100) / 100,
+    "TVA": Math.round(totalTVA * 100) / 100,
   });
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(lignes);
-
   ws["!cols"] = [
-    { wch: 12 }, { wch: 12 }, { wch: 20 }, { wch: 25 },
-    { wch: 15 }, { wch: 8 }, { wch: 20 }, { wch: 8 },
-    { wch: 10 }, { wch: 8 }, { wch: 15 }, { wch: 18 },
-    { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 14 },
+    { wch: 12 }, { wch: 16 }, { wch: 22 }, { wch: 32 },
+    { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 8 },
   ];
-
-  XLSX.utils.book_append_sheet(wb, ws, "Réservations");
-
-  const totalFacture = lignes.reduce((s, r) => s + (r["Montant facturé (CHF)"] as number), 0);
-  const totalPaye = lignes.reduce((s, r) => s + (r["Montant payé (CHF)"] as number), 0);
-  const totalImpaye = totalFacture - totalPaye;
-
-  const labelPaiement = paiement === "paye" ? "Encaissées" :
-                        paiement === "partiel" ? "Partielles" :
-                        paiement === "impaye" ? "À encaisser" : "Toutes";
-
-  const resume = [
-    { "Résumé": `Filtre : ${labelPaiement}` },
-    { "Résumé": "Nombre de réservations", " ": lignes.length },
-    { "Résumé": "Total facturé (CHF)", " ": totalFacture.toFixed(2) },
-    { "Résumé": "Total encaissé (CHF)", " ": totalPaye.toFixed(2) },
-    { "Résumé": "Total à encaisser (CHF)", " ": totalImpaye.toFixed(2) },
-  ];
-
-  const wsResume = XLSX.utils.json_to_sheet(resume);
-  wsResume["!cols"] = [{ wch: 30 }, { wch: 15 }];
-  XLSX.utils.book_append_sheet(wb, wsResume, "Résumé");
+  XLSX.utils.book_append_sheet(wb, ws, "Journal encaissements");
 
   const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
-
-  const labelFichier = paiement ? `_${paiement}` : "";
-  const nomFichier = mois && annee
-    ? `dogosphere_compta_${annee}_${mois.padStart(2, "0")}${labelFichier}.xlsx`
-    : `dogosphere_compta_complet${labelFichier}.xlsx`;
+  const nomFichier = mois
+    ? `journal-encaissements-${annee}-${mois.padStart(2, "0")}.xlsx`
+    : `journal-encaissements-${annee}.xlsx`;
 
   return new NextResponse(buffer, {
     headers: {
