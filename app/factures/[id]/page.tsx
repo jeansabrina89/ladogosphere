@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
 import { supabaseAdmin } from "../../../src/lib/supabase-admin";
 import { formatDateFR } from "../../../src/lib/dates";
 import { getCoordonneesPaiement } from "../../../src/lib/coordonneesPaiement";
+import { lireParametresTVA, ventilerTVA } from "../../../src/lib/tva";
 import BoutonImprimer from "./BoutonImprimer";
 import BoutonReglement from "./BoutonReglement";
 import BoutonAnnulerFacture from "./BoutonAnnulerFacture";
@@ -53,6 +54,11 @@ export default async function FactureGroupeePage({
   if (!facture) return <div className="p-8">Facture introuvable.</div>;
 
   const coords = await getCoordonneesPaiement(supabaseAdmin);
+  const paramsTV = await lireParametresTVA(supabaseAdmin);
+  const dateFactureISO = facture.date_facture
+    ? String(facture.date_facture).split("T")[0]
+    : null;
+  const tvaData = ventilerTVA(Number(facture.montant_total), dateFactureISO, paramsTV);
 
   const lignes: any[] = facture.facture_reservations ?? [];
   const paiements: any[] = facture.paiements ?? [];
@@ -101,6 +107,9 @@ export default async function FactureGroupeePage({
             <p className="text-sm text-gray-500">Pension canine</p>
             <p className="text-sm text-gray-500">Sion, Valais</p>
             <p className="text-sm text-gray-500">ladogosphere@gmail.com</p>
+            {tvaData.applicable && paramsTV.numero && (
+              <p className="text-sm text-gray-500">N° TVA : {paramsTV.numero}</p>
+            )}
           </div>
           <div className="text-right">
             <h2 className="text-2xl font-bold mb-2" style={{ color: "#1B2B5E" }}>FACTURE GROUPÉE</h2>
@@ -173,12 +182,37 @@ export default async function FactureGroupeePage({
             })}
           </tbody>
           <tfoot>
-            <tr style={{ backgroundColor: "#F5F0E8" }}>
-              <td colSpan={3} className="px-4 py-3 font-bold text-right">Total</td>
-              <td className="px-4 py-3 font-bold text-right text-lg" style={{ color: "#1B2B5E" }}>
-                CHF {Number(facture.montant_total).toFixed(2)}
-              </td>
-            </tr>
+            {tvaData.applicable ? (
+              <>
+                <tr>
+                  <td colSpan={3} className="px-4 py-2 text-right text-sm text-gray-500">Total HT</td>
+                  <td className="px-4 py-2 text-right text-sm font-semibold">
+                    CHF {tvaData.ht.toFixed(2)}
+                  </td>
+                </tr>
+                <tr>
+                  <td colSpan={3} className="px-4 py-2 text-right text-sm text-gray-500">
+                    TVA {tvaData.taux} %
+                  </td>
+                  <td className="px-4 py-2 text-right text-sm font-semibold">
+                    CHF {tvaData.tva.toFixed(2)}
+                  </td>
+                </tr>
+                <tr style={{ backgroundColor: "#F5F0E8" }}>
+                  <td colSpan={3} className="px-4 py-3 font-bold text-right">Total TTC</td>
+                  <td className="px-4 py-3 font-bold text-right text-lg" style={{ color: "#1B2B5E" }}>
+                    CHF {Number(facture.montant_total).toFixed(2)}
+                  </td>
+                </tr>
+              </>
+            ) : (
+              <tr style={{ backgroundColor: "#F5F0E8" }}>
+                <td colSpan={3} className="px-4 py-3 font-bold text-right">Total</td>
+                <td className="px-4 py-3 font-bold text-right text-lg" style={{ color: "#1B2B5E" }}>
+                  CHF {Number(facture.montant_total).toFixed(2)}
+                </td>
+              </tr>
+            )}
             {Number(facture.montant_paye) > 0 && (
               <tr>
                 <td colSpan={3} className="px-4 py-2 text-right text-sm text-gray-500">Montant réglé</td>
