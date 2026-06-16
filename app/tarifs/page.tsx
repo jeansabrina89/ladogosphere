@@ -30,7 +30,10 @@ export default async function TarifsPage({
   const { data: parametres } = await supabase
     .from("parametres")
     .select("cle, valeur")
-    .in("cle", ["cotisation_montant", "iban"]);
+    .in("cle", [
+      "cotisation_montant", "iban",
+      "tva_assujettie", "tva_taux", "tva_numero", "tva_date_debut", "tva_taux_dette_nette",
+    ]);
 
   const { data: anneesDispo } = await supabase
     .from("tarifs")
@@ -44,6 +47,12 @@ export default async function TarifsPage({
   );
   const iban = parametres?.find(p => p.cle === "iban")?.valeur ?? "";
 
+  const tvaAssujettie = parametres?.find(p => p.cle === "tva_assujettie")?.valeur === "true";
+  const tvaTaux       = parametres?.find(p => p.cle === "tva_taux")?.valeur ?? "8.1";
+  const tvaNumero     = parametres?.find(p => p.cle === "tva_numero")?.valeur ?? "";
+  const tvaDateDebut  = parametres?.find(p => p.cle === "tva_date_debut")?.valeur ?? "";
+  const tvaTauxDetteNette = parametres?.find(p => p.cle === "tva_taux_dette_nette")?.valeur ?? "";
+
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-5xl mx-auto">
@@ -56,6 +65,11 @@ export default async function TarifsPage({
           anneesDisponibles={anneesUniques}
           cotisationMontant={cotisationMontant}
           ibanInitial={iban}
+          tvaAssujettie={tvaAssujettie}
+          tvaTaux={tvaTaux}
+          tvaNumero={tvaNumero}
+          tvaDateDebut={tvaDateDebut}
+          tvaTauxDetteNette={tvaTauxDetteNette}
         />
       </div>
     </main>

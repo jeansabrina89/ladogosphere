@@ -34,12 +34,18 @@ const GROUPES = [
 
 export default function GestionTarifs({
   tarifs, annee, anneesDisponibles, cotisationMontant, ibanInitial,
+  tvaAssujettie, tvaTaux, tvaNumero, tvaDateDebut, tvaTauxDetteNette,
 }: {
   tarifs: Tarif[];
   annee: number;
   anneesDisponibles: number[];
   cotisationMontant: number;
   ibanInitial: string;
+  tvaAssujettie: boolean;
+  tvaTaux: string;
+  tvaNumero: string;
+  tvaDateDebut: string;
+  tvaTauxDetteNette: string;
 }) {
   const router = useRouter();
   const [tarifsLocaux, setTarifsLocaux] = useState<Record<string, number>>(
@@ -47,6 +53,11 @@ export default function GestionTarifs({
   );
   const [cotisation, setCotisation] = useState(cotisationMontant);
   const [iban, setIban] = useState(ibanInitial);
+  const [tvaOn, setTvaOn] = useState(tvaAssujettie);
+  const [tvaTauxVal, setTvaTauxVal] = useState(tvaTaux);
+  const [tvaNumVal, setTvaNumVal] = useState(tvaNumero);
+  const [tvaDateVal, setTvaDateVal] = useState(tvaDateDebut);
+  const [tvaDettVal, setTvaDettVal] = useState(tvaTauxDetteNette);
   const [nouvelleAnnee, setNouvelleAnnee] = useState(annee + 1);
   const [loading, setLoading] = useState(false);
   const [succes, setSucces] = useState("");
@@ -65,7 +76,16 @@ export default function GestionTarifs({
     const res = await fetch("/api/tarifs", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ updates, cotisation, iban }),
+      body: JSON.stringify({
+        updates, cotisation, iban,
+        tva: {
+          tva_assujettie: tvaOn ? "true" : "false",
+          tva_taux: tvaTauxVal,
+          tva_numero: tvaNumVal,
+          tva_date_debut: tvaDateVal,
+          tva_taux_dette_nette: tvaDettVal,
+        },
+      }),
     });
 
     if (res.ok) {
@@ -161,6 +181,69 @@ export default function GestionTarifs({
         </div>
         <p className="text-xs text-gray-400 mt-2">
           Utilisé dans les emails de demande de paiement et rappels d'adhésion.
+        </p>
+      </div>
+
+      {/* TVA */}
+      <div className="bg-white rounded-xl p-6 shadow-sm">
+        <h2 className="text-xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
+          🧾 TVA
+        </h2>
+        <div className="space-y-5">
+          <div className="flex items-center gap-4">
+            <label className="font-semibold text-sm w-64" style={{ color: "#1B2B5E" }}>
+              Assujettie à la TVA
+            </label>
+            <button
+              type="button"
+              onClick={() => setTvaOn(v => !v)}
+              className="relative inline-flex h-7 w-12 items-center rounded-full transition-colors"
+              style={{ backgroundColor: tvaOn ? "#4AAEA0" : "#D1D5DB" }}
+            >
+              <span
+                className="inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform"
+                style={{ transform: tvaOn ? "translateX(22px)" : "translateX(2px)" }}
+              />
+            </button>
+            <span className="text-sm text-gray-500">{tvaOn ? "Oui" : "Non"}</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <label className="font-semibold text-sm w-64" style={{ color: "#1B2B5E" }}>
+              Date de début d'assujettissement
+            </label>
+            <input type="date" value={tvaDateVal}
+              onChange={e => setTvaDateVal(e.target.value)}
+              className="border rounded-xl p-2 text-sm" />
+          </div>
+          <div className="flex items-center gap-4">
+            <label className="font-semibold text-sm w-64" style={{ color: "#1B2B5E" }}>
+              N° TVA
+            </label>
+            <input type="text" value={tvaNumVal}
+              onChange={e => setTvaNumVal(e.target.value)}
+              placeholder="CHE-123.456.789 TVA"
+              className="border rounded-xl p-2 text-sm w-56" />
+          </div>
+          <div className="flex items-center gap-4">
+            <label className="font-semibold text-sm w-64" style={{ color: "#1B2B5E" }}>
+              Taux légal facturé (%)
+            </label>
+            <input type="number" value={tvaTauxVal} step="0.1"
+              onChange={e => setTvaTauxVal(e.target.value)}
+              className="border rounded-xl p-2 text-sm w-28" />
+          </div>
+          <div className="flex items-center gap-4">
+            <label className="font-semibold text-sm w-64" style={{ color: "#1B2B5E" }}>
+              Taux de la dette fiscale nette (%)
+            </label>
+            <input type="number" value={tvaDettVal} step="0.1"
+              onChange={e => setTvaDettVal(e.target.value)}
+              placeholder="Ex. 5.9"
+              className="border rounded-xl p-2 text-sm w-28" />
+          </div>
+        </div>
+        <p className="text-xs text-gray-400 mt-5">
+          Les factures sont toujours établies au taux légal (8.1 %). Le taux de la dette fiscale nette est informatif (méthode forfaitaire pour le décompte AFC) et n'apparaît pas sur les factures.
         </p>
       </div>
 
