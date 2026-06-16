@@ -34,6 +34,7 @@ export default function Statistiques({
   totalAnneePrec,
   totalCotisations,
   totalEncaisse,
+  nbChiensActifs,
 }: {
   statsMois: StatMois[];
   statsJours: StatJour[];
@@ -43,6 +44,7 @@ export default function Statistiques({
   totalAnneePrec: number;
   totalCotisations: number;
   totalEncaisse: number;
+  nbChiensActifs: number;
 }) {
   const [vue, setVue] = useState<"ca" | "chiens" | "remplissage">("ca");
 
@@ -70,7 +72,7 @@ export default function Statistiques({
 
       const wsChiens = XLSX.utils.json_to_sheet(statsMois.map(m => ({
         "Mois": m.mois,
-        "Nb chiens": m.nb_chiens_total,
+        "Chiens présents (distincts)": m.nb_chiens_total,
         "Nb réservations": m.nb_reservations,
       })));
       wsChiens["!cols"] = [{ wch: 8 }, { wch: 12 }, { wch: 16 }];
@@ -102,7 +104,7 @@ export default function Statistiques({
     <div className="space-y-6">
 
       {/* Résumé annuel */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         <div className="bg-white rounded-xl p-6 shadow-sm text-center">
           <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
             {totalAnneeFacture.toFixed(2)} CHF
@@ -138,6 +140,12 @@ export default function Statistiques({
           </p>
           <p className="text-gray-500 text-sm mt-1">CA facturé {annee - 1}</p>
         </div>
+        <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+          <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
+            {nbChiensActifs}
+          </p>
+          <p className="text-gray-500 text-sm mt-1">🐾 Chiens actifs (clientèle)</p>
+        </div>
       </div>
       <p className="text-xs text-gray-400 mt-2">
         Facturé = prestations dues sur la période (par date de séjour). Encaissé = montants perçus (par date de paiement).
@@ -149,7 +157,7 @@ export default function Statistiques({
           <div className="flex gap-2 flex-wrap">
             {[
               { val: "ca", label: "💰 Chiffre d'affaires" },
-              { val: "chiens", label: "🐶 Nombre de chiens" },
+              { val: "chiens", label: "🐶 Chiens présents" },
               { val: "remplissage", label: "📊 Taux de remplissage" },
             ].map(v => (
               <button key={v.val} onClick={() => setVue(v.val as any)}
@@ -172,7 +180,7 @@ export default function Statistiques({
 
         <h3 className="font-bold mb-3" style={{ color: "#1B2B5E" }}>
           {vue === "ca" ? `Facturé vs encaissé par mois — ${annee} (comparaison ${annee - 1})` :
-           vue === "chiens" ? `Chiens par mois — ${annee}` :
+           vue === "chiens" ? `Chiens présents par mois — ${annee}` :
            `Taux de remplissage mensuel — ${annee}`}
         </h3>
 
@@ -194,7 +202,7 @@ export default function Statistiques({
               <XAxis dataKey="mois" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="nb_chiens_total" name="Nb chiens" fill="#1B2B5E" radius={[4,4,0,0]} />
+              <Bar dataKey="nb_chiens_total" name="Chiens présents (distincts)" fill="#1B2B5E" radius={[4,4,0,0]} />
             </BarChart>
           ) : (
             <LineChart data={statsMois}>

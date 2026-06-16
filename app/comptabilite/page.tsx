@@ -49,12 +49,34 @@ export default async function ComptabilitePage({
   const nbBoxes = boxesActives?.length ?? 0;
   const capaciteTotaleBoxes = boxesActives?.reduce((s, b) => s + Number(b.capacite_standard ?? 0), 0) ?? 0;
 
-  // Occupations de l'année
+  // Occupations de l'année (box_id + chien_id pour les stats chiens et taux)
   const { data: occupations } = await supabase
     .from("occupation_boxes")
-    .select("box_id, date_debut, date_fin")
+    .select("box_id, chien_id, date_debut, date_fin")
     .gte("date_fin", `${annee}-01-01`)
     .lte("date_debut", `${annee}-12-31`);
+
+  // Chiens actifs (clientèle)
+  const { count: nbChiensActifsCount } = await supabase
+    .from("chiens")
+    .select("id", { count: "exact", head: true })
+    .eq("actif", true)
+    .or("chien_decede.is.null,chien_decede.eq.false");
+  const nbChiensActifs = nbChiensActifsCount ?? 0;
+
+  // Dates du mois courant réel (pour la courbe journalière)
+  const moisActuel = new Date().getMonth();
+  const anneeActuelle = new Date().getFullYear();
+  const nbJoursMoisActuel = new Date(anneeActuelle, moisActuel + 1, 0).getDate();
+  const premierMoisCourant = `${anneeActuelle}-${String(moisActuel + 1).padStart(2, "0")}-01`;
+  const dernierMoisCourant = `${anneeActuelle}-${String(moisActuel + 1).padStart(2, "0")}-${String(nbJoursMoisActuel).padStart(2, "0")}`;
+
+  // Occupations du mois courant (pour la courbe journalière — toujours le mois réel)
+  const { data: occupationsMoisCourant } = await supabase
+    .from("occupation_boxes")
+    .select("chien_id, date_debut, date_fin")
+    .gte("date_fin", premierMoisCourant)
+    .lte("date_debut", dernierMoisCourant);
 
   const moisLabels = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
   const NB_BOXES = 12;
@@ -96,12 +118,20 @@ export default async function ComptabilitePage({
     }) ?? [];
     const caCotis = cotisMois.reduce((s, c) => s + Number(c.montant), 0);
 
-    const nbChiens = resAnnee.reduce((s, r) => s + (r.reservation_chiens?.length || 0), 0);
     const nbJoursMois = new Date(annee, moisNum, 0).getDate();
-
-    // Taux de remplissage réel via occupation_boxes
     const premier = `${annee}-${String(moisNum).padStart(2, "0")}-01`;
     const dernier = `${annee}-${String(moisNum).padStart(2, "0")}-${String(nbJoursMois).padStart(2, "0")}`;
+
+    // Chiens distincts présents dans le mois (via occupation_boxes)
+    const chiensDistincts = new Set<string>();
+    for (const occ of occupations ?? []) {
+      if (occ.date_debut <= dernier && occ.date_fin >= premier) {
+        chiensDistincts.add(occ.chien_id);
+      }
+    }
+    const nbChiens = chiensDistincts.size;
+
+    // Taux de remplissage réel via occupation_boxes
     const boxJoursSet = new Set<string>();
     let chienJours = 0;
     for (const occ of occupations ?? []) {
@@ -141,23 +171,21 @@ export default async function ComptabilitePage({
   const totalCotisations = statsMois.reduce((s, m) => s + m.ca_cotisations, 0);
   const totalEncaisse = totalAnneeEncaisse + totalCotisations;
 
-  // Stats journalières
-  const moisActuel = new Date().getMonth();
-  const anneeActuelle = new Date().getFullYear();
-  const nbJoursMoisActuel = new Date(anneeActuelle, moisActuel + 1, 0).getDate();
+  // Stats journalières (via occupation_boxes du mois courant)
   const statsJours = Array.from({ length: nbJoursMoisActuel }, (_, i) => {
     const jour = i + 1;
     const dateStr = `${anneeActuelle}-${String(moisActuel + 1).padStart(2, "0")}-${String(jour).padStart(2, "0")}`;
-    const nbChiens = reservations?.reduce((s, r) => {
-      if (r.date_debut <= dateStr && r.date_fin >= dateStr) {
-        return s + (r.reservation_chiens?.length || 0);
+    const chiensJour = new Set<string>();
+    for (const occ of occupationsMoisCourant ?? []) {
+      if (occ.date_debut <= dateStr && occ.date_fin >= dateStr) {
+        chiensJour.add(occ.chien_id);
       }
-      return s;
-    }, 0) ?? 0;
+    }
+    const nbChiensJour = chiensJour.size;
     return {
       jour: String(jour),
-      nb_chiens: nbChiens,
-      taux_remplissage: Math.min(100, Math.round(nbChiens / NB_BOXES * 100)),
+      nb_chiens: nbChiensJour,
+      taux_remplissage: Math.min(100, Math.round(nbChiensJour / NB_BOXES * 100)),
     };
   });
 
@@ -242,6 +270,7 @@ export default async function ComptabilitePage({
           totalAnneePrec={totalAnneePrec}
           totalCotisations={totalCotisations}
           totalEncaisse={totalEncaisse}
+          nbChiensActifs={nbChiensActifs}
         />
 
         {/* Résumé paiements — période filtrée */}
