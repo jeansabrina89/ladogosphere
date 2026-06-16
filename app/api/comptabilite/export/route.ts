@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../src/utils/supabase/server";
 import * as XLSX from "xlsx";
 import { exigerPersonnel } from "../../../../src/lib/apiAuth";
+import { lireParametresTVA, ventilerTVA } from "../../../../src/lib/tva";
 
 type Ligne = {
   "Date": string;
@@ -29,6 +30,8 @@ export async function GET(req: NextRequest) {
   const fin = mois
     ? new Date(parseInt(annee), parseInt(mois), 0).toISOString().split("T")[0]
     : `${annee}-12-31`;
+
+  const paramsTV = await lireParametresTVA(supabase);
 
   // Source A — encaissements de réservations (filtrés par date_paiement)
   const { data: reservations } = await supabase
@@ -61,15 +64,17 @@ export async function GET(req: NextRequest) {
     const factureActive = facResas.map(fr => fr.factures).find(f => f && f.statut !== "annulee");
     const piece = factureActive?.numero ?? `Résa #${res.numero}`;
     const montant = Number(res.montant_paye ?? 0);
+    const dateISO = (res.date_paiement as string).split("T")[0];
+    const v = ventilerTVA(montant, dateISO, paramsTV);
     lignes.push({
-      "Date": res.date_paiement as string,
+      "Date": dateISO,
       "Pièce": piece,
       "Client": client,
       "Libellé": `Pension chien(s) — ${client}`,
       "Mode": res.mode_paiement || "—",
-      "Montant TTC": montant,
-      "HT": montant,
-      "TVA": 0,
+      "Montant TTC": v.ttc,
+      "HT": v.ht,
+      "TVA": v.tva,
     });
   }
 
@@ -77,15 +82,17 @@ export async function GET(req: NextRequest) {
     const c = cot.clients as { prenom?: string; nom?: string } | null;
     const client = `${c?.prenom ?? ""} ${c?.nom ?? ""}`.trim();
     const montant = Number(cot.montant ?? 0);
+    const dateISO = (cot.date_paiement as string).split("T")[0];
+    const v = ventilerTVA(montant, dateISO, paramsTV);
     lignes.push({
-      "Date": cot.date_paiement as string,
+      "Date": dateISO,
       "Pièce": "Adhésion",
       "Client": client,
       "Libellé": `Cotisation membre — ${client}`,
       "Mode": cot.mode_paiement || "—",
-      "Montant TTC": montant,
-      "HT": montant,
-      "TVA": 0,
+      "Montant TTC": v.ttc,
+      "HT": v.ht,
+      "TVA": v.tva,
     });
   }
 
