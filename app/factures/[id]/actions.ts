@@ -23,7 +23,7 @@ export async function marquerFactureReglee(
       id, statut, montant_total,
       facture_reservations (
         reservation_id,
-        reservations (id, montant_final, montant_calcule)
+        reservations (id, montant_final, montant_calcule, ajustement_manuel)
       )
     `)
     .eq("id", factureId)
@@ -36,16 +36,26 @@ export async function marquerFactureReglee(
   const today = new Date().toISOString().split("T")[0];
   const lignes = (facture.facture_reservations ?? []) as any[];
 
-  // 2. Payer chaque réservation en cascade
+  // 2. Garde-fou : aucune réservation ne doit avoir un montant dû ≤ 0
   for (const ligne of lignes) {
     const r = ligne.reservations;
     if (!r) continue;
-    const total = Number(r.montant_final ?? r.montant_calcule ?? 0);
+    const montantDu = Number(r.montant_final ?? r.montant_calcule ?? 0) + Number(r.ajustement_manuel ?? 0);
+    if (montantDu <= 0) {
+      return { error: "Montant à régler invalide (0 CHF) sur une réservation — vérifie le tarif." };
+    }
+  }
+
+  // 3. Payer chaque réservation en cascade
+  for (const ligne of lignes) {
+    const r = ligne.reservations;
+    if (!r) continue;
+    const montantDu = Number(r.montant_final ?? r.montant_calcule ?? 0) + Number(r.ajustement_manuel ?? 0);
     const { error: updErr } = await supabaseAdmin
       .from("reservations")
       .update({
-        montant_paye: total,
-        statut_paiement: calculerStatut(total, total),
+        montant_paye: montantDu,
+        statut_paiement: calculerStatut(montantDu, montantDu),
         date_paiement: today,
         mode_paiement: mode,
       })
@@ -53,7 +63,7 @@ export async function marquerFactureReglee(
     if (updErr) return { error: updErr.message };
   }
 
-  // 3. Acquitter la facture
+  // 4. Acquitter la facture
   const montantTotal = Number(facture.montant_total ?? 0);
   const { error: facUpdateErr } = await supabaseAdmin
     .from("factures")

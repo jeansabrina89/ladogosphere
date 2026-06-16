@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   // 1. Charger les réservations
   const { data: reservations, error: resErr } = await supabaseAdmin
     .from("reservations")
-    .select("id, client_id, statut, statut_paiement, montant_final, montant_calcule, montant_paye")
+    .select("id, client_id, statut, statut_paiement, montant_final, montant_calcule, montant_paye, ajustement_manuel")
     .in("id", reservation_ids);
 
   if (resErr) return NextResponse.json({ error: resErr.message }, { status: 500 });
@@ -60,9 +60,9 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const total = Number(r.montant_final ?? r.montant_calcule ?? 0);
+    const montantDu = Number(r.montant_final ?? r.montant_calcule ?? 0) + Number(r.ajustement_manuel ?? 0);
     const paye = Number(r.montant_paye ?? 0);
-    if (total - paye <= 0) {
+    if (montantDu - paye <= 0) {
       return NextResponse.json(
         { error: `Aucun reste à payer pour la réservation #${r.id}.` },
         { status: 400 }
@@ -90,11 +90,11 @@ export async function POST(req: NextRequest) {
 
   // 6. Calcul des montants par réservation et du total
   const lignes = reservations.map(r => {
-    const total = Number(r.montant_final ?? r.montant_calcule ?? 0);
+    const montantDu = Number(r.montant_final ?? r.montant_calcule ?? 0) + Number(r.ajustement_manuel ?? 0);
     const paye = Number(r.montant_paye ?? 0);
     return {
       reservation_id: r.id,
-      montant: Math.round((total - paye) * 100) / 100,
+      montant: Math.round((montantDu - paye) * 100) / 100,
     };
   });
   const montantTotal = Math.round(
