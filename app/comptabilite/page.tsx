@@ -40,6 +40,22 @@ export default async function ComptabilitePage({
     .eq("statut", "payee")
     .order("date_paiement", { ascending: false });
 
+  // Boxes actives (pour le taux de remplissage réel)
+  const { data: boxesActives } = await supabase
+    .from("boxes")
+    .select("id, capacite_standard")
+    .eq("actif", true);
+
+  const nbBoxes = boxesActives?.length ?? 0;
+  const capaciteTotaleBoxes = boxesActives?.reduce((s, b) => s + Number(b.capacite_standard ?? 0), 0) ?? 0;
+
+  // Occupations de l'année
+  const { data: occupations } = await supabase
+    .from("occupation_boxes")
+    .select("box_id, date_debut, date_fin")
+    .gte("date_fin", `${annee}-01-01`)
+    .lte("date_debut", `${annee}-12-31`);
+
   const moisLabels = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
   const NB_BOXES = 12;
 
@@ -82,17 +98,28 @@ export default async function ComptabilitePage({
 
     const nbChiens = resAnnee.reduce((s, r) => s + (r.reservation_chiens?.length || 0), 0);
     const nbJoursMois = new Date(annee, moisNum, 0).getDate();
-    const capaciteTotale = nbJoursMois * NB_BOXES;
-    const jourOccupes = resAnnee.reduce((s, r) => {
-      const debut = new Date(r.date_debut);
-      const fin = new Date(r.date_fin);
-      const jours = Math.max(1, Math.round((fin.getTime() - debut.getTime()) / 86400000) + 1);
-      const nbC = r.reservation_chiens?.length || 1;
-      return s + jours * nbC;
-    }, 0);
-    const taux = capaciteTotale > 0
-      ? Math.min(100, Math.round(jourOccupes / capaciteTotale * 100))
-      : 0;
+
+    // Taux de remplissage réel via occupation_boxes
+    const premier = `${annee}-${String(moisNum).padStart(2, "0")}-01`;
+    const dernier = `${annee}-${String(moisNum).padStart(2, "0")}-${String(nbJoursMois).padStart(2, "0")}`;
+    const boxJoursSet = new Set<string>();
+    let chienJours = 0;
+    for (const occ of occupations ?? []) {
+      const debut = occ.date_debut > premier ? occ.date_debut : premier;
+      const fin   = occ.date_fin   < dernier ? occ.date_fin   : dernier;
+      if (debut > fin) continue;
+      const d = new Date(debut + "T00:00:00Z");
+      const fDate = new Date(fin + "T00:00:00Z");
+      while (d <= fDate) {
+        const jourISO = d.toISOString().split("T")[0];
+        boxJoursSet.add(`${occ.box_id}|${jourISO}`);
+        chienJours++;
+        d.setUTCDate(d.getUTCDate() + 1);
+      }
+    }
+    const boxJoursOccupes = boxJoursSet.size;
+    const tauxBox    = nbBoxes > 0             ? Math.round((boxJoursOccupes / (nbBoxes * nbJoursMois))             * 1000) / 10 : 0;
+    const tauxPlaces = capaciteTotaleBoxes > 0 ? Math.round((chienJours      / (capaciteTotaleBoxes * nbJoursMois)) * 1000) / 10 : 0;
 
     return {
       mois: label,
@@ -103,7 +130,8 @@ export default async function ComptabilitePage({
       ca_total: Math.round((caFacture + caCotis) * 100) / 100,
       nb_reservations: resAnnee.length,
       nb_chiens_total: nbChiens,
-      taux_remplissage: taux,
+      taux_box: tauxBox,
+      taux_places: tauxPlaces,
     };
   });
 

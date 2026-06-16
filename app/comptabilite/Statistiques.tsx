@@ -15,7 +15,8 @@ type StatMois = {
   ca_total: number;
   nb_reservations: number;
   nb_chiens_total: number;
-  taux_remplissage: number;
+  taux_box: number;
+  taux_places: number;
 };
 
 type StatJour = {
@@ -77,9 +78,10 @@ export default function Statistiques({
 
       const wsTaux = XLSX.utils.json_to_sheet(statsMois.map(m => ({
         "Mois": m.mois,
-        "Taux remplissage (%)": m.taux_remplissage,
+        "Taux box (%)": m.taux_box,
+        "Taux places (%)": m.taux_places,
       })));
-      wsTaux["!cols"] = [{ wch: 8 }, { wch: 20 }];
+      wsTaux["!cols"] = [{ wch: 8 }, { wch: 16 }, { wch: 18 }];
       XLSX.utils.book_append_sheet(wb, wsTaux, `Remplissage ${annee}`);
 
       if (statsJours.length > 0) {
@@ -200,13 +202,23 @@ export default function Statistiques({
               <XAxis dataKey="mois" />
               <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} />
               <Tooltip formatter={(v: any) => `${v}%`} />
+              <Legend />
               <Line
-                type="monotone" dataKey="taux_remplissage"
-                name="Taux remplissage" stroke="#E8847A" strokeWidth={2}
+                type="monotone" dataKey="taux_box"
+                name="Taux box (occupation des boxes)" stroke="#E8847A" strokeWidth={2}
                 dot={{ fill: "#E8847A" }} />
+              <Line
+                type="monotone" dataKey="taux_places"
+                name="Taux places (densité d'accueil)" stroke="#4AAEA0" strokeWidth={2}
+                dot={{ fill: "#4AAEA0" }} />
             </LineChart>
           )}
         </ResponsiveContainer>
+        {vue === "remplissage" && (
+          <p className="text-xs text-gray-400 mt-3">
+            Taux box = boxes occupées / boxes actives. Taux places = chiens présents / capacité standard totale (2 chiens/box).
+          </p>
+        )}
       </div>
 
       {/* Graphique journalier */}
@@ -241,7 +253,7 @@ export default function Statistiques({
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">Évolution</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">Réservations</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">Chiens</th>
-              <th className="px-4 py-3 text-right text-sm font-semibold text-white">Remplissage</th>
+              <th className="px-4 py-3 text-right text-sm font-semibold text-white">Taux remplissage</th>
             </tr>
           </thead>
           <tbody>
@@ -281,13 +293,22 @@ export default function Statistiques({
                   <td className="px-4 py-3 text-sm text-right text-gray-600">{m.nb_reservations}</td>
                   <td className="px-4 py-3 text-sm text-right text-gray-600">{m.nb_chiens_total}</td>
                   <td className="px-4 py-3 text-sm text-right">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                      m.taux_remplissage >= 80 ? "bg-green-100 text-green-700" :
-                      m.taux_remplissage >= 50 ? "bg-yellow-100 text-yellow-700" :
-                      "bg-gray-100 text-gray-600"
-                    }`}>
-                      {m.taux_remplissage}%
-                    </span>
+                    <div className="flex flex-col gap-1 items-end">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                        m.taux_box >= 80 ? "bg-green-100 text-green-700" :
+                        m.taux_box >= 50 ? "bg-yellow-100 text-yellow-700" :
+                        "bg-gray-100 text-gray-600"
+                      }`}>
+                        📦 {m.taux_box}%
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                        m.taux_places >= 80 ? "bg-green-100 text-green-700" :
+                        m.taux_places >= 50 ? "bg-yellow-100 text-yellow-700" :
+                        "bg-gray-100 text-gray-600"
+                      }`}>
+                        🐾 {m.taux_places}%
+                      </span>
+                    </div>
                   </td>
                 </tr>
               );
