@@ -9,6 +9,7 @@ import BoutonCotisation from "./BoutonCotisation";
 import BoutonConfirmerCotisation from "./BoutonConfirmerCotisation";
 import GestionAvoir from "./GestionAvoir";
 import { getProfilePerms } from "../../../src/lib/getProfilePerms";
+import SelectionFactureGroupee from "../../reservations/SelectionFactureGroupee";
 
 export default async function ClientPage({
   params,
@@ -50,6 +51,26 @@ export default async function ClientPage({
   // Avoir client (lecture admin via supabaseAdmin)
   const mouvementsAvoir = await getMouvementsAvoir(supabaseAdmin, id);
   const soldeAvoir = calculerSoldeAvoir(mouvementsAvoir);
+
+  // Réservations du client (pour SelectionFactureGroupee)
+  const { data: reservations } = await supabase
+    .from("reservations")
+    .select(`
+      id, numero, client_id, date_debut, date_fin, type_reservation,
+      statut, statut_paiement, montant_final, montant_calcule, ajustement_manuel, montant_paye,
+      clients (prenom, nom, membre),
+      boxes (numero, nom),
+      reservation_chiens (chiens (id, nom, race, categorie_poids))
+    `)
+    .eq("client_id", id)
+    .order("date_debut", { ascending: false });
+
+  // Factures du client
+  const { data: facturesClient } = await supabase
+    .from("factures")
+    .select("id, numero, date_facture, montant_total, statut")
+    .eq("client_id", id)
+    .order("date_facture", { ascending: false });
 
   const MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
     "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -220,6 +241,62 @@ export default async function ClientPage({
         {(perms.isAdmin || perms.perm_encaissements) && (
           <GestionAvoir client_id={client.id} solde={soldeAvoir} mouvements={mouvementsAvoir} />
         )}
+
+        {/* 6. Factures */}
+        <div className="border-t pt-6 mb-8">
+          <h2 className="text-2xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
+            📋 Factures
+          </h2>
+          {!facturesClient || facturesClient.length === 0 ? (
+            <p className="text-gray-400 text-sm">Aucune facture pour ce client.</p>
+          ) : (
+            <div className="space-y-2">
+              {facturesClient.map((f: any) => (
+                <Link
+                  key={f.id}
+                  href={`/factures/${f.id}`}
+                  className="flex justify-between items-center border rounded-xl p-4 hover:bg-slate-50"
+                >
+                  <div>
+                    <p className="font-bold text-sm" style={{ color: "#1B2B5E" }}>
+                      {f.numero}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {f.date_facture ? formatDateFR(f.date_facture) : "—"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <p className="font-semibold text-sm" style={{ color: "#1B2B5E" }}>
+                      CHF {Number(f.montant_total).toFixed(2)}
+                    </p>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      f.statut === "acquittee"
+                        ? "bg-green-100 text-green-700"
+                        : f.statut === "annulee"
+                        ? "bg-gray-100 text-gray-500"
+                        : "bg-orange-100 text-orange-700"
+                    }`}>
+                      {f.statut === "acquittee" ? "✅ Réglée"
+                        : f.statut === "annulee" ? "🚫 Annulée"
+                        : "📤 Envoyée"}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 7. Réservations — sélection pour facture groupée */}
+        <div className="border-t pt-6 mb-8">
+          <h2 className="text-2xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
+            📅 Réservations
+          </h2>
+          <SelectionFactureGroupee
+            reservations={reservations ?? []}
+            permEncaissements={perms.perm_encaissements}
+          />
+        </div>
 
         {/* Boutons */}
         <div className="border-t pt-6 flex flex-wrap gap-4">
