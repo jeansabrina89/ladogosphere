@@ -14,7 +14,6 @@ export async function creerChienClient(client_id: string, formData: FormData) {
   const supabaseServer = await createSupabaseServerClient();
 
   // La session courante a-t-elle le droit de lire cette fiche ? (RLS)
-  // client = uniquement la sienne ; admin = toutes. Sinon -> refus.
   const { data: fiche, error: verifErr } = await supabaseServer
     .from("clients")
     .select("id")
@@ -34,6 +33,20 @@ export async function creerChienClient(client_id: string, formData: FormData) {
 
   if (!nom || !race || !couleur || !poids || !sexe || !["oui", "non", "chimique"].includes(sterilisation)) {
     throw new Error("Merci de remplir tous les champs obligatoires.");
+  }
+
+  // Garde anti-doublon : si un chien identique (même fiche + même nom) a été créé
+  // il y a moins de 15 s, c'est une double soumission -> on ne réinsère pas.
+  const { data: doublonRecent } = await supabaseAdmin
+    .from("chiens")
+    .select("id")
+    .eq("client_id", fiche.id)
+    .eq("nom", nom)
+    .gte("created_at", new Date(Date.now() - 15000).toISOString())
+    .limit(1);
+
+  if (doublonRecent && doublonRecent.length > 0) {
+    redirect("/mon-compte");
   }
 
   const { error } = await supabaseAdmin

@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { creerChienClient } from "./actions";
+import BoutonEnregistrer from "./BoutonEnregistrer";
 
 export default async function NouveauChienClientPage() {
   const supabaseServer = await createSupabaseServerClient();
@@ -108,11 +109,7 @@ export default async function NouveauChienClientPage() {
           </div>
 
           <div className="flex gap-3 pt-4 border-t">
-            <button type="submit"
-              className="px-6 py-3 rounded-xl font-semibold text-white"
-              style={{ backgroundColor: "#4AAEA0" }}>
-              💾 Enregistrer
-            </button>
+            <BoutonEnregistrer />
             <a href="/mon-compte"
               className="px-6 py-3 rounded-xl font-semibold"
               style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
