@@ -6,6 +6,7 @@ import {
   creerDemandeReservation,
   type Occurrence,
 } from "@/app/(client)/mon-compte/reservations/actions";
+import { calculerMontant } from "@/src/lib/calculTarif";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 
@@ -19,6 +20,13 @@ export type ChienTunnel = {
   categorie_poids: string | null;
   journee_essai_effectuee: boolean;
   journee_essai_invalide: boolean;
+};
+
+export type TarifLite = {
+  categorie: string;
+  membre: boolean;
+  prix: string;
+  annee: number;
 };
 
 type Branche = "essai" | "complete";
@@ -207,7 +215,15 @@ function cardSelectStyle(selected: boolean, couleur: "rose" | "teal"): React.CSS
 
 // ─── Composant principal ──────────────────────────────────────────────────────
 
-export default function TunnelReservation({ chiens }: { chiens: ChienTunnel[] }) {
+export default function TunnelReservation({
+  chiens,
+  tarifs,
+  estMembre,
+}: {
+  chiens: ChienTunnel[];
+  tarifs: TarifLite[];
+  estMembre: boolean;
+}) {
 
   // Navigation
   const [etape, setEtape] = useState<EtapeId>("chiens");
@@ -304,6 +320,57 @@ export default function TunnelReservation({ chiens }: { chiens: ChienTunnel[] })
         invalide: (d) => estDateInvalide(d, false),
       })
     : [];
+
+  // ─── Estimation indicative de prix ──────────────────────────────────────────
+
+  function tarifsPourAnnee(annee: number): TarifLite[] {
+    const exact = tarifs.filter(t => t.annee === annee);
+    if (exact.length) return exact;
+    const annees = [...new Set(tarifs.map(t => t.annee))].sort((a, b) => a - b);
+    if (annees.length === 0) return [];
+    const inf = annees.filter(a => a <= annee).pop();
+    const choisie = inf ?? annees[0];
+    return tarifs.filter(t => t.annee === choisie);
+  }
+
+  const anneeDe = (ds: string) => new Date(ds + "T12:00:00").getFullYear();
+
+  let estimation: number | null = null;
+  if (tarifs.length > 0) {
+    if (branche === "essai" && dateEssai && chienIdsEssai.length > 0) {
+      estimation = calculerMontant({
+        tarifs: tarifsPourAnnee(anneeDe(dateEssai)),
+        type_reservation: "essai",
+        nb_chiens: chienIdsEssai.length,
+        est_membre: estMembre,
+        est_urgence: false,
+        est_privatif: false,
+        date_debut: dateEssai,
+        date_fin: dateEssai,
+        heure_arrivee: "10:00",
+        heure_depart: heureDepartEssai || null,
+      });
+    } else if (branche === "complete" && formule && chiensSelectionnes.length > 0) {
+      const occ: Occurrence[] = modeFreq === "reguliere"
+        ? occurrencesRegulieres
+        : (dateArrivee ? [{ date_debut: dateArrivee, date_fin: formule === "journee" ? dateArrivee : dateFin }] : []);
+      const completes = occ.filter(o => o.date_debut && (formule === "journee" || o.date_fin));
+      if (completes.length > 0) {
+        estimation = completes.reduce((total, o) => total + calculerMontant({
+          tarifs: tarifsPourAnnee(anneeDe(o.date_debut)),
+          type_reservation: formule,
+          nb_chiens: chiensSelectionnes.length,
+          est_membre: estMembre,
+          est_urgence: false,
+          est_privatif: false,
+          date_debut: o.date_debut,
+          date_fin: o.date_fin || o.date_debut,
+          heure_arrivee: heureArrivee || null,
+          heure_depart: heureDepart || null,
+        }), 0);
+      }
+    }
+  }
 
   // ─── Navigation ─────────────────────────────────────────────────────────────
 
@@ -928,6 +995,10 @@ export default function TunnelReservation({ chiens }: { chiens: ChienTunnel[] })
       ? `Envoyer ${nbOcc} demande(s)`
       : "Envoyer la demande";
 
+    const captionEstim = branche === "essai"
+      ? "Tarif journée d'essai. Le montant définitif est confirmé par notre équipe."
+      : `Tarif ${estMembre ? "membre" : "non-membre"}, hébergement partagé. Le montant définitif est confirmé par notre équipe lors de la validation.`;
+
     return (
       <>
         <p style={S.titre}>Récapitulatif</p>
@@ -952,11 +1023,27 @@ export default function TunnelReservation({ chiens }: { chiens: ChienTunnel[] })
             <p style={{ margin: 0, fontWeight: 600, color: "#1B2B5E", fontSize: 15 }}>{datesLabel}</p>
           </div>
 
-          <div style={{ ...S.recapRow, backgroundColor: "#DBEFEA" }}>
-            <p style={{ margin: 0, fontSize: 13, color: "#1F6E5B" }}>
-              💬 Le tarif définitif sera confirmé par notre équipe lors de la validation de ta demande.
-            </p>
-          </div>
+          {estimation !== null ? (
+            <div style={{ backgroundColor: "#F4EAC9", borderRadius: 12, padding: "14px 16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                <span style={{ fontSize: 13, color: "#6E5410", fontWeight: 600 }}>
+                  {nbOcc > 1 ? `Estimation indicative (${nbOcc} dates)` : "Estimation indicative"}
+                </span>
+                <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 20, fontWeight: 700, color: "#6E5410", whiteSpace: "nowrap" as const }}>
+                  CHF {estimation.toFixed(2)}
+                </span>
+              </div>
+              <p style={{ margin: "8px 0 0", fontSize: 12, color: "#6E5410", opacity: 0.85, lineHeight: 1.4 }}>
+                {captionEstim}
+              </p>
+            </div>
+          ) : (
+            <div style={{ ...S.recapRow, backgroundColor: "#F4EAC9" }}>
+              <p style={{ margin: 0, fontSize: 13, color: "#6E5410" }}>
+                💬 Le tarif sera confirmé par notre équipe lors de la validation de ta demande.
+              </p>
+            </div>
+          )}
         </div>
 
         <div style={{ marginBottom: 20 }}>

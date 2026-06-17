@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { createClient } from "@/src/utils/supabase/server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 import TunnelReservation from "./TunnelReservation";
@@ -76,6 +77,32 @@ export default async function NouvelleDemandeReservationPage() {
     );
   }
 
+  // Tarifs + statut membre — lus via service role : la RLS réserve ces tables
+  // au personnel/admin. On ne lit ici que des données de référence (tarifs) et
+  // la cotisation de CE client, déjà authentifié via sa session.
+  const anneeCourante = new Date().getFullYear();
+
+  const { data: tarifsRows } = await supabaseAdmin
+    .from("tarifs")
+    .select("categorie, membre, prix, annee")
+    .eq("actif", true);
+
+  const { data: cotis } = await supabaseAdmin
+    .from("cotisations_membres")
+    .select("id")
+    .eq("client_id", client.id)
+    .eq("annee", anneeCourante)
+    .eq("statut", "payee")
+    .limit(1);
+
+  const estMembre = !!(cotis && cotis.length > 0);
+  const tarifs = (tarifsRows ?? []).map((t) => ({
+    categorie: t.categorie as string,
+    membre: t.membre as boolean,
+    prix: String(t.prix),
+    annee: t.annee as number,
+  }));
+
   return (
     <main style={{ minHeight: "100vh", backgroundColor: "#F5F0E8", padding: "32px 16px" }}>
       <div style={{ maxWidth: 600, margin: "0 auto" }}>
@@ -84,7 +111,7 @@ export default async function NouvelleDemandeReservationPage() {
             ← Mes réservations
           </Bouton>
         </div>
-        <TunnelReservation chiens={chiens} />
+        <TunnelReservation chiens={chiens} tarifs={tarifs} estMembre={estMembre} />
       </div>
     </main>
   );
