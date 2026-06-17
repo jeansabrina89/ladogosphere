@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+@theme {
+  --color-creme: #F5F0E8;
+  --color-creme-fonce: #EDE8DF;
+  --color-marine: #1B2B5E;
+  --color-or: #C9A84C;
+  --color-teal: #4AAEA0;
+  --color-teal-fonce: #2E8B7E;
+  --color-rose: #E8847A;
+
+  --font-serif: Georgia, "Times New Roman", serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
 :root {
   --bleu-marine: #1B2B5E;
   --or: #C9A84C;
@@ -14,5 +27,13 @@
 body {
   background-color: var(--creme);
   color: var(--texte);
-  font-family: 'Georgia', serif;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-serif);
+  }
 }
