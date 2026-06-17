@@ -1,38 +1,31 @@
 "use client";
-
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/src/lib/supabase-browser";
-
 const liens = [
   { href: "/mon-compte", label: "🏠 Mon compte", exact: true },
   { href: "/mon-compte/chiens", label: "🐶 Mes chiens", exact: false },
   { href: "/mon-compte/reservations", label: "📅 Mes réservations", exact: false },
+  { href: "/mon-compte/tarifs", label: "🏷️ Tarifs", exact: false },
   { href: "/mon-compte/profil", label: "👤 Mon profil", exact: false },
 ];
-
 export default function NavBarClient() {
   const pathname = usePathname();
   const router = useRouter();
-
   if (pathname === "/login" || pathname === "/inscription") return null;
-
   const handleLogout = async () => {
     const supabase = createSupabaseBrowserClient();
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
   };
-
   const isActive = (href: string, exact = false) => {
     if (exact) return pathname === href;
     return pathname.startsWith(href);
   };
-
   return (
     <nav className="sticky top-0 z-50"
       style={{ backgroundColor: "#4AAEA0", borderBottom: "2px solid #3d9690" }}>
       <div className="max-w-7xl mx-auto px-6">
-
         <div className="flex items-center justify-between h-16">
           <a href="/mon-compte" className="flex items-center gap-3">
             <img src="/Logo.png" alt="La Dogosphère"
@@ -47,7 +40,6 @@ export default function NavBarClient() {
             Déconnexion
           </button>
         </div>
-
         <div className="flex flex-wrap gap-1 pb-3">
           {liens.map(({ href, label, exact }) => (
             <a key={href} href={href}
@@ -61,7 +53,6 @@ export default function NavBarClient() {
             </a>
           ))}
         </div>
-
       </div>
     </nav>
   );
