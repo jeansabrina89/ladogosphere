@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-import NavBar from "./NavBar";
+import NavBarAdmin from "./NavBarAdmin";
+import NavBarEmploye from "./NavBarEmploye";
+import NavBarClient from "./NavBarClient";
 
 export default async function NavBarServeur() {
   const cookieStore = await cookies();
@@ -29,5 +31,7 @@ export default async function NavBarServeur() {
     role = profile?.role ?? "client";
   }
 
-  return <NavBar role={role} />;
+  if (role === "admin") return <NavBarAdmin />;
+  if (role === "employe") return <NavBarEmploye />;
+  return <NavBarClient />;
 }
