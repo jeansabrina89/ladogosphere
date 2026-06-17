@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/src/utils/supabase/server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 
 function getJoursFeries(annee: number): string[] {
   const feries: string[] = [];
 
-const fmt = (d: Date) => {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
+  const fmt = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
   // Calcul de Pâques (algorithme de Butcher)
   const a = annee % 19;
@@ -28,11 +28,9 @@ const fmt = (d: Date) => {
   const jour = ((h + l - 7 * m + 114) % 31) + 1;
   const paques = new Date(annee, mois, jour);
 
-  // Ascension = Pâques + 39 jours
   const ascension = new Date(paques);
   ascension.setDate(ascension.getDate() + 39);
 
-  // Fête-Dieu = Pâques + 60 jours
   const fetesDieu = new Date(paques);
   fetesDieu.setDate(fetesDieu.getDate() + 60);
 
@@ -52,34 +50,43 @@ const fmt = (d: Date) => {
 }
 
 export async function GET(req: NextRequest) {
-  const supabase = await createClient();
   const { searchParams } = new URL(req.url);
   const annee = parseInt(searchParams.get("annee") || String(new Date().getFullYear()));
   const nb_boxes = 12;
 
-  // Récupérer toutes les réservations de type essai pour l'année
   const debut = `${annee}-01-01`;
-  const fin = `${annee}-12-31`;
+  const fin = `${annee + 1}-12-31`;
 
-  const { data: reservations } = await supabase
+  // Réservations d'essai (toutes) pour compter les jours complets.
+  // Lecture via service role : la RLS réserve la vue globale au personnel ;
+  // on ne renvoie que des dates agrégées, aucune donnée personnelle.
+  const { data: reservations } = await supabaseAdmin
     .from("reservations")
-    .select("date_debut, date_fin, box_id")
+    .select("date_debut")
     .neq("statut", "annulee")
     .gte("date_debut", debut)
     .lte("date_debut", fin)
     .eq("type_reservation", "essai");
 
-  // Compter les boxes utilisées par jour
   const boxesParJour: Record<string, number> = {};
-  reservations?.forEach(res => {
-    const date = res.date_debut;
+  reservations?.forEach((res) => {
+    const date = res.date_debut as string;
     boxesParJour[date] = (boxesParJour[date] || 0) + 1;
   });
 
-  // Dates pleines = nb_boxes réservations
   const datesPleine = Object.entries(boxesParJour)
-    .filter(([_, count]) => count >= nb_boxes)
+    .filter(([, count]) => count >= nb_boxes)
     .map(([date]) => date);
+
+  // Fermetures manuelles des journées d'essai (calendrier_essais).
+  const { data: fermees } = await supabaseAdmin
+    .from("calendrier_essais")
+    .select("date_essai, disponible, fermeture_manuelle")
+    .gte("date_essai", debut)
+    .lte("date_essai", fin)
+    .or("disponible.eq.false,fermeture_manuelle.eq.true");
+
+  const datesFermees = (fermees ?? []).map((f) => f.date_essai as string);
 
   const joursFeries = [
     ...getJoursFeries(annee),
@@ -89,5 +96,6 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     jours_feries: joursFeries,
     dates_pleines: datesPleine,
+    dates_fermees: datesFermees,
   });
 }

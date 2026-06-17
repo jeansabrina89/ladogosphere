@@ -78,6 +78,16 @@ const JOURS_ALL = [
   { v: 6, l: "Samedi" }, { v: 0, l: "Dimanche" },
 ];
 
+const JOURS_ENTETE = ["L", "M", "M", "J", "V", "S", "D"];
+const MOIS_FR = [
+  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+];
+
+function fmtDate(annee: number, mois: number, jour: number): string {
+  return `${annee}-${String(mois + 1).padStart(2, "0")}-${String(jour).padStart(2, "0")}`;
+}
+
 // ─── Génération d'occurrences régulières ─────────────────────────────────────
 
 function genOccurrencesRegulieres({
@@ -213,6 +223,109 @@ function cardSelectStyle(selected: boolean, couleur: "rose" | "teal"): React.CSS
   };
 }
 
+// ─── Calendrier maison (grise les jours indisponibles) ────────────────────────
+
+function CalendrierSelecteur({
+  valeur,
+  minDate,
+  estIndisponible,
+  onSelect,
+}: {
+  valeur: string;
+  minDate: string;
+  estIndisponible: (ds: string) => boolean;
+  onSelect: (ds: string) => void;
+}) {
+  const base = valeur || minDate;
+  const baseD = new Date(base + "T12:00:00");
+  const [vue, setVue] = useState<{ annee: number; mois: number }>({
+    annee: baseD.getFullYear(),
+    mois: baseD.getMonth(),
+  });
+
+  const premierJour = new Date(vue.annee, vue.mois, 1);
+  const decalage = (premierJour.getDay() + 6) % 7; // Lundi = 0
+  const nbJours = new Date(vue.annee, vue.mois + 1, 0).getDate();
+
+  const minD = new Date(minDate + "T12:00:00");
+  const moisMin = new Date(minD.getFullYear(), minD.getMonth(), 1);
+  const moisVue = new Date(vue.annee, vue.mois, 1);
+  const peutReculer = moisVue > moisMin;
+
+  const cellules: (number | null)[] = [
+    ...Array(decalage).fill(null),
+    ...Array.from({ length: nbJours }, (_, i) => i + 1),
+  ];
+
+  function changerMois(delta: number) {
+    setVue((v) => {
+      const d = new Date(v.annee, v.mois + delta, 1);
+      return { annee: d.getFullYear(), mois: d.getMonth() };
+    });
+  }
+
+  const btnNav = (actif: boolean): React.CSSProperties => ({
+    width: 36, height: 36, borderRadius: 10,
+    border: "1px solid rgba(27,43,94,0.15)", backgroundColor: "#fff",
+    cursor: actif ? "pointer" : "not-allowed",
+    color: actif ? "#1B2B5E" : "rgba(27,43,94,0.25)",
+    fontSize: 18, lineHeight: 1,
+  });
+
+  return (
+    <div style={{ border: "1px solid rgba(27,43,94,0.15)", borderRadius: 14, padding: 14, backgroundColor: "#fff" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <button type="button" aria-label="Mois précédent" disabled={!peutReculer}
+          onClick={() => peutReculer && changerMois(-1)} style={btnNav(peutReculer)}>‹</button>
+        <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: 700, color: "#1B2B5E", fontSize: 15 }}>
+          {MOIS_FR[vue.mois]} {vue.annee}
+        </span>
+        <button type="button" aria-label="Mois suivant"
+          onClick={() => changerMois(1)} style={btnNav(true)}>›</button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 4 }}>
+        {JOURS_ENTETE.map((j, i) => (
+          <div key={i} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, color: "rgba(27,43,94,0.4)", padding: "4px 0" }}>
+            {j}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+        {cellules.map((jour, i) => {
+          if (jour === null) return <div key={`v${i}`} />;
+          const ds = fmtDate(vue.annee, vue.mois, jour);
+          const passe = ds < minDate;
+          const indispo = passe || estIndisponible(ds);
+          const selectionne = ds === valeur;
+          return (
+            <button
+              key={ds}
+              type="button"
+              disabled={indispo}
+              onClick={() => !indispo && onSelect(ds)}
+              style={{
+                height: 42,
+                borderRadius: 10,
+                border: selectionne ? "2px solid #2E8B7E" : "1px solid transparent",
+                backgroundColor: selectionne ? "#DBEFEA" : indispo ? "transparent" : "#F5F0E8",
+                color: selectionne ? "#1F6E5B" : indispo ? "rgba(27,43,94,0.22)" : "#1B2B5E",
+                fontWeight: selectionne ? 700 : 500,
+                fontSize: 14,
+                cursor: indispo ? "not-allowed" : "pointer",
+                textDecoration: indispo && !passe ? "line-through" : "none",
+              }}
+            >
+              {jour}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Composant principal ──────────────────────────────────────────────────────
 
 export default function TunnelReservation({
@@ -262,6 +375,7 @@ export default function TunnelReservation({
   // Disponibilités
   const [joursFeries, setJoursFeries] = useState<string[]>([]);
   const [datesPleine, setDatesPleine] = useState<string[]>([]);
+  const [datesFermees, setDatesFermees] = useState<string[]>([]);
 
   useEffect(() => {
     fetch(`/api/dates-indisponibles?annee=${new Date().getFullYear()}`)
@@ -269,6 +383,7 @@ export default function TunnelReservation({
       .then(d => {
         setJoursFeries(d.jours_feries ?? []);
         setDatesPleine(d.dates_pleines ?? []);
+        setDatesFermees(d.dates_fermees ?? []);
       })
       .catch(() => {});
   }, []);
@@ -287,8 +402,9 @@ export default function TunnelReservation({
     if (jour === 0 || jour === 6) return true;
     if (joursFeries.includes(ds)) return true;
     if (pourEssai && datesPleine.includes(ds)) return true;
+    if (pourEssai && datesFermees.includes(ds)) return true;
     return false;
-  }, [joursFeries, datesPleine]);
+  }, [joursFeries, datesPleine, datesFermees]);
 
   const chiensDisponibles = chiens.filter(c => !(c.journee_essai_effectuee && c.journee_essai_invalide));
   const chiensRefuses = chiens.filter(c => c.journee_essai_effectuee && c.journee_essai_invalide);
@@ -416,6 +532,7 @@ export default function TunnelReservation({
         setErreur(
           joursFeries.includes(dateEssai) ? "Ce jour est férié en Valais."
           : datesPleine.includes(dateEssai) ? "Toutes les places sont prises ce jour."
+          : datesFermees.includes(dateEssai) ? "Les journées d'essai sont fermées ce jour."
           : "Les weekends ne sont pas disponibles."
         );
         return;
@@ -673,21 +790,15 @@ export default function TunnelReservation({
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
             <label style={S.label}>Date *</label>
-            <input type="date" style={S.input} min={demain} value={dateEssai}
-              onChange={e => {
-                const v = e.target.value;
-                if (v && estDateInvalide(v, true)) {
-                  setErreur(
-                    joursFeries.includes(v) ? "Ce jour est férié en Valais."
-                    : datesPleine.includes(v) ? "Toutes les places sont prises ce jour."
-                    : "Les weekends ne sont pas disponibles."
-                  );
-                } else {
-                  setErreur("");
-                  setDateEssai(v);
-                }
-              }}
+            <CalendrierSelecteur
+              valeur={dateEssai}
+              minDate={demain}
+              estIndisponible={(ds) => estDateInvalide(ds, true)}
+              onSelect={(ds) => { setErreur(""); setDateEssai(ds); }}
             />
+            <p style={{ margin: "8px 0 0", fontSize: 12, color: "rgba(27,43,94,0.5)" }}>
+              Les jours barrés (week-ends, fériés, fermetures) ne sont pas disponibles.
+            </p>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
