@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Nunito_Sans } from "next/font/google";
 import "./globals.css";
-import NavBarServeur from "./components/NavBarServeur";
 
 const nunitoSans = Nunito_Sans({
   subsets: ["latin"],
@@ -25,7 +24,6 @@ export default function RootLayout({
   return (
     <html lang="fr" className={nunitoSans.variable}>
       <body>
-        <NavBarServeur />
         {children}
       </body>
     </html>

@@ -5,7 +5,7 @@ import { envoyerEmailReservationValidee, envoyerEmailReservationAnnulee } from "
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { calculerMontant } from "@/src/lib/calculTarif";
-import { recalculerMontantSejour, enregistrerMontantCalcule } from "../../../../reservations/[id]/actions";
+import { recalculerMontantSejour, enregistrerMontantCalcule } from "@/app/(admin)/reservations/[id]/actions";
 
 export async function POST(
   req: NextRequest,

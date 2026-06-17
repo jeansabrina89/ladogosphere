@@ -4,8 +4,8 @@ import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { aujourdhuiISO, formatHeure } from "@/src/lib/dates";
-import CarteReservationAttente from "./components/CarteReservationAttente";
-import BoutonsCheckinDashboard from "./components/BoutonsCheckinDashboard";
+import CarteReservationAttente from "@/app/components/CarteReservationAttente";
+import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
 
 export default async function Home() {
   // Garde personnalisée — exigerPersonnelPage() ne peut pas être utilisé ici
