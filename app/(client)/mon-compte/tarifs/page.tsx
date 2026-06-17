@@ -27,6 +27,13 @@ const sSecSous: CSSProperties = {
   color: "rgba(27,43,94,0.5)",
 };
 
+const sNote: CSSProperties = {
+  margin: "12px 0 0",
+  fontSize: 12,
+  fontStyle: "italic",
+  color: "rgba(27,43,94,0.5)",
+};
+
 function getPrix(
   tarifs: { categorie: string; membre: boolean; prix: string }[],
   categorie: string,
@@ -93,6 +100,23 @@ function EnTeteGrille() {
   );
 }
 
+function LigneEssai({ label, prix }: { label: string; prix: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "10px 2px",
+        borderBottom: "1px solid rgba(27,43,94,0.07)",
+      }}
+    >
+      <span style={{ fontSize: 14, color: MARINE }}>{label}</span>
+      <span style={{ fontSize: 16, fontWeight: 700, color: MARINE }}>{prix}</span>
+    </div>
+  );
+}
+
 export default async function TarifsClientPage() {
   const supabaseServer = await createSupabaseServerClient();
   const { data: { user } } = await supabaseServer.auth.getUser();
@@ -136,6 +160,11 @@ export default async function TarifsClientPage() {
 
   const tarifsVides = tarifs.length === 0;
 
+  // Journée d'essai = tarif garderie MEMBRE, selon le nombre de chiens
+  const essai1 = getPrix(tarifs, "journee_partage_1", true);
+  const essai2 = getPrix(tarifs, "journee_partage_2", true);
+  const essai3 = getPrix(tarifs, "journee_partage_3", true);
+
   return (
     <main style={{ minHeight: "100vh", backgroundColor: "#F5F0E8", padding: "32px 16px" }}>
       <div style={{ maxWidth: 600, margin: "0 auto" }}>
@@ -173,7 +202,8 @@ export default async function TarifsClientPage() {
               <EnTeteGrille />
               <LigneGrille label="1 chien" nm={getPrix(tarifs, "journee_partage_1", false)} mb={getPrix(tarifs, "journee_partage_1", true)} estMembre={estMembre} />
               <LigneGrille label="2 chiens" nm={getPrix(tarifs, "journee_partage_2", false)} mb={getPrix(tarifs, "journee_partage_2", true)} estMembre={estMembre} />
-              <LigneGrille label="3 chiens ou +" nm={getPrix(tarifs, "journee_partage_3", false)} mb={getPrix(tarifs, "journee_partage_3", true)} estMembre={estMembre} />
+              <LigneGrille label="3 chiens" nm={getPrix(tarifs, "journee_partage_3", false)} mb={getPrix(tarifs, "journee_partage_3", true)} estMembre={estMembre} />
+              <p style={sNote}>Au-delà de 3 chiens : tarif sur demande.</p>
             </div>
 
             {/* PENSION */}
@@ -183,19 +213,22 @@ export default async function TarifsClientPage() {
               <EnTeteGrille />
               <LigneGrille label="1 chien" nm={getPrix(tarifs, "sejour_partage_1", false)} mb={getPrix(tarifs, "sejour_partage_1", true)} estMembre={estMembre} />
               <LigneGrille label="2 chiens" nm={getPrix(tarifs, "sejour_partage_2", false)} mb={getPrix(tarifs, "sejour_partage_2", true)} estMembre={estMembre} />
-              <LigneGrille label="3 chiens ou +" nm={getPrix(tarifs, "sejour_partage_3", false)} mb={getPrix(tarifs, "sejour_partage_3", true)} estMembre={estMembre} />
+              <LigneGrille label="3 chiens" nm={getPrix(tarifs, "sejour_partage_3", false)} mb={getPrix(tarifs, "sejour_partage_3", true)} estMembre={estMembre} />
+              <p style={sNote}>Au-delà de 3 chiens : tarif sur demande.</p>
             </div>
 
             {/* JOURNÉE D'ESSAI */}
             <div style={sCarte}>
               <p style={sSecTitre}>🧪 Journée d'essai</p>
-              <p style={sSecSous}>Obligatoire pour tout nouveau chien avant la première réservation.</p>
-              <div style={{ backgroundColor: "#F5F0E8", borderRadius: 12, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 14, color: MARINE }}>Tarif journée (1 chien)</span>
-                <span style={{ fontSize: 17, fontWeight: 700, color: MARINE }}>
-                  {getPrix(tarifs, "journee_partage_1", true)}
-                </span>
+              <p style={sSecSous}>
+                Obligatoire pour tout nouveau chien avant la première réservation. Facturée au tarif d'une garderie membre, selon le nombre de chiens.
+              </p>
+              <div style={{ backgroundColor: "#F5F0E8", borderRadius: 12, padding: "4px 16px" }}>
+                <LigneEssai label="1 chien" prix={essai1} />
+                {essai2 !== "—" && <LigneEssai label="2 chiens" prix={essai2} />}
+                {essai3 !== "—" && <LigneEssai label="3 chiens" prix={essai3} />}
               </div>
+              <p style={sNote}>Au-delà de 3 chiens : tarif sur demande.</p>
             </div>
 
             {/* PRIVATIF */}
