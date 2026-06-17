@@ -3,7 +3,7 @@ import { createClient } from "@/src/utils/supabase/server";
 import Link from "next/link";
 import { formatDateFR, aujourdhuiISO } from "@/src/lib/dates";
 import { getSoldeAvoir } from "@/src/lib/avoirs";
-import { montantDuReservation } from "@/src/lib/montants";
+import { montantDuReservation, resteAPayer } from "@/src/lib/montants";
 import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
 import Carte from "@/app/components/ui/Carte";
@@ -40,14 +40,34 @@ export default async function MonComptePage() {
   );
   const prochaine = resAVenir[0] ?? null;
 
+  // Logique identique à l'ancien bloc "impayées" (statut payable + reste > 0)
+  const resImpayees = (reservations ?? []).filter((r: any) => {
+    const estPayable = r.statut === "validee" || r.statut === "terminee";
+    const nonRegle =
+      !r.statut_paiement ||
+      r.statut_paiement === "impaye" ||
+      r.statut_paiement === "partiel";
+    return estPayable && nonRegle && resteAPayer(r) > 0;
+  });
+  const totalARegler = resImpayees.reduce((sum: number, r: any) => sum + resteAPayer(r), 0);
+
   const nbChiens = client?.chiens?.length ?? 0;
   const soldeAvoir = client ? await getSoldeAvoir(supabase, client.id) : 0;
 
   const raccourcis = [
-    { href: "/mon-compte/chiens",               label: "Mes chiens" },
-    { href: "/mon-compte/reservations",          label: "Mes réservations" },
-    { href: "/mon-compte/profil",                label: "Mon profil" },
+    { href: "/mon-compte/chiens",      label: "Mes chiens" },
+    { href: "/mon-compte/reservations", label: "Mes réservations" },
+    { href: "/mon-compte/profil",       label: "Mon profil" },
   ];
+
+  const statCardStyle = (bg: string): React.CSSProperties => ({
+    backgroundColor: bg,
+    borderRadius: "16px",
+    padding: "20px 16px",
+    textAlign: "center",
+    textDecoration: "none",
+    display: "block",
+  });
 
   return (
     <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -64,17 +84,15 @@ export default async function MonComptePage() {
           }
         />
 
-        {/* Mini-stats */}
+        {/* Mini-stats — 3 cartes fixes + 4e conditionnelle */}
         <div
-          className="grid grid-cols-1 sm:grid-cols-3 gap-3"
+          className={totalARegler > 0
+            ? "grid grid-cols-2 lg:grid-cols-4 gap-3"
+            : "grid grid-cols-1 sm:grid-cols-3 gap-3"}
           style={{ marginBottom: "32px" }}
         >
-          <div style={{
-            backgroundColor: "#DBEFEA",
-            borderRadius: "16px",
-            padding: "20px 16px",
-            textAlign: "center",
-          }}>
+          {/* Chiens */}
+          <div style={statCardStyle("#DBEFEA")}>
             <p style={{ fontSize: "24px", fontWeight: 500, color: "#1F6E5B", margin: 0, lineHeight: 1 }}>
               {nbChiens}
             </p>
@@ -83,12 +101,8 @@ export default async function MonComptePage() {
             </p>
           </div>
 
-          <div style={{
-            backgroundColor: "#E4E7F1",
-            borderRadius: "16px",
-            padding: "20px 16px",
-            textAlign: "center",
-          }}>
+          {/* À venir */}
+          <div style={statCardStyle("#E4E7F1")}>
             <p style={{ fontSize: "24px", fontWeight: 500, color: "#2A3B6B", margin: 0, lineHeight: 1 }}>
               {resAVenir.length}
             </p>
@@ -97,12 +111,8 @@ export default async function MonComptePage() {
             </p>
           </div>
 
-          <div style={{
-            backgroundColor: "#FBE2DE",
-            borderRadius: "16px",
-            padding: "20px 16px",
-            textAlign: "center",
-          }}>
+          {/* Avoir */}
+          <div style={statCardStyle("#FBE2DE")}>
             <p style={{ fontSize: "24px", fontWeight: 500, color: "#A8453A", margin: 0, lineHeight: 1 }}>
               {soldeAvoir.toFixed(2)}
             </p>
@@ -110,6 +120,18 @@ export default async function MonComptePage() {
               Avoir CHF
             </p>
           </div>
+
+          {/* À régler — visible uniquement si montant dû > 0 */}
+          {totalARegler > 0 && (
+            <Link href="/mon-compte/reservations" style={statCardStyle("#F4EAC9")}>
+              <p style={{ fontSize: "24px", fontWeight: 500, color: "#6E5410", margin: 0, lineHeight: 1 }}>
+                {totalARegler.toFixed(2)}
+              </p>
+              <p style={{ fontSize: "13px", color: "rgba(110,84,16,0.7)", marginTop: "6px", marginBottom: 0 }}>
+                À régler CHF
+              </p>
+            </Link>
+          )}
         </div>
 
         {/* Prochaine réservation */}
@@ -143,19 +165,10 @@ export default async function MonComptePage() {
                       gap: "12px",
                     }}>
                       <div>
-                        <p style={{
-                          fontWeight: 700,
-                          color: "#1B2B5E",
-                          fontSize: "16px",
-                          margin: "0 0 6px",
-                        }}>
+                        <p style={{ fontWeight: 700, color: "#1B2B5E", fontSize: "16px", margin: "0 0 6px" }}>
                           {chiens}
                         </p>
-                        <p style={{
-                          color: "rgba(27,43,94,0.65)",
-                          fontSize: "14px",
-                          margin: "0 0 10px",
-                        }}>
+                        <p style={{ color: "rgba(27,43,94,0.65)", fontSize: "14px", margin: "0 0 10px" }}>
                           {formatDateFR((prochaine as any).date_debut)}
                           {!memeJour && ` → ${formatDateFR((prochaine as any).date_fin)}`}
                         </p>
@@ -164,12 +177,7 @@ export default async function MonComptePage() {
 
                       {montant > 0 && (
                         <div style={{ textAlign: "right", flexShrink: 0 }}>
-                          <p style={{
-                            fontWeight: 700,
-                            color: "#1B2B5E",
-                            fontSize: "18px",
-                            margin: "0 0 4px",
-                          }}>
+                          <p style={{ fontWeight: 700, color: "#1B2B5E", fontSize: "18px", margin: "0 0 4px" }}>
                             {montant.toFixed(2)} CHF
                           </p>
                           {(prochaine as any).statut_paiement &&
@@ -183,12 +191,7 @@ export default async function MonComptePage() {
                     <div style={{ textAlign: "right", marginTop: "16px" }}>
                       <Link
                         href={`/mon-compte/reservations/${(prochaine as any).id}`}
-                        style={{
-                          color: "#2E8B7E",
-                          fontSize: "13px",
-                          fontWeight: 600,
-                          textDecoration: "none",
-                        }}
+                        style={{ color: "#2E8B7E", fontSize: "13px", fontWeight: 600, textDecoration: "none" }}
                       >
                         Voir le détail ›
                       </Link>
@@ -247,9 +250,7 @@ export default async function MonComptePage() {
               }}
             >
               <span>{label}</span>
-              <span style={{ color: "rgba(27,43,94,0.35)", fontSize: "20px", lineHeight: 1 }}>
-                ›
-              </span>
+              <span style={{ color: "rgba(27,43,94,0.35)", fontSize: "20px", lineHeight: 1 }}>›</span>
             </Link>
           ))}
         </Carte>
