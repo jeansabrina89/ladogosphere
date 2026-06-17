@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { createClient } from "@/src/utils/supabase/server";
-import FormDemandeReservation from "./FormDemandeReservation";
+import Bouton from "@/app/components/ui/Bouton";
+import EtatVide from "@/app/components/ui/EtatVide";
+import TunnelReservation from "./TunnelReservation";
 
 export default async function NouvelleDemandeReservationPage() {
   const supabase = await createClient();
@@ -8,92 +10,81 @@ export default async function NouvelleDemandeReservationPage() {
   const { data: { user } } = await supabaseServer.auth.getUser();
   if (!user) return null;
 
-  // Chercher le profil client — peut être null si pas encore créé par admin
   const { data: client } = await supabase
     .from("clients")
-    .select("*, chiens (id, nom, race, poids, categorie_poids, journee_essai_effectuee, journee_essai_invalide)")
+    .select("id, prenom, chiens (id, nom, race, poids, categorie_poids, journee_essai_effectuee, journee_essai_invalide)")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
-  // Si pas de profil client encore — afficher message d'attente
   if (!client) {
     return (
-      <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
-        <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm text-center">
-          <p className="text-4xl mb-4">🐾</p>
-          <h1 className="text-2xl font-bold mb-3" style={{ color: "#1B2B5E" }}>
-            Bienvenue à La Dogosphère !
-          </h1>
-          <p className="text-gray-600 mb-4">
-            Votre profil est en cours de création par notre équipe. Vous pourrez faire votre demande de journée d'essai dès que votre profil sera activé.
+      <main style={{ minHeight: "100vh", backgroundColor: "#F5F0E8", padding: "32px 16px" }}>
+        <div style={{ maxWidth: 560, margin: "0 auto", backgroundColor: "#fff", borderRadius: 18, padding: 32, border: "1px solid rgba(27,43,94,0.12)", textAlign: "center" }}>
+          <EtatVide
+            icone="🐾"
+            titre="Profil en cours de création"
+            message="Votre profil est en cours de création par notre équipe. Vous pourrez faire votre demande dès qu'il sera activé."
+            action={<Bouton variante="secondaire" href="/mon-compte">← Retour</Bouton>}
+          />
+          <p style={{ fontSize: 13, color: "rgba(27,43,94,0.4)", marginTop: 8 }}>
+            ladogosphere@gmail.com
           </p>
-          <p className="text-sm text-gray-400">
-            Contactez-nous : ladogosphere@gmail.com
-          </p>
-          <a href="/mon-compte"
-            className="inline-block mt-6 px-6 py-3 rounded-xl font-semibold text-white"
-            style={{ backgroundColor: "#4AAEA0" }}>
-            ← Retour
-          </a>
         </div>
       </main>
     );
   }
 
-  const chiens = client.chiens ?? [];
+  const chiens = (client.chiens ?? []) as {
+    id: string;
+    nom: string;
+    race: string | null;
+    poids: number | null;
+    categorie_poids: string | null;
+    journee_essai_effectuee: boolean;
+    journee_essai_invalide: boolean;
+  }[];
 
-  // Tous les chiens validés → accès complet (journée + séjour)
-  const acces_complet = chiens.length > 0 && chiens.every((c: any) => c.journee_essai_effectuee && !c.journee_essai_invalide);
+  const chiensDisponibles = chiens.filter(
+    c => !(c.journee_essai_effectuee && c.journee_essai_invalide)
+  );
 
-  // Tous les chiens refusés → aucune réservation possible
-  const tousRefuses = chiens.length > 0 && chiens.every((c: any) => c.journee_essai_effectuee && c.journee_essai_invalide);
-
-  if (tousRefuses) {
+  if (chiensDisponibles.length === 0) {
     return (
-      <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
-        <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm text-center">
-          <p className="text-4xl mb-4">❌</p>
-          <h1 className="text-2xl font-bold mb-3" style={{ color: "#1B2B5E" }}>
-            Réservation impossible
-          </h1>
-          <div className="text-gray-600 mb-4 text-left space-y-3">
-            {chiens.map((c: any) => (
-              <p key={c.id}>
-                {c.nom} n'a pas été accepté à l'issue de sa journée d'essai et ne peut donc pas faire l'objet d'une réservation.
-              </p>
-            ))}
-          </div>
-          <p className="text-sm text-gray-500">
-            N'hésitez pas à nous contacter pour plus d'informations ou pour envisager une nouvelle journée d'essai.
-          </p>
-          <p className="text-xs text-gray-400 mt-1">ladogosphere@gmail.com</p>
-          <a href="/mon-compte"
-            className="inline-block mt-6 px-6 py-3 rounded-xl font-semibold text-white"
-            style={{ backgroundColor: "#4AAEA0" }}>
-            ← Retour
-          </a>
+      <main style={{ minHeight: "100vh", backgroundColor: "#F5F0E8", padding: "32px 16px" }}>
+        <div style={{ maxWidth: 560, margin: "0 auto", backgroundColor: "#fff", borderRadius: 18, padding: 32, border: "1px solid rgba(27,43,94,0.12)" }}>
+          <EtatVide
+            icone="🐶"
+            titre={chiens.length === 0 ? "Aucun chien enregistré" : "Réservation impossible"}
+            message={
+              chiens.length === 0
+                ? "Ajoute d'abord ton chien pour pouvoir réserver une place."
+                : "Tous tes chiens n'ont pas été admis à l'issue de leur journée d'essai. Contacte-nous pour plus d'informations."
+            }
+            action={
+              chiens.length === 0
+                ? <Bouton variante="principal" href="/mon-compte/chiens/nouveau">Ajouter un chien</Bouton>
+                : <Bouton variante="secondaire" href="/mon-compte">← Retour</Bouton>
+            }
+          />
+          {chiens.length > 0 && (
+            <p style={{ textAlign: "center", fontSize: 13, color: "rgba(27,43,94,0.4)", marginTop: 8 }}>
+              ladogosphere@gmail.com
+            </p>
+          )}
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
-      <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm">
-        <h1 className="text-3xl font-bold mb-2" style={{ color: "#1B2B5E" }}>
-          {acces_complet ? "📅 Nouvelle demande" : "🧪 Demande de journée d'essai"}
-        </h1>
-        <p className="text-gray-500 mb-6">
-          {acces_complet
-            ? "Votre demande sera confirmée par notre équipe sous 24h."
-            : "Tous vos chiens doivent effectuer une journée d'essai avant de pouvoir réserver."}
-        </p>
-        <FormDemandeReservation
-          client_id={client.id}
-          chiens={chiens}
-          est_membre={client.membre ?? false}
-          acces_complet={acces_complet}
-        />
+    <main style={{ minHeight: "100vh", backgroundColor: "#F5F0E8", padding: "32px 16px" }}>
+      <div style={{ maxWidth: 600, margin: "0 auto" }}>
+        <div style={{ marginBottom: 20 }}>
+          <Bouton variante="discret" href="/mon-compte/reservations">
+            ← Mes réservations
+          </Bouton>
+        </div>
+        <TunnelReservation chiens={chiens} />
       </div>
     </main>
   );
