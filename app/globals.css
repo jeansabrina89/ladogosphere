@@ -10,7 +10,7 @@
   --color-rose: #E8847A;
 
   --font-serif: Georgia, "Times New Roman", serif;
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: var(--font-nunito-sans), system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 :root {

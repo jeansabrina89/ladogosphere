@@ -1,6 +1,14 @@
 import type { Metadata } from "next";
+import { Nunito_Sans } from "next/font/google";
 import "./globals.css";
 import NavBarServeur from "./components/NavBarServeur";
+
+const nunitoSans = Nunito_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-nunito-sans",
+  display: "swap",
+});
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr">
+    <html lang="fr" className={nunitoSans.variable}>
       <body>
         <NavBarServeur />
         {children}
