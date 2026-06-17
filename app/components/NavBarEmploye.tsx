@@ -10,6 +10,7 @@ const liens = [
   { href: "/chiens", label: "🐶 Chiens" },
   { href: "/clients", label: "👤 Clients" },
   { href: "/reservations", label: "📅 Réservations" },
+  { href: "/calendrier-essais", label: "🚫 Essais fermés" },
   { href: "/planning", label: "🗂️ Planning" },
   { href: "/boxes", label: "🏠 Box" },
   { href: "/employes/mon-espace", label: "👤 Mon espace RH" },

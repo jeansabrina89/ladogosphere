@@ -35,15 +35,15 @@ function getJoursFeries(annee: number): string[] {
   fetesDieu.setDate(fetesDieu.getDate() + 60);
 
   feries.push(
-    fmt(new Date(annee, 0, 1)),   // Nouvel An
-    fmt(new Date(annee, 2, 19)),  // St-Joseph
-    fmt(ascension),               // Ascension
-    fmt(fetesDieu),               // Fête-Dieu
-    fmt(new Date(annee, 7, 1)),   // Fête nationale
-    fmt(new Date(annee, 7, 15)),  // Assomption
-    fmt(new Date(annee, 10, 1)),  // Toussaint
-    fmt(new Date(annee, 11, 8)),  // Immaculée Conception
-    fmt(new Date(annee, 11, 25)), // Noël
+    fmt(new Date(annee, 0, 1)),
+    fmt(new Date(annee, 2, 19)),
+    fmt(ascension),
+    fmt(fetesDieu),
+    fmt(new Date(annee, 7, 1)),
+    fmt(new Date(annee, 7, 15)),
+    fmt(new Date(annee, 10, 1)),
+    fmt(new Date(annee, 11, 8)),
+    fmt(new Date(annee, 11, 25)),
   );
 
   return feries;
@@ -58,8 +58,6 @@ export async function GET(req: NextRequest) {
   const fin = `${annee + 1}-12-31`;
 
   // Réservations d'essai (toutes) pour compter les jours complets.
-  // Lecture via service role : la RLS réserve la vue globale au personnel ;
-  // on ne renvoie que des dates agrégées, aucune donnée personnelle.
   const { data: reservations } = await supabaseAdmin
     .from("reservations")
     .select("date_debut")
@@ -78,7 +76,7 @@ export async function GET(req: NextRequest) {
     .filter(([, count]) => count >= nb_boxes)
     .map(([date]) => date);
 
-  // Fermetures manuelles des journées d'essai (calendrier_essais).
+  // Fermetures unitaires éventuelles (calendrier_essais).
   const { data: fermees } = await supabaseAdmin
     .from("calendrier_essais")
     .select("date_essai, disponible, fermeture_manuelle")
@@ -86,7 +84,28 @@ export async function GET(req: NextRequest) {
     .lte("date_essai", fin)
     .or("disponible.eq.false,fermeture_manuelle.eq.true");
 
-  const datesFermees = (fermees ?? []).map((f) => f.date_essai as string);
+  const datesUnitaires = (fermees ?? []).map((f) => f.date_essai as string);
+
+  // Plages de fermeture des journées d'essai (fermetures_essai), dépliées en dates.
+  const { data: plages } = await supabaseAdmin
+    .from("fermetures_essai")
+    .select("date_debut, date_fin")
+    .gte("date_fin", debut)
+    .lte("date_debut", fin);
+
+  const datesPlages: string[] = [];
+  (plages ?? []).forEach((p) => {
+    const d = new Date((p.date_debut as string) + "T12:00:00");
+    const f = new Date((p.date_fin as string) + "T12:00:00");
+    while (d <= f) {
+      datesPlages.push(
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+      );
+      d.setDate(d.getDate() + 1);
+    }
+  });
+
+  const datesFermees = Array.from(new Set([...datesUnitaires, ...datesPlages]));
 
   const joursFeries = [
     ...getJoursFeries(annee),
