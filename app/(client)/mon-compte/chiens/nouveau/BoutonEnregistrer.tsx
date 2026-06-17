@@ -9,11 +9,17 @@ export default function BoutonEnregistrer() {
       type="submit"
       disabled={pending}
       aria-disabled={pending}
-      className="px-6 py-3 rounded-xl font-semibold text-white"
       style={{
-        backgroundColor: pending ? "#9CC9C2" : "#4AAEA0",
+        border: "none",
+        borderRadius: 14,
+        padding: "14px 24px",
+        fontSize: 15,
+        fontWeight: 700,
+        color: "#fff",
+        backgroundColor: pending ? "#9CC9C2" : "#2E8B7E",
         cursor: pending ? "not-allowed" : "pointer",
-        opacity: pending ? 0.8 : 1,
+        minHeight: 54,
+        fontFamily: "inherit",
       }}
     >
       {pending ? "Enregistrement…" : "💾 Enregistrer"}
