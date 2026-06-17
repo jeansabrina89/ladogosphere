@@ -1,8 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
-import { supabaseAdmin } from "../../../src/lib/supabase-admin";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 
 export async function modifierProfil(_id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient();

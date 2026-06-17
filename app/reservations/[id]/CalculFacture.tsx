@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { calculerMontant, compterSejour } from "../../../src/lib/calculTarif";
+import { calculerMontant, compterSejour } from "@/src/lib/calculTarif";
 import { enregistrerMontantCalcule } from "./actions";
-import { messageEcart } from "../../../src/lib/facturation";
+import { messageEcart } from "@/src/lib/facturation";
 
 type Tarif = { categorie: string; membre: boolean; prix: string };
 

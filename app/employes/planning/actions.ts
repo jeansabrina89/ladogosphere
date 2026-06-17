@@ -1,8 +1,8 @@
 "use server";
 
-import { supabaseAdmin } from "../../../src/lib/supabase-admin";
-import { createClient } from "../../../src/utils/supabase/server";
-import { verifierPermission } from "../../../src/lib/verifierPermission";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { createClient } from "@/src/utils/supabase/server";
+import { verifierPermission } from "@/src/lib/verifierPermission";
 import { revalidatePath } from "next/cache";
 
 export type LignePlanningExport = {

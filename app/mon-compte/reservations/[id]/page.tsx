@@ -1,10 +1,10 @@
-import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
-import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import Link from "next/link";
-import { formatDateFR, formatHeure } from "../../../../src/lib/dates";
-import { formatBoxLabel } from "../../../../src/lib/boxes";
-import { getMouvementsAvoirReservation, getSoldeAvoir } from "../../../../src/lib/avoirs";
-import { getCoordonneesPaiement } from "../../../../src/lib/coordonneesPaiement";
+import { formatDateFR, formatHeure } from "@/src/lib/dates";
+import { formatBoxLabel } from "@/src/lib/boxes";
+import { getMouvementsAvoirReservation, getSoldeAvoir } from "@/src/lib/avoirs";
+import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import BoutonPaiementClient from "../BoutonPaiementClient";
 
 const LABELS_TYPE_AVOIR_RESERVATION: Record<string, string> = {

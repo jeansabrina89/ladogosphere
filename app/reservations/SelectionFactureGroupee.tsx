@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { formatDateFR } from "../../src/lib/dates";
-import { formatBoxLabel } from "../../src/lib/boxes";
+import { formatDateFR } from "@/src/lib/dates";
+import { formatBoxLabel } from "@/src/lib/boxes";
 import BoutonPaiementRapide from "./BoutonPaiementRapide";
-import { montantDuReservation } from "../../src/lib/montants";
+import { montantDuReservation } from "@/src/lib/montants";
 
 function estFacturable(res: any): boolean {
   if (!["validee", "terminee"].includes(res.statut)) return false;

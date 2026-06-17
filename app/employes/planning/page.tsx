@@ -1,5 +1,5 @@
-import { createClient } from "../../../src/utils/supabase/server";
-import { supabaseAdmin } from "../../../src/lib/supabase-admin";
+import { createClient } from "@/src/utils/supabase/server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { redirect } from "next/navigation";
 import GenerateurPlanning from "./GenerateurPlanning";
 

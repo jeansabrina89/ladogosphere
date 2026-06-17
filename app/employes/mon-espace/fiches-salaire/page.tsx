@@ -1,7 +1,7 @@
-import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../src/utils/supabase/server";
-import { getEmployeRhActuel } from "../../../../src/lib/employeActuel";
+import { createClient } from "@/src/utils/supabase/server";
+import { getEmployeRhActuel } from "@/src/lib/employeActuel";
 import Link from "next/link";
 
 const MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",

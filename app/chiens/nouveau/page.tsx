@@ -1,5 +1,5 @@
-import { exigerPersonnelPage } from "../../../src/lib/exigerPersonnelPage";
-import { supabaseAdmin } from "../../../src/lib/supabase-admin";
+import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { creerChien } from "./actions";
 
 export default async function NouveauChienPage() {

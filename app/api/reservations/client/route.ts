@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
-import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
-import { envoyerEmailConfirmationDemande } from "../../../../src/lib/email";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { envoyerEmailConfirmationDemande } from "@/src/lib/email";
 
 export async function POST(req: NextRequest) {
   const supabaseServer = await createSupabaseServerClient();

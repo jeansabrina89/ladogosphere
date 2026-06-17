@@ -1,9 +1,9 @@
-import { exigerPersonnelPage } from "../../src/lib/exigerPersonnelPage";
-import { supabaseAdmin } from "../../src/lib/supabase-admin";
+import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { BoutonCheckin, BoutonCheckout } from "./BoutonsCheckin";
-import { formatBoxLabel } from "../../src/lib/boxes";
-import { aujourdhuiISO } from "../../src/lib/dates";
-import { getProfilePerms } from "../../src/lib/getProfilePerms";
+import { formatBoxLabel } from "@/src/lib/boxes";
+import { aujourdhuiISO } from "@/src/lib/dates";
+import { getProfilePerms } from "@/src/lib/getProfilePerms";
 
 export default async function CheckinPage() {
   await exigerPersonnelPage();

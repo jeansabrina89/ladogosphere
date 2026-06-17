@@ -1,8 +1,8 @@
-import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../src/utils/supabase/server";
-import { getEmployeRhActuel } from "../../../../src/lib/employeActuel";
-import { calculerDecompteHeures } from "../../../../src/lib/decompteHeures";
+import { createClient } from "@/src/utils/supabase/server";
+import { getEmployeRhActuel } from "@/src/lib/employeActuel";
+import { calculerDecompteHeures } from "@/src/lib/decompteHeures";
 import TimbrageCalendrier from "../../timbrage/TimbrageCalendrier";
 
 const NOMS_MOIS = [

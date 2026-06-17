@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "../../../../src/utils/supabase/client";
+import { createClient } from "@/src/utils/supabase/client";
 
 const supabase = createClient();
 

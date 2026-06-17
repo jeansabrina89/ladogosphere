@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { exigerPersonnelPage } from "../../src/lib/exigerPersonnelPage";
-import { supabaseAdmin } from "../../src/lib/supabase-admin";
-import { getProfilePerms } from "../../src/lib/getProfilePerms";
+import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { getProfilePerms } from "@/src/lib/getProfilePerms";
 
 export default async function ChiensPage() {
   await exigerPersonnelPage();

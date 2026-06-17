@@ -1,8 +1,8 @@
-import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../src/utils/supabase/server";
+import { createClient } from "@/src/utils/supabase/server";
 import BoutonGestionVacances from "./BoutonGestionVacances";
-import { formatDateFR } from "../../../src/lib/dates";
+import { formatDateFR } from "@/src/lib/dates";
 
 export default async function GestionVacancesPage() {
   const supabase = await createClient();

@@ -1,5 +1,5 @@
 import { creerClient } from "./actions";
-import { exigerPersonnelPage } from "../../../src/lib/exigerPersonnelPage";
+import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
 
 export default async function NouveauClientPage() {
   await exigerPersonnelPage();

@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { supabaseAdmin } from "../../../src/lib/supabase-admin";
-import { verifierPermission } from "../../../src/lib/verifierPermission";
-import { montantDuReservation } from "../../../src/lib/montants";
-import { calculerStatut } from "../../../src/lib/factures";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { verifierPermission } from "@/src/lib/verifierPermission";
+import { montantDuReservation } from "@/src/lib/montants";
+import { calculerStatut } from "@/src/lib/factures";
 
 export async function marquerFactureReglee(
   factureId: string,

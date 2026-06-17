@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { creerBox, modifierBox, ajouterIndisponibilite, supprimerIndisponibilite } from "./actions";
-import { formatBoxLabel } from "../../src/lib/boxes";
-import { formatDateFR } from "../../src/lib/dates";
+import { formatBoxLabel } from "@/src/lib/boxes";
+import { formatDateFR } from "@/src/lib/dates";
 
 type Indisponibilite = {
   id: string;

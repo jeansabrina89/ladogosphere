@@ -1,8 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
-import { verifierPermission } from "../../../../src/lib/verifierPermission";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { verifierPermission } from "@/src/lib/verifierPermission";
 
 function calculerCategorie(poids: number): string {
   if (poids < 15) return "moins_15kg";

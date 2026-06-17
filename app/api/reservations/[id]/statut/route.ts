@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "../../../../../src/utils/supabase/server";
-import { supabaseAdmin } from "../../../../../src/lib/supabase-admin";
-import { envoyerEmailReservationValidee, envoyerEmailReservationAnnulee } from "../../../../../src/lib/email";
-import { formatBoxLabel } from "../../../../../src/lib/boxes";
-import { exigerPermissionApi } from "../../../../../src/lib/apiAuth";
-import { calculerMontant } from "../../../../../src/lib/calculTarif";
+import { createClient } from "@/src/utils/supabase/server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { envoyerEmailReservationValidee, envoyerEmailReservationAnnulee } from "@/src/lib/email";
+import { formatBoxLabel } from "@/src/lib/boxes";
+import { exigerPermissionApi } from "@/src/lib/apiAuth";
+import { calculerMontant } from "@/src/lib/calculTarif";
 import { recalculerMontantSejour, enregistrerMontantCalcule } from "../../../../reservations/[id]/actions";
 
 export async function POST(

@@ -2,13 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
-import { supabaseAdmin } from "../../../src/lib/supabase-admin";
-import { verifierPermission } from "../../../src/lib/verifierPermission";
-import { getSoldeAvoir, getAvoirAppliqueReservation } from "../../../src/lib/avoirs";
-import type { EcartType } from "../../../src/lib/facturation";
-import { calculerMontant } from "../../../src/lib/calculTarif";
-import { calculerStatut } from "../../../src/lib/factures";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { verifierPermission } from "@/src/lib/verifierPermission";
+import { getSoldeAvoir, getAvoirAppliqueReservation } from "@/src/lib/avoirs";
+import type { EcartType } from "@/src/lib/facturation";
+import { calculerMontant } from "@/src/lib/calculTarif";
+import { calculerStatut } from "@/src/lib/factures";
 
 async function verifierAdmin(): Promise<{ error?: string; userId?: string }> {
   const supabase = await createSupabaseServerClient();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { formatBoxLabel } from "../../../../src/lib/boxes";
+import { formatBoxLabel } from "@/src/lib/boxes";
 
 type Suggestion = {
   box_id: string;

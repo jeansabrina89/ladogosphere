@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
-import { envoyerEmailRappelCotisation } from "../../../../src/lib/email";
-import { getCoordonneesPaiement } from "../../../../src/lib/coordonneesPaiement";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { envoyerEmailRappelCotisation } from "@/src/lib/email";
+import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");

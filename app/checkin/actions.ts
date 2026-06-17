@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { supabaseAdmin } from "../../src/lib/supabase-admin";
-import { verifierPermission } from "../../src/lib/verifierPermission";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { verifierPermission } from "@/src/lib/verifierPermission";
 
 export async function fairerCheckin(formData: FormData) {
   const verif = await verifierPermission("perm_checkin");

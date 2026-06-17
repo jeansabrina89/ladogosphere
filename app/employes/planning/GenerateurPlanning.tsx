@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { sauvegarderPlanning } from "./actions";
 import BoutonPdf from "./BoutonPdf";
-import { joursTravaillesSemaine } from "../../../src/lib/planningUtils";
+import { joursTravaillesSemaine } from "@/src/lib/planningUtils";
 
 type Employe = {
   id: string;

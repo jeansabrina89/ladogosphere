@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "../src/utils/supabase/server";
-import { supabaseAdmin } from "../src/lib/supabase-admin";
-import { getProfilePerms } from "../src/lib/getProfilePerms";
-import { aujourdhuiISO, formatHeure } from "../src/lib/dates";
+import { createClient } from "@/src/utils/supabase/server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { getProfilePerms } from "@/src/lib/getProfilePerms";
+import { aujourdhuiISO, formatHeure } from "@/src/lib/dates";
 import CarteReservationAttente from "./components/CarteReservationAttente";
 import BoutonsCheckinDashboard from "./components/BoutonsCheckinDashboard";
 

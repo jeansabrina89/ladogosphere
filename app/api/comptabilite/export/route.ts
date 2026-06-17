@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "../../../../src/utils/supabase/server";
+import { createClient } from "@/src/utils/supabase/server";
 import * as XLSX from "xlsx";
-import { exigerPersonnel } from "../../../../src/lib/apiAuth";
-import { lireParametresTVA, ventilerTVA } from "../../../../src/lib/tva";
+import { exigerPersonnel } from "@/src/lib/apiAuth";
+import { lireParametresTVA, ventilerTVA } from "@/src/lib/tva";
 
 type Ligne = {
   "Date": string;

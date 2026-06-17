@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "../../../../src/utils/supabase/server";
-import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
-import { exigerPersonnel, exigerPermissionApi } from "../../../../src/lib/apiAuth";
-import { joursVacancesTheoriques } from "../../../../src/lib/planningUtils";
+import { createClient } from "@/src/utils/supabase/server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { exigerPersonnel, exigerPermissionApi } from "@/src/lib/apiAuth";
+import { joursVacancesTheoriques } from "@/src/lib/planningUtils";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();

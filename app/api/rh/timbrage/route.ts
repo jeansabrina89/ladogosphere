@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "../../../../src/utils/supabase/server";
-import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
-import { exigerPersonnel, exigerPermissionApi } from "../../../../src/lib/apiAuth";
+import { createClient } from "@/src/utils/supabase/server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { exigerPersonnel, exigerPermissionApi } from "@/src/lib/apiAuth";
 
 async function getProfileRole(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
   const { data } = await supabase.from("profiles").select("role").eq("id", userId).single();

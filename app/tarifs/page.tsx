@@ -1,6 +1,6 @@
-import { createSupabaseServerClient } from "../../src/lib/supabase-server";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { createClient } from "../../src/utils/supabase/server";
+import { createClient } from "@/src/utils/supabase/server";
 import GestionTarifs from "./GestionTarifs";
 
 export default async function TarifsPage({

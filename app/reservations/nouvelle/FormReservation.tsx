@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { formatBoxLabel } from "../../../src/lib/boxes";
-import { formatDateFR } from "../../../src/lib/dates";
-import SelectHeure from "../../components/SelectHeure";
+import { formatBoxLabel } from "@/src/lib/boxes";
+import { formatDateFR } from "@/src/lib/dates";
+import SelectHeure from "@/app/components/SelectHeure";
 
 type Client = { id: string; prenom: string; nom: string; membre: boolean };
 type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string; journee_essai_effectuee: boolean; journee_essai_invalide: boolean };

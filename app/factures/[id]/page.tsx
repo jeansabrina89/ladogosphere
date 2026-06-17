@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
-import { supabaseAdmin } from "../../../src/lib/supabase-admin";
-import { formatDateFR } from "../../../src/lib/dates";
-import { getCoordonneesPaiement } from "../../../src/lib/coordonneesPaiement";
-import { lireParametresTVA, ventilerTVA } from "../../../src/lib/tva";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { formatDateFR } from "@/src/lib/dates";
+import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
+import { lireParametresTVA, ventilerTVA } from "@/src/lib/tva";
 import BoutonImprimer from "./BoutonImprimer";
 import BoutonReglement from "./BoutonReglement";
 import BoutonAnnulerFacture from "./BoutonAnnulerFacture";

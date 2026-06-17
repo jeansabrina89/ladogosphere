@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ONGLETS_PERIODE } from "../../../src/lib/reservationsFiltres";
+import { ONGLETS_PERIODE } from "@/src/lib/reservationsFiltres";
 
 export default function FiltresPeriode() {
   const router = useRouter();

@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "../../../../src/utils/supabase/server";
+import { createClient } from "@/src/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 
 export async function supprimerIndisponibilite(id: string): Promise<{ error?: string }> {

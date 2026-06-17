@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
-import { envoyerEmailRappelVeille } from "../../../../src/lib/email";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { envoyerEmailRappelVeille } from "@/src/lib/email";
 
 export async function GET(req: NextRequest) {
   // Vérification sécurité — token Vercel cron

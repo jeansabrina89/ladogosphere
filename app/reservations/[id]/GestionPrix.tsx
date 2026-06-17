@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { modifierPrixSejour, ajouterExtraReservation, supprimerExtraReservation } from "./actions";
-import { messageEcart } from "../../../src/lib/facturation";
+import { messageEcart } from "@/src/lib/facturation";
 
 type Extra = { id: string; libelle: string; montant: number };
 

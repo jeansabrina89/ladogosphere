@@ -2,10 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createClient } from "../../../src/utils/supabase/server";
-import { supabaseAdmin } from "../../../src/lib/supabase-admin";
-import { getSoldeAvoir } from "../../../src/lib/avoirs";
-import { verifierPermission } from "../../../src/lib/verifierPermission";
+import { createClient } from "@/src/utils/supabase/server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { getSoldeAvoir } from "@/src/lib/avoirs";
+import { verifierPermission } from "@/src/lib/verifierPermission";
 
 // Types crédit (montant positif) vs débit (montant négatif)
 const TYPES_CREDIT = ["ajout_manuel", "annulation_paiement", "trop_percu"];

@@ -1,17 +1,17 @@
 import Link from "next/link";
-import { exigerPersonnelPage } from "../../../src/lib/exigerPersonnelPage";
-import { supabaseAdmin } from "../../../src/lib/supabase-admin";
-import { getSoldeAvoir, getAvoirAppliqueReservation } from "../../../src/lib/avoirs";
+import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { getSoldeAvoir, getAvoirAppliqueReservation } from "@/src/lib/avoirs";
 import BoutonAnnuler from "./BoutonAnnuler";
 import BoutonSupprimerDefinitif from "./BoutonSupprimerDefinitif";
 import CalculFacture from "./CalculFacture";
 import GestionPrix from "./GestionPrix";
-import BoutonValiderReservation from "../../components/BoutonValiderReservation";
+import BoutonValiderReservation from "@/app/components/BoutonValiderReservation";
 import BoutonEmail from "./BoutonEmail";
 import GestionPaiement from "./GestionPaiement";
-import { formatDateFR, formatHeure } from "../../../src/lib/dates";
-import { formatBoxLabel } from "../../../src/lib/boxes";
-import { getProfilePerms } from "../../../src/lib/getProfilePerms";
+import { formatDateFR, formatHeure } from "@/src/lib/dates";
+import { formatBoxLabel } from "@/src/lib/boxes";
+import { getProfilePerms } from "@/src/lib/getProfilePerms";
 
 export default async function ReservationPage({
   params,

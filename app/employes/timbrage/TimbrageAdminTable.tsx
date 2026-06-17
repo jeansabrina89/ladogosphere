@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import type { JourDecompte } from "../../../src/lib/decompteHeures";
+import type { JourDecompte } from "@/src/lib/decompteHeures";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

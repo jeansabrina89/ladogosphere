@@ -1,14 +1,14 @@
-import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
-import { createClient } from "../../../src/utils/supabase/server";
-import { supabaseAdmin } from "../../../src/lib/supabase-admin";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
+import { createClient } from "@/src/utils/supabase/server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import Link from "next/link";
-import { formatDateFR } from "../../../src/lib/dates";
-import { formatBoxLabel } from "../../../src/lib/boxes";
+import { formatDateFR } from "@/src/lib/dates";
+import { formatBoxLabel } from "@/src/lib/boxes";
 import BoutonPaiementClient from "./BoutonPaiementClient";
 import FiltresPeriode from "./FiltresPeriode";
-import { appliquerPeriodeEtTri, aujourdhuiISO } from "../../../src/lib/reservationsFiltres";
-import { getCoordonneesPaiement } from "../../../src/lib/coordonneesPaiement";
-import { getSoldeAvoir } from "../../../src/lib/avoirs";
+import { appliquerPeriodeEtTri, aujourdhuiISO } from "@/src/lib/reservationsFiltres";
+import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
+import { getSoldeAvoir } from "@/src/lib/avoirs";
 
 function libelleType(t: string): string {
   if (t === "journee") return "Journée";

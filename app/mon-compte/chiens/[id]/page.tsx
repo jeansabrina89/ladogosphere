@@ -1,6 +1,6 @@
-import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import Link from "next/link";
-import { formatDateFR } from "../../../../src/lib/dates";
+import { formatDateFR } from "@/src/lib/dates";
 
 export default async function FicheChienClientPage({
   params,

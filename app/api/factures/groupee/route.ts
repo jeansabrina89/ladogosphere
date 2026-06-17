@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
-import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
-import { exigerPermissionApi } from "../../../../src/lib/apiAuth";
-import { resteAPayer } from "../../../../src/lib/montants";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { exigerPermissionApi } from "@/src/lib/apiAuth";
+import { resteAPayer } from "@/src/lib/montants";
 
 const STATUTS_FACTURABLES = ["validee", "terminee"];
 const PAIEMENTS_FACTURABLES = ["impaye", "partiel"];

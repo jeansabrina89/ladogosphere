@@ -1,9 +1,9 @@
-import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../src/utils/supabase/server";
-import { getEmployeRhActuel } from "../../../../src/lib/employeActuel";
+import { createClient } from "@/src/utils/supabase/server";
+import { getEmployeRhActuel } from "@/src/lib/employeActuel";
 import FormDemandeVacances from "./FormDemandeVacances";
-import { formatDateFR } from "../../../../src/lib/dates";
+import { formatDateFR } from "@/src/lib/dates";
 
 export default async function VacancesPage() {
   const supabase = await createClient();

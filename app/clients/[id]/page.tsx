@@ -1,14 +1,14 @@
 import Link from "next/link";
-import { exigerPersonnelPage } from "../../../src/lib/exigerPersonnelPage";
-import { formatDateFR } from "../../../src/lib/dates";
-import { supabaseAdmin } from "../../../src/lib/supabase-admin";
-import { getMouvementsAvoir, calculerSoldeAvoir } from "../../../src/lib/avoirs";
+import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { formatDateFR } from "@/src/lib/dates";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { getMouvementsAvoir, calculerSoldeAvoir } from "@/src/lib/avoirs";
 import BoutonArchiverClient from "./BoutonArchiverClient";
 import BoutonSupprimerClient from "./BoutonSupprimerClient";
 import BoutonCotisation from "./BoutonCotisation";
 import BoutonConfirmerCotisation from "./BoutonConfirmerCotisation";
 import GestionAvoir from "./GestionAvoir";
-import { getProfilePerms } from "../../../src/lib/getProfilePerms";
+import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import SelectionFactureGroupee from "../../reservations/SelectionFactureGroupee";
 
 export default async function ClientPage({

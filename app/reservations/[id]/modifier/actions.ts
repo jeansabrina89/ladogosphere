@@ -1,9 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
-import { verifierPermission } from "../../../../src/lib/verifierPermission";
-import { getAvoirAppliqueReservation } from "../../../../src/lib/avoirs";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { verifierPermission } from "@/src/lib/verifierPermission";
+import { getAvoirAppliqueReservation } from "@/src/lib/avoirs";
 
 export async function modifierReservation(id: string, formData: FormData) {
   const verif = await verifierPermission("perm_reservations_modifier");

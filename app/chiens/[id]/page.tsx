@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { exigerPersonnelPage } from "../../../src/lib/exigerPersonnelPage";
-import { supabaseAdmin } from "../../../src/lib/supabase-admin";
+import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import BoutonArchiver from "./BoutonArchiver";
 import BoutonSupprimer from "./BoutonSupprimer";
 import Ententes from "./Ententes";
 import BoutonsJourneeEssai from "./BoutonsJourneeEssai";
-import { getProfilePerms } from "../../../src/lib/getProfilePerms";
+import { getProfilePerms } from "@/src/lib/getProfilePerms";
 
 export default async function ChienPage({
   params,

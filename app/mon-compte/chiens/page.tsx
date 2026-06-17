@@ -1,5 +1,5 @@
-import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
-import { createClient } from "../../../src/utils/supabase/server";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
+import { createClient } from "@/src/utils/supabase/server";
 import Link from "next/link";
 
 export default async function MesChiensPage() {

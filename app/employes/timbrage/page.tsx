@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../src/utils/supabase/server";
-import { supabaseAdmin } from "../../../src/lib/supabase-admin";
-import { calculerDecompteHeures } from "../../../src/lib/decompteHeures";
+import { createClient } from "@/src/utils/supabase/server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { calculerDecompteHeures } from "@/src/lib/decompteHeures";
 import TimbrageCalendrier from "./TimbrageCalendrier";
 import BoutonToutValider from "./BoutonToutValider";
 

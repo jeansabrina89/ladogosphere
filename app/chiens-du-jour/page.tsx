@@ -1,8 +1,8 @@
-import { exigerPersonnelPage } from "../../src/lib/exigerPersonnelPage";
-import { supabaseAdmin } from "../../src/lib/supabase-admin";
-import { getProfilePerms } from "../../src/lib/getProfilePerms";
-import { aujourdhuiISO, formatDateFR, formatHeure } from "../../src/lib/dates";
-import BoutonsCheckinDashboard from "../components/BoutonsCheckinDashboard";
+import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { getProfilePerms } from "@/src/lib/getProfilePerms";
+import { aujourdhuiISO, formatDateFR, formatHeure } from "@/src/lib/dates";
+import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
 
 const TYPE_LABELS: Record<string, string> = {
   journee: "Journée",

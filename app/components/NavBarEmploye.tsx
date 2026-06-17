@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { createSupabaseBrowserClient } from "../../src/lib/supabase-browser";
+import { createSupabaseBrowserClient } from "@/src/lib/supabase-browser";
 
 const liens = [
   { href: "/", label: "📋 Tableau de bord" },

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { moyenneJoursTravaillesSemaine } from "../../../../src/lib/planningUtils";
+import { moyenneJoursTravaillesSemaine } from "@/src/lib/planningUtils";
 
 export default function FormDemandeVacances({
   employe_id,

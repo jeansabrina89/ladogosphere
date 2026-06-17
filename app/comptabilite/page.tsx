@@ -1,11 +1,11 @@
-import { createClient } from "../../src/utils/supabase/server";
-import { formatDateFR } from "../../src/lib/dates";
+import { createClient } from "@/src/utils/supabase/server";
+import { formatDateFR } from "@/src/lib/dates";
 import ExportCompta from "./ExportCompta";
 import Statistiques from "./Statistiques";
-import { createSupabaseServerClient } from "../../src/lib/supabase-server";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import FiltresMois from "./FiltresMois";
-import { montantDuReservation } from "../../src/lib/montants";
+import { montantDuReservation } from "@/src/lib/montants";
 
 export default async function ComptabilitePage({
   searchParams,

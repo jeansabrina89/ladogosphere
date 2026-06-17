@@ -1,7 +1,7 @@
 "use server";
 
-import { createSupabaseServerClient } from "../../src/lib/supabase-server";
-import { supabaseAdmin } from "../../src/lib/supabase-admin";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { revalidatePath } from "next/cache";
 
 async function verifierAdmin(): Promise<{ error?: string }> {

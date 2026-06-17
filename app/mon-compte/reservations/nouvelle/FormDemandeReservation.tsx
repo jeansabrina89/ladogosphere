@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { formatDateFR } from "../../../../src/lib/dates";
+import { formatDateFR } from "@/src/lib/dates";
 
 type Chien = {
   id: string;

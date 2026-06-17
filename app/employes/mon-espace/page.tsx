@@ -1,9 +1,9 @@
-import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../src/utils/supabase/server";
-import { formatDateFR } from "../../../src/lib/dates";
-import { getEmployeRhActuel } from "../../../src/lib/employeActuel";
-import { calculerDecompteHeures } from "../../../src/lib/decompteHeures";
+import { createClient } from "@/src/utils/supabase/server";
+import { formatDateFR } from "@/src/lib/dates";
+import { getEmployeRhActuel } from "@/src/lib/employeActuel";
+import { calculerDecompteHeures } from "@/src/lib/decompteHeures";
 import Link from "next/link";
 import BoutonPdf from "../planning/BoutonPdf";
 

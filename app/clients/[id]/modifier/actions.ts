@@ -1,8 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
-import { verifierPermission } from "../../../../src/lib/verifierPermission";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { verifierPermission } from "@/src/lib/verifierPermission";
 
 export async function modifierClient(id: string, formData: FormData) {
   const verif = await verifierPermission("perm_clients_modifier");

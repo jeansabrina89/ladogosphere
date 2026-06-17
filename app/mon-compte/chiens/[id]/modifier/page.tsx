@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "../../../../../src/lib/supabase-server";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { modifierChienClient } from "./actions";
 import Link from "next/link";
 

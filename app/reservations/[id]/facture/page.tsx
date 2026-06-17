@@ -1,8 +1,8 @@
-import { exigerPersonnelPage } from "../../../../src/lib/exigerPersonnelPage";
-import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
-import { formatDateFR, formatHeure } from "../../../../src/lib/dates";
-import { formatBoxLabel } from "../../../../src/lib/boxes";
-import { getCoordonneesPaiement } from "../../../../src/lib/coordonneesPaiement";
+import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { formatDateFR, formatHeure } from "@/src/lib/dates";
+import { formatBoxLabel } from "@/src/lib/boxes";
+import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import BoutonImprimer from "./BoutonImprimer";
 
 export default async function FacturePage({

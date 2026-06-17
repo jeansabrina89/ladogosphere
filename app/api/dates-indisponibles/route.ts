@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "../../../src/utils/supabase/server";
+import { createClient } from "@/src/utils/supabase/server";
 
 function getJoursFeries(annee: number): string[] {
   const feries: string[] = [];

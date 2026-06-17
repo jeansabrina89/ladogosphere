@@ -1,9 +1,9 @@
-import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../src/utils/supabase/server";
+import { createClient } from "@/src/utils/supabase/server";
 import CertificatEditeur from "./CertificatEditeur";
 import Link from "next/link";
-import { formatDateFR } from "../../../../src/lib/dates";
+import { formatDateFR } from "@/src/lib/dates";
 
 export default async function CertificatSalaireAnnuelPage({
   searchParams,

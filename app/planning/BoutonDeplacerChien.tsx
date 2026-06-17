@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatBoxLabel } from "../../src/lib/boxes";
+import { formatBoxLabel } from "@/src/lib/boxes";
 
 type Box = { id: string; numero: number; nom?: string | null };
 type Suggestion = {

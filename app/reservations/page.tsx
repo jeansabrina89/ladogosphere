@@ -1,13 +1,13 @@
 import Link from "next/link";
-import { exigerPersonnelPage } from "../../src/lib/exigerPersonnelPage";
-import { supabaseAdmin } from "../../src/lib/supabase-admin";
-import { aujourdhuiISO } from "../../src/lib/dates";
+import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { aujourdhuiISO } from "@/src/lib/dates";
 import FiltresReservations from "./FiltresReservations";
 import RechercheReservation from "./RechercheReservation";
 import SelectionFactureGroupee from "./SelectionFactureGroupee";
 import FiltrePeriodeReservations from "./FiltrePeriodeReservations";
-import { appliquerPeriodeEtTri } from "../../src/lib/reservationsFiltres";
-import { getProfilePerms } from "../../src/lib/getProfilePerms";
+import { appliquerPeriodeEtTri } from "@/src/lib/reservationsFiltres";
+import { getProfilePerms } from "@/src/lib/getProfilePerms";
 
 export default async function ReservationsPage({
   searchParams,

@@ -1,9 +1,9 @@
-import { createSupabaseServerClient } from "../../src/lib/supabase-server";
-import { createClient } from "../../src/utils/supabase/server";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
+import { createClient } from "@/src/utils/supabase/server";
 import Link from "next/link";
-import { formatDateFR, formatHeure, aujourdhuiISO } from "../../src/lib/dates";
-import { formatBoxLabel } from "../../src/lib/boxes";
-import { getSoldeAvoir } from "../../src/lib/avoirs";
+import { formatDateFR, formatHeure, aujourdhuiISO } from "@/src/lib/dates";
+import { formatBoxLabel } from "@/src/lib/boxes";
+import { getSoldeAvoir } from "@/src/lib/avoirs";
 
 export default async function MonComptePage() {
   const supabase = await createClient();

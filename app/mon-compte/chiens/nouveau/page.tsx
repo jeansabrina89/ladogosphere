@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { creerChienClient } from "./actions";
 
 export default async function NouveauChienClientPage() {

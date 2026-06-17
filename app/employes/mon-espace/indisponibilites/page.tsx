@@ -1,7 +1,7 @@
-import { createClient } from "../../../../src/utils/supabase/server";
+import { createClient } from "@/src/utils/supabase/server";
 import { redirect } from "next/navigation";
-import { aujourdhuiISO } from "../../../../src/lib/dates";
-import { getEmployeRhActuel } from "../../../../src/lib/employeActuel";
+import { aujourdhuiISO } from "@/src/lib/dates";
+import { getEmployeRhActuel } from "@/src/lib/employeActuel";
 import FormIndisponibilites from "./FormIndisponibilites";
 import { supprimerIndisponibilite } from "./actions";
 

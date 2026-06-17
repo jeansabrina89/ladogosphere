@@ -1,8 +1,8 @@
-import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../src/utils/supabase/server";
-import { getEmployeRhActuel } from "../../../../src/lib/employeActuel";
-import { HEURES_JOURNEE_PLEINE } from "../../../../src/lib/planningUtils";
+import { createClient } from "@/src/utils/supabase/server";
+import { getEmployeRhActuel } from "@/src/lib/employeActuel";
+import { HEURES_JOURNEE_PLEINE } from "@/src/lib/planningUtils";
 
 export default async function MonPlanningPage({
   searchParams,

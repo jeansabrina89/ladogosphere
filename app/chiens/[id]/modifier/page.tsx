@@ -1,6 +1,6 @@
 import { modifierChien } from "./actions";
-import { exigerPersonnelPage } from "../../../../src/lib/exigerPersonnelPage";
-import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
+import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 
 export default async function ModifierChienPage({
   params,

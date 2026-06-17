@@ -1,8 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "../../../../src/utils/supabase/server";
-import { supabaseAdmin } from "../../../../src/lib/supabase-admin";
+import { createClient } from "@/src/utils/supabase/server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 
 async function verifierAdmin(): Promise<{ error?: string }> {
   const supabase = await createClient();

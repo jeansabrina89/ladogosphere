@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "../../../../../src/utils/supabase/server";
-import { supabaseAdmin } from "../../../../../src/lib/supabase-admin";
-import { envoyerEmailPaiement, envoyerEmailSatisfactionEssai } from "../../../../../src/lib/email";
-import { getCoordonneesPaiement } from "../../../../../src/lib/coordonneesPaiement";
-import { exigerPersonnel } from "../../../../../src/lib/apiAuth";
+import { createClient } from "@/src/utils/supabase/server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { envoyerEmailPaiement, envoyerEmailSatisfactionEssai } from "@/src/lib/email";
+import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
+import { exigerPersonnel } from "@/src/lib/apiAuth";
 
 export async function POST(
   req: NextRequest,

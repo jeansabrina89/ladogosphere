@@ -1,5 +1,5 @@
-import { createSupabaseServerClient } from "../../../../src/lib/supabase-server";
-import { createClient } from "../../../../src/utils/supabase/server";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
+import { createClient } from "@/src/utils/supabase/server";
 import FormDemandeReservation from "./FormDemandeReservation";
 
 export default async function NouvelleDemandeReservationPage() {

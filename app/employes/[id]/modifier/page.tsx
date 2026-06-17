@@ -1,4 +1,4 @@
-import { createClient } from "../../../../src/utils/supabase/server";
+import { createClient } from "@/src/utils/supabase/server";
 import { modifierEmploye } from "./actions";
 import BoutonSupprimerEmploye from "./BoutonSupprimerEmploye";
 

@@ -1,6 +1,6 @@
-import { createSupabaseServerClient } from "../../../src/lib/supabase-server";
+import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../src/utils/supabase/server";
+import { createClient } from "@/src/utils/supabase/server";
 import Link from "next/link";
 import GestionModeles from "./GestionModeles";
 import BoutonSupprimerFiche from "./BoutonSupprimerFiche";

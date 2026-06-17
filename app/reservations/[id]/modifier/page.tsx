@@ -3,10 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import SuggestionBox from "./SuggestionBox";
-import { formatBoxLabel } from "../../../../src/lib/boxes";
+import { formatBoxLabel } from "@/src/lib/boxes";
 
 import { use } from "react";
-import SelectHeure from "../../../components/SelectHeure";
+import SelectHeure from "@/app/components/SelectHeure";
 
 export default function ModifierReservationPage({
   params,

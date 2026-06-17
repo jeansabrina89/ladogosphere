@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { formatDateFR } from "../../../../src/lib/dates";
+import { formatDateFR } from "@/src/lib/dates";
 
 type Props = {
   annee: number;

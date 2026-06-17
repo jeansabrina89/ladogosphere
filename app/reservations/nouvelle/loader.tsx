@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "../../../src/lib/supabase-admin";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import FormReservation from "./FormReservation";
 
 export default async function NouvelleReservationLoader() {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createSupabaseBrowserClient } from "../../src/lib/supabase-browser";
+import { createSupabaseBrowserClient } from "@/src/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 
 export default function InscriptionForm() {
