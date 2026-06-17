@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Smartphone, Banknote, Landmark, CreditCard, MoreHorizontal } from "lucide-react";
+import { Smartphone, Banknote, Landmark, CreditCard, MoreHorizontal, Wallet } from "lucide-react";
 import { enregistrerPaiement, annulerPaiement, appliquerAvoir, reprendreAvoir } from "./actions";
 
 const MODES_PAIEMENT = [
@@ -262,7 +262,7 @@ export default function GestionPaiement({
         {(typeof solde_avoir === "number" || avoirApplique > 0) && (
           <div className="rounded-xl border p-4 space-y-3"
             style={{ borderColor: "#D1FAE5", backgroundColor: "#F0FDF4" }}>
-            <p className="text-sm font-semibold" style={{ color: "#1B2B5E" }}>👛 Avoir client</p>
+            <p className="text-sm font-semibold flex items-center gap-2" style={{ color: "#1B2B5E" }}><Wallet size={16} style={{ color: "#4AAEA0" }} />Avoir client</p>
 
             {avoirApplique > 0 && (
               <p className="text-sm" style={{ color: "#1B2B5E" }}>

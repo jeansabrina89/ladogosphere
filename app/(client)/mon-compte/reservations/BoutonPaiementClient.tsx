@@ -166,7 +166,7 @@ export default function BoutonPaiementClient({
             {methode === "avoir" && (
               <div className="space-y-4">
                 <div className="rounded-xl p-4" style={{ backgroundColor: "#E8F5F4" }}>
-                  <p className="font-bold mb-3" style={{ color: "#1B2B5E" }}>👛 Paiement par avoir</p>
+                  <p className="font-bold mb-3 flex items-center gap-2" style={{ color: "#1B2B5E" }}><Wallet size={18} style={{ color: "#4AAEA0" }} />Paiement par avoir</p>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-500">Mon avoir disponible</span>

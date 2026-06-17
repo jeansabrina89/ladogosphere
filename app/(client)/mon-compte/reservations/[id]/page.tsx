@@ -5,6 +5,7 @@ import { formatDateFR, formatHeure } from "@/src/lib/dates";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { getMouvementsAvoirReservation, getSoldeAvoir } from "@/src/lib/avoirs";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
+import { Wallet } from "lucide-react";
 import BoutonPaiementClient from "../BoutonPaiementClient";
 
 const LABELS_TYPE_AVOIR_RESERVATION: Record<string, string> = {
@@ -127,7 +128,7 @@ export default async function DetailReservationClientPage({
 
         {mouvementsAvoir.length > 0 && (
           <div className="border-t pt-4 space-y-2 mb-6">
-            <h2 className="text-xl font-bold mb-2" style={{ color: "#1B2B5E" }}>👛 Avoir lié à cette réservation</h2>
+            <h2 className="text-xl font-bold mb-2 flex items-center gap-2" style={{ color: "#1B2B5E" }}><Wallet size={20} style={{ color: "#4AAEA0" }} />Avoir lié à cette réservation</h2>
             <div className="space-y-2">
               {mouvementsAvoir.map((m) => (
                 <div key={m.id} className="flex justify-between items-center border rounded-xl p-3">
