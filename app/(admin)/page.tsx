@@ -223,7 +223,7 @@ export default async function Home() {
 
         {/* Accès rapides — conditionné par les permissions */}
         {accesRapides.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="hidden md:grid grid-cols-2 md:grid-cols-4 gap-4">
             {accesRapides.map(({ href, label, desc }) => (
               <Link key={href} href={href}
                 className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition text-left"
