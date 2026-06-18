@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { aujourdhuiISO, formatDateFR, formatHeure } from "@/src/lib/dates";
 import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
+import NavDatesChiensDuJour from "./NavDatesChiensDuJour";
 
 const TYPE_LABELS: Record<string, string> = {
   journee: "Journée",
@@ -16,98 +17,108 @@ const SELECT = `
   chiens ( id, nom )
 ` as const;
 
-export default async function ChiensDuJourPage() {
+function badge(statut: string) {
+  const map: Record<string, { label: string; bg: string; color: string }> = {
+    attendu: { label: "⏳ Attendu", bg: "#FBF3DC", color: "#8A6D1F" },
+    arrive: { label: "🟢 Présent", bg: "#DEF1EC", color: "#1F6E5B" },
+    a_recuperer: { label: "🟡 À récupérer", bg: "#FBF3DC", color: "#8A6D1F" },
+    parti: { label: "✅ Parti", bg: "#ECECEC", color: "#6B7280" },
+  };
+  const b = map[statut] ?? { label: statut, bg: "#ECECEC", color: "#6B7280" };
+  return (
+    <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
+      style={{ background: b.bg, color: b.color }}>
+      {b.label}
+    </span>
+  );
+}
+
+export default async function ChiensDuJourPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string }>;
+}) {
   await exigerPersonnelPage();
   const perms = await getProfilePerms();
+  const params = await searchParams;
   const aujourd_hui = aujourdhuiISO();
+  const jour = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : aujourd_hui;
+  const estAujourdhui = jour === aujourd_hui;
+
+  const debutJour = `${jour}T00:00:00Z`;
+  const finJour = `${jour}T23:59:59Z`;
+
+  const label = new Date(`${jour}T12:00:00`).toLocaleDateString("fr-CH", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+  });
 
   const [
     { data: arrivees },
     { data: presents },
     { data: departs },
   ] = await Promise.all([
-    // A) Arrivent aujourd'hui (validées ou non)
-    supabaseAdmin.from("checkin_checkout")
-      .select(SELECT)
-      .in("statut", ["attendu", "arrive"])
-      .gte("date_arrivee_prevue", `${aujourd_hui}T00:00:00Z`)
-      .lte("date_arrivee_prevue", `${aujourd_hui}T23:59:59Z`),
-    // B) Déjà là — tous statuts "arrive"/"a_recuperer" sans filtre de date (séjours multi-jours)
-    supabaseAdmin.from("checkin_checkout")
-      .select(SELECT)
-      .in("statut", ["arrive", "a_recuperer"]),
-    // C) Partent aujourd'hui
-    supabaseAdmin.from("checkin_checkout")
-      .select(SELECT)
-      .in("statut", ["arrive", "a_recuperer", "parti"])
-      .gte("date_depart_prevu", `${aujourd_hui}T00:00:00Z`)
-      .lte("date_depart_prevu", `${aujourd_hui}T23:59:59Z`),
+    supabaseAdmin.from("checkin_checkout").select(SELECT)
+      .gte("date_arrivee_prevue", debutJour)
+      .lte("date_arrivee_prevue", finJour)
+      .order("date_arrivee_prevue", { ascending: true }),
+    supabaseAdmin.from("checkin_checkout").select(SELECT)
+      .lt("date_arrivee_prevue", debutJour)
+      .gt("date_depart_prevu", finJour)
+      .order("date_depart_prevu", { ascending: true }),
+    supabaseAdmin.from("checkin_checkout").select(SELECT)
+      .gte("date_depart_prevu", debutJour)
+      .lte("date_depart_prevu", finJour)
+      .order("date_depart_prevu", { ascending: true }),
   ]);
 
-  // Exclure du groupe B les chiens qui partent aujourd'hui (ils sont dans le groupe C)
-  const presentsAujourdhui = (presents ?? []).filter(
-    cc => !cc.date_depart_prevu?.startsWith(aujourd_hui)
-  );
+  const peutPointer = estAujourdhui && perms.perm_checkin;
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-5xl mx-auto">
 
-        <div className="mb-6">
-          <h1 className="text-4xl font-bold" style={{ color: "#1B2B5E" }}>
-            🐾 Chiens du jour
-          </h1>
-          <p className="text-gray-500 mt-1">
-            {new Date().toLocaleDateString("fr-CH", {
-              weekday: "long", day: "numeric", month: "long", year: "numeric",
-            })}
-          </p>
-        </div>
+        <h1 className="text-4xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
+          🐾 Chiens du jour
+        </h1>
+
+        <NavDatesChiensDuJour
+          date={jour}
+          label={label}
+          aujourdhui={aujourd_hui}
+          estAujourdhui={estAujourdhui}
+        />
 
         <div className="space-y-6">
 
-          {/* A — Arrivent aujourd'hui */}
+          {/* A — Arrivées */}
           <section className="bg-white rounded-xl p-6 shadow-sm">
             <h2 className="text-xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
-              🐾 Arrivent aujourd&apos;hui
+              🐾 Arrivées
               <span className="ml-2 px-2 py-0.5 rounded-full text-sm font-bold bg-green-100 text-green-700">
                 {arrivees?.length ?? 0}
               </span>
             </h2>
             {!arrivees?.length ? (
-              <p className="text-gray-400 text-sm">Aucune arrivée prévue aujourd&apos;hui.</p>
+              <p className="text-gray-400 text-sm">Aucune arrivée ce jour-là.</p>
             ) : (
               <div className="space-y-3">
                 {arrivees.map((cc: any) => {
-                  const chien = cc.chiens;
-                  const res = cc.reservations;
-                  const heure = formatHeure(res?.heure_arrivee);
+                  const heure = formatHeure(cc.reservations?.heure_arrivee);
                   return (
-                    <div key={cc.id}
-                      className="border rounded-xl p-4 flex justify-between items-center gap-3">
+                    <div key={cc.id} className="border rounded-xl p-4 flex justify-between items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-bold" style={{ color: "#1B2B5E" }}>
-                            {chien?.nom || "—"}
-                          </p>
-                          {cc.statut === "arrive" && (
-                            <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-green-100 text-green-700">
-                              ✅ Arrivé
-                            </span>
-                          )}
+                          <p className="font-bold" style={{ color: "#1B2B5E" }}>{cc.chiens?.nom || "—"}</p>
+                          {badge(cc.statut)}
                         </div>
                         <p className="text-sm text-gray-500 truncate">
-                          {res?.clients?.prenom} {res?.clients?.nom}
-                          {res?.type_reservation && ` · ${TYPE_LABELS[res.type_reservation] ?? res.type_reservation}`}
+                          {cc.reservations?.clients?.prenom} {cc.reservations?.clients?.nom}
+                          {cc.reservations?.type_reservation && ` · ${TYPE_LABELS[cc.reservations.type_reservation] ?? cc.reservations.type_reservation}`}
                           {heure && ` · ${heure}`}
                         </p>
                       </div>
-                      {perms.perm_checkin && (
-                        <BoutonsCheckinDashboard
-                          checkin_id={cc.id}
-                          statut={cc.statut}
-                          type="arrivee"
-                        />
+                      {peutPointer && (
+                        <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type="arrivee" />
                       )}
                     </div>
                   );
@@ -116,34 +127,32 @@ export default async function ChiensDuJourPage() {
             )}
           </section>
 
-          {/* B — Déjà là */}
+          {/* B — En séjour */}
           <section className="bg-white rounded-xl p-6 shadow-sm">
             <h2 className="text-xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
-              🏠 Déjà là
+              🏠 En séjour
               <span className="ml-2 px-2 py-0.5 rounded-full text-sm font-bold bg-blue-100 text-blue-700">
-                {presentsAujourdhui.length}
+                {presents?.length ?? 0}
               </span>
             </h2>
-            {!presentsAujourdhui.length ? (
-              <p className="text-gray-400 text-sm">Aucun chien en séjour (hors départs du jour).</p>
+            {!presents?.length ? (
+              <p className="text-gray-400 text-sm">Aucun chien en séjour ce jour-là.</p>
             ) : (
               <div className="space-y-3">
-                {presentsAujourdhui.map((cc: any) => {
-                  const chien = cc.chiens;
-                  const res = cc.reservations;
-                  const arriveLe = formatDateFR(cc.date_arrivee_reelle);
-                  const departPrevu = formatDateFR(cc.date_depart_prevu);
-                  const heureDep = formatHeure(res?.heure_depart);
+                {presents.map((cc: any) => {
+                  const arriveLe = cc.date_arrivee_reelle ? formatDateFR(cc.date_arrivee_reelle) : "";
+                  const departPrevu = cc.date_depart_prevu ? formatDateFR(cc.date_depart_prevu) : "";
+                  const heureDep = formatHeure(cc.reservations?.heure_depart);
                   return (
-                    <div key={cc.id}
-                      className="border rounded-xl p-4 flex justify-between items-center gap-3">
+                    <div key={cc.id} className="border rounded-xl p-4 flex justify-between items-center gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold" style={{ color: "#1B2B5E" }}>
-                          {chien?.nom || "—"}
-                        </p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-bold" style={{ color: "#1B2B5E" }}>{cc.chiens?.nom || "—"}</p>
+                          {badge(cc.statut)}
+                        </div>
                         <p className="text-sm text-gray-500 truncate">
-                          {res?.clients?.prenom} {res?.clients?.nom}
-                          {res?.type_reservation && ` · ${TYPE_LABELS[res.type_reservation] ?? res.type_reservation}`}
+                          {cc.reservations?.clients?.prenom} {cc.reservations?.clients?.nom}
+                          {cc.reservations?.type_reservation && ` · ${TYPE_LABELS[cc.reservations.type_reservation] ?? cc.reservations.type_reservation}`}
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">
                           {arriveLe && `Arrivé le ${arriveLe}`}
@@ -151,12 +160,8 @@ export default async function ChiensDuJourPage() {
                           {heureDep && ` à ${heureDep}`}
                         </p>
                       </div>
-                      {perms.perm_checkin && (
-                        <BoutonsCheckinDashboard
-                          checkin_id={cc.id}
-                          statut={cc.statut}
-                          type="depart"
-                        />
+                      {peutPointer && (
+                        <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type="depart" />
                       )}
                     </div>
                   );
@@ -165,48 +170,35 @@ export default async function ChiensDuJourPage() {
             )}
           </section>
 
-          {/* C — Partent aujourd'hui */}
+          {/* C — Départs */}
           <section className="bg-white rounded-xl p-6 shadow-sm">
             <h2 className="text-xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
-              🚪 Partent aujourd&apos;hui
+              🚪 Départs
               <span className="ml-2 px-2 py-0.5 rounded-full text-sm font-bold bg-rose-100 text-rose-700">
                 {departs?.length ?? 0}
               </span>
             </h2>
             {!departs?.length ? (
-              <p className="text-gray-400 text-sm">Aucun départ prévu aujourd&apos;hui.</p>
+              <p className="text-gray-400 text-sm">Aucun départ ce jour-là.</p>
             ) : (
               <div className="space-y-3">
                 {departs.map((cc: any) => {
-                  const chien = cc.chiens;
-                  const res = cc.reservations;
-                  const heure = formatHeure(res?.heure_depart);
+                  const heure = formatHeure(cc.reservations?.heure_depart);
                   return (
-                    <div key={cc.id}
-                      className="border rounded-xl p-4 flex justify-between items-center gap-3">
+                    <div key={cc.id} className="border rounded-xl p-4 flex justify-between items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-bold" style={{ color: "#1B2B5E" }}>
-                            {chien?.nom || "—"}
-                          </p>
-                          {cc.statut === "parti" && (
-                            <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-gray-100 text-gray-600">
-                              ✔️ Parti
-                            </span>
-                          )}
+                          <p className="font-bold" style={{ color: "#1B2B5E" }}>{cc.chiens?.nom || "—"}</p>
+                          {badge(cc.statut)}
                         </div>
                         <p className="text-sm text-gray-500 truncate">
-                          {res?.clients?.prenom} {res?.clients?.nom}
-                          {res?.type_reservation && ` · ${TYPE_LABELS[res.type_reservation] ?? res.type_reservation}`}
+                          {cc.reservations?.clients?.prenom} {cc.reservations?.clients?.nom}
+                          {cc.reservations?.type_reservation && ` · ${TYPE_LABELS[cc.reservations.type_reservation] ?? cc.reservations.type_reservation}`}
                           {heure && ` · ${heure}`}
                         </p>
                       </div>
-                      {perms.perm_checkin && (
-                        <BoutonsCheckinDashboard
-                          checkin_id={cc.id}
-                          statut={cc.statut}
-                          type="depart"
-                        />
+                      {peutPointer && (
+                        <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type="depart" />
                       )}
                     </div>
                   );
