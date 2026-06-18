@@ -36,49 +36,58 @@ export default async function ChiensPage() {
             <Link key={chien.id} href={`/chiens/${chien.id}`}
               className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition">
               <div className="flex justify-between items-center">
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-bold text-lg" style={{ color: "#1B2B5E" }}>
-                      {chien.sexe === "F" ? "♀️" : "♂️"} {chien.nom}
-                    </p>
-                    {!chien.actif && (
-                      <span className="px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-700">
-                        Archivé
-                      </span>
-                    )}
-                    {chien.sterilisation === "oui" ? (
-                      <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">
-                        Stérilisé
-                      </span>
-                    ) : chien.sterilisation === "chimique" ? (
-                      <span className="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700">
-                        Castré chim.
-                      </span>
+                <div className="flex items-center gap-4">
+                  <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#DBEFEA", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, overflow: "hidden", flex: "0 0 auto" }}>
+                    {chien.photo_principale ? (
+                      <img src={chien.photo_principale} alt={chien.nom} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     ) : (
-                      <span className="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">
-                        Entier
-                      </span>
-                    )}
-                    {chien.journee_essai_effectuee && !chien.journee_essai_invalide && (
-                      <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">
-                        ✅ Essai validé
-                      </span>
-                    )}
-                    {chien.journee_essai_effectuee && chien.journee_essai_invalide && (
-                      <span className="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">
-                        ❌ Essai non validé
-                      </span>
-                    )}
-                    {!chien.journee_essai_effectuee && (
-                      <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">
-                        ⏳ Essai à faire
-                      </span>
+                      "🐕"
                     )}
                   </div>
-                  <p className="text-sm text-gray-500">{chien.race || "—"}</p>
-                  <p className="text-sm text-gray-400">
-                    👤 {chien.clients?.prenom} {chien.clients?.nom}
-                  </p>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-bold text-lg" style={{ color: "#1B2B5E" }}>
+                        {chien.sexe === "F" ? "♀️" : "♂️"} {chien.nom}
+                      </p>
+                      {!chien.actif && (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-700">
+                          Archivé
+                        </span>
+                      )}
+                      {chien.sterilisation === "oui" ? (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">
+                          Stérilisé
+                        </span>
+                      ) : chien.sterilisation === "chimique" ? (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700">
+                          Castré chim.
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">
+                          Entier
+                        </span>
+                      )}
+                      {chien.journee_essai_effectuee && !chien.journee_essai_invalide && (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">
+                          ✅ Essai validé
+                        </span>
+                      )}
+                      {chien.journee_essai_effectuee && chien.journee_essai_invalide && (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">
+                          ❌ Essai non validé
+                        </span>
+                      )}
+                      {!chien.journee_essai_effectuee && (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">
+                          ⏳ Essai à faire
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-500">{chien.race || "—"}</p>
+                    <p className="text-sm text-gray-400">
+                      👤 {chien.clients?.prenom} {chien.clients?.nom}
+                    </p>
+                  </div>
                 </div>
                 <div className="text-right text-sm text-gray-500">
                   <p>{chien.poids ? `${chien.poids} kg` : "—"}</p>

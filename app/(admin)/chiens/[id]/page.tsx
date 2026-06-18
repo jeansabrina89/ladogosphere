@@ -60,6 +60,13 @@ export default async function ChienPage({
           </div>
         )}
 
+        {chien.photo_principale && (
+          <div className="mb-6">
+            <img src={chien.photo_principale} alt={chien.nom}
+              style={{ width: 120, height: 120, borderRadius: "50%", objectFit: "cover", border: "3px solid #DBEFEA" }} />
+          </div>
+        )}
+
         <h1 className={`text-4xl font-bold mb-6 ${chien.sexe === "F" ? "text-pink-600" : "text-blue-600"}`}>
           🐶 {chien.nom}
         </h1>
