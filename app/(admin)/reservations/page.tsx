@@ -1,27 +1,23 @@
 import Link from "next/link";
 import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { aujourdhuiISO } from "@/src/lib/dates";
 import FiltresReservations from "./FiltresReservations";
 import RechercheReservation from "./RechercheReservation";
 import SelectionFactureGroupee from "./SelectionFactureGroupee";
 import FiltrePeriodeReservations from "./FiltrePeriodeReservations";
-import { appliquerPeriodeEtTri } from "@/src/lib/reservationsFiltres";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 
 export default async function ReservationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filtre?: string; paiement?: string; recherche?: string; periode?: string }>;
+  searchParams: Promise<{ paiement?: string; recherche?: string; periode?: string }>;
 }) {
   await exigerPersonnelPage();
   const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
   const params = await searchParams;
-  const filtre = params.filtre || "toutes";
   const paiement = params.paiement || "tous";
   const recherche = params.recherche || "";
-  const aujourd_hui = aujourdhuiISO();
   const periodeSet = new Set((params.periode ?? "").split(",").filter(Boolean));
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Zurich" });
 
@@ -41,18 +37,25 @@ export default async function ReservationsPage({
     if (!isNaN(numero)) {
       query = query.eq("numero", numero);
     }
-    query = query.order("date_debut", { ascending: false }).order("created_at", { ascending: false });
+    query = query
+      .order("date_debut", { ascending: false })
+      .order("created_at", { ascending: false });
   } else {
-    query = appliquerPeriodeEtTri(query, filtre || "toutes", aujourd_hui);
+    query = query
+      .order("date_debut", { ascending: false })
+      .order("created_at", { ascending: false });
+
     if (paiement !== "tous") {
       query = query.eq("statut_paiement", paiement);
     }
+
     if (periodeSet.size > 0) {
       const conditions: string[] = [];
       if (periodeSet.has("a_venir"))  conditions.push(`and(date_debut.gt.${today},statut.neq.annulee)`);
       if (periodeSet.has("en_cours")) conditions.push(`and(date_debut.lte.${today},date_fin.gte.${today},statut.neq.annulee)`);
       if (periodeSet.has("passees"))  conditions.push(`and(date_fin.lt.${today},statut.neq.annulee)`);
       if (periodeSet.has("annulee"))  conditions.push(`statut.eq.annulee`);
+      if (periodeSet.has("a_payer"))  conditions.push(`and(statut.neq.annulee,statut_paiement.in.(impaye,partiel))`);
       if (conditions.length > 0) query = query.or(conditions.join(","));
     }
   }
@@ -78,8 +81,8 @@ export default async function ReservationsPage({
 
         <RechercheReservation valeurInitiale={recherche} />
 
-        {!recherche && <FiltresReservations />}
         {!recherche && <FiltrePeriodeReservations />}
+        {!recherche && <FiltresReservations />}
 
         <p className="font-semibold mb-4" style={{ color: "#1B2B5E" }}>
           {reservations?.length ?? 0} réservation(s)

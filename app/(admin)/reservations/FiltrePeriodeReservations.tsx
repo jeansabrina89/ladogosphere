@@ -1,57 +1,63 @@
 "use client";
 
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import type { CSSProperties } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-const PERIODES = [
-  { val: "a_venir",  label: "📅 À venir" },
+const CATS: { val: string; label: string }[] = [
+  { val: "a_venir", label: "📅 À venir" },
   { val: "en_cours", label: "🟢 En cours" },
-  { val: "passees",  label: "📁 Passées" },
-  { val: "annulee",  label: "❌ Annulée" },
+  { val: "passees", label: "📁 Passées" },
+  { val: "annulee", label: "❌ Annulées" },
+  { val: "a_payer", label: "💰 À payer" },
 ];
+
+const sFiltres: CSSProperties = { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 };
+const sChipBase: CSSProperties = { fontSize: 13.5, padding: "8px 14px", borderRadius: 999, fontWeight: 600, cursor: "pointer", border: "1px solid rgba(27,43,94,.12)", background: "#fff", color: "#1B2B5E" };
+const sChipActif: CSSProperties = { ...sChipBase, background: "#1B2B5E", color: "#fff", borderColor: "#1B2B5E" };
+const sReset: CSSProperties = { margin: "0 0 18px", fontSize: 12.5, color: "rgba(27,43,94,.6)" };
+const sResetLien: CSSProperties = { color: "#1F6E5B", fontWeight: 600, textDecoration: "none", cursor: "pointer", background: "none", border: "none", font: "inherit", padding: 0 };
 
 export default function FiltrePeriodeReservations() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const actives = (searchParams.get("periode") || "").split(",").filter(Boolean);
 
-  const periodeParam = searchParams.get("periode") || "";
-  const selected = new Set(periodeParam ? periodeParam.split(",").filter(Boolean) : []);
-
-  const toggle = (val: string) => {
-    const next = new Set(selected);
-    if (next.has(val)) next.delete(val);
-    else next.add(val);
-
+  function appliquer(liste: string[]) {
     const params = new URLSearchParams(searchParams.toString());
-    if (next.size > 0) {
-      params.set("periode", Array.from(next).join(","));
-    } else {
-      params.delete("periode");
-    }
-    router.push(`${pathname}?${params.toString()}`);
-  };
+    if (liste.length === 0) params.delete("periode");
+    else params.set("periode", liste.join(","));
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname);
+  }
+
+  function toggle(val: string) {
+    const set = new Set(actives);
+    if (set.has(val)) set.delete(val);
+    else set.add(val);
+    appliquer(Array.from(set));
+  }
 
   return (
-    <div
-      className="flex flex-wrap gap-4 px-4 py-3 rounded-xl mb-4"
-      style={{ backgroundColor: "white" }}
-    >
-      <span className="text-sm font-semibold self-center" style={{ color: "#1B2B5E" }}>
-        Période :
-      </span>
-      {PERIODES.map(({ val, label }) => (
-        <label key={val} className="flex items-center gap-2 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={selected.has(val)}
-            onChange={() => toggle(val)}
-            className="w-4 h-4 cursor-pointer accent-blue-600"
-          />
-          <span className="text-sm font-semibold" style={{ color: "#1B2B5E" }}>
-            {label}
-          </span>
-        </label>
-      ))}
-    </div>
+    <>
+      <div style={sFiltres}>
+        {CATS.map((c) => {
+          const on = actives.includes(c.val);
+          return (
+            <button key={c.val} onClick={() => toggle(c.val)} style={on ? sChipActif : sChipBase}>
+              {on ? "✓ " : ""}{c.label}
+            </button>
+          );
+        })}
+      </div>
+      {actives.length > 0 ? (
+        <p style={sReset}>
+          {actives.length} filtre{actives.length > 1 ? "s" : ""} actif{actives.length > 1 ? "s" : ""} —{" "}
+          <button onClick={() => appliquer([])} style={sResetLien}>tout afficher</button>
+        </p>
+      ) : (
+        <p style={sReset}>Toutes les réservations sont affichées.</p>
+      )}
+    </>
   );
 }

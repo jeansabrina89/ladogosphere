@@ -1,67 +1,45 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { ONGLETS_PERIODE } from "@/src/lib/reservationsFiltres";
+import type { CSSProperties } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
+const PAIEMENTS: { val: string; label: string }[] = [
+  { val: "tous", label: "Tous" },
+  { val: "impaye", label: "❌ Impayées" },
+  { val: "partiel", label: "⚠️ Partielles" },
+  { val: "paye", label: "✅ Payées" },
+];
+
+const sLigne: CSSProperties = { display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 16 };
+const sLabel: CSSProperties = { fontSize: 13, fontWeight: 700, color: "#1B2B5E", marginRight: 4 };
+const sChipBase: CSSProperties = { fontSize: 13.5, padding: "8px 14px", borderRadius: 999, fontWeight: 600, cursor: "pointer", border: "1px solid rgba(27,43,94,.12)", background: "#fff", color: "#1B2B5E" };
+const sChipActif: CSSProperties = { ...sChipBase, background: "#2E8B7E", color: "#fff", borderColor: "#2E8B7E" };
 
 export default function FiltresReservations() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const filtre = searchParams.get("filtre") || "toutes";
   const paiement = searchParams.get("paiement") || "tous";
 
-  const setFiltre = (val: string) => {
+  function setPaiement(val: string) {
     const params = new URLSearchParams(searchParams.toString());
-    params.set("filtre", val);
-    router.push(`/reservations?${params.toString()}`);
-  };
-
-  const setPaiement = (val: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("paiement", val);
-    router.push(`/reservations?${params.toString()}`);
-  };
-
-  const filtresPaiement = [
-    { val: "tous", label: "Tous" },
-    { val: "impaye", label: "❌ Impayées" },
-    { val: "partiel", label: "⚠️ Partielles" },
-    { val: "paye", label: "✅ Payées" },
-  ];
+    if (val === "tous") params.delete("paiement");
+    else params.set("paiement", val);
+    const qs = params.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname);
+  }
 
   return (
-    <div className="flex flex-wrap gap-6 mb-6">
-      <div>
-        <p className="text-sm font-semibold mb-2" style={{ color: "#1B2B5E" }}>Période</p>
-        <div className="flex gap-2 flex-wrap">
-          {ONGLETS_PERIODE.map(f => (
-            <button key={f.val} onClick={() => setFiltre(f.val)}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition"
-              style={{
-                borderColor: filtre === f.val ? "#4AAEA0" : "#E2E8F0",
-                backgroundColor: filtre === f.val ? "#4AAEA0" : "white",
-                color: filtre === f.val ? "white" : "#1B2B5E",
-              }}>
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div>
-        <p className="text-sm font-semibold mb-2" style={{ color: "#1B2B5E" }}>Paiement</p>
-        <div className="flex gap-2 flex-wrap">
-          {filtresPaiement.map(f => (
-            <button key={f.val} onClick={() => setPaiement(f.val)}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition"
-              style={{
-                borderColor: paiement === f.val ? "#1B2B5E" : "#E2E8F0",
-                backgroundColor: paiement === f.val ? "#1B2B5E" : "white",
-                color: paiement === f.val ? "white" : "#1B2B5E",
-              }}>
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
+    <div style={sLigne}>
+      <span style={sLabel}>Paiement :</span>
+      {PAIEMENTS.map((p) => {
+        const on = paiement === p.val;
+        return (
+          <button key={p.val} onClick={() => setPaiement(p.val)} style={on ? sChipActif : sChipBase}>
+            {p.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
