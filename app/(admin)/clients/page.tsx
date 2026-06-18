@@ -2,6 +2,10 @@ import Link from "next/link";
 import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
+import EnTete from "@/app/components/ui/EnTete";
+import Bouton from "@/app/components/ui/Bouton";
+import Carte from "@/app/components/ui/Carte";
+import EtatVide from "@/app/components/ui/EtatVide";
 
 export default async function ClientsPage() {
   await exigerPersonnelPage();
@@ -28,57 +32,63 @@ export default async function ClientsPage() {
     (profiles ?? []).forEach(p => personnelIds.add(p.id));
   }
 
+  const muted: React.CSSProperties = { color: "rgba(27,43,94,0.6)", fontSize: 14, margin: 0 };
+  const pill = (bg: string, color: string): React.CSSProperties => ({
+    display: "inline-block", backgroundColor: bg, color, borderRadius: 999,
+    padding: "2px 10px", fontSize: 13, fontWeight: 500, lineHeight: "20px", whiteSpace: "nowrap",
+  });
+
   return (
-    <main className="min-h-screen bg-slate-100 p-8">
-      <div className="max-w-7xl mx-auto">
+    <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
+      <div className="max-w-5xl mx-auto">
 
-        <h1 className="text-4xl font-bold mb-2">👤 Clients</h1>
-        <p className="text-gray-600 mb-2">Liste des clients enregistrés</p>
-        <p className="font-semibold mb-6">Total : {clients?.length ?? 0} client(s)</p>
+        <EnTete
+          titre="👤 Clients"
+          sousTitre="Liste des clients enregistrés"
+          action={
+            perms.perm_clients_creer ? (
+              <Bouton variante="principal" href="/clients/nouveau">Ajouter un client</Bouton>
+            ) : undefined
+          }
+        />
 
-        {perms.perm_clients_creer && (
-          <div className="mb-6">
-            <Link href="/clients/nouveau"
-              className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700">
-              ➕ Ajouter un client
-            </Link>
+        <p style={{ ...muted, fontWeight: 600, margin: "0 0 16px" }}>
+          Total : {clients?.length ?? 0} client(s)
+        </p>
+
+        {clients?.length ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {clients.map(client => {
+              const isPersonnel = client.auth_user_id && personnelIds.has(client.auth_user_id);
+              return (
+                <Link key={client.id} href={`/clients/${client.id}`} style={{ textDecoration: "none" }}>
+                  <Carte>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontSize: 18, fontWeight: 700, color: "#1B2B5E", margin: "0 0 4px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          {client.prenom} {client.nom}
+                          {isPersonnel && <span style={pill("#DBEFEA", "#1F6E5B")}>Personnel</span>}
+                        </p>
+                        <p style={muted}>{client.email}</p>
+                        <p style={muted}>{client.telephone || "—"}</p>
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        {client.membre
+                          ? <span style={pill("#F4EAC9", "#6E5410")}>⭐ Membre</span>
+                          : <span style={pill("#EDE8DF", "rgba(27,43,94,0.6)")}>Standard</span>}
+                        <p style={{ ...muted, marginTop: 6 }}>{client.chiens?.length ?? 0} chien(s)</p>
+                      </div>
+                    </div>
+                  </Carte>
+                </Link>
+              );
+            })}
           </div>
+        ) : (
+          <Carte>
+            <EtatVide icone="👤" titre="Aucun client" message="Ajoute ton premier client pour commencer." />
+          </Carte>
         )}
-
-        <div className="grid gap-4">
-          {clients?.map(client => {
-            const isPersonnel = client.auth_user_id && personnelIds.has(client.auth_user_id);
-            return (
-              <Link key={client.id} href={`/clients/${client.id}`}
-                className="bg-white rounded-xl p-6 shadow hover:shadow-md transition flex justify-between items-center">
-                <div>
-                  <p className="text-xl font-bold flex items-center gap-2">
-                    {client.prenom} {client.nom}
-                    {isPersonnel && (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-600 border border-teal-200">
-                        Personnel
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-gray-500 text-sm">{client.email}</p>
-                  <p className="text-gray-500 text-sm">{client.telephone || "—"}</p>
-                </div>
-                <div className="text-right">
-                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                    client.membre
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gray-100 text-gray-600"
-                  }`}>
-                    {client.membre ? "⭐ Membre" : "Standard"}
-                  </span>
-                  <p className="text-gray-400 text-sm mt-1">
-                    {client.chiens?.length ?? 0} chien(s)
-                  </p>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
 
       </div>
     </main>
