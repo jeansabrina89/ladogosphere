@@ -13,7 +13,7 @@ const sH1: CSSProperties = { fontFamily: SERIF, fontSize: 26, fontWeight: 700, m
 const sEnteteP: CSSProperties = { margin: 0, color: "rgba(27,43,94,.6)", fontSize: 14 };
 const sBtnPrincipal: CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", background: "#2E8B7E", color: "#fff", border: "none", borderRadius: 14, padding: "15px 18px", fontSize: 16, fontWeight: 700, margin: "14px 0 20px", textDecoration: "none" };
 const sCarte: CSSProperties = { display: "flex", alignItems: "center", gap: 14, background: "#fff", border: "1px solid rgba(27,43,94,.12)", borderRadius: 18, padding: 16, marginBottom: 12, textDecoration: "none", color: "inherit" };
-const sAvatar: CSSProperties = { flex: "0 0 auto", width: 52, height: 52, borderRadius: "50%", background: "#DBEFEA", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 };
+const sAvatar: CSSProperties = { flex: "0 0 auto", width: 52, height: 52, borderRadius: "50%", background: "#DBEFEA", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, overflow: "hidden" };
 const sInfos: CSSProperties = { flex: "1 1 auto", minWidth: 0 };
 const sNom: CSSProperties = { fontWeight: 700, fontSize: 17, margin: 0, color: "#1B2B5E" };
 const sRace: CSSProperties = { margin: "2px 0 0", fontSize: 13.5, color: "rgba(27,43,94,.6)" };
@@ -75,7 +75,13 @@ export default async function MesChiensPage() {
           const badge = badgeCategorie(chien.categorie_poids);
           return (
             <Link key={chien.id} href={`/mon-compte/chiens/${chien.id}`} style={sCarte}>
-              <div style={sAvatar}>🐕</div>
+              <div style={sAvatar}>
+                {chien.photo_principale ? (
+                  <img src={chien.photo_principale} alt={chien.nom} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+                ) : (
+                  "🐕"
+                )}
+              </div>
               <div style={sInfos}>
                 <p style={sNom}>{chien.sexe === "F" ? "♀️" : "♂️"} {chien.nom}</p>
                 <p style={sRace}>{chien.race || "—"}</p>

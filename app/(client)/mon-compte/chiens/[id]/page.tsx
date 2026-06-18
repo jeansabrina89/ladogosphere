@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import Link from "next/link";
 import { formatDateFR } from "@/src/lib/dates";
+import UploadPhoto from "./UploadPhoto";
 
 export default async function FicheChienClientPage({
   params,
@@ -35,9 +36,21 @@ export default async function FicheChienClientPage({
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm">
-        <h1 className="text-3xl font-bold mb-6" style={{ color: "#1B2B5E" }}>
-          🐶 {chien.nom}
-        </h1>
+        <div className="flex flex-col items-center mb-8">
+          <div style={{ width: 110, height: 110, borderRadius: "50%", background: "#DBEFEA", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 52, overflow: "hidden" }}>
+            {chien.photo_principale ? (
+              <img src={chien.photo_principale} alt={chien.nom} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              "🐶"
+            )}
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <UploadPhoto chienId={chien.id} photoActuelle={chien.photo_principale ?? null} />
+          </div>
+          <h1 className="text-3xl font-bold mt-3" style={{ color: "#1B2B5E" }}>
+            {chien.nom}
+          </h1>
+        </div>
 
         <div className="space-y-2 mb-8">
           <p><strong>Race :</strong> {chien.race || "—"}</p>
