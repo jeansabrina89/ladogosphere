@@ -28,7 +28,8 @@ export default function RechercheReservation({ valeurInitiale }: { valeurInitial
         value={valeur}
         onChange={e => setValeur(e.target.value)}
         placeholder="🔍 Rechercher par n° de réservation..."
-        className="border rounded-xl p-3 text-sm flex-1 max-w-xs"
+        className="rounded-xl p-3 text-sm flex-1 max-w-xs"
+        style={{ border: "1px solid rgba(27,43,94,.15)", color: "#1B2B5E" }}
         min={1}
       />
       <button type="submit"

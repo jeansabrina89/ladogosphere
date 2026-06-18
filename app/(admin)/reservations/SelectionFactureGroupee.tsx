@@ -8,6 +8,20 @@ import { formatBoxLabel } from "@/src/lib/boxes";
 import BoutonPaiementRapide from "./BoutonPaiementRapide";
 import { montantDuReservation } from "@/src/lib/montants";
 
+const STATUT: Record<string, { label: string; bg: string; color: string }> = {
+  validee:    { label: "✅ Validée",    bg: "#DEF1EC", color: "#1F6E5B" },
+  en_attente: { label: "⏳ En attente",  bg: "#FBF3DC", color: "#8A6D1F" },
+  annulee:    { label: "❌ Annulée",     bg: "#FBE7E4", color: "#B5564C" },
+  refusee:    { label: "❌ Refusée",     bg: "#FBE7E4", color: "#B5564C" },
+  terminee:   { label: "🏁 Terminée",    bg: "#ECECEC", color: "#6B7280" },
+};
+
+const PAIEMENT: Record<string, { label: string; bg: string; color: string }> = {
+  paye:    { label: "💰 Payé",    bg: "#DEF1EC", color: "#1F6E5B" },
+  partiel: { label: "💰 Partiel", bg: "#FBF3DC", color: "#8A6D1F" },
+  impaye:  { label: "💰 Impayé",  bg: "#FBE7E4", color: "#B5564C" },
+};
+
 function estFacturable(res: any): boolean {
   if (!["validee", "terminee"].includes(res.statut)) return false;
   if (!["impaye", "partiel"].includes(res.statut_paiement ?? "")) return false;
@@ -83,14 +97,15 @@ export default function SelectionFactureGroupee({
   return (
     <>
       {succes && (
-        <div className="mb-4 px-4 py-3 rounded-xl bg-green-50 border border-green-200 text-green-700 font-semibold text-sm">
+        <div className="mb-4 px-4 py-3 rounded-xl font-semibold text-sm"
+          style={{ background: "#DEF1EC", border: "1px solid #BFE3D9", color: "#1F6E5B" }}>
           ✅ {succes}
         </div>
       )}
 
       <div className="grid gap-4">
         {reservations.length === 0 && (
-          <p className="text-gray-400">Aucune réservation trouvée.</p>
+          <p style={{ color: "rgba(27,43,94,.5)" }}>Aucune réservation trouvée.</p>
         )}
         {reservations.map((res: any) => {
           const chiens = (res.reservation_chiens ?? [])
@@ -99,13 +114,14 @@ export default function SelectionFactureGroupee({
           const facturable = estFacturable(res);
           const cochee = selectedIds.has(res.id);
           const reste = calculerReste(res);
+          const sBadge = STATUT[res.statut] ?? { label: res.statut, bg: "#ECECEC", color: "#6B7280" };
+          const pBadge = PAIEMENT[res.statut_paiement] ?? PAIEMENT.impaye;
 
           return (
             <div
               key={res.id}
-              className={`bg-white rounded-xl p-6 shadow-sm transition-shadow ${
-                cochee ? "ring-2 ring-blue-400" : ""
-              }`}
+              className={`bg-white rounded-2xl p-6 shadow-sm transition-shadow ${cochee ? "ring-2 ring-[#2E8B7E]" : ""}`}
+              style={{ border: "1px solid rgba(27,43,94,.06)" }}
             >
               <div className="flex items-start gap-3">
                 {/* Case à cocher */}
@@ -115,7 +131,8 @@ export default function SelectionFactureGroupee({
                       type="checkbox"
                       checked={cochee}
                       onChange={() => toggleId(res.id)}
-                      className="w-5 h-5 cursor-pointer accent-blue-600"
+                      className="w-5 h-5 cursor-pointer"
+                      style={{ accentColor: "#2E8B7E" }}
                       title="Sélectionner pour facturer"
                     />
                   ) : (
@@ -129,7 +146,7 @@ export default function SelectionFactureGroupee({
                     <p className="text-xl font-bold" style={{ color: "#1B2B5E" }}>
                       {res.clients?.prenom} {res.clients?.nom}
                       {res.clients?.membre && (
-                        <span className="ml-2 text-sm text-green-600">⭐ Membre</span>
+                        <span className="ml-2 text-sm font-semibold" style={{ color: "#C9A84C" }}>⭐ Membre</span>
                       )}
                     </p>
                     {res.numero && (
@@ -141,60 +158,26 @@ export default function SelectionFactureGroupee({
                       </span>
                     )}
                   </div>
-                  <p className="text-gray-500 text-sm mt-1">
+                  <p className="text-sm mt-1" style={{ color: "rgba(27,43,94,.55)" }}>
                     🐶 {chiens.map((c: any) => c.nom).join(", ") || "—"}
                   </p>
-                  <p className="text-gray-500 text-sm">
+                  <p className="text-sm" style={{ color: "rgba(27,43,94,.55)" }}>
                     🏠 {formatBoxLabel(res.boxes)} · {libelleType(res.type_reservation)}
                   </p>
-                  <p className="text-gray-500 text-sm">
+                  <p className="text-sm" style={{ color: "rgba(27,43,94,.55)" }}>
                     📅 {formatDateFR(res.date_debut)} → {formatDateFR(res.date_fin)}
                   </p>
                 </Link>
 
                 {/* Badges + montant + action paiement rapide */}
                 <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      res.statut === "validee"
-                        ? "bg-green-100 text-green-700"
-                        : res.statut === "en_attente"
-                        ? "bg-yellow-100 text-yellow-700"
-                        : res.statut === "annulee"
-                        ? "bg-red-100 text-red-700"
-                        : res.statut === "refusee"
-                        ? "bg-red-100 text-red-700"
-                        : res.statut === "terminee"
-                        ? "bg-gray-100 text-gray-600"
-                        : "bg-gray-100 text-gray-600"
-                    }`}
-                  >
-                    {res.statut === "validee"
-                      ? "✅ Validée"
-                      : res.statut === "en_attente"
-                      ? "⏳ En attente"
-                      : res.statut === "annulee"
-                      ? "❌ Annulée"
-                      : res.statut === "refusee"
-                      ? "❌ Refusée"
-                      : res.statut === "terminee"
-                      ? "🏁 Terminée"
-                      : res.statut}
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold"
+                    style={{ background: sBadge.bg, color: sBadge.color }}>
+                    {sBadge.label}
                   </span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      res.statut_paiement === "paye"
-                        ? "bg-green-100 text-green-700"
-                        : res.statut_paiement === "partiel"
-                        ? "bg-orange-100 text-orange-700"
-                        : "bg-red-100 text-red-700"
-                    }`}
-                  >
-                    {res.statut_paiement === "paye"
-                      ? "💰 Payé"
-                      : res.statut_paiement === "partiel"
-                      ? "💰 Partiel"
-                      : "💰 Impayé"}
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold"
+                    style={{ background: pBadge.bg, color: pBadge.color }}>
+                    {pBadge.label}
                   </span>
                   {res.statut_paiement === "partiel" && res.montant_final != null && (
                     <p className="font-bold text-sm" style={{ color: "#1B2B5E" }}>
@@ -240,7 +223,7 @@ export default function SelectionFactureGroupee({
           <div className="flex items-center gap-3 flex-wrap">
             {!memeClient && (
               <p className="text-sm text-yellow-300 font-semibold">
-                ⚠️ Sélectionne les réservations d'un seul client
+                ⚠️ Sélectionne les réservations d&apos;un seul client
               </p>
             )}
             {erreur && (
@@ -259,7 +242,7 @@ export default function SelectionFactureGroupee({
               onClick={handleCreerFacture}
               disabled={!memeClient || loading}
               className="px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ backgroundColor: "#4AAEA0" }}
+              style={{ backgroundColor: "#2E8B7E" }}
             >
               {loading ? "Création..." : "🧾 Créer une facture groupée"}
             </button>
@@ -267,7 +250,6 @@ export default function SelectionFactureGroupee({
         </div>
       )}
 
-      {/* Espace pour ne pas masquer le dernier élément derrière la barre */}
       {selectedIds.size > 0 && <div className="h-24" />}
     </>
   );

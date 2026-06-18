@@ -66,14 +66,16 @@ export default async function ReservationsPage({
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-7xl mx-auto">
 
-        <h1 className="text-4xl font-bold mb-2" style={{ color: "#1B2B5E" }}>📅 Réservations</h1>
-        <p className="text-gray-600 mb-6">Liste de toutes les réservations</p>
+        <h1 className="text-4xl font-bold mb-2" style={{ color: "#1B2B5E", fontFamily: "Georgia, serif" }}>
+          📅 Réservations
+        </h1>
+        <p className="mb-6" style={{ color: "rgba(27,43,94,.55)" }}>Liste de toutes les réservations</p>
 
         {perms.perm_reservations_creer && (
           <div className="mb-6">
             <Link href="/reservations/nouvelle"
               className="px-4 py-2 rounded-xl font-semibold text-white"
-              style={{ backgroundColor: "#4AAEA0" }}>
+              style={{ backgroundColor: "#2E8B7E" }}>
               ➕ Nouvelle réservation
             </Link>
           </div>
