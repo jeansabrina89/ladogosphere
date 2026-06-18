@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import FiltresReservations from "./FiltresReservations";
@@ -6,6 +5,8 @@ import RechercheReservation from "./RechercheReservation";
 import SelectionFactureGroupee from "./SelectionFactureGroupee";
 import FiltrePeriodeReservations from "./FiltrePeriodeReservations";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
+import EnTete from "@/app/components/ui/EnTete";
+import Bouton from "@/app/components/ui/Bouton";
 
 export default async function ReservationsPage({
   searchParams,
@@ -63,30 +64,25 @@ export default async function ReservationsPage({
   const { data: reservations } = await query;
 
   return (
-    <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
-      <div className="max-w-7xl mx-auto">
+    <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
+      <div className="max-w-5xl mx-auto">
 
-        <h1 className="text-4xl font-bold mb-2" style={{ color: "#1B2B5E", fontFamily: "Georgia, serif" }}>
-          📅 Réservations
-        </h1>
-        <p className="mb-6" style={{ color: "rgba(27,43,94,.55)" }}>Liste de toutes les réservations</p>
-
-        {perms.perm_reservations_creer && (
-          <div className="mb-6">
-            <Link href="/reservations/nouvelle"
-              className="px-4 py-2 rounded-xl font-semibold text-white"
-              style={{ backgroundColor: "#2E8B7E" }}>
-              ➕ Nouvelle réservation
-            </Link>
-          </div>
-        )}
+        <EnTete
+          titre="📅 Réservations"
+          sousTitre="Liste de toutes les réservations"
+          action={
+            perms.perm_reservations_creer ? (
+              <Bouton variante="principal" href="/reservations/nouvelle">Nouvelle réservation</Bouton>
+            ) : undefined
+          }
+        />
 
         <RechercheReservation valeurInitiale={recherche} />
 
         {!recherche && <FiltrePeriodeReservations />}
         {!recherche && <FiltresReservations />}
 
-        <p className="font-semibold mb-4" style={{ color: "#1B2B5E" }}>
+        <p style={{ color: "rgba(27,43,94,0.6)", fontSize: 14, margin: "0 0 16px", fontWeight: 600 }}>
           {reservations?.length ?? 0} réservation(s)
         </p>
 

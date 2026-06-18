@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Bouton from "@/app/components/ui/Bouton";
 
 export default function RechercheReservation({ valeurInitiale }: { valeurInitiale: string }) {
   const [valeur, setValeur] = useState(valeurInitiale);
@@ -9,11 +10,8 @@ export default function RechercheReservation({ valeurInitiale }: { valeurInitial
 
   const handleRecherche = (e: React.FormEvent) => {
     e.preventDefault();
-    if (valeur.trim()) {
-      router.push(`/reservations?recherche=${valeur.trim()}`);
-    } else {
-      router.push("/reservations");
-    }
+    if (valeur.trim()) router.push(`/reservations?recherche=${valeur.trim()}`);
+    else router.push("/reservations");
   };
 
   const handleEffacer = () => {
@@ -22,27 +20,18 @@ export default function RechercheReservation({ valeurInitiale }: { valeurInitial
   };
 
   return (
-    <form onSubmit={handleRecherche} className="flex gap-2 mb-4">
+    <form onSubmit={handleRecherche} style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
       <input
         type="number"
         value={valeur}
         onChange={e => setValeur(e.target.value)}
         placeholder="🔍 Rechercher par n° de réservation..."
-        className="rounded-xl p-3 text-sm flex-1 max-w-xs"
-        style={{ border: "1px solid rgba(27,43,94,.15)", color: "#1B2B5E" }}
+        style={{ flex: 1, maxWidth: 280, minWidth: 180, borderRadius: 14, padding: "10px 14px", fontSize: 15, border: "1px solid rgba(27,43,94,0.15)", color: "#1B2B5E", backgroundColor: "#fff", boxSizing: "border-box" }}
         min={1}
       />
-      <button type="submit"
-        className="px-4 py-2 rounded-xl font-semibold text-white text-sm"
-        style={{ backgroundColor: "#1B2B5E" }}>
-        Rechercher
-      </button>
+      <Bouton variante="secondaire" type="submit">Rechercher</Bouton>
       {valeurInitiale && (
-        <button type="button" onClick={handleEffacer}
-          className="px-4 py-2 rounded-xl font-semibold text-sm"
-          style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
-          ✖ Effacer
-        </button>
+        <Bouton variante="discret" type="button" onClick={handleEffacer}>✖ Effacer</Bouton>
       )}
     </form>
   );
