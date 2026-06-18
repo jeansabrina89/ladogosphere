@@ -4,7 +4,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <>
       <NavBarServeur />
-      {children}
+      <div className="md:pl-[248px]">{children}</div>
     </>
   );
 }
