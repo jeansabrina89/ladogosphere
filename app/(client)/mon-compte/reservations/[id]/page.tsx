@@ -1,3 +1,4 @@
+import type { CSSProperties, ReactNode } from "react";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import Link from "next/link";
@@ -7,6 +8,20 @@ import { getMouvementsAvoirReservation, getSoldeAvoir } from "@/src/lib/avoirs";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { Wallet } from "lucide-react";
 import BoutonPaiementClient from "../BoutonPaiementClient";
+
+const MARINE = "#1B2B5E";
+const SERIF = "Georgia,'Times New Roman',serif";
+
+const sMain: CSSProperties = { minHeight: "100vh", backgroundColor: "#F5F0E8", padding: "32px 16px" };
+const sWrap: CSSProperties = { maxWidth: 600, margin: "0 auto" };
+const sTopnav: CSSProperties = { marginBottom: 16 };
+const sTopnavA: CSSProperties = { color: "#1F6E5B", textDecoration: "none", fontWeight: 600, fontSize: 14 };
+const sCarte: CSSProperties = { background: "#fff", border: "1px solid rgba(27,43,94,.12)", borderRadius: 18, padding: 22, marginBottom: 16 };
+const sSecTitre: CSSProperties = { fontFamily: SERIF, fontSize: 19, fontWeight: 700, color: MARINE, margin: "0 0 12px" };
+const sLigne: CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, padding: "7px 0", borderBottom: "1px solid rgba(27,43,94,.06)" };
+const sLabel: CSSProperties = { color: "rgba(27,43,94,.6)", fontSize: 14 };
+const sVal: CSSProperties = { color: MARINE, fontWeight: 600, fontSize: 14, textAlign: "right" };
+const sBadge: CSSProperties = { display: "inline-block", fontSize: 12.5, fontWeight: 700, padding: "5px 12px", borderRadius: 999 };
 
 const LABELS_TYPE_AVOIR_RESERVATION: Record<string, string> = {
   utilisation: "Avoir utilisé",
@@ -19,6 +34,33 @@ function libelleType(t: string): string {
   if (t === "essai") return "Journée d'essai";
   if (t === "sejour") return "Séjour";
   return t || "—";
+}
+
+function badgeStatut(statut: string): { label: string; bg: string; color: string } {
+  switch (statut) {
+    case "validee": return { label: "✅ Validée", bg: "#DBEFEA", color: "#1F6E5B" };
+    case "en_attente": return { label: "⏳ En attente", bg: "#F4EAC9", color: "#6E5410" };
+    case "annulee": return { label: "❌ Annulée", bg: "#FBE2DE", color: "#A8453A" };
+    case "terminee": return { label: "🏁 Terminée", bg: "#EDE8DF", color: "#1B2B5E" };
+    default: return { label: statut || "—", bg: "#EDE8DF", color: "#1B2B5E" };
+  }
+}
+
+function Ligne({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div style={sLigne}>
+      <span style={sLabel}>{label}</span>
+      <span style={sVal}>{children}</span>
+    </div>
+  );
+}
+
+function BadgePaiement({ statut }: { statut: string | null }) {
+  const v =
+    statut === "paye" ? { label: "💰 Payé", bg: "#DBEFEA", color: "#1F6E5B" } :
+    statut === "partiel" ? { label: "💰 Partiel", bg: "#F4EAC9", color: "#6E5410" } :
+    { label: "💰 Impayé", bg: "#FBE2DE", color: "#A8453A" };
+  return <span style={{ ...sBadge, fontSize: 12, padding: "3px 10px", background: v.bg, color: v.color }}>{v.label}</span>;
 }
 
 export default async function DetailReservationClientPage({
@@ -39,12 +81,12 @@ export default async function DetailReservationClientPage({
 
   if (!res) {
     return (
-      <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
-        <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm text-center">
-          <p className="text-gray-600 mb-4">Réservation introuvable.</p>
-          <Link href="/mon-compte/reservations" className="font-semibold" style={{ color: "#4AAEA0" }}>
-            ← Retour à mes réservations
-          </Link>
+      <main style={sMain}>
+        <div style={sWrap}>
+          <div style={{ ...sCarte, textAlign: "center" }}>
+            <p style={{ color: "rgba(27,43,94,.6)", fontSize: 14, margin: "0 0 12px" }}>Réservation introuvable.</p>
+            <Link href="/mon-compte/reservations" style={sTopnavA}>← Retour à mes réservations</Link>
+          </div>
         </div>
       </main>
     );
@@ -64,55 +106,58 @@ export default async function DetailReservationClientPage({
     (!res.statut_paiement || res.statut_paiement === "impaye" || res.statut_paiement === "partiel") &&
     resteAPayer > 0;
 
-  return (
-    <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
-      <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm">
-        <p className="text-sm text-gray-400 font-semibold">Réservation n°{res.numero}</p>
-        <h1 className="text-3xl font-bold mb-6" style={{ color: "#1B2B5E" }}>
-          🐶 {chiens.join(", ") || "—"}
-        </h1>
+  const st = badgeStatut(res.statut);
 
-        <div className="space-y-2 mb-6">
-          <p><strong>Type :</strong> {libelleType(res.type_reservation)}</p>
-          <p><strong>Dates :</strong> {formatDateFR(res.date_debut)} → {formatDateFR(res.date_fin)}</p>
-          {(res.heure_arrivee || res.heure_depart) && (
-            <p><strong>Horaires :</strong> {formatHeure(res.heure_arrivee) || "—"} → {formatHeure(res.heure_depart) || "—"}</p>
-          )}
-          <p><strong>Box :</strong> {formatBoxLabel(res.boxes)}</p>
-          <p><strong>Statut :</strong> {
-            res.statut === "validee" ? "✅ Validée" :
-            res.statut === "en_attente" ? "⏳ En attente" :
-            res.statut === "annulee" ? "❌ Annulée" :
-            res.statut === "terminee" ? "🏁 Terminée" : res.statut
-          }</p>
+  return (
+    <main style={sMain}>
+      <div style={sWrap}>
+        <div style={sTopnav}>
+          <Link href="/mon-compte/reservations" style={sTopnavA}>← Mes réservations</Link>
         </div>
 
-        <div className="border-t pt-4 space-y-2 mb-6">
-          <h2 className="text-xl font-bold mb-2" style={{ color: "#1B2B5E" }}>Paiement</h2>
+        <div style={{ marginBottom: 16 }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "rgba(27,43,94,.45)", letterSpacing: ".3px" }}>
+            Réservation n°{res.numero}
+          </p>
+          <h1 style={{ fontFamily: SERIF, fontSize: 26, fontWeight: 700, color: MARINE, margin: "2px 0 10px" }}>
+            🐾 {chiens.join(", ") || "—"}
+          </h1>
+          <span style={{ ...sBadge, background: st.bg, color: st.color }}>{st.label}</span>
+        </div>
+
+        <div style={sCarte}>
+          <p style={sSecTitre}>📋 Détails</p>
+          <Ligne label="Type">{libelleType(res.type_reservation)}</Ligne>
+          <Ligne label="Dates">{formatDateFR(res.date_debut)} → {formatDateFR(res.date_fin)}</Ligne>
+          {(res.heure_arrivee || res.heure_depart) && (
+            <Ligne label="Horaires">{formatHeure(res.heure_arrivee) || "—"} → {formatHeure(res.heure_depart) || "—"}</Ligne>
+          )}
+          <Ligne label="Box">{formatBoxLabel(res.boxes)}</Ligne>
+        </div>
+
+        <div style={sCarte}>
+          <p style={sSecTitre}>💰 Paiement</p>
           {res.reservation_extras && res.reservation_extras.length > 0 && (
-            <div className="space-y-1 mb-2">
-              <p className="font-semibold text-sm text-gray-500">Lignes supplémentaires :</p>
+            <div style={{ marginBottom: 10 }}>
+              <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700, color: "rgba(27,43,94,.5)" }}>Lignes supplémentaires</p>
               {res.reservation_extras.map((extra: any) => (
-                <p key={extra.id} className="flex justify-between text-sm pl-2">
+                <div key={extra.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "3px 0", color: MARINE }}>
                   <span>{extra.libelle}</span>
                   <span>{Number(extra.montant) > 0 ? "+" : ""}{Number(extra.montant).toFixed(2)} CHF</span>
-                </p>
+                </div>
               ))}
             </div>
           )}
-          <p><strong>Montant :</strong> {res.montant_final > 0 ? `${res.montant_final} CHF` : "—"}</p>
-          <p><strong>Payé :</strong> {res.montant_paye || 0} CHF</p>
+          <Ligne label="Montant">{Number(res.montant_final) > 0 ? `${Number(res.montant_final).toFixed(2)} CHF` : "—"}</Ligne>
+          <Ligne label="Payé">{Number(res.montant_paye || 0).toFixed(2)} CHF</Ligne>
           {resteAPayer > 0 && res.statut !== "annulee" && (
-            <p><strong>Reste à payer :</strong> {resteAPayer.toFixed(2)} CHF</p>
+            <Ligne label="Reste à payer"><span style={{ color: "#A8453A", fontWeight: 700 }}>{resteAPayer.toFixed(2)} CHF</span></Ligne>
           )}
-          <p><strong>Statut paiement :</strong> {
-            res.statut_paiement === "paye" ? "💰 Payé" :
-            res.statut_paiement === "partiel" ? "💰 Partiel" : "💰 Impayé"
-          }</p>
+          <Ligne label="Statut paiement"><BadgePaiement statut={res.statut_paiement} /></Ligne>
         </div>
 
         {peutPayer && (
-          <div className="border-t pt-4 mb-6">
+          <div style={sCarte}>
             <BoutonPaiementClient
               reservation_id={res.id}
               numero={res.numero}
@@ -127,20 +172,22 @@ export default async function DetailReservationClientPage({
         )}
 
         {mouvementsAvoir.length > 0 && (
-          <div className="border-t pt-4 space-y-2 mb-6">
-            <h2 className="text-xl font-bold mb-2 flex items-center gap-2" style={{ color: "#1B2B5E" }}><Wallet size={20} style={{ color: "#4AAEA0" }} />Avoir lié à cette réservation</h2>
-            <div className="space-y-2">
+          <div style={sCarte}>
+            <p style={{ ...sSecTitre, display: "flex", alignItems: "center", gap: 8 }}>
+              <Wallet size={20} style={{ color: "#4AAEA0" }} />Avoir lié à cette réservation
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {mouvementsAvoir.map((m) => (
-                <div key={m.id} className="flex justify-between items-center border rounded-xl p-3">
+                <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: "1px solid rgba(27,43,94,.1)", borderRadius: 12, padding: "10px 12px" }}>
                   <div>
-                    <p className="font-semibold text-sm" style={{ color: "#1B2B5E" }}>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: 13.5, color: MARINE }}>
                       {LABELS_TYPE_AVOIR_RESERVATION[m.type] ?? m.type}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p style={{ margin: "2px 0 0", fontSize: 12, color: "rgba(27,43,94,.5)" }}>
                       {m.motif ? `${m.motif} — ` : ""}{formatDateFR(new Date(m.created_at))}
                     </p>
                   </div>
-                  <p className="font-bold text-sm" style={{ color: m.montant < 0 ? "#DC2626" : "#4AAEA0" }}>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: m.montant < 0 ? "#DC2626" : "#4AAEA0" }}>
                     {m.montant >= 0 ? "+" : ""}{m.montant.toFixed(2)} CHF
                   </p>
                 </div>
@@ -148,12 +195,6 @@ export default async function DetailReservationClientPage({
             </div>
           </div>
         )}
-
-        <div className="border-t pt-4">
-          <Link href="/mon-compte/reservations" className="font-semibold" style={{ color: "#4AAEA0" }}>
-            ← Mes réservations
-          </Link>
-        </div>
       </div>
     </main>
   );
