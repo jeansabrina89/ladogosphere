@@ -59,12 +59,14 @@ export default function Ententes({
   };
 
   const handleFamilleUniquement = async () => {
-    await fetch(`/api/chiens/${chien_id}/ententes`, {
+    const nouvelleValeur = !familleUniquement;
+    setFamilleUniquement(nouvelleValeur);
+    const res = await fetch(`/api/chiens/${chien_id}/ententes`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type: "famille_uniquement", famille_uniquement: true }),
     });
-    await charger();
+    if (!res.ok) setFamilleUniquement(!nouvelleValeur);
   };
 
   const handleDoitEtreIsole = async () => {
@@ -84,10 +86,14 @@ export default function Ententes({
 
   const getTypeLabel = (type: string) => {
     switch (type) {
-      case "ok": return { emoji: "✅", label: "S'entend bien", color: "text-green-600", bg: "bg-green-50", border: "border-green-200" };
-      case "interdit": return { emoji: "❌", label: "Incompatibles", color: "text-red-600", bg: "bg-red-50", border: "border-red-200" };
-      case "box_compatible": return { emoji: "🏠", label: "Peut aller au box avec", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" };
-      default: return { emoji: "🏠", label: "Famille", color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200" };
+      case "ok":
+        return { emoji: "✅", label: "S'entend bien", color: "text-green-600", bg: "bg-green-50", border: "border-green-200" };
+      case "interdit":
+        return { emoji: "❌", label: "Incompatibles", color: "text-red-600", bg: "bg-red-50", border: "border-red-200" };
+      case "box_compatible":
+        return { emoji: "🏠", label: "Peut aller au box avec", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-200" };
+      default:
+        return { emoji: "🏠", label: "Famille", color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200" };
     }
   };
 
@@ -99,51 +105,41 @@ export default function Ententes({
 
       {/* Option famille uniquement */}
       <div className="mb-4 p-3 rounded-xl border-2"
-        style={{
-          borderColor: familleUniquement ? "#E8847A" : "#E2E8F0",
-          backgroundColor: familleUniquement ? "#FEF2F2" : "white"
-        }}>
+        style={{ borderColor: familleUniquement ? "#E8847A" : "#E2E8F0", backgroundColor: familleUniquement ? "#FEF2F2" : "white" }}>
         {perm_chiens_modifier ? (
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={familleUniquement}
-              onChange={handleFamilleUniquement} />
+            <input type="checkbox" checked={familleUniquement} onChange={handleFamilleUniquement} />
             <span className="font-semibold" style={{ color: "#1B2B5E" }}>
               🏠 Famille uniquement — ne pas mélanger avec d'autres chiens
             </span>
           </label>
         ) : (
           <p className="font-semibold" style={{ color: "#1B2B5E" }}>
-            🏠 Famille uniquement — ne pas mélanger avec d'autres chiens
-            {familleUniquement ? " ✅" : " ❌"}
+            🏠 Famille uniquement — ne pas mélanger avec d'autres chiens{familleUniquement ? " ✅" : " ❌"}
           </p>
         )}
       </div>
 
       {/* Option doit être isolé */}
       <div className="mb-4 p-3 rounded-xl border-2"
-        style={{
-          borderColor: doitEtreIsole ? "#E8847A" : "#E2E8F0",
-          backgroundColor: doitEtreIsole ? "#FEF2F2" : "white"
-        }}>
+        style={{ borderColor: doitEtreIsole ? "#E8847A" : "#E2E8F0", backgroundColor: doitEtreIsole ? "#FEF2F2" : "white" }}>
         {perm_chiens_modifier ? (
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={doitEtreIsole}
-              onChange={handleDoitEtreIsole} />
+            <input type="checkbox" checked={doitEtreIsole} onChange={handleDoitEtreIsole} />
             <span className="font-semibold" style={{ color: "#1B2B5E" }}>
               🚫 Doit être isolé — box exclusif, jamais avec d'autres chiens
             </span>
           </label>
         ) : (
           <p className="font-semibold" style={{ color: "#1B2B5E" }}>
-            🚫 Doit être isolé — box exclusif, jamais avec d'autres chiens
-            {doitEtreIsole ? " ✅" : " ❌"}
+            🚫 Doit être isolé — box exclusif, jamais avec d'autres chiens{doitEtreIsole ? " ✅" : " ❌"}
           </p>
         )}
       </div>
 
       {/* Explication box_compatible */}
       <div className="mb-4 p-3 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-700">
-        💡 <strong>Peut aller au box avec</strong> — prioritaire sur les restrictions générales de compatibilité. 
+        💡 <strong>Peut aller au box avec</strong> — prioritaire sur les restrictions générales de compatibilité.
         Si ce chien et l'autre sont marqués ainsi, ils seront mis ensemble même si leurs profils semblent incompatibles.
       </div>
 
@@ -162,8 +158,7 @@ export default function Ententes({
                   {e.note && <p className="text-xs text-gray-500 mt-0.5">{e.note}</p>}
                 </div>
                 {perm_chiens_modifier && (
-                  <button onClick={() => handleSupprimer(e.id)}
-                    className="text-xs text-red-400 hover:text-red-600">
+                  <button onClick={() => handleSupprimer(e.id)} className="text-xs text-red-400 hover:text-red-600">
                     Supprimer
                   </button>
                 )}
@@ -176,27 +171,22 @@ export default function Ententes({
       {/* Ajouter une entente */}
       {perm_chiens_modifier && chiensDisponibles.length > 0 && (
         <div className="border rounded-xl p-4 space-y-3 bg-slate-50">
-          <p className="font-semibold text-sm" style={{ color: "#1B2B5E" }}>
-            Ajouter une entente
-          </p>
+          <p className="font-semibold text-sm" style={{ color: "#1B2B5E" }}>Ajouter une entente</p>
           <div className="grid grid-cols-2 gap-3">
-            <select value={chienCible} onChange={e => setChienCible(e.target.value)}
-              className="border rounded-xl p-2 text-sm">
+            <select value={chienCible} onChange={e => setChienCible(e.target.value)} className="border rounded-xl p-2 text-sm">
               <option value="">-- Choisir un chien --</option>
               {chiensDisponibles.map(c => (
                 <option key={c.id} value={c.id}>{c.nom} — {c.race || "—"}</option>
               ))}
             </select>
-            <select value={type} onChange={e => setType(e.target.value)}
-              className="border rounded-xl p-2 text-sm">
+            <select value={type} onChange={e => setType(e.target.value)} className="border rounded-xl p-2 text-sm">
               <option value="ok">✅ S'entend bien</option>
               <option value="box_compatible">🏠 Peut aller au box avec</option>
               <option value="interdit">❌ Incompatibles</option>
             </select>
           </div>
           <input type="text" value={note} onChange={e => setNote(e.target.value)}
-            placeholder="Note (optionnel)"
-            className="w-full border rounded-xl p-2 text-sm" />
+            placeholder="Note (optionnel)" className="w-full border rounded-xl p-2 text-sm" />
           <button onClick={handleAjouter} disabled={!chienCible || loading}
             className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
             style={{ backgroundColor: "#4AAEA0" }}>
