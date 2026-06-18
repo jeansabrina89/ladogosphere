@@ -6,10 +6,13 @@ import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { aujourdhuiISO, formatHeure } from "@/src/lib/dates";
 import CarteReservationAttente from "@/app/components/CarteReservationAttente";
 import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
+import EnTete from "@/app/components/ui/EnTete";
+import Carte from "@/app/components/ui/Carte";
+import Bouton from "@/app/components/ui/Bouton";
+import BadgeStatut from "@/app/components/ui/BadgeStatut";
+import EtatVide from "@/app/components/ui/EtatVide";
 
 export default async function Home() {
-  // Garde personnalisée — exigerPersonnelPage() ne peut pas être utilisé ici
-  // car il redirige les non-personnels vers "/" ce qui crée une boucle infinie.
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
@@ -74,162 +77,121 @@ export default async function Home() {
     perms.perm_clients_creer && { href: "/clients/nouveau", label: "👤 Nouveau client", desc: "Ajouter un client" },
   ].filter(Boolean) as { href: string; label: string; desc: string }[];
 
-  const carte = "bg-white rounded-2xl p-6 shadow-sm";
-  const hairline = { border: "1px solid rgba(27,43,94,.06)" };
-  const titreSection = { color: "#1B2B5E", fontFamily: "Georgia, serif" };
-  const muted = { color: "rgba(27,43,94,.55)" };
+  const h2: React.CSSProperties = { fontFamily: "Georgia, 'Times New Roman', serif", color: "#1B2B5E", fontSize: 18, fontWeight: 700, margin: "0 0 12px" };
+  const pill = (bg: string, color: string): React.CSSProperties => ({ display: "inline-block", backgroundColor: bg, color, borderRadius: 999, padding: "2px 10px", fontSize: 13, fontWeight: 500, marginLeft: 8 });
+  const stat = (bg: string): React.CSSProperties => ({ backgroundColor: bg, borderRadius: 16, padding: "20px 16px", textAlign: "center" });
+  const statNum: React.CSSProperties = { fontSize: 24, fontWeight: 500, margin: 0, lineHeight: 1 };
+  const statLbl: React.CSSProperties = { fontSize: 13, marginTop: 6, marginBottom: 0 };
+  const muted: React.CSSProperties = { color: "rgba(27,43,94,0.6)", fontSize: 14, margin: 0 };
 
-  return (
-    <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
-      <div className="max-w-7xl mx-auto">
-
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-4xl font-bold" style={{ color: "#1B2B5E", fontFamily: "Georgia, serif" }}>
-            Tableau de bord
-          </h1>
-          <p className="mt-1" style={muted}>
-            {new Date().toLocaleDateString("fr-CH", {
-              weekday: "long", day: "numeric", month: "long", year: "numeric"
-            })}
+  const ligneInfo = (cc: any, type: "arrivee" | "depart", dernier: boolean) => {
+    const chiens = cc.reservations?.reservation_chiens?.map((rc: any) => rc.chiens).filter(Boolean) ?? [];
+    const heure = type === "arrivee" ? cc.reservations?.heure_arrivee : cc.reservations?.heure_depart;
+    return (
+      <div key={cc.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: dernier ? "none" : "1px solid rgba(27,43,94,0.08)" }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <p style={{ fontWeight: 600, color: "#1B2B5E", fontSize: 14, margin: 0 }}>
+              {chiens.map((c: any) => c.nom).join(", ") || "—"}
+            </p>
+            <BadgeStatut statut={cc.statut} />
+          </div>
+          <p style={{ color: "rgba(27,43,94,0.6)", fontSize: 13, margin: "2px 0 0" }}>
+            {cc.reservations?.clients?.prenom} {cc.reservations?.clients?.nom}
+            {heure && ` · ${formatHeure(heure)}`}
           </p>
         </div>
+        {perms.perm_checkin && (
+          <div style={{ flexShrink: 0 }}>
+            <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type={type} />
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
+      <div className="max-w-6xl mx-auto">
+
+        <EnTete
+          titre="Tableau de bord"
+          sousTitre={new Date().toLocaleDateString("fr-CH", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+        />
 
         {/* Réservations en attente */}
-        <div className={`${carte} mb-6`} style={hairline}>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold" style={titreSection}>
-              ⏳ Réservations en attente de validation
-              {reservationsAttente ? (
-                <span className="ml-2 px-2 py-0.5 rounded-full text-sm font-bold"
-                  style={{ background: "#FBF3DC", color: "#8A6D1F" }}>
-                  {reservationsAttente}
-                </span>
-              ) : null}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <h2 style={h2}>
+              Réservations en attente
+              {reservationsAttente ? <span style={pill("#E4E7F1", "#2A3B6B")}>{reservationsAttente}</span> : null}
             </h2>
-            <Link href="/reservations" className="text-sm font-semibold" style={{ color: "#2E8B7E" }}>
-              Voir tout →
-            </Link>
+            <Bouton variante="discret" href="/reservations">Voir tout ›</Bouton>
           </div>
-          {dernieresReservations?.length === 0 && (
-            <p style={{ color: "rgba(27,43,94,.5)", fontSize: 14 }}>Aucune réservation en attente. ✅</p>
+          {dernieresReservations?.length ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {dernieresReservations.map((res: any) => (
+                <CarteReservationAttente key={res.id} res={res} />
+              ))}
+            </div>
+          ) : (
+            <Carte>
+              <EtatVide icone="✅" titre="Aucune réservation en attente" message="Tout est à jour." />
+            </Carte>
           )}
-          <div className="space-y-3">
-            {dernieresReservations?.map((res: any) => (
-              <CarteReservationAttente key={res.id} res={res} />
-            ))}
-          </div>
         </div>
 
         {/* Arrivées et départs */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-
-          <div className={carte} style={hairline}>
-            <h2 className="text-xl font-bold mb-4" style={titreSection}>
-              🐾 Arrivées aujourd&apos;hui
-              <span className="ml-2 px-2 py-0.5 rounded-full text-sm font-bold"
-                style={{ background: "#DEF1EC", color: "#1F6E5B" }}>
-                {arrivees?.length ?? 0}
-              </span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6" style={{ marginBottom: 32 }}>
+          <div>
+            <h2 style={h2}>
+              Arrivées aujourd&apos;hui
+              <span style={pill("#DBEFEA", "#1F6E5B")}>{arrivees?.length ?? 0}</span>
             </h2>
-            {arrivees?.length === 0 && (
-              <p style={{ color: "rgba(27,43,94,.5)", fontSize: 14 }}>Aucune arrivée prévue.</p>
-            )}
-            <div className="space-y-3">
-              {arrivees?.map((cc: any) => {
-                const chiens = cc.reservations?.reservation_chiens?.map((rc: any) => rc.chiens).filter(Boolean) ?? [];
-                return (
-                  <div key={cc.id} className="rounded-xl p-3 flex justify-between items-center"
-                    style={{ border: "1px solid rgba(27,43,94,.08)" }}>
-                    <div>
-                      <p className="font-semibold text-sm" style={{ color: "#1B2B5E" }}>
-                        {chiens.map((c: any) => c.nom).join(", ") || "—"}
-                      </p>
-                      <p className="text-xs" style={muted}>
-                        {cc.reservations?.clients?.prenom} {cc.reservations?.clients?.nom}
-                        {cc.reservations?.heure_arrivee && ` · ${formatHeure(cc.reservations.heure_arrivee)}`}
-                      </p>
-                    </div>
-                    {perms.perm_checkin && (
-                      <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type="arrivee" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            <Carte>
+              {arrivees?.length
+                ? arrivees.map((cc: any, i: number) => ligneInfo(cc, "arrivee", i === arrivees.length - 1))
+                : <p style={muted}>Aucune arrivée prévue.</p>}
+            </Carte>
           </div>
-
-          <div className={carte} style={hairline}>
-            <h2 className="text-xl font-bold mb-4" style={titreSection}>
-              🏠 Départs aujourd&apos;hui
-              <span className="ml-2 px-2 py-0.5 rounded-full text-sm font-bold"
-                style={{ background: "#FBE7E4", color: "#B5564C" }}>
-                {departs?.length ?? 0}
-              </span>
+          <div>
+            <h2 style={h2}>
+              Départs aujourd&apos;hui
+              <span style={pill("#FBE2DE", "#A8453A")}>{departs?.length ?? 0}</span>
             </h2>
-            {departs?.length === 0 && (
-              <p style={{ color: "rgba(27,43,94,.5)", fontSize: 14 }}>Aucun départ prévu.</p>
-            )}
-            <div className="space-y-3">
-              {departs?.map((cc: any) => {
-                const chiens = cc.reservations?.reservation_chiens?.map((rc: any) => rc.chiens).filter(Boolean) ?? [];
-                return (
-                  <div key={cc.id} className="rounded-xl p-3 flex justify-between items-center"
-                    style={{ border: "1px solid rgba(27,43,94,.08)" }}>
-                    <div>
-                      <p className="font-semibold text-sm" style={{ color: "#1B2B5E" }}>
-                        {chiens.map((c: any) => c.nom).join(", ") || "—"}
-                      </p>
-                      <p className="text-xs" style={muted}>
-                        {cc.reservations?.clients?.prenom} {cc.reservations?.clients?.nom}
-                        {cc.reservations?.heure_depart && ` · ${formatHeure(cc.reservations.heure_depart)}`}
-                      </p>
-                    </div>
-                    {perms.perm_checkin && (
-                      <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type="depart" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            <Carte>
+              {departs?.length
+                ? departs.map((cc: any, i: number) => ligneInfo(cc, "depart", i === departs.length - 1))
+                : <p style={muted}>Aucun départ prévu.</p>}
+            </Carte>
           </div>
-
         </div>
 
         {/* Stats globales */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          <div className={`${carte.replace("p-6", "p-5")} flex items-center gap-4`} style={hairline}>
-            <span className="text-3xl">🐶</span>
-            <div>
-              <p className="text-2xl font-bold" style={{ color: "#1B2B5E", fontFamily: "Georgia, serif" }}>{totalChiens}</p>
-              <p className="text-sm" style={muted}>Chiens enregistrés</p>
-            </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3" style={{ marginBottom: 32 }}>
+          <div style={stat("#DBEFEA")}>
+            <p style={{ ...statNum, color: "#1F6E5B" }}>{totalChiens}</p>
+            <p style={{ ...statLbl, color: "rgba(31,110,91,0.7)" }}>Chiens enregistrés</p>
           </div>
-          <div className={`${carte.replace("p-6", "p-5")} flex items-center gap-4`} style={hairline}>
-            <span className="text-3xl">👤</span>
-            <div>
-              <p className="text-2xl font-bold" style={{ color: "#1B2B5E", fontFamily: "Georgia, serif" }}>{totalClients}</p>
-              <p className="text-sm" style={muted}>Clients actifs</p>
-            </div>
+          <div style={stat("#E4E7F1")}>
+            <p style={{ ...statNum, color: "#2A3B6B" }}>{totalClients}</p>
+            <p style={{ ...statLbl, color: "rgba(42,59,107,0.7)" }}>Clients actifs</p>
           </div>
-          <div className={`${carte.replace("p-6", "p-5")} flex items-center gap-4`} style={hairline}>
-            <span className="text-3xl">🏠</span>
-            <div>
-              <p className="text-2xl font-bold" style={{ color: "#1B2B5E", fontFamily: "Georgia, serif" }}>12</p>
-              <p className="text-sm" style={muted}>Boxes disponibles</p>
-            </div>
+          <div style={stat("#F4EAC9")}>
+            <p style={{ ...statNum, color: "#6E5410" }}>12</p>
+            <p style={{ ...statLbl, color: "rgba(110,84,16,0.7)" }}>Boxes disponibles</p>
           </div>
         </div>
 
-        {/* Accès rapides — conditionné par les permissions */}
+        {/* Accès rapides — desktop uniquement, conditionné par les permissions */}
         {accesRapides.length > 0 && (
-          <div className="hidden md:grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="hidden md:grid grid-cols-2 md:grid-cols-4 gap-3">
             {accesRapides.map(({ href, label, desc }) => (
-              <Link key={href} href={href}
-                className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition text-left"
-                style={{ borderLeft: "4px solid #2E8B7E" }}>
-                <p className="font-bold" style={{ color: "#1B2B5E" }}>{label}</p>
-                <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,.45)" }}>{desc}</p>
+              <Link key={href} href={href} style={{ textDecoration: "none" }}>
+                <Carte accent="teal">
+                  <p style={{ fontWeight: 700, color: "#1B2B5E", margin: 0 }}>{label}</p>
+                  <p style={{ color: "rgba(27,43,94,0.55)", fontSize: 13, margin: "4px 0 0" }}>{desc}</p>
+                </Carte>
               </Link>
             ))}
           </div>

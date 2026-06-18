@@ -1,29 +1,29 @@
 "use client";
 
 import Link from "next/link";
+import Carte from "@/app/components/ui/Carte";
+import BadgeStatut from "@/app/components/ui/BadgeStatut";
 import BoutonValiderReservation from "./BoutonValiderReservation";
 
 export default function CarteReservationAttente({ res }: { res: any }) {
   const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens?.nom).filter(Boolean) ?? [];
 
   return (
-    <div className="rounded-2xl p-4"
-      style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "1rem", alignItems: "center", border: "1px solid rgba(27,43,94,.08)" }}>
-      <Link href={`/reservations/${res.id}`}>
-        <p className="font-semibold" style={{ color: "#1B2B5E" }}>
-          {res.clients?.prenom} {res.clients?.nom}
-        </p>
-        <p className="text-sm" style={{ color: "rgba(27,43,94,.55)" }}>
-          🐶 {chiens.join(", ") || "—"} · {res.date_debut} → {res.date_fin}
-        </p>
-      </Link>
-      <div className="flex items-center gap-2">
-        <span className="px-3 py-1 rounded-full text-xs font-semibold"
-          style={{ background: "#FBF3DC", color: "#8A6D1F" }}>
-          ⏳ En attente
-        </span>
-        <BoutonValiderReservation id={res.id} />
+    <Carte>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+        <Link href={`/reservations/${res.id}`} style={{ textDecoration: "none", minWidth: 0 }}>
+          <p style={{ fontWeight: 700, color: "#1B2B5E", margin: "0 0 4px" }}>
+            {res.clients?.prenom} {res.clients?.nom}
+          </p>
+          <p style={{ color: "rgba(27,43,94,0.6)", fontSize: 14, margin: 0 }}>
+            🐶 {chiens.join(", ") || "—"} · {res.date_debut} → {res.date_fin}
+          </p>
+        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <BadgeStatut statut="en_attente" />
+          <BoutonValiderReservation id={res.id} />
+        </div>
       </div>
-    </div>
+    </Carte>
   );
 }
