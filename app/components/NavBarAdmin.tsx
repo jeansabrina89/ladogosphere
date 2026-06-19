@@ -20,7 +20,8 @@ const SECTIONS_ADMIN: SectionNav[] = [
   ]},
   { titre: "RH", liens: [
     { href: "/employes", label: "👥 Équipe" },
-    { href: "/employes/planning", label: "🗓️ Planning équipe" },
+    { href: "/employes/planning-equipe", label: "🗓️ Planning équipe" },
+    { href: "/employes/planning", label: "🛠️ Générer planning" },
     { href: "/employes/timbrage", label: "⏱️ Timbrage" },
     { href: "/employes/vacances", label: "🌴 Vacances" },
   ]},
