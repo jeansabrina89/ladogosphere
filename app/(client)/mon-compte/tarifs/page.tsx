@@ -2,16 +2,14 @@ import type { CSSProperties } from "react";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import EnTete from "@/app/components/ui/EnTete";
+import Carte from "@/app/components/ui/Carte";
+import EtatVide from "@/app/components/ui/EtatVide";
 
 const MARINE = "#1B2B5E";
 
-const sCarte: CSSProperties = {
-  backgroundColor: "#fff",
-  border: "1px solid rgba(27,43,94,0.12)",
-  borderRadius: 18,
-  padding: 22,
-  marginBottom: 16,
-};
+const sTopnavA: CSSProperties = { color: "#1F6E5B", textDecoration: "none", fontWeight: 600, fontSize: 14 };
 
 const sSecTitre: CSSProperties = {
   fontFamily: "Georgia, 'Times New Roman', serif",
@@ -166,104 +164,110 @@ export default async function TarifsClientPage() {
   const essai3 = getPrix(tarifs, "journee_partage_3", true);
 
   return (
-    <main style={{ minHeight: "100vh", backgroundColor: "#F5F0E8", padding: "32px 16px" }}>
-      <div style={{ maxWidth: 600, margin: "0 auto" }}>
+    <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
+      <div style={{ maxWidth: 720, margin: "0 auto" }}>
 
-        <div style={{ marginBottom: 20 }}>
-          <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 26, fontWeight: 700, color: MARINE, margin: "0 0 4px" }}>
-            🏷️ Tarifs {annee}
-          </h1>
-          <p style={{ margin: 0, color: "rgba(27,43,94,0.6)", fontSize: 14 }}>
-            Tarifs indicatifs — le montant définitif est confirmé par notre équipe lors de la validation de ta demande.
-          </p>
+        <div style={{ marginBottom: 16 }}>
+          <Link href="/mon-compte" style={sTopnavA}>← Mon compte</Link>
         </div>
 
-        {estMembre && (
-          <div style={{ backgroundColor: "#DBEFEA", border: "1px solid #4AAEA0", borderRadius: 14, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 20 }}>★</span>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#1F6E5B" }}>
-              Tu es membre — les tarifs membres s'appliquent à tes réservations.
-            </p>
-          </div>
-        )}
+        <EnTete
+          titre={`🏷️ Tarifs ${annee}`}
+          sousTitre="Tarifs indicatifs — le montant définitif est confirmé par notre équipe lors de la validation de ta demande."
+        />
 
-        {tarifsVides ? (
-          <div style={sCarte}>
-            <p style={{ color: "rgba(27,43,94,0.5)", fontSize: 14, margin: 0 }}>
-              Les tarifs {annee} ne sont pas encore publiés. Contacte-nous pour plus d'informations.
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* GARDERIE */}
-            <div style={sCarte}>
-              <p style={sSecTitre}>☀️ Garderie (journée)</p>
-              <p style={sSecSous}>Tarif par chien, pour une journée.</p>
-              <EnTeteGrille />
-              <LigneGrille label="1 chien" nm={getPrix(tarifs, "journee_partage_1", false)} mb={getPrix(tarifs, "journee_partage_1", true)} estMembre={estMembre} />
-              <LigneGrille label="2 chiens" nm={getPrix(tarifs, "journee_partage_2", false)} mb={getPrix(tarifs, "journee_partage_2", true)} estMembre={estMembre} />
-              <LigneGrille label="3 chiens" nm={getPrix(tarifs, "journee_partage_3", false)} mb={getPrix(tarifs, "journee_partage_3", true)} estMembre={estMembre} />
-              <p style={sNote}>Au-delà de 3 chiens : tarif sur demande.</p>
-            </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-            {/* PENSION */}
-            <div style={sCarte}>
-              <p style={sSecTitre}>🏠 Pension (par nuit)</p>
-              <p style={sSecSous}>Tarif par chien et par nuit.</p>
-              <EnTeteGrille />
-              <LigneGrille label="1 chien" nm={getPrix(tarifs, "sejour_partage_1", false)} mb={getPrix(tarifs, "sejour_partage_1", true)} estMembre={estMembre} />
-              <LigneGrille label="2 chiens" nm={getPrix(tarifs, "sejour_partage_2", false)} mb={getPrix(tarifs, "sejour_partage_2", true)} estMembre={estMembre} />
-              <LigneGrille label="3 chiens" nm={getPrix(tarifs, "sejour_partage_3", false)} mb={getPrix(tarifs, "sejour_partage_3", true)} estMembre={estMembre} />
-              <p style={sNote}>Au-delà de 3 chiens : tarif sur demande.</p>
-            </div>
-
-            {/* JOURNÉE D'ESSAI */}
-            <div style={sCarte}>
-              <p style={sSecTitre}>🧪 Journée d'essai</p>
-              <p style={sSecSous}>
-                Obligatoire pour tout nouveau chien avant la première réservation. Facturée au tarif d'une garderie membre, selon le nombre de chiens.
+          {estMembre && (
+            <div style={{ backgroundColor: "#DBEFEA", border: "1px solid #4AAEA0", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 20 }}>★</span>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#1F6E5B" }}>
+                Tu es membre — les tarifs membres s'appliquent à tes réservations.
               </p>
-              <div style={{ backgroundColor: "#F5F0E8", borderRadius: 12, padding: "4px 16px" }}>
-                <LigneEssai label="1 chien" prix={essai1} />
-                {essai2 !== "—" && <LigneEssai label="2 chiens" prix={essai2} />}
-                {essai3 !== "—" && <LigneEssai label="3 chiens" prix={essai3} />}
-              </div>
-              <p style={sNote}>Au-delà de 3 chiens : tarif sur demande.</p>
             </div>
+          )}
 
-            {/* PRIVATIF */}
-            {(getPrix(tarifs, "journee_privatif", false) !== "—" || getPrix(tarifs, "sejour_privatif", false) !== "—") && (
-              <div style={sCarte}>
-                <p style={sSecTitre}>🚪 Hébergement privatif</p>
-                <p style={sSecSous}>Box réservé exclusivement à ton chien (sur demande).</p>
+          {tarifsVides ? (
+            <Carte>
+              <EtatVide
+                icone="🏷️"
+                titre="Tarifs non encore publiés"
+                message={`Les tarifs ${annee} ne sont pas encore publiés. Contacte-nous pour plus d'informations.`}
+              />
+            </Carte>
+          ) : (
+            <>
+              {/* GARDERIE */}
+              <Carte>
+                <p style={sSecTitre}>☀️ Garderie (journée)</p>
+                <p style={sSecSous}>Tarif par chien, pour une journée.</p>
                 <EnTeteGrille />
-                {getPrix(tarifs, "journee_privatif", false) !== "—" && (
-                  <LigneGrille label="Garderie privatif" nm={getPrix(tarifs, "journee_privatif", false)} mb={getPrix(tarifs, "journee_privatif", true)} estMembre={estMembre} />
-                )}
-                {getPrix(tarifs, "sejour_privatif", false) !== "—" && (
-                  <LigneGrille label="Pension privatif / nuit" nm={getPrix(tarifs, "sejour_privatif", false)} mb={getPrix(tarifs, "sejour_privatif", true)} estMembre={estMembre} />
-                )}
+                <LigneGrille label="1 chien" nm={getPrix(tarifs, "journee_partage_1", false)} mb={getPrix(tarifs, "journee_partage_1", true)} estMembre={estMembre} />
+                <LigneGrille label="2 chiens" nm={getPrix(tarifs, "journee_partage_2", false)} mb={getPrix(tarifs, "journee_partage_2", true)} estMembre={estMembre} />
+                <LigneGrille label="3 chiens" nm={getPrix(tarifs, "journee_partage_3", false)} mb={getPrix(tarifs, "journee_partage_3", true)} estMembre={estMembre} />
+                <p style={sNote}>Au-delà de 3 chiens : tarif sur demande.</p>
+              </Carte>
+
+              {/* PENSION */}
+              <Carte>
+                <p style={sSecTitre}>🏠 Pension (par nuit)</p>
+                <p style={sSecSous}>Tarif par chien et par nuit.</p>
+                <EnTeteGrille />
+                <LigneGrille label="1 chien" nm={getPrix(tarifs, "sejour_partage_1", false)} mb={getPrix(tarifs, "sejour_partage_1", true)} estMembre={estMembre} />
+                <LigneGrille label="2 chiens" nm={getPrix(tarifs, "sejour_partage_2", false)} mb={getPrix(tarifs, "sejour_partage_2", true)} estMembre={estMembre} />
+                <LigneGrille label="3 chiens" nm={getPrix(tarifs, "sejour_partage_3", false)} mb={getPrix(tarifs, "sejour_partage_3", true)} estMembre={estMembre} />
+                <p style={sNote}>Au-delà de 3 chiens : tarif sur demande.</p>
+              </Carte>
+
+              {/* JOURNÉE D'ESSAI */}
+              <Carte>
+                <p style={sSecTitre}>🧪 Journée d'essai</p>
+                <p style={sSecSous}>
+                  Obligatoire pour tout nouveau chien avant la première réservation. Facturée au tarif d'une garderie membre, selon le nombre de chiens.
+                </p>
+                <div style={{ backgroundColor: "#F5F0E8", borderRadius: 12, padding: "4px 16px" }}>
+                  <LigneEssai label="1 chien" prix={essai1} />
+                  {essai2 !== "—" && <LigneEssai label="2 chiens" prix={essai2} />}
+                  {essai3 !== "—" && <LigneEssai label="3 chiens" prix={essai3} />}
+                </div>
+                <p style={sNote}>Au-delà de 3 chiens : tarif sur demande.</p>
+              </Carte>
+
+              {/* PRIVATIF */}
+              {(getPrix(tarifs, "journee_privatif", false) !== "—" || getPrix(tarifs, "sejour_privatif", false) !== "—") && (
+                <Carte>
+                  <p style={sSecTitre}>🚪 Hébergement privatif</p>
+                  <p style={sSecSous}>Box réservé exclusivement à ton chien (sur demande).</p>
+                  <EnTeteGrille />
+                  {getPrix(tarifs, "journee_privatif", false) !== "—" && (
+                    <LigneGrille label="Garderie privatif" nm={getPrix(tarifs, "journee_privatif", false)} mb={getPrix(tarifs, "journee_privatif", true)} estMembre={estMembre} />
+                  )}
+                  {getPrix(tarifs, "sejour_privatif", false) !== "—" && (
+                    <LigneGrille label="Pension privatif / nuit" nm={getPrix(tarifs, "sejour_privatif", false)} mb={getPrix(tarifs, "sejour_privatif", true)} estMembre={estMembre} />
+                  )}
+                </Carte>
+              )}
+            </>
+          )}
+
+          {/* ADHÉSION MEMBRE */}
+          {cotisation > 0 && (
+            <div style={{ backgroundColor: "#F4EAC9", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 18, padding: 22 }}>
+              <p style={{ ...sSecTitre, margin: "0 0 6px" }}>★ Adhésion membre</p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <p style={{ margin: 0, fontSize: 14, color: "rgba(27,43,94,0.7)", maxWidth: 380 }}>
+                  L'adhésion annuelle donne accès aux tarifs membres sur toutes les formules.
+                </p>
+                <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 20, fontWeight: 700, color: "#6E5410", whiteSpace: "nowrap", marginLeft: 12 }}>
+                  CHF {cotisation.toFixed(2)} / an
+                </span>
               </div>
-            )}
-          </>
-        )}
-
-        {/* ADHÉSION MEMBRE */}
-        {cotisation > 0 && (
-          <div style={{ ...sCarte, backgroundColor: "#F4EAC9", border: "1px solid rgba(201,168,76,0.3)" }}>
-            <p style={{ ...sSecTitre, margin: "0 0 6px" }}>★ Adhésion membre</p>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <p style={{ margin: 0, fontSize: 14, color: "rgba(27,43,94,0.7)", maxWidth: 380 }}>
-                L'adhésion annuelle donne accès aux tarifs membres sur toutes les formules.
-              </p>
-              <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 20, fontWeight: 700, color: "#6E5410", whiteSpace: "nowrap", marginLeft: 12 }}>
-                CHF {cotisation.toFixed(2)} / an
-              </span>
             </div>
-          </div>
-        )}
+          )}
 
-        <p style={{ fontSize: 12, color: "rgba(27,43,94,0.4)", textAlign: "center", marginTop: 8 }}>
+        </div>
+
+        <p style={{ fontSize: 12, color: "rgba(27,43,94,0.4)", textAlign: "center", marginTop: 16 }}>
           Tarifs en CHF TTC · Année {annee}
         </p>
 
