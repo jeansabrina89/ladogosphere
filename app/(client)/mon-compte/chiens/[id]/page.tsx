@@ -2,6 +2,9 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import Link from "next/link";
 import { formatDateFR } from "@/src/lib/dates";
 import UploadPhoto from "./UploadPhoto";
+import Carte from "@/app/components/ui/Carte";
+import Bouton from "@/app/components/ui/Bouton";
+import EtatVide from "@/app/components/ui/EtatVide";
 
 export default async function FicheChienClientPage({
   params,
@@ -22,71 +25,98 @@ export default async function FicheChienClientPage({
 
   if (!chien) {
     return (
-      <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
-        <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm text-center">
-          <p className="text-gray-600 mb-4">Chien introuvable.</p>
-          <Link href="/mon-compte/chiens" className="font-semibold" style={{ color: "#4AAEA0" }}>
-            ← Retour à mes chiens
-          </Link>
+      <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
+        <div style={{ maxWidth: 720, margin: "0 auto" }}>
+          <Carte>
+            <EtatVide
+              icone="🐶"
+              titre="Chien introuvable"
+              message="Ce chien n'existe pas ou n'est pas rattaché à ton compte."
+              action={<Bouton variante="secondaire" href="/mon-compte/chiens">← Mes chiens</Bouton>}
+            />
+          </Carte>
         </div>
       </main>
     );
   }
 
+  const titreSection: React.CSSProperties = { fontFamily: "Georgia, 'Times New Roman', serif", color: "#1B2B5E", fontSize: 18, fontWeight: 700, margin: "0 0 16px" };
+  const ligne = (label: string, valeur: React.ReactNode) => (
+    <div style={{ display: "flex", gap: 12, fontSize: 15, lineHeight: 1.6, alignItems: "baseline" }}>
+      <span style={{ color: "rgba(27,43,94,0.6)", width: 150, flexShrink: 0 }}>{label}</span>
+      <span style={{ color: "#1B2B5E", fontWeight: 500, minWidth: 0 }}>{valeur ?? "—"}</span>
+    </div>
+  );
+
+  const categorieTxt =
+    chien.categorie_poids === "moins_15kg" ? "🟢 Petit (moins de 15 kg)" :
+    chien.categorie_poids === "15_30kg" ? "🟡 Moyen (15–30 kg)" :
+    chien.categorie_poids === "30_40kg" ? "🔴 Grand (30 kg et +)" : "—";
+  const sexeTxt = chien.sexe === "M" ? "♂️ Mâle" : chien.sexe === "F" ? "♀️ Femelle" : "—";
+  const sterilisationTxt =
+    chien.sterilisation === "oui" ? "Stérilisé" :
+    chien.sterilisation === "chimique" ? "Castré chimiquement" : "Non stérilisé";
+
   return (
-    <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
-      <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm">
-        <div className="flex flex-col items-center mb-8">
-          <div style={{ width: 110, height: 110, borderRadius: "50%", background: "#DBEFEA", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 52, overflow: "hidden" }}>
-            {chien.photo_principale ? (
-              <img src={chien.photo_principale} alt={chien.nom} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            ) : (
-              "🐶"
-            )}
-          </div>
-          <div style={{ marginTop: 10 }}>
-            <UploadPhoto chienId={chien.id} photoActuelle={chien.photo_principale ?? null} />
-          </div>
-          <h1 className="text-3xl font-bold mt-3" style={{ color: "#1B2B5E" }}>
-            {chien.nom}
-          </h1>
+    <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
+      <div style={{ maxWidth: 720, margin: "0 auto" }}>
+
+        <div style={{ marginBottom: 16 }}>
+          <Link href="/mon-compte/chiens" style={{ color: "#1F6E5B", textDecoration: "none", fontWeight: 600, fontSize: 14 }}>← Mes chiens</Link>
         </div>
 
-        <div className="space-y-2 mb-8">
-          <p><strong>Race :</strong> {chien.race || "—"}</p>
-          <p><strong>Couleur :</strong> {chien.couleur || "—"}</p>
-          <p><strong>Poids :</strong> {chien.poids ? `${chien.poids} kg` : "—"}</p>
-          <p><strong>Catégorie :</strong> {
-            chien.categorie_poids === "moins_15kg" ? "🟢 Petit (moins de 15 kg)" :
-            chien.categorie_poids === "15_30kg" ? "🟡 Moyen (15–30 kg)" :
-            chien.categorie_poids === "30_40kg" ? "🔴 Grand (30 kg et +)" : "—"
-          }</p>
-          <p><strong>Sexe :</strong> {chien.sexe === "M" ? "♂️ Mâle" : chien.sexe === "F" ? "♀️ Femelle" : "—"}</p>
-          <p><strong>Stérilisation :</strong> {
-            chien.sterilisation === "oui" ? "Stérilisé" :
-            chien.sterilisation === "chimique" ? "Castré chimiquement" : "Non stérilisé"
-          }</p>
-          <p><strong>Date de naissance :</strong> {chien.date_naissance ? formatDateFR(chien.date_naissance) : "—"}</p>
-          <p><strong>Numéro de puce :</strong> {chien.numero_puce || "—"}</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {/* En-tête profil */}
+          <Carte>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 10 }}>
+              <div style={{ width: 110, height: 110, borderRadius: "50%", background: "#DBEFEA", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 52, overflow: "hidden" }}>
+                {chien.photo_principale ? (
+                  <img src={chien.photo_principale} alt={chien.nom} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  "🐶"
+                )}
+              </div>
+              <UploadPhoto chienId={chien.id} photoActuelle={chien.photo_principale ?? null} />
+              <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#1B2B5E", fontSize: 26, fontWeight: 700, margin: 0 }}>
+                {chien.sexe === "F" ? "♀️" : "♂️"} {chien.nom}
+              </h1>
+            </div>
+          </Carte>
+
+          {/* Informations */}
+          <Carte>
+            <h2 style={titreSection}>Informations</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {ligne("Race", chien.race || "—")}
+              {ligne("Couleur", chien.couleur || "—")}
+              {ligne("Poids", chien.poids ? `${chien.poids} kg` : "—")}
+              {ligne("Catégorie", categorieTxt)}
+              {ligne("Sexe", sexeTxt)}
+              {ligne("Stérilisation", sterilisationTxt)}
+              {ligne("Date de naissance", chien.date_naissance ? formatDateFR(chien.date_naissance) : "—")}
+              {ligne("Numéro de puce", chien.numero_puce || "—")}
+            </div>
+          </Carte>
+
+          {/* Santé */}
+          <Carte>
+            <h2 style={titreSection}>🩺 Santé</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {ligne("Allergies", chien.allergies || "—")}
+              {ligne("Traitements en cours", chien.traitements || "—")}
+              {ligne("Remarques", chien.remarques || "—")}
+            </div>
+          </Carte>
+
         </div>
 
-        <div className="border-t pt-6 space-y-2 mb-8">
-          <h2 className="text-xl font-bold mb-2" style={{ color: "#1B2B5E" }}>Santé</h2>
-          <p><strong>Allergies :</strong> {chien.allergies || "—"}</p>
-          <p><strong>Traitements en cours :</strong> {chien.traitements || "—"}</p>
-          <p><strong>Remarques :</strong> {chien.remarques || "—"}</p>
+        {/* Actions */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 20 }}>
+          <Bouton variante="principal" href={`/mon-compte/chiens/${chien.id}/modifier`}>✏️ Modifier</Bouton>
+          <Bouton variante="secondaire" href="/mon-compte/chiens">← Mes chiens</Bouton>
         </div>
 
-        <div className="border-t pt-6 flex gap-3">
-          <Link href={`/mon-compte/chiens/${chien.id}/modifier`}
-            className="px-6 py-3 rounded-xl font-semibold text-white" style={{ backgroundColor: "#4AAEA0" }}>
-            ✏️ Modifier
-          </Link>
-          <Link href="/mon-compte/chiens"
-            className="px-6 py-3 rounded-xl font-semibold" style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
-            ← Mes chiens
-          </Link>
-        </div>
       </div>
     </main>
   );
