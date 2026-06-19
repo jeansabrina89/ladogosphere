@@ -64,7 +64,7 @@ function genCreneaux(debut: string, fin: string): string[] {
   return res;
 }
 
-const CR_ARR_JOURNEE = genCreneaux("07:35", "10:00");
+const CR_ARR_JOURNEE = ["07:35", "07:45", "08:00", "08:15", "08:30", "08:45", "09:00", "09:15", "09:30", "09:45", "10:00"];
 const CR_ARR_SEJOUR  = genCreneaux("09:00", "10:00");
 const CR_DEP_STD     = genCreneaux("17:00", "18:00");
 const CR_DEP_SEJOUR  = [...genCreneaux("09:00", "10:00"), ...genCreneaux("17:00", "18:00")];
@@ -398,11 +398,14 @@ export default function TunnelReservation({
 
   const estDateInvalide = useCallback((ds: string, pourEssai = false) => {
     if (!ds) return false;
+    // Garderie & séjour : ouverts tous les jours de l'année (aucune restriction).
+    // Seules les journées d'essai sont restreintes (weekend, fériés, jours pleins/fermés).
+    if (!pourEssai) return false;
     const jour = new Date(ds + "T12:00:00").getDay();
     if (jour === 0 || jour === 6) return true;
     if (joursFeries.includes(ds)) return true;
-    if (pourEssai && datesPleine.includes(ds)) return true;
-    if (pourEssai && datesFermees.includes(ds)) return true;
+    if (datesPleine.includes(ds)) return true;
+    if (datesFermees.includes(ds)) return true;
     return false;
   }, [joursFeries, datesPleine, datesFermees]);
 
@@ -550,10 +553,6 @@ export default function TunnelReservation({
 
     if (etape === "dates") {
       if (!dateArrivee) { setErreur("Choisis une date d'arrivée."); return; }
-      if (estDateInvalide(dateArrivee, false)) {
-        setErreur(joursFeries.includes(dateArrivee) ? "Ce jour est férié en Valais." : "Les weekends ne sont pas disponibles.");
-        return;
-      }
       if (formule === "sejour") {
         if (!dateFin) { setErreur("Choisis une date de départ."); return; }
         if (dateFin <= dateArrivee) { setErreur("La date de départ doit être après l'arrivée."); return; }
@@ -870,7 +869,7 @@ export default function TunnelReservation({
       <>
         <p style={S.titre}>{formule === "sejour" ? "Dates du séjour" : "Date de la journée"}</p>
         <p style={S.sousTitre}>
-          {formule === "sejour" ? "Arrivée et départ, lundi au vendredi." : "Lundi au vendredi, hors jours fériés."}
+          {formule === "sejour" ? "Arrivée et départ, tous les jours de l'année." : "Tous les jours de l'année."}
         </p>
         {renderErreur()}
 
@@ -881,13 +880,9 @@ export default function TunnelReservation({
               <input type="date" style={S.input} min={demain} value={dateArrivee}
                 onChange={e => {
                   const v = e.target.value;
-                  if (v && estDateInvalide(v, false)) {
-                    setErreur(joursFeries.includes(v) ? "Ce jour est férié en Valais." : "Les weekends ne sont pas disponibles.");
-                  } else {
-                    setErreur("");
-                    setDateArrivee(v);
-                    if (formule === "journee") setDateFin(v);
-                  }
+                  setErreur("");
+                  setDateArrivee(v);
+                  if (formule === "journee") setDateFin(v);
                 }}
               />
             </div>
@@ -973,7 +968,7 @@ export default function TunnelReservation({
                   <label style={S.label}>Chaque *</label>
                   <select style={{ ...S.input, appearance: "none" as const }} value={jourSemaine}
                     onChange={e => setJourSemaine(parseInt(e.target.value))}>
-                    {JOURS_LV.map(j => <option key={j.v} value={j.v}>{j.l}</option>)}
+                    {JOURS_ALL.map(j => <option key={j.v} value={j.v}>{j.l}</option>)}
                   </select>
                 </div>
               )}
