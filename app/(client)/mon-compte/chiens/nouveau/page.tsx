@@ -2,6 +2,9 @@ import type { CSSProperties } from "react";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { creerChienClient } from "./actions";
 import BoutonEnregistrer from "./BoutonEnregistrer";
+import Carte from "@/app/components/ui/Carte";
+import Bouton from "@/app/components/ui/Bouton";
+import EtatVide from "@/app/components/ui/EtatVide";
 
 const MARINE = "#1B2B5E";
 
@@ -12,10 +15,6 @@ const sInput: CSSProperties = {
   width: "100%", border: "1px solid rgba(27,43,94,0.2)", borderRadius: 12,
   padding: "12px 14px", fontSize: 15, color: MARINE, backgroundColor: "#fff",
   boxSizing: "border-box", fontFamily: "inherit",
-};
-const sCarte: CSSProperties = {
-  backgroundColor: "#fff", border: "1px solid rgba(27,43,94,0.12)",
-  borderRadius: 18, padding: 22, marginBottom: 16,
 };
 const sGrid2: CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 };
 const sChamp: CSSProperties = { marginBottom: 14 };
@@ -43,18 +42,16 @@ export default async function NouveauChienClientPage() {
 
   if (!client) {
     return (
-      <main style={{ minHeight: "100vh", backgroundColor: "#F5F0E8", padding: "32px 16px" }}>
-        <div style={{ maxWidth: 560, margin: "0 auto", backgroundColor: "#fff", borderRadius: 18, padding: 32, border: "1px solid rgba(27,43,94,0.12)", textAlign: "center" }}>
-          <p style={{ fontSize: 40, margin: "0 0 12px" }}>🐾</p>
-          <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 24, fontWeight: 700, color: MARINE, margin: "0 0 8px" }}>
-            Profil en cours de création
-          </h1>
-          <p style={{ color: "rgba(27,43,94,0.6)", margin: "0 0 16px" }}>
-            Ton profil est en cours de validation par notre équipe. Reviens dans quelques instants.
-          </p>
-          <a href="/mon-compte" style={{ display: "inline-block", backgroundColor: "#2E8B7E", color: "#fff", borderRadius: 14, padding: "12px 22px", fontWeight: 700, textDecoration: "none" }}>
-            ← Retour
-          </a>
+      <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
+        <div style={{ maxWidth: 600, margin: "0 auto" }}>
+          <Carte>
+            <EtatVide
+              icone="🐾"
+              titre="Profil en cours de création"
+              message="Ton profil est en cours de validation par notre équipe. Reviens dans quelques instants."
+              action={<Bouton variante="secondaire" href="/mon-compte">← Retour</Bouton>}
+            />
+          </Carte>
         </div>
       </main>
     );
@@ -63,7 +60,7 @@ export default async function NouveauChienClientPage() {
   const action = creerChienClient.bind(null, client.id);
 
   return (
-    <main style={{ minHeight: "100vh", backgroundColor: "#F5F0E8", padding: "32px 16px" }}>
+    <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div style={{ maxWidth: 600, margin: "0 auto" }}>
 
         <div style={{ marginBottom: 18 }}>
@@ -82,101 +79,102 @@ export default async function NouveauChienClientPage() {
         </div>
 
         <form action={action}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-          {/* SECTION 1 — IDENTITÉ */}
-          <div style={sCarte}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <div style={sSecNum}>1</div>
-              <div>
-                <p style={sSecTitre}>Identité</p>
-                <p style={sSecSous}>Qui est ton chien ?</p>
+            {/* SECTION 1 — IDENTITÉ */}
+            <Carte>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                <div style={sSecNum}>1</div>
+                <div>
+                  <p style={sSecTitre}>Identité</p>
+                  <p style={sSecSous}>Qui est ton chien ?</p>
+                </div>
               </div>
-            </div>
 
-            <div style={sChamp}>
-              <label style={sLabel}>Nom <span style={sReq}>*</span></label>
-              <input name="nom" type="text" required placeholder="Ex : Rex" style={sInput} />
-            </div>
-
-            <div style={sGrid2}>
               <div style={sChamp}>
-                <label style={sLabel}>Race <span style={sReq}>*</span></label>
-                <input name="race" type="text" required placeholder="Ex : Berger" style={sInput} />
+                <label style={sLabel}>Nom <span style={sReq}>*</span></label>
+                <input name="nom" type="text" required placeholder="Ex : Rex" style={sInput} />
               </div>
-              <div style={sChamp}>
-                <label style={sLabel}>Couleur <span style={sReq}>*</span></label>
-                <input name="couleur" type="text" required placeholder="Ex : Noir et feu" style={sInput} />
-              </div>
-            </div>
 
-            <div style={sGrid2}>
+              <div style={sGrid2}>
+                <div style={sChamp}>
+                  <label style={sLabel}>Race <span style={sReq}>*</span></label>
+                  <input name="race" type="text" required placeholder="Ex : Berger" style={sInput} />
+                </div>
+                <div style={sChamp}>
+                  <label style={sLabel}>Couleur <span style={sReq}>*</span></label>
+                  <input name="couleur" type="text" required placeholder="Ex : Noir et feu" style={sInput} />
+                </div>
+              </div>
+
+              <div style={sGrid2}>
+                <div style={sChamp}>
+                  <label style={sLabel}>Sexe <span style={sReq}>*</span></label>
+                  <select name="sexe" required defaultValue="" style={sInput}>
+                    <option value="" disabled>Choisir</option>
+                    <option value="M">Mâle</option>
+                    <option value="F">Femelle</option>
+                  </select>
+                </div>
+                <div style={sChamp}>
+                  <label style={sLabel}>Poids (kg) <span style={sReq}>*</span></label>
+                  <input name="poids" type="number" step="0.1" min="0" required placeholder="Ex : 24" style={sInput} />
+                </div>
+              </div>
+
+              <div style={{ ...sGrid2 }}>
+                <div style={{ ...sChamp, marginBottom: 0 }}>
+                  <label style={sLabel}>Date de naissance</label>
+                  <input name="date_naissance" type="date" style={sInput} />
+                </div>
+                <div style={{ ...sChamp, marginBottom: 0 }}>
+                  <label style={sLabel}>Numéro de puce</label>
+                  <input name="numero_puce" type="text" placeholder="15 chiffres" style={sInput} />
+                </div>
+              </div>
+            </Carte>
+
+            {/* SECTION 2 — SANTÉ */}
+            <Carte>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                <div style={sSecNum}>2</div>
+                <div>
+                  <p style={sSecTitre}>Santé</p>
+                  <p style={sSecSous}>Suivi médical et remarques.</p>
+                </div>
+              </div>
+
               <div style={sChamp}>
-                <label style={sLabel}>Sexe <span style={sReq}>*</span></label>
-                <select name="sexe" required defaultValue="" style={sInput}>
+                <label style={sLabel}>Stérilisation <span style={sReq}>*</span></label>
+                <select name="sterilisation" required defaultValue="" style={sInput}>
                   <option value="" disabled>Choisir</option>
-                  <option value="M">Mâle</option>
-                  <option value="F">Femelle</option>
+                  <option value="non">Non</option>
+                  <option value="oui">Oui</option>
+                  <option value="chimique">Castré chimiquement</option>
                 </select>
               </div>
+
               <div style={sChamp}>
-                <label style={sLabel}>Poids (kg) <span style={sReq}>*</span></label>
-                <input name="poids" type="number" step="0.1" min="0" required placeholder="Ex : 24" style={sInput} />
+                <label style={sLabel}>Allergies</label>
+                <textarea name="allergies" rows={2} placeholder="Aliments, médicaments…" style={{ ...sInput, resize: "vertical" }} />
               </div>
-            </div>
 
-            <div style={{ ...sGrid2 }}>
-              <div style={{ ...sChamp, marginBottom: 0 }}>
-                <label style={sLabel}>Date de naissance</label>
-                <input name="date_naissance" type="date" style={sInput} />
+              <div style={sChamp}>
+                <label style={sLabel}>Traitements en cours</label>
+                <textarea name="traitements" rows={2} placeholder="Médication, posologie…" style={{ ...sInput, resize: "vertical" }} />
               </div>
+
               <div style={{ ...sChamp, marginBottom: 0 }}>
-                <label style={sLabel}>Numéro de puce</label>
-                <input name="numero_puce" type="text" placeholder="15 chiffres" style={sInput} />
+                <label style={sLabel}>Remarques</label>
+                <textarea name="remarques" rows={3} placeholder="Tout ce qu'on devrait savoir" style={{ ...sInput, resize: "vertical" }} />
               </div>
-            </div>
+            </Carte>
+
           </div>
 
-          {/* SECTION 2 — SANTÉ */}
-          <div style={sCarte}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <div style={sSecNum}>2</div>
-              <div>
-                <p style={sSecTitre}>Santé</p>
-                <p style={sSecSous}>Suivi médical et remarques.</p>
-              </div>
-            </div>
-
-            <div style={sChamp}>
-              <label style={sLabel}>Stérilisation <span style={sReq}>*</span></label>
-              <select name="sterilisation" required defaultValue="" style={sInput}>
-                <option value="" disabled>Choisir</option>
-                <option value="non">Non</option>
-                <option value="oui">Oui</option>
-                <option value="chimique">Castré chimiquement</option>
-              </select>
-            </div>
-
-            <div style={sChamp}>
-              <label style={sLabel}>Allergies</label>
-              <textarea name="allergies" rows={2} placeholder="Aliments, médicaments…" style={{ ...sInput, resize: "vertical" }} />
-            </div>
-
-            <div style={sChamp}>
-              <label style={sLabel}>Traitements en cours</label>
-              <textarea name="traitements" rows={2} placeholder="Médication, posologie…" style={{ ...sInput, resize: "vertical" }} />
-            </div>
-
-            <div style={{ ...sChamp, marginBottom: 0 }}>
-              <label style={sLabel}>Remarques</label>
-              <textarea name="remarques" rows={3} placeholder="Tout ce qu'on devrait savoir" style={{ ...sInput, resize: "vertical" }} />
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", paddingTop: 4 }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 20 }}>
             <BoutonEnregistrer />
-            <a href="/mon-compte/chiens" style={{ backgroundColor: "#EDE8DF", color: MARINE, borderRadius: 14, padding: "14px 24px", fontWeight: 700, textDecoration: "none", minHeight: 54, display: "inline-flex", alignItems: "center" }}>
-              ← Retour
-            </a>
+            <Bouton variante="secondaire" href="/mon-compte/chiens">← Retour</Bouton>
           </div>
 
         </form>
