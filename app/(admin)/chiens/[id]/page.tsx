@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import BoutonArchiver from "./BoutonArchiver";
 import BoutonSupprimer from "./BoutonSupprimer";
 import Ententes from "./Ententes";
 import BoutonsJourneeEssai from "./BoutonsJourneeEssai";
-import { getProfilePerms } from "@/src/lib/getProfilePerms";
+import EnTete from "@/app/components/ui/EnTete";
+import Carte from "@/app/components/ui/Carte";
+import Bouton from "@/app/components/ui/Bouton";
+import EtatVide from "@/app/components/ui/EtatVide";
 
 export default async function ChienPage({
   params,
@@ -29,7 +33,22 @@ export default async function ChienPage({
     .eq("actif", true)
     .order("nom");
 
-  if (!chien) return <div>Chien introuvable</div>;
+  if (!chien) {
+    return (
+      <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
+        <div className="max-w-4xl mx-auto">
+          <Carte>
+            <EtatVide
+              icone="🐶"
+              titre="Chien introuvable"
+              message="Ce chien n'existe pas ou a été supprimé."
+              action={<Bouton variante="secondaire" href="/chiens">← Retour à la liste</Bouton>}
+            />
+          </Carte>
+        </div>
+      </main>
+    );
+  }
 
   function calculerAge(dateNaissance: string) {
     if (!dateNaissance) return "-";
@@ -41,176 +60,193 @@ export default async function ChienPage({
     return age;
   }
 
+  const muted: React.CSSProperties = { color: "rgba(27,43,94,0.6)", fontSize: 14, margin: 0 };
+  const pill = (bg: string, color: string): React.CSSProperties => ({
+    display: "inline-block", backgroundColor: bg, color, borderRadius: 999,
+    padding: "2px 10px", fontSize: 13, fontWeight: 500, lineHeight: "20px", whiteSpace: "nowrap",
+  });
+  const titreSection: React.CSSProperties = {
+    fontFamily: "Georgia, 'Times New Roman', serif",
+    color: "#1B2B5E", fontSize: 18, fontWeight: 700, margin: "0 0 16px",
+  };
+  const ligne = (label: string, valeur: React.ReactNode) => (
+    <div style={{ display: "flex", gap: 12, fontSize: 15, lineHeight: 1.6, alignItems: "baseline" }}>
+      <span style={{ color: "rgba(27,43,94,0.6)", width: 150, flexShrink: 0 }}>{label}</span>
+      <span style={{ color: "#1B2B5E", fontWeight: 500, minWidth: 0 }}>{valeur ?? "—"}</span>
+    </div>
+  );
+
+  const sterilisationTxt =
+    chien.sterilisation === "oui" ? "Stérilisé" :
+    chien.sterilisation === "chimique" ? "Castré chimiquement" : "Non stérilisé";
+  const categorieTxt =
+    chien.categorie_poids === "moins_15kg" ? "🟢 Petit (< 15 kg)" :
+    chien.categorie_poids === "15_30kg" ? "🟡 Moyen (15–30 kg)" :
+    chien.categorie_poids === "30_40kg" ? "🔴 Grand (> 30 kg)" : "—";
+
+  const compat = [
+    { ok: chien.compatible_males_castres, label: "Mâles castrés" },
+    { ok: chien.compatible_males_entiers, label: "Mâles entiers" },
+    { ok: chien.compatible_femelles_sterilisees, label: "Femelles stérilisées" },
+    { ok: chien.compatible_femelles_entieres, label: "Femelles entières" },
+    { ok: chien.compatible_moins_15kg, label: "Moins de 15 kg" },
+    { ok: chien.compatible_15_30kg, label: "15 à 30 kg" },
+    { ok: chien.compatible_30_40kg, label: "Plus de 30 kg" },
+  ];
+
   return (
-    <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
-      <div className="max-w-4xl mx-auto bg-white rounded-xl p-8 shadow-sm">
+    <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
+      <div className="max-w-4xl mx-auto">
 
         {!chien.actif && (
-          <div className="bg-yellow-100 text-yellow-800 px-4 py-2 rounded-xl mb-6 font-semibold">
+          <div style={{ backgroundColor: "#EDE8DF", color: "rgba(27,43,94,0.7)", padding: "12px 16px", borderRadius: 14, marginBottom: 16, fontWeight: 600 }}>
             🗄️ Ce chien est archivé
           </div>
         )}
 
         {chien.journee_essai_invalide && (
-          <div className="bg-red-100 text-red-800 px-4 py-2 rounded-xl mb-6 font-semibold">
+          <div style={{ backgroundColor: "#FBE2DE", color: "#A8453A", padding: "12px 16px", borderRadius: 14, marginBottom: 16, fontWeight: 600 }}>
             ❌ Journée d'essai invalide — ce chien ne peut pas être réservé
             {chien.journee_essai_note && (
-              <p className="text-sm font-normal mt-1">{chien.journee_essai_note}</p>
+              <p style={{ fontWeight: 400, fontSize: 14, margin: "4px 0 0" }}>{chien.journee_essai_note}</p>
             )}
           </div>
         )}
 
-        {chien.photo_principale && (
-          <div className="mb-6">
-            <img src={chien.photo_principale} alt={chien.nom}
-              style={{ width: 120, height: 120, borderRadius: "50%", objectFit: "cover", border: "3px solid #DBEFEA" }} />
-          </div>
-        )}
+        <EnTete titre={`🐶 ${chien.nom}`} sousTitre={chien.race || undefined} />
 
-        <h1 className={`text-4xl font-bold mb-6 ${chien.sexe === "F" ? "text-pink-600" : "text-blue-600"}`}>
-          🐶 {chien.nom}
-        </h1>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-        {/* Infos de base */}
-        <div className="space-y-3 mb-8">
-          <p>
-            <strong>👤 Propriétaire :</strong>{" "}
-            {chien.clients?.id ? (
-              <Link
-                href={`/clients/${chien.clients.id}`}
-                className="underline hover:opacity-75"
-                style={{ color: "#4AAEA0" }}>
-                {chien.clients.prenom} {chien.clients.nom}
-              </Link>
-            ) : (
-              <>{chien.clients?.prenom} {chien.clients?.nom}</>
+          {/* Identité */}
+          <Carte>
+            <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-start" }}>
+              <div style={{ width: 96, height: 96, borderRadius: "50%", background: "#DBEFEA", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40, overflow: "hidden", flexShrink: 0, border: "3px solid #DBEFEA" }}>
+                {chien.photo_principale ? (
+                  <img src={chien.photo_principale} alt={chien.nom} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  "🐕"
+                )}
+              </div>
+              <div style={{ flex: 1, minWidth: 240, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
+                  {chien.sterilisation === "oui" ? (
+                    <span style={pill("#DBEFEA", "#1F6E5B")}>Stérilisé</span>
+                  ) : chien.sterilisation === "chimique" ? (
+                    <span style={pill("#F4EAC9", "#6E5410")}>Castré chim.</span>
+                  ) : (
+                    <span style={pill("#FBE2DE", "#A8453A")}>Entier</span>
+                  )}
+                  {!chien.journee_essai_effectuee ? (
+                    <span style={pill("#E4E7F1", "#2A3B6B")}>⏳ Essai à faire</span>
+                  ) : chien.journee_essai_invalide ? (
+                    <span style={pill("#FBE2DE", "#A8453A")}>❌ Essai non validé</span>
+                  ) : (
+                    <span style={pill("#DBEFEA", "#1F6E5B")}>✅ Essai validé</span>
+                  )}
+                </div>
+                {ligne("Propriétaire", chien.clients?.id ? (
+                  <Link href={`/clients/${chien.clients.id}`} style={{ color: "#1F6E5B", textDecoration: "underline" }}>
+                    {chien.clients.prenom} {chien.clients.nom}
+                  </Link>
+                ) : chien.clients ? (
+                  <>{chien.clients.prenom} {chien.clients.nom}</>
+                ) : "—")}
+                {ligne("Sexe", chien.sexe === "M" ? "♂️ Mâle" : "♀️ Femelle")}
+                {ligne("Âge", `${calculerAge(chien.date_naissance)} an(s)`)}
+                {ligne("Couleur", chien.couleur || "—")}
+                {ligne("Stérilisation", sterilisationTxt)}
+                {ligne("Poids", chien.poids ? `${chien.poids} kg` : "—")}
+                {ligne("Catégorie", categorieTxt)}
+                {ligne("Niveau d'énergie", chien.niveau_energie || "—")}
+                {ligne("Numéro de puce", chien.numero_puce || "—")}
+              </div>
+            </div>
+          </Carte>
+
+          {/* Santé */}
+          <Carte>
+            <h2 style={titreSection}>🩺 Santé</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {ligne("Allergies", chien.allergies || "Aucune")}
+              {ligne("Traitements", chien.traitements || "Aucun")}
+              {ligne("Vétérinaire", chien.veterinaire_nom || "—")}
+              {ligne("Tél. vétérinaire", chien.veterinaire_telephone || "—")}
+            </div>
+          </Carte>
+
+          {/* Comportement */}
+          <Carte>
+            <h2 style={titreSection}>🐾 Comportement</h2>
+            <p style={{ color: "#1B2B5E", fontSize: 15, margin: "0 0 12px", lineHeight: 1.6 }}>{chien.comportement || "—"}</p>
+            {(chien.protection_ressources || chien.destructeur || chien.craintif) && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+                {chien.protection_ressources && <span style={pill("#FBE2DE", "#A8453A")}>⚠️ Protection de ressources</span>}
+                {chien.destructeur && <span style={pill("#F4EAC9", "#6E5410")}>🔨 Destructeur</span>}
+                {chien.craintif && <span style={pill("#F4EAC9", "#6E5410")}>😰 Craintif</span>}
+              </div>
             )}
-          </p>
-          <p><strong>Race :</strong> {chien.race || "-"}</p>
-          <p><strong>Couleur :</strong> {chien.couleur || "-"}</p>
-          <p><strong>Âge :</strong> {calculerAge(chien.date_naissance)} an(s)</p>
-          <p><strong>Sexe :</strong> {chien.sexe === "M" ? "♂️ Mâle" : "♀️ Femelle"}</p>
-          <p><strong>Stérilisation :</strong> {
-            chien.sterilisation === "oui" ? "Stérilisé" :
-            chien.sterilisation === "chimique" ? "Castré chimiquement" : "Non stérilisé"
-          }</p>
-          <p><strong>Poids :</strong> {chien.poids ? `${chien.poids} kg` : "-"}</p>
-          <p><strong>Catégorie :</strong> {
-            chien.categorie_poids === "moins_15kg" ? "🟢 Petit (< 15 kg)" :
-            chien.categorie_poids === "15_30kg" ? "🟡 Moyen (15–30 kg)" :
-            chien.categorie_poids === "30_40kg" ? "🔴 Grand (> 30 kg)" : "-"
-          }</p>
-          <p><strong>Niveau énergie :</strong> {chien.niveau_energie || "-"}</p>
-          <p><strong>Numéro de puce :</strong> {chien.numero_puce || "-"}</p>
-        </div>
+            {chien.comportement_autre && ligne("Autres", chien.comportement_autre)}
+            <div style={{ marginTop: 8 }}>{ligne("Remarques", chien.remarques || "—")}</div>
+          </Carte>
 
-        {/* Santé */}
-        <div className="border-t pt-6 mb-8">
-          <h2 className="text-2xl font-bold mb-4">🩺 Santé</h2>
-          <p><strong>Allergies :</strong> {chien.allergies || "Aucune"}</p>
-          <p><strong>Traitements :</strong> {chien.traitements || "Aucun"}</p>
-          <p><strong>Vétérinaire :</strong> {chien.veterinaire_nom || "-"}</p>
-          <p><strong>Téléphone vétérinaire :</strong> {chien.veterinaire_telephone || "-"}</p>
-        </div>
-
-        {/* Comportement */}
-        <div className="border-t pt-6 mb-8">
-          <h2 className="text-2xl font-bold mb-4">🐾 Comportement</h2>
-          <p className="mb-3">{chien.comportement || "-"}</p>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {chien.protection_ressources && (
-              <span className="px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-700">
-                ⚠️ Protection de ressources
+          {/* Journée d'essai */}
+          <Carte>
+            <h2 style={titreSection}>🧪 Journée d'essai</h2>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+              <span style={chien.journee_essai_effectuee ? pill("#DBEFEA", "#1F6E5B") : pill("#EDE8DF", "rgba(27,43,94,0.6)")}>
+                {chien.journee_essai_effectuee ? "✅ Effectuée" : "⏳ Non effectuée"}
               </span>
+              {chien.journee_essai_invalide && <span style={pill("#FBE2DE", "#A8453A")}>❌ Invalide</span>}
+            </div>
+            {chien.journee_essai_note && (
+              <p style={{ ...muted, marginBottom: 16 }}><strong style={{ color: "#1B2B5E" }}>Note :</strong> {chien.journee_essai_note}</p>
             )}
-            {chien.destructeur && (
-              <span className="px-3 py-1 rounded-full text-sm font-semibold bg-orange-100 text-orange-700">
-                🔨 Destructeur
-              </span>
+            <BoutonsJourneeEssai
+              chien_id={chien.id}
+              journee_essai_effectuee={chien.journee_essai_effectuee}
+              journee_essai_invalide={chien.journee_essai_invalide}
+              journee_essai_note={chien.journee_essai_note}
+              perm_journee_essai={perms.perm_journee_essai}
+            />
+          </Carte>
+
+          {/* Ententes individuelles */}
+          <Carte>
+            <Ententes
+              chien_id={chien.id}
+              tous_chiens={tousChiens ?? []}
+              doit_etre_isole={chien.doit_etre_isole}
+              perm_chiens_modifier={perms.perm_chiens_modifier}
+            />
+          </Carte>
+
+          {/* Compatibilités générales */}
+          <Carte>
+            <h2 style={titreSection}>🤝 Compatibilités générales</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8 }}>
+              {compat.map((c, i) => (
+                <div key={i} style={{ fontSize: 15, color: "#1B2B5E" }}>
+                  {c.ok ? "✅" : "❌"} {c.label}
+                </div>
+              ))}
+            </div>
+            {chien.doit_etre_isole && (
+              <div style={{ marginTop: 12 }}>
+                <span style={pill("#FBE2DE", "#A8453A")}>🚫🐕 Doit être isolé (box seul, tarif privatif)</span>
+              </div>
             )}
-            {chien.craintif && (
-              <span className="px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-700">
-                😰 Craintif
-              </span>
-            )}
-          </div>
-          {chien.comportement_autre && (
-            <p><strong>Autres :</strong> {chien.comportement_autre}</p>
-          )}
-          <p className="mt-3"><strong>Remarques :</strong> {chien.remarques || "-"}</p>
+          </Carte>
+
         </div>
 
-        {/* Journée d'essai */}
-        <div className="border-t pt-6 mb-8">
-          <h2 className="text-2xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
-            🧪 Journée d'essai
-          </h2>
-          <div className="flex flex-wrap gap-2 mb-4">
-            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-              chien.journee_essai_effectuee
-                ? "bg-green-100 text-green-700"
-                : "bg-gray-100 text-gray-600"
-            }`}>
-              {chien.journee_essai_effectuee ? "✅ Effectuée" : "⏳ Non effectuée"}
-            </span>
-            {chien.journee_essai_invalide && (
-              <span className="px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-700">
-                ❌ Invalide
-              </span>
-            )}
-          </div>
-          {chien.journee_essai_note && (
-            <p className="text-sm text-gray-600 mb-4">
-              <strong>Note :</strong> {chien.journee_essai_note}
-            </p>
-          )}
-          <BoutonsJourneeEssai
-            chien_id={chien.id}
-            journee_essai_effectuee={chien.journee_essai_effectuee}
-            journee_essai_invalide={chien.journee_essai_invalide}
-            journee_essai_note={chien.journee_essai_note}
-            perm_journee_essai={perms.perm_journee_essai}
-          />
-        </div>
-
-        {/* Ententes individuelles */}
-        <Ententes chien_id={chien.id} tous_chiens={tousChiens ?? []} doit_etre_isole={chien.doit_etre_isole} perm_chiens_modifier={perms.perm_chiens_modifier} />
-
-        {/* Compatibilités générales — en dernier */}
-        <div className="border-t pt-6 mb-8">
-          <h2 className="text-2xl font-bold mb-4">🤝 Compatibilités générales</h2>
-          <ul className="space-y-2">
-            <li>{chien.compatible_males_castres ? "✅" : "❌"} Mâles castrés</li>
-            <li>{chien.compatible_males_entiers ? "✅" : "❌"} Mâles entiers</li>
-            <li>{chien.compatible_femelles_sterilisees ? "✅" : "❌"} Femelles stérilisées</li>
-            <li>{chien.compatible_femelles_entieres ? "✅" : "❌"} Femelles entières</li>
-            <li>{chien.compatible_moins_15kg ? "✅" : "❌"} Moins de 15 kg</li>
-            <li>{chien.compatible_15_30kg ? "✅" : "❌"} 15 à 30 kg</li>
-            <li>{chien.compatible_30_40kg ? "✅" : "❌"} Plus de 30 kg</li>
-          </ul>
-          {chien.doit_etre_isole && (
-            <span className="inline-block mt-3 px-3 py-1 rounded-full text-sm font-semibold bg-red-100 text-red-700">
-              🚫🐕 Doit être isolé (box seul, tarif privatif)
-            </span>
-          )}
-        </div>
-
-        {/* Boutons */}
-        <div className="border-t pt-6 flex flex-wrap gap-4">
+        {/* Barre d'actions */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 20 }}>
           {perms.perm_chiens_modifier && (
-            <Link href={`/chiens/${chien.id}/modifier`}
-              className="px-4 py-2 rounded-xl font-semibold text-white"
-              style={{ backgroundColor: "#4AAEA0" }}>
-              ✏️ Modifier le chien
-            </Link>
+            <Bouton variante="principal" href={`/chiens/${chien.id}/modifier`}>✏️ Modifier le chien</Bouton>
           )}
           {perms.isAdmin && <BoutonArchiver id={chien.id} actif={chien.actif} />}
           {perms.isAdmin && <BoutonSupprimer id={chien.id} nom={chien.nom} />}
-          <Link href="/chiens"
-            className="px-4 py-2 rounded-xl font-semibold"
-            style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
-            ← Retour à la liste
-          </Link>
+          <Bouton variante="secondaire" href="/chiens">← Retour à la liste</Bouton>
         </div>
 
       </div>

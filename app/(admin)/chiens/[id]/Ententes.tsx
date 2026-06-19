@@ -98,8 +98,8 @@ export default function Ententes({
   };
 
   return (
-    <div className="border-t pt-6 mb-6">
-      <h2 className="text-2xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
+    <div>
+      <h2 style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#1B2B5E", fontSize: 18, fontWeight: 700, margin: "0 0 16px" }}>
         🤝 Ententes individuelles
       </h2>
 
