@@ -42,7 +42,7 @@ export default function BoutonsJourneeEssai({
           })}
           disabled={loading || journee_essai_invalide}
           className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
-          style={{ backgroundColor: journee_essai_effectuee ? "#6B7280" : "#4AAEA0" }}>
+          style={{ backgroundColor: journee_essai_effectuee ? "#6B7280" : "#2E8B7E" }}>
           {journee_essai_effectuee ? "↩️ Annuler journée d'essai" : "✅ Marquer comme effectuée"}
         </button>
 

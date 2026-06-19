@@ -189,7 +189,7 @@ export default function Ententes({
             placeholder="Note (optionnel)" className="w-full border rounded-xl p-2 text-sm" />
           <button onClick={handleAjouter} disabled={!chienCible || loading}
             className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
-            style={{ backgroundColor: "#4AAEA0" }}>
+            style={{ backgroundColor: "#2E8B7E" }}>
             {loading ? "..." : "➕ Ajouter"}
           </button>
         </div>
