@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/server";
+import { getProfilePerms } from "@/src/lib/getProfilePerms";
 
 export async function GET(
   req: NextRequest,
@@ -7,6 +8,8 @@ export async function GET(
 ) {
   const supabase = await createClient();
   const { id } = await params;
+
+  const perms = await getProfilePerms();
 
   const { data: reservation } = await supabase
     .from("reservations")
@@ -28,5 +31,5 @@ export async function GET(
     .eq("actif", true)
     .order("numero");
 
-  return NextResponse.json({ reservation, boxes });
+  return NextResponse.json({ reservation, boxes, peutUrgence: perms.perm_tarifs_urgence });
 }

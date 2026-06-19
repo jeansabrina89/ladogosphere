@@ -19,6 +19,7 @@ export default function ModifierReservationPage({
   const [boxes, setBoxes] = useState<any[]>([]);
   const [boxId, setBoxId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [peutUrgence, setPeutUrgence] = useState(false);
 
   useEffect(() => {
     fetch(`/api/reservations/${id}/details`)
@@ -27,6 +28,7 @@ export default function ModifierReservationPage({
         setRes(data.reservation);
         setBoxes(data.boxes);
         setBoxId(data.reservation?.box_id || "");
+        setPeutUrgence(!!data.peutUrgence);
       });
   }, [id]);
 
@@ -152,14 +154,16 @@ export default function ModifierReservationPage({
             </div>
           </div>
 
-          {/* Urgence */}
-          <div className="flex items-center gap-2">
-            <input type="checkbox" name="urgence" id="urgence"
-              defaultChecked={res.urgence} />
-            <label htmlFor="urgence" className="font-semibold" style={{ color: "#1B2B5E" }}>
-              🚨 Réservation urgence
-            </label>
-          </div>
+          {/* Urgence — visible si admin ou permission perm_tarifs_urgence */}
+          {peutUrgence && (
+            <div className="flex items-center gap-2">
+              <input type="checkbox" name="urgence" id="urgence"
+                defaultChecked={res.urgence} />
+              <label htmlFor="urgence" className="font-semibold" style={{ color: "#1B2B5E" }}>
+                🚨 Réservation urgence
+              </label>
+            </div>
+          )}
 
           {/* Commentaire */}
           <div>
