@@ -1,6 +1,10 @@
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { createClient } from "@/src/utils/supabase/server";
 import { modifierProfil } from "./actions";
+import Link from "next/link";
+import EnTete from "@/app/components/ui/EnTete";
+import Carte from "@/app/components/ui/Carte";
+import Bouton from "@/app/components/ui/Bouton";
 
 export default async function MonProfilPage() {
   const supabase = await createClient();
@@ -14,97 +18,90 @@ export default async function MonProfilPage() {
     .eq("auth_user_id", user.id)
     .single();
 
-  if (!client) return <div>Profil introuvable</div>;
+  if (!client) return <div style={{ padding: 24 }}>Profil introuvable</div>;
 
   const actionModifier = modifierProfil.bind(null, client.id);
 
+  const labelStyle: React.CSSProperties = { display: "block", fontWeight: 600, color: "#1B2B5E", marginBottom: 6, fontSize: 14 };
+  const champStyle: React.CSSProperties = { width: "100%", border: "1px solid rgba(27,43,94,0.2)", borderRadius: 12, padding: "10px 12px", fontSize: 15, color: "#1B2B5E", backgroundColor: "#FFFFFF", boxSizing: "border-box" };
+  const champDisabled: React.CSSProperties = { ...champStyle, backgroundColor: "#EDE8DF", color: "rgba(27,43,94,0.5)" };
+  const titreSection: React.CSSProperties = { fontFamily: "Georgia, 'Times New Roman', serif", color: "#1B2B5E", fontSize: 18, fontWeight: 700, margin: "0 0 16px" };
+  const grid2: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 };
+  const muted: React.CSSProperties = { color: "rgba(27,43,94,0.5)", fontSize: 12.5, margin: "6px 0 0" };
+
   return (
-    <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
-      <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm">
+    <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
+      <div style={{ maxWidth: 720, margin: "0 auto" }}>
 
-        <h1 className="text-3xl font-bold mb-6" style={{ color: "#1B2B5E" }}>
-          👤 Mon profil
-        </h1>
+        <div style={{ marginBottom: 16 }}>
+          <Link href="/mon-compte" style={{ color: "#1F6E5B", textDecoration: "none", fontWeight: 600, fontSize: 14 }}>← Mon compte</Link>
+        </div>
 
-        <form action={actionModifier} className="space-y-4">
+        <EnTete titre="👤 Mon profil" sousTitre="Tes coordonnées et ton contact d'urgence." />
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Prénom</label>
-              <input name="prenom" defaultValue={client.prenom || ""}
-                className="w-full border rounded-xl p-3" />
-            </div>
-            <div>
-              <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Nom</label>
-              <input name="nom" defaultValue={client.nom || ""}
-                className="w-full border rounded-xl p-3" />
-            </div>
-          </div>
+        <form action={actionModifier}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-          <div>
-            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Email</label>
-            <input type="email" defaultValue={client.email || ""}
-              disabled
-              className="w-full border rounded-xl p-3 bg-gray-100 text-gray-500" />
-            <p className="text-xs text-gray-400 mt-1">L'email ne peut pas être modifié</p>
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Téléphone</label>
-            <input name="telephone" type="text" defaultValue={client.telephone || ""}
-              className="w-full border rounded-xl p-3" />
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Adresse</label>
-            <textarea name="adresse" rows={3} defaultValue={client.adresse || ""}
-              className="w-full border rounded-xl p-3" />
-          </div>
-
-          {/* Contact d'urgence */}
-          <div className="border-t pt-4">
-            <h2 className="font-bold mb-3" style={{ color: "#1B2B5E" }}>
-              🚨 Contact d'urgence
-            </h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Prénom</label>
-                <input name="contact_urgence_prenom" type="text"
-                  defaultValue={client.contact_urgence_prenom || ""}
-                  className="w-full border rounded-xl p-3"
-                  placeholder="Prénom" />
+            {/* Coordonnées */}
+            <Carte>
+              <h2 style={titreSection}>Coordonnées</h2>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={grid2}>
+                  <div>
+                    <label style={labelStyle}>Prénom</label>
+                    <input name="prenom" defaultValue={client.prenom || ""} style={champStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Nom</label>
+                    <input name="nom" defaultValue={client.nom || ""} style={champStyle} />
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Email</label>
+                  <input type="email" defaultValue={client.email || ""} disabled style={champDisabled} />
+                  <p style={muted}>L'email ne peut pas être modifié.</p>
+                </div>
+                <div>
+                  <label style={labelStyle}>Téléphone</label>
+                  <input name="telephone" type="text" defaultValue={client.telephone || ""} style={champStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Adresse</label>
+                  <textarea name="adresse" rows={3} defaultValue={client.adresse || ""} style={champStyle} />
+                </div>
               </div>
-              <div>
-                <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Nom</label>
-                <input name="contact_urgence_nom" type="text"
-                  defaultValue={client.contact_urgence_nom || ""}
-                  className="w-full border rounded-xl p-3"
-                  placeholder="Nom" />
+            </Carte>
+
+            {/* Contact d'urgence */}
+            <Carte>
+              <h2 style={titreSection}>🚨 Contact d'urgence</h2>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={grid2}>
+                  <div>
+                    <label style={labelStyle}>Prénom</label>
+                    <input name="contact_urgence_prenom" type="text" defaultValue={client.contact_urgence_prenom || ""} placeholder="Prénom" style={champStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Nom</label>
+                    <input name="contact_urgence_nom" type="text" defaultValue={client.contact_urgence_nom || ""} placeholder="Nom" style={champStyle} />
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Téléphone</label>
+                  <input name="contact_urgence_telephone" type="text" defaultValue={client.contact_urgence_telephone || ""} placeholder="+41 XX XXX XX XX" style={champStyle} />
+                </div>
               </div>
-            </div>
-            <div className="mt-3">
-              <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Téléphone</label>
-              <input name="contact_urgence_telephone" type="text"
-                defaultValue={client.contact_urgence_telephone || ""}
-                className="w-full border rounded-xl p-3"
-                placeholder="+41 XX XXX XX XX" />
-            </div>
+            </Carte>
+
           </div>
 
-          <div className="flex gap-3 pt-4 border-t">
-            <button type="submit"
-              className="px-6 py-3 rounded-xl font-semibold text-white"
-              style={{ backgroundColor: "#4AAEA0" }}>
-              💾 Enregistrer
-            </button>
-            <a href="/mon-compte"
-              className="px-6 py-3 rounded-xl font-semibold"
-              style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
-              ← Retour
-            </a>
+          {/* Actions */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 20 }}>
+            <Bouton variante="principal" type="submit">💾 Enregistrer</Bouton>
+            <Bouton variante="secondaire" href="/mon-compte">← Retour</Bouton>
           </div>
-
         </form>
+
       </div>
     </main>
   );
