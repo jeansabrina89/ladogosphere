@@ -146,6 +146,12 @@ export default async function MonEspaceRHPage() {
             <p className="font-bold" style={{ color: "#1B2B5E" }}>📅 Mon planning</p>
             <p className="text-xs text-gray-400 mt-1">Voir mes jours de travail</p>
           </Link>
+          <Link href="/employes/planning-equipe"
+            className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition"
+            style={{ borderLeft: "4px solid #4AAEA0" }}>
+            <p className="font-bold" style={{ color: "#1B2B5E" }}>👥 Planning de l'équipe</p>
+            <p className="text-xs text-gray-400 mt-1">Voir qui travaille chaque jour</p>
+          </Link>
           <Link href="/employes/mon-espace/indisponibilites"
             className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition"
             style={{ borderLeft: "4px solid #E8847A" }}>
