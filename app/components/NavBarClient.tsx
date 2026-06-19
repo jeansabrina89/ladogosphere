@@ -5,7 +5,6 @@ const liens = [
   { href: "/mon-compte", label: "🏠 Mon compte", exact: true },
   { href: "/mon-compte/chiens", label: "🐶 Mes chiens", exact: false },
   { href: "/mon-compte/reservations", label: "📅 Mes réservations", exact: false },
-  { href: "/mon-compte/tarifs", label: "🏷️ Tarifs", exact: false },
   { href: "/mon-compte/profil", label: "👤 Mon profil", exact: false },
 ];
 export default function NavBarClient() {
