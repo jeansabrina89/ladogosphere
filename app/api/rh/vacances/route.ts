@@ -205,3 +205,64 @@ export async function PATCH(req: NextRequest) {
 
   return NextResponse.json({ ok: true });
 }
+
+export async function DELETE(req: NextRequest) {
+  const supabase = await createClient();
+  const garde = await exigerPermissionApi(supabase, "perm_vacances_equipe");
+  if (garde) return garde;
+
+  const { id } = await req.json();
+  if (!id) {
+    return NextResponse.json({ error: "Identifiant manquant." }, { status: 400 });
+  }
+
+  // Récupérer la demande pour défaire sa propagation
+  const { data: demande, error: errDemande } = await supabaseAdmin
+    .from("demandes_vacances")
+    .select("employe_id, date_debut, date_fin")
+    .eq("id", id)
+    .single();
+  if (errDemande || !demande) {
+    return NextResponse.json({ error: "Demande introuvable." }, { status: 404 });
+  }
+  const { employe_id, date_debut, date_fin } = demande;
+
+  // 1. planning : 'vacances' → 'travail'
+  const { error: errRevert } = await supabaseAdmin
+    .from("planning_employes")
+    .update({ statut: "travail", note: null })
+    .eq("employe_id", employe_id)
+    .gte("date", date_debut)
+    .lte("date", date_fin)
+    .eq("statut", "vacances");
+  if (errRevert) return NextResponse.json({ error: errRevert.message }, { status: 500 });
+
+  // 2. planning : 'repos_vacances' → 'repos'
+  const { error: errRV } = await supabaseAdmin
+    .from("planning_employes")
+    .update({ statut: "repos", note: null })
+    .eq("employe_id", employe_id)
+    .gte("date", date_debut)
+    .lte("date", date_fin)
+    .eq("statut", "repos_vacances");
+  if (errRV) return NextResponse.json({ error: errRV.message }, { status: 500 });
+
+  // 3. timbrages 'vacances' auto-créés (laisse les vraies heures)
+  const { error: errDelT } = await supabaseAdmin
+    .from("timbrage")
+    .delete()
+    .eq("employe_id", employe_id)
+    .gte("date", date_debut)
+    .lte("date", date_fin)
+    .eq("type_absence", "vacances");
+  if (errDelT) return NextResponse.json({ error: errDelT.message }, { status: 500 });
+
+  // 4. supprimer la demande
+  const { error: errDel } = await supabaseAdmin
+    .from("demandes_vacances")
+    .delete()
+    .eq("id", id);
+  if (errDel) return NextResponse.json({ error: errDel.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}

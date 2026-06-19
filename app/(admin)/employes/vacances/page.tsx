@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { createClient } from "@/src/utils/supabase/server";
 import BoutonGestionVacances from "./BoutonGestionVacances";
+import BoutonSupprimerVacances from "./BoutonSupprimerVacances";
 import { formatDateFR } from "@/src/lib/dates";
 
 export default async function GestionVacancesPage() {
@@ -70,7 +71,10 @@ export default async function GestionVacancesPage() {
                       <p className="text-xs text-gray-500 mt-1">"{d.note_employe}"</p>
                     )}
                   </div>
-                  <BoutonGestionVacances id={d.id} />
+                  <div className="flex gap-2 items-start">
+                    <BoutonGestionVacances id={d.id} />
+                    <BoutonSupprimerVacances id={d.id} />
+                  </div>
                 </div>
               </div>
             ))}
@@ -101,11 +105,14 @@ export default async function GestionVacancesPage() {
                       <p className="text-xs text-blue-500 mt-1">Note : "{d.note_admin}"</p>
                     )}
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    d.statut === "acceptee" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                  }`}>
-                    {d.statut === "acceptee" ? "✅ Acceptée" : "❌ Refusée"}
-                  </span>
+                  <div className="flex gap-2 items-center">
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      d.statut === "acceptee" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    }`}>
+                      {d.statut === "acceptee" ? "✅ Acceptée" : "❌ Refusée"}
+                    </span>
+                    <BoutonSupprimerVacances id={d.id} />
+                  </div>
                 </div>
               </div>
             ))}
