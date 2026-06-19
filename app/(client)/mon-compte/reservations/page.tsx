@@ -10,15 +10,12 @@ import FiltresPeriode from "./FiltresPeriode";
 import { aujourdhuiISO } from "@/src/lib/reservationsFiltres";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { getSoldeAvoir } from "@/src/lib/avoirs";
+import EnTete from "@/app/components/ui/EnTete";
+import Carte from "@/app/components/ui/Carte";
+import Bouton from "@/app/components/ui/Bouton";
+import EtatVide from "@/app/components/ui/EtatVide";
 
-const SERIF = "Georgia,'Times New Roman',serif";
-const sWrap: CSSProperties = { maxWidth: 640, margin: "0 auto", padding: "8px 0 40px" };
-const sTopnav: CSSProperties = { marginBottom: 16 };
 const sTopnavA: CSSProperties = { color: "#1F6E5B", textDecoration: "none", fontWeight: 600, fontSize: 14 };
-const sH1: CSSProperties = { fontFamily: SERIF, fontSize: 26, fontWeight: 700, margin: "0 0 4px", color: "#1B2B5E" };
-const sEnteteP: CSSProperties = { margin: 0, color: "rgba(27,43,94,.6)", fontSize: 14 };
-const sBtnPrincipal: CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", background: "#2E8B7E", color: "#fff", border: "none", borderRadius: 14, padding: "15px 18px", fontSize: 16, fontWeight: 700, margin: "14px 0 18px", textDecoration: "none" };
-const sCarte: CSSProperties = { background: "#fff", border: "1px solid rgba(27,43,94,.12)", borderRadius: 18, padding: 18, marginBottom: 14 };
 const sCarteHaut: CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 };
 const sNum: CSSProperties = { fontSize: 11.5, color: "rgba(27,43,94,.45)", fontWeight: 700, margin: 0 };
 const sChiens: CSSProperties = { fontWeight: 700, fontSize: 17, margin: "2px 0 0", color: "#1B2B5E" };
@@ -29,11 +26,6 @@ const sMontant: CSSProperties = { fontSize: 14.5, fontWeight: 700, color: "#1F6E
 const sMontantDetail: CSSProperties = { color: "rgba(27,43,94,.45)", fontWeight: 400, fontSize: 12.5 };
 const sBas: CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(27,43,94,.12)" };
 const sLienDetail: CSSProperties = { color: "#1F6E5B", textDecoration: "none", fontWeight: 600, fontSize: 14 };
-const sVide: CSSProperties = { background: "#fff", border: "1px dashed rgba(27,43,94,.12)", borderRadius: 20, padding: "34px 24px", textAlign: "center" };
-const sVideIc: CSSProperties = { fontSize: 46 };
-const sVideH2: CSSProperties = { fontFamily: SERIF, fontSize: 20, margin: "10px 0 6px", color: "#1B2B5E" };
-const sVideP: CSSProperties = { margin: "0 0 18px", fontSize: 14, color: "rgba(27,43,94,.6)" };
-const sBtnVide: CSSProperties = { ...sBtnPrincipal, margin: "0 auto", maxWidth: 280 };
 
 function libelleType(t: string): string {
   if (t === "journee") return "Journée";
@@ -119,79 +111,92 @@ export default async function MesReservationsPage({
   else liste = [...liste].sort(parDebutDesc);
 
   return (
-    <div style={sWrap}>
-      <div style={sTopnav}>
-        <Link href="/mon-compte" style={sTopnavA}>← Mon compte</Link>
-      </div>
+    <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
+      <div style={{ maxWidth: 720, margin: "0 auto" }}>
 
-      <div>
-        <h1 style={sH1}>📅 Mes réservations</h1>
-        <p style={sEnteteP}>Tes demandes et séjours.</p>
-      </div>
-
-      <Link href="/mon-compte/reservations/nouvelle" style={sBtnPrincipal}>➕ Nouvelle demande</Link>
-
-      <FiltresPeriode />
-
-      {liste.length === 0 ? (
-        <div style={sVide}>
-          <div style={sVideIc}>📅</div>
-          <h2 style={sVideH2}>Aucune réservation ici</h2>
-          <p style={sVideP}>Aucune réservation ne correspond à ta sélection.</p>
-          <Link href="/mon-compte/reservations/nouvelle" style={sBtnVide}>➕ Faire une demande</Link>
+        <div style={{ marginBottom: 16 }}>
+          <Link href="/mon-compte" style={sTopnavA}>← Mon compte</Link>
         </div>
-      ) : (
-        liste.map((res: any) => {
-          const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens?.nom).filter(Boolean) ?? [];
-          const resteAPayer = reste(res);
-          const montrerPayer = peutPayer(res);
-          const bs = badgeStatut(res.statut);
-          const bp = badgePaiement(res.statut_paiement);
-          return (
-            <div key={res.id} style={sCarte}>
-              <div style={sCarteHaut}>
-                <div style={{ minWidth: 0 }}>
-                  <p style={sNum}>Réservation N°{res.numero}</p>
-                  <p style={sChiens}>🐶 {chiens.join(", ") || "—"}</p>
-                </div>
-                <div style={sBadges}>
-                  <span style={{ ...sBadgeBase, ...bs.style }}>{bs.label}</span>
-                  <span style={{ ...sBadgeBase, ...bp.style }}>{bp.label}</span>
-                </div>
-              </div>
-              <p style={sLigne}>📅 {formatDateFR(res.date_debut)} → {formatDateFR(res.date_fin)}</p>
-              <p style={sLigne}>🏠 {formatBoxLabel(res.boxes)} · {libelleType(res.type_reservation)}</p>
-              {res.montant_final > 0 ? (
-                <p style={sMontant}>
-                  💰 {Number(res.montant_final).toFixed(2)} CHF
-                  {res.statut_paiement === "partiel" && res.montant_paye > 0 ? (
-                    <span style={sMontantDetail}> (payé : {Number(res.montant_paye).toFixed(2)} · reste : {resteAPayer.toFixed(2)} CHF)</span>
-                  ) : null}
-                </p>
-              ) : null}
-              <div style={sBas}>
-                <Link href={`/mon-compte/reservations/${res.id}`} style={sLienDetail}>Voir le détail →</Link>
-                {montrerPayer ? (
-                  <BoutonPaiementClient
-                    reservation_id={res.id}
-                    numero={res.numero}
-                    iban={coords.iban}
-                    titulaire={coords.titulaire}
-                    montant_final={res.montant_final || 0}
-                    montant_paye={res.montant_paye || 0}
-                    statut_paiement={res.statut_paiement || "impaye"}
-                    soldeAvoir={soldeAvoir}
-                  />
-                ) : null}
-              </div>
-            </div>
-          );
-        })
-      )}
 
-      <div style={{ marginTop: 24 }}>
-        <Link href="/mon-compte" style={sTopnavA}>← Retour à mon compte</Link>
+        <EnTete titre="📅 Mes réservations" sousTitre="Tes demandes et séjours." />
+
+        <div style={{ margin: "0 0 18px" }}>
+          <Bouton variante="principal" href="/mon-compte/reservations/nouvelle" icone="➕" pleineLargeur>
+            Nouvelle demande
+          </Bouton>
+        </div>
+
+        <FiltresPeriode />
+
+        {liste.length === 0 ? (
+          <Carte>
+            <EtatVide
+              icone="📅"
+              titre="Aucune réservation ici"
+              message="Aucune réservation ne correspond à ta sélection."
+              action={
+                <Bouton variante="principal" href="/mon-compte/reservations/nouvelle" icone="➕">
+                  Faire une demande
+                </Bouton>
+              }
+            />
+          </Carte>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {liste.map((res: any) => {
+              const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens?.nom).filter(Boolean) ?? [];
+              const resteAPayer = reste(res);
+              const montrerPayer = peutPayer(res);
+              const bs = badgeStatut(res.statut);
+              const bp = badgePaiement(res.statut_paiement);
+              return (
+                <Carte key={res.id}>
+                  <div style={sCarteHaut}>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={sNum}>Réservation N°{res.numero}</p>
+                      <p style={sChiens}>🐶 {chiens.join(", ") || "—"}</p>
+                    </div>
+                    <div style={sBadges}>
+                      <span style={{ ...sBadgeBase, ...bs.style }}>{bs.label}</span>
+                      <span style={{ ...sBadgeBase, ...bp.style }}>{bp.label}</span>
+                    </div>
+                  </div>
+                  <p style={sLigne}>📅 {formatDateFR(res.date_debut)} → {formatDateFR(res.date_fin)}</p>
+                  <p style={sLigne}>🏠 {formatBoxLabel(res.boxes)} · {libelleType(res.type_reservation)}</p>
+                  {res.montant_final > 0 ? (
+                    <p style={sMontant}>
+                      💰 {Number(res.montant_final).toFixed(2)} CHF
+                      {res.statut_paiement === "partiel" && res.montant_paye > 0 ? (
+                        <span style={sMontantDetail}> (payé : {Number(res.montant_paye).toFixed(2)} · reste : {resteAPayer.toFixed(2)} CHF)</span>
+                      ) : null}
+                    </p>
+                  ) : null}
+                  <div style={sBas}>
+                    <Link href={`/mon-compte/reservations/${res.id}`} style={sLienDetail}>Voir le détail →</Link>
+                    {montrerPayer ? (
+                      <BoutonPaiementClient
+                        reservation_id={res.id}
+                        numero={res.numero}
+                        iban={coords.iban}
+                        titulaire={coords.titulaire}
+                        montant_final={res.montant_final || 0}
+                        montant_paye={res.montant_paye || 0}
+                        statut_paiement={res.statut_paiement || "impaye"}
+                        soldeAvoir={soldeAvoir}
+                      />
+                    ) : null}
+                  </div>
+                </Carte>
+              );
+            })}
+          </div>
+        )}
+
+        <div style={{ marginTop: 24 }}>
+          <Link href="/mon-compte" style={sTopnavA}>← Retour à mon compte</Link>
+        </div>
+
       </div>
-    </div>
+    </main>
   );
 }
