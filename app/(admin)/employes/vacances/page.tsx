@@ -6,6 +6,7 @@ import BoutonSupprimerVacances from "./BoutonSupprimerVacances";
 import { formatDateFR } from "@/src/lib/dates";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import FormPoserVacances from "./FormPoserVacances";
+import FormModifierVacances from "./FormModifierVacances";
 
 export default async function GestionVacancesPage() {
   const supabase = await createClient();
@@ -83,6 +84,14 @@ export default async function GestionVacancesPage() {
                     )}
                   </div>
                   <div className="flex gap-2 items-start">
+                    <FormModifierVacances
+                      id={d.id}
+                      date_debut_initiale={d.date_debut}
+                      date_fin_initiale={d.date_fin}
+                      statut={d.statut}
+                      taux_travail={d.employes_rh?.taux_travail ?? 100}
+                      note_admin_initiale={d.note_admin ?? null}
+                    />
                     <BoutonGestionVacances id={d.id} />
                     <BoutonSupprimerVacances id={d.id} />
                   </div>
@@ -122,6 +131,16 @@ export default async function GestionVacancesPage() {
                     }`}>
                       {d.statut === "acceptee" ? "✅ Acceptée" : "❌ Refusée"}
                     </span>
+                    {d.statut === "acceptee" && (
+                      <FormModifierVacances
+                        id={d.id}
+                        date_debut_initiale={d.date_debut}
+                        date_fin_initiale={d.date_fin}
+                        statut={d.statut}
+                        taux_travail={d.employes_rh?.taux_travail ?? 100}
+                        note_admin_initiale={d.note_admin ?? null}
+                      />
+                    )}
                     <BoutonSupprimerVacances id={d.id} />
                   </div>
                 </div>

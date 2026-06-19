@@ -268,3 +268,41 @@ export async function DELETE(req: NextRequest) {
 
   return NextResponse.json({ ok: true });
 }
+
+export async function PUT(req: NextRequest) {
+  const supabase = await createClient();
+  const garde = await exigerPermissionApi(supabase, "perm_vacances_equipe");
+  if (garde) return garde;
+
+  const { id, date_debut, date_fin, nb_jours } = await req.json();
+  if (!id || !date_debut || !date_fin) {
+    return NextResponse.json({ error: "Données manquantes." }, { status: 400 });
+  }
+
+  // Empêcher le chevauchement avec une AUTRE demande de cet employé
+  const { data: dem } = await supabaseAdmin
+    .from("demandes_vacances")
+    .select("employe_id")
+    .eq("id", id)
+    .single();
+  if (dem) {
+    const { data: conflits } = await supabaseAdmin
+      .from("demandes_vacances")
+      .select("id")
+      .eq("employe_id", dem.employe_id)
+      .neq("id", id)
+      .neq("statut", "refusee")
+      .or(`and(date_debut.lte.${date_fin},date_fin.gte.${date_debut})`);
+    if (conflits && conflits.length > 0) {
+      return NextResponse.json({ error: "Ces dates chevauchent une autre demande de vacances." }, { status: 400 });
+    }
+  }
+
+  const { error } = await supabaseAdmin
+    .from("demandes_vacances")
+    .update({ date_debut, date_fin, nb_jours })
+    .eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ ok: true });
+}
