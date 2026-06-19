@@ -130,7 +130,7 @@ export default async function ModifierClientPage({
           <div className="flex gap-3 pt-4 border-t">
             <button type="submit"
               className="px-6 py-3 rounded-xl font-semibold text-white"
-              style={{ backgroundColor: "#4AAEA0" }}>
+              style={{ backgroundColor: "#2E8B7E" }}>
               💾 Enregistrer
             </button>
             <a href={`/clients/${id}`}
