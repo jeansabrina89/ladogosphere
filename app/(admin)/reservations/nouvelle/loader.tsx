@@ -1,8 +1,11 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import FormReservation from "./FormReservation";
 
 export default async function NouvelleReservationLoader() {
   const supabase = supabaseAdmin;
+  const perms = await getProfilePerms();
+
   const { data: clients } = await supabase
     .from("clients")
     .select("id, prenom, nom, membre")
@@ -26,6 +29,7 @@ export default async function NouvelleReservationLoader() {
       clients={clients ?? []}
       chiens={chiens ?? []}
       boxes={boxes ?? []}
+      peutUrgence={perms.perm_tarifs_urgence}
     />
   );
 }

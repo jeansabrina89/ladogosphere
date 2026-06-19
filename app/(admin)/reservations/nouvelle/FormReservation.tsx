@@ -23,10 +23,12 @@ export default function FormReservation({
   clients,
   chiens,
   boxes,
+  peutUrgence,
 }: {
   clients: Client[];
   chiens: Chien[];
   boxes: Box[];
+  peutUrgence: boolean;
 }) {
   const [type, setType] = useState("journee");
   const [dateDebut, setDateDebut] = useState("");
@@ -767,13 +769,15 @@ export default function FormReservation({
             </div>
           </div>
 
-          {/* Urgence */}
-          <div className="flex items-center gap-2">
-            <input type="checkbox" name="urgence" id="urgence" />
-            <label htmlFor="urgence" className="font-semibold">
-              🚨 Réservation urgence (membres uniquement)
-            </label>
-          </div>
+          {/* Urgence — visible si admin ou permission perm_tarifs_urgence */}
+          {peutUrgence && (
+            <div className="flex items-center gap-2">
+              <input type="checkbox" name="urgence" id="urgence" />
+              <label htmlFor="urgence" className="font-semibold">
+                🚨 Réservation urgence (membres uniquement)
+              </label>
+            </div>
+          )}
 
           {/* Statut */}
           <div>
