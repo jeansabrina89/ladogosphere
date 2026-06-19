@@ -14,10 +14,10 @@ export default async function NouvelEmployePage() {
   if (profile?.role !== "admin") redirect("/");
 
   return (
-    <main className="min-h-screen bg-slate-100 p-8">
-      <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow">
+    <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
+      <div className="max-w-3xl mx-auto bg-white rounded-xl p-8 shadow-sm">
 
-        <h1 className="text-4xl font-bold mb-6">➕ Ajouter un employé</h1>
+        <h1 className="text-4xl font-bold mb-6" style={{ color: "#1B2B5E" }}>➕ Ajouter un employé</h1>
 
         <form action={creerEmploye} className="space-y-4">
 
@@ -47,7 +47,7 @@ export default async function NouvelEmployePage() {
           </div>
 
           <div className="border-t pt-4 space-y-5">
-            <p className="font-bold">🔐 Permissions</p>
+            <p className="font-bold" style={{ color: "#1B2B5E" }}>🔐 Permissions</p>
 
             {[
               {
@@ -92,7 +92,7 @@ export default async function NouvelEmployePage() {
               },
             ].map(({ titre, items }) => (
               <div key={titre}>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">{titre}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "rgba(27,43,94,0.45)" }}>{titre}</p>
                 <div className="space-y-1.5 pl-1">
                   {items.map(({ key, label, defaut }) => (
                     <label key={key} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -104,18 +104,20 @@ export default async function NouvelEmployePage() {
               </div>
             ))}
 
-            <p className="text-xs text-gray-400 italic pt-1">
+            <p className="text-xs italic pt-1" style={{ color: "rgba(27,43,94,0.45)" }}>
               Acquis pour tout employé, sans réglage : son propre espace RH, la lecture des tarifs et la lecture du planning de toute l'équipe.
             </p>
           </div>
 
           <div className="flex gap-3 pt-4 border-t">
             <button type="submit"
-              className="bg-blue-600 text-white px-6 py-3 rounded-xl hover:bg-blue-700">
+              className="px-6 py-3 rounded-xl font-semibold text-white"
+              style={{ backgroundColor: "#2E8B7E" }}>
               💾 Créer le compte
             </button>
             <a href="/employes"
-              className="bg-gray-200 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-300">
+              className="px-6 py-3 rounded-xl font-semibold"
+              style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
               ✖ Annuler
             </a>
           </div>
