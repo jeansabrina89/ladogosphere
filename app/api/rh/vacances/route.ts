@@ -25,12 +25,14 @@ export async function POST(req: NextRequest) {
     }, { status: 400 });
   }
 
-  const { error } = await supabaseAdmin
+  const { data: creee, error } = await supabaseAdmin
     .from("demandes_vacances")
-    .insert({ employe_id, date_debut, date_fin, nb_jours, note_employe });
+    .insert({ employe_id, date_debut, date_fin, nb_jours, note_employe })
+    .select("id")
+    .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, id: creee.id });
 }
 
 export async function PATCH(req: NextRequest) {

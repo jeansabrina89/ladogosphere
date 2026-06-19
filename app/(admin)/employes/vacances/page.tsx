@@ -4,6 +4,8 @@ import { createClient } from "@/src/utils/supabase/server";
 import BoutonGestionVacances from "./BoutonGestionVacances";
 import BoutonSupprimerVacances from "./BoutonSupprimerVacances";
 import { formatDateFR } from "@/src/lib/dates";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import FormPoserVacances from "./FormPoserVacances";
 
 export default async function GestionVacancesPage() {
   const supabase = await createClient();
@@ -20,6 +22,12 @@ export default async function GestionVacancesPage() {
     .select(`*, employes_rh (prenom, nom, taux_travail)`)
     .order("created_at", { ascending: false });
 
+  const { data: employes } = await supabaseAdmin
+    .from("employes_rh")
+    .select("id, prenom, nom, taux_travail")
+    .eq("actif", true)
+    .order("nom");
+
   const enAttente = demandes?.filter(d => d.statut === "en_attente") ?? [];
   const traitees = demandes?.filter(d => d.statut !== "en_attente") ?? [];
 
@@ -31,11 +39,14 @@ export default async function GestionVacancesPage() {
           <h1 className="text-3xl font-bold" style={{ color: "#1B2B5E" }}>
             🏖️ Demandes de vacances
           </h1>
-          <a href="/employes"
-            className="px-4 py-2 rounded-xl font-semibold text-sm"
-            style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
-            ← Équipe
-          </a>
+          <div className="flex gap-3 items-center">
+            <FormPoserVacances employes={employes ?? []} />
+            <a href="/employes"
+              className="px-4 py-2 rounded-xl font-semibold text-sm"
+              style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
+              ← Équipe
+            </a>
+          </div>
         </div>
 
         {/* En attente */}
