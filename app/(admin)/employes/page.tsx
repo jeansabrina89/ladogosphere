@@ -47,26 +47,6 @@ export default async function EmployesPage() {
               style={{ backgroundColor: "#4AAEA0" }}>
               ➕ Ajouter un employé
             </Link>
-            <Link href="/employes/vacances"
-              className="px-4 py-2 rounded-xl font-semibold text-white text-sm relative"
-              style={{ backgroundColor: "#C9A84C" }}>
-              🏖️ Vacances
-              {demandesEnAttente && demandesEnAttente.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {demandesEnAttente.length}
-                </span>
-              )}
-            </Link>
-            <Link href="/employes/planning"
-              className="px-4 py-2 rounded-xl font-semibold text-white text-sm"
-              style={{ backgroundColor: "#1B2B5E" }}>
-              📅 Planning
-            </Link>
-            <Link href="/employes/timbrage"
-              className="px-4 py-2 rounded-xl font-semibold text-white text-sm"
-              style={{ backgroundColor: "#4AAEA0" }}>
-              ⏱️ Timbrage
-            </Link>
             <Link href="/employes/fiches-salaire"
               className="px-4 py-2 rounded-xl font-semibold text-white text-sm"
               style={{ backgroundColor: "#E8847A" }}>

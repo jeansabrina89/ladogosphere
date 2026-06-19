@@ -22,10 +22,17 @@ export default function SidebarStaff({ sections }: { sections: SectionNav[] }) {
     router.refresh();
   };
 
-  const isActive = (href: string) => {
-    if (href === "/") return pathname === "/";
-    return pathname === href || pathname.startsWith(href + "/");
-  };
+  const tousHrefs = sections.flatMap((s) => s.liens.map((l) => l.href));
+  const hrefActif =
+    tousHrefs
+      .filter((href) =>
+        href === "/"
+          ? pathname === "/"
+          : pathname === href || pathname.startsWith(href + "/")
+      )
+      .sort((a, b) => b.length - a.length)[0] ?? null;
+
+  const isActive = (href: string) => href === hrefActif;
 
   const lienStyle = (actif: boolean): CSSProperties => ({
     display: "flex", alignItems: "center", gap: 10,
