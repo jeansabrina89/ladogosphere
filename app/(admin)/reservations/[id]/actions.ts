@@ -10,6 +10,7 @@ import type { EcartType } from "@/src/lib/facturation";
 import { calculerMontant } from "@/src/lib/calculTarif";
 import { calculerStatut } from "@/src/lib/factures";
 import { estMembreActif } from "@/src/lib/membre";
+import { getProfilePerms } from "@/src/lib/getProfilePerms";
 
 async function verifierAdmin(): Promise<{ error?: string; userId?: string }> {
   const supabase = await createSupabaseServerClient();
@@ -44,7 +45,7 @@ export type RecalculResult = {
 async function recalculerTotalEtPaiement(reservationId: string, createdBy?: string): Promise<RecalculResult> {
   const { data: reservation, error: resError } = await supabaseAdmin
     .from("reservations")
-    .select("montant_calcule, ajustement_manuel, montant_paye, numero, client_id")
+    .select("montant_calcule, ajustement_manuel, montant_paye, numero, client_id, offerte")
     .eq("id", reservationId)
     .single();
   if (resError || !reservation) return { error: "Réservation introuvable." };
@@ -58,7 +59,8 @@ async function recalculerTotalEtPaiement(reservationId: string, createdBy?: stri
   const montantCalcule = Number(reservation.montant_calcule) || 0;
   const ajustement = Number(reservation.ajustement_manuel) || 0;
   const sommeExtras = (extras ?? []).reduce((s, e) => s + (Number(e.montant) || 0), 0);
-  const nouveauTotal = Math.max(0, montantCalcule + ajustement + sommeExtras);
+  let nouveauTotal = Math.max(0, montantCalcule + ajustement + sommeExtras);
+  if (reservation.offerte) nouveauTotal = 0;
   const montantPaye = Number(reservation.montant_paye) || 0;
 
   let nouveauMontantPaye = montantPaye;
@@ -85,7 +87,7 @@ async function recalculerTotalEtPaiement(reservationId: string, createdBy?: stri
     ecart = tropPercu;
     type_ecart = "trop_percu";
   } else {
-    statut = calculerStatut(nouveauMontantPaye, nouveauTotal);
+    statut = nouveauTotal === 0 ? "paye" : calculerStatut(nouveauMontantPaye, nouveauTotal);
     if (nouveauMontantPaye > 0 && nouveauMontantPaye < nouveauTotal) {
       ecart = nouveauTotal - nouveauMontantPaye;
       type_ecart = "complement";
@@ -558,6 +560,19 @@ export async function reprendreAvoir(formData: FormData): Promise<{ error?: stri
 
   revalidatePath(`/reservations/${reservation_id}`);
   return {};
+}
+
+export async function basculerOffreReservation(reservationId: string, offrir: boolean): Promise<RecalculResult> {
+  const perms = await getProfilePerms();
+  if (!perms.isAdmin) return { error: "Action reservee aux administrateurs." };
+  const { error } = await supabaseAdmin
+    .from("reservations")
+    .update({ offerte: offrir })
+    .eq("id", reservationId);
+  if (error) return { error: error.message };
+  const result = await recalculerTotalEtPaiement(reservationId);
+  revalidatePath(`/reservations/${reservationId}`);
+  return result;
 }
 
 export async function supprimerReservationDefinitivement(formData: FormData): Promise<{ error?: string }> {

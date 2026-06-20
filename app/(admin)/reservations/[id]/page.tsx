@@ -14,6 +14,7 @@ import { formatBoxLabel } from "@/src/lib/boxes";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { estMembreActif } from "@/src/lib/membre";
 import BadgeMembre from "@/app/components/BadgeMembre";
+import BoutonOffrir from "./BoutonOffrir";
 
 export default async function ReservationPage({
   params,
@@ -216,8 +217,18 @@ export default async function ReservationPage({
           statut={res.statut}
         />
 
+        {res.offerte && (
+          <div style={{ display: "inline-block", backgroundColor: "#FBE2DE", color: "#A8453A", borderRadius: 999, padding: "4px 12px", fontWeight: 600, fontSize: 13, marginBottom: 12 }}>
+            🎁 Réservation offerte
+          </div>
+        )}
+
         {/* Boutons */}
         <div className="border-t pt-6 flex flex-wrap gap-4">
+
+          {perms.isAdmin && res.statut !== "annulee" && (
+            <BoutonOffrir id={res.id} offerte={!!res.offerte} montant_paye={Number(res.montant_paye) || 0} />
+          )}
 
           {perms.perm_reservations_modifier && (
             <Link href={`/reservations/${res.id}/modifier`}
