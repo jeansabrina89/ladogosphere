@@ -63,5 +63,11 @@ export async function creerEmploye(formData: FormData) {
     .eq("email", email)
     .is("profile_id", null);
 
+  // Renseigner le prenom/nom sur la fiche client liee a ce compte (creee par le trigger lier_client_auth)
+  await supabaseAdmin
+    .from("clients")
+    .update({ prenom, nom })
+    .eq("auth_user_id", userId);
+
   redirect("/employes");
 }
