@@ -60,9 +60,13 @@ export async function creerDemandeReservation(
   if (input.occurrences.length === 0) {
     return { ok: false, erreur: "Aucune date fournie." };
   }
+  const aujourdhuiCH = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Zurich" });
   for (const occ of input.occurrences) {
     if (!occ.date_debut || !occ.date_fin) {
       return { ok: false, erreur: "Dates incomplètes dans la liste des occurrences." };
+    }
+    if (occ.date_debut < aujourdhuiCH) {
+      return { ok: false, erreur: "La date de début ne peut pas être dans le passé." };
     }
   }
 

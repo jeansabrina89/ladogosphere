@@ -20,6 +20,11 @@ export async function creerReservation(formData: FormData) {
   const commentaire_admin = formData.get("commentaire_admin") as string || null;
   const chien_ids = formData.getAll("chien_ids") as string[];
 
+  const aujourdhuiCH = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Zurich" });
+  if (date_debut && date_debut < aujourdhuiCH) {
+    throw new Error("La date de début ne peut pas être dans le passé.");
+  }
+
   // Créer la réservation
   const { data: reservation, error } = await supabaseAdmin
     .from("reservations")
