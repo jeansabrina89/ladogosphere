@@ -20,6 +20,7 @@ const PALETTE: { bg: string; fg: string }[] = [
   { bg: "#E2EEF6", fg: "#185FA5" },
 ];
 const STATUTS_PRESENCE = ["travail", "ferie_travaille"];
+const STATUTS_VACANCES = ["vacances"];
 
 const STYLE_IMPRESSION = `
 @media print {
@@ -71,10 +72,15 @@ export default async function PlanningEquipePage({
   });
 
   const presentsParJour: Record<string, string[]> = {};
+  const vacancesParJour: Record<string, string[]> = {};
   (planning ?? []).forEach((r: any) => {
-    if (!STATUTS_PRESENCE.includes(r.statut)) return;
-    if (!presentsParJour[r.date]) presentsParJour[r.date] = [];
-    if (!presentsParJour[r.date].includes(r.employe_id)) presentsParJour[r.date].push(r.employe_id);
+    if (STATUTS_PRESENCE.includes(r.statut)) {
+      if (!presentsParJour[r.date]) presentsParJour[r.date] = [];
+      if (!presentsParJour[r.date].includes(r.employe_id)) presentsParJour[r.date].push(r.employe_id);
+    } else if (STATUTS_VACANCES.includes(r.statut)) {
+      if (!vacancesParJour[r.date]) vacancesParJour[r.date] = [];
+      if (!vacancesParJour[r.date].includes(r.employe_id)) vacancesParJour[r.date].push(r.employe_id);
+    }
   });
 
   const nbJours = new Date(annee, mois, 0).getDate();
@@ -121,6 +127,7 @@ export default async function PlanningEquipePage({
           {cases.map((c, i) => {
             if (!c) return <div key={`v${i}`} />;
             const presents = presentsParJour[c.dateStr] ?? [];
+            const enConge = vacancesParJour[c.dateStr] ?? [];
             return (
               <div key={c.dateStr} className="rounded-lg p-1.5 flex flex-col gap-1"
                 style={{ minHeight: 96, background: c.weekend ? "#EDE8DF" : "#FFFFFF", border: "0.5px solid rgba(27,43,94,0.12)" }}>
@@ -129,6 +136,12 @@ export default async function PlanningEquipePage({
                   <span key={id} className="text-xs rounded-full px-2 truncate"
                     style={{ background: couleurParId[id]?.bg ?? "#EDE8DF", color: couleurParId[id]?.fg ?? "#1B2B5E", lineHeight: "1.6" }}>
                     {prenomParId[id] ?? "?"}
+                  </span>
+                ))}
+                {enConge.map((id) => (
+                  <span key={`vac-${id}`} className="text-xs rounded-full px-2 truncate"
+                    style={{ background: "#F1ECE3", color: "#9A8F7E", lineHeight: "1.6" }}>
+                    🌴 {prenomParId[id] ?? "?"}
                   </span>
                 ))}
               </div>
@@ -143,6 +156,9 @@ export default async function PlanningEquipePage({
               {e.prenom} {e.nom}
             </div>
           ))}
+          <div className="flex items-center gap-2 text-sm" style={{ color: "#9A8F7E" }}>
+            <span>🌴</span> En vacances
+          </div>
         </div>
 
         {(employes ?? []).length === 0 && (
