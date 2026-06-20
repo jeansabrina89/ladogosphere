@@ -4,6 +4,7 @@ import { formatDateFR, formatHeure } from "@/src/lib/dates";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import BoutonImprimer from "./BoutonImprimer";
+import { estMembreActif } from "@/src/lib/membre";
 
 export default async function FacturePage({
   params,
@@ -30,6 +31,7 @@ export default async function FacturePage({
   if (!res) return <div>Réservation introuvable</div>;
 
   const coords = await getCoordonneesPaiement(supabaseAdmin);
+  const est_membre_actif = res.clients?.id ? await estMembreActif(supabaseAdmin, res.clients.id, res.date_debut) : false;
 
   const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens).filter(Boolean) ?? [];
 
@@ -167,7 +169,7 @@ export default async function FacturePage({
                 {res.type_reservation === "journee" ? "Journée" :
                  res.type_reservation === "sejour" ? "Séjour" : "Journée d'essai"} —{" "}
                 {chiens.length} chien{chiens.length > 1 ? "s" : ""}
-                {res.clients?.membre ? " (tarif membre)" : " (tarif non-membre)"}
+                {est_membre_actif ? " (tarif membre)" : " (tarif non-membre)"}
               </td>
               <td className="px-4 py-3 text-center">{nbJours} j.</td>
               <td className="px-4 py-3 text-right font-semibold">

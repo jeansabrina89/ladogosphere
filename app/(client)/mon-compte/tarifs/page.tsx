@@ -6,6 +6,7 @@ import Link from "next/link";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import EtatVide from "@/app/components/ui/EtatVide";
+import { estMembreActif } from "@/src/lib/membre";
 
 const MARINE = "#1B2B5E";
 
@@ -145,16 +146,7 @@ export default async function TarifsClientPage() {
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
-  const estMembre = client
-    ? !!(await supabaseAdmin
-        .from("cotisations_membres")
-        .select("id")
-        .eq("client_id", client.id)
-        .eq("annee", annee)
-        .eq("statut", "payee")
-        .limit(1)
-        .then(({ data }) => data && data.length > 0))
-    : false;
+  const estMembre = client ? await estMembreActif(supabaseAdmin, client.id) : false;
 
   const tarifsVides = tarifs.length === 0;
 

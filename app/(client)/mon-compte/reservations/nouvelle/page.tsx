@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 import TunnelReservation from "./TunnelReservation";
+import { estMembreActif } from "@/src/lib/membre";
 
 export default async function NouvelleDemandeReservationPage() {
   const supabase = await createClient();
@@ -80,22 +81,12 @@ export default async function NouvelleDemandeReservationPage() {
   // Tarifs + statut membre — lus via service role : la RLS réserve ces tables
   // au personnel/admin. On ne lit ici que des données de référence (tarifs) et
   // la cotisation de CE client, déjà authentifié via sa session.
-  const anneeCourante = new Date().getFullYear();
-
   const { data: tarifsRows } = await supabaseAdmin
     .from("tarifs")
     .select("categorie, membre, prix, annee")
     .eq("actif", true);
 
-  const { data: cotis } = await supabaseAdmin
-    .from("cotisations_membres")
-    .select("id")
-    .eq("client_id", client.id)
-    .eq("annee", anneeCourante)
-    .eq("statut", "payee")
-    .limit(1);
-
-  const estMembre = !!(cotis && cotis.length > 0);
+  const estMembre = await estMembreActif(supabaseAdmin, client.id);
   const tarifs = (tarifsRows ?? []).map((t) => ({
     categorie: t.categorie as string,
     membre: t.membre as boolean,

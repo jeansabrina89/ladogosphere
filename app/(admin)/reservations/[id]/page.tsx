@@ -12,6 +12,7 @@ import GestionPaiement from "./GestionPaiement";
 import { formatDateFR, formatHeure } from "@/src/lib/dates";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
+import { estMembreActif } from "@/src/lib/membre";
 
 export default async function ReservationPage({
   params,
@@ -46,7 +47,7 @@ export default async function ReservationPage({
 
   const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens).filter(Boolean) ?? [];
   const chien_isole = chiens.some((c: any) => c.doit_etre_isole);
-  const est_membre = res.clients?.membre ?? false;
+  const est_membre = res.clients?.id ? await estMembreActif(supabaseAdmin, res.clients.id, res.date_debut) : false;
   const anneeActuelle = new Date().getFullYear();
   const client_id = res.clients?.id;
 

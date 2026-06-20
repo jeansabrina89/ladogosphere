@@ -9,6 +9,7 @@ import { getSoldeAvoir, getAvoirAppliqueReservation } from "@/src/lib/avoirs";
 import type { EcartType } from "@/src/lib/facturation";
 import { calculerMontant } from "@/src/lib/calculTarif";
 import { calculerStatut } from "@/src/lib/factures";
+import { estMembreActif } from "@/src/lib/membre";
 
 async function verifierAdmin(): Promise<{ error?: string; userId?: string }> {
   const supabase = await createSupabaseServerClient();
@@ -215,6 +216,7 @@ export async function recalculerMontantSejour(reservationId: string): Promise<Re
     .from("reservations")
     .select(`
       statut, type_reservation, urgence, date_debut, date_fin, heure_arrivee, heure_depart,
+      client_id,
       clients (membre),
       reservation_chiens (chiens (doit_etre_isole))
     `)
@@ -233,7 +235,7 @@ export async function recalculerMontantSejour(reservationId: string): Promise<Re
   const chiens = (reservation.reservation_chiens ?? []).map((rc: any) => rc.chiens).filter(Boolean);
   const nb_chiens = chiens.length;
   const chien_isole = chiens.some((c: any) => c.doit_etre_isole);
-  const est_membre = (reservation.clients as any)?.membre ?? false;
+  const est_membre = (reservation as any).client_id ? await estMembreActif(supabaseAdmin, (reservation as any).client_id, reservation.date_debut) : false;
 
   const montant = calculerMontant({
     tarifs: tarifs ?? [],

@@ -6,6 +6,7 @@ import { formatBoxLabel } from "@/src/lib/boxes";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { calculerMontant } from "@/src/lib/calculTarif";
 import { recalculerMontantSejour, enregistrerMontantCalcule } from "@/app/(admin)/reservations/[id]/actions";
+import { estMembreActif } from "@/src/lib/membre";
 
 export async function POST(
   req: NextRequest,
@@ -36,6 +37,7 @@ export async function POST(
         .select(`
           type_reservation, urgence, date_debut, date_fin, heure_arrivee, heure_depart,
           montant_calcule,
+          client_id,
           clients (membre),
           reservation_chiens (chiens (doit_etre_isole))
         `)
@@ -58,7 +60,7 @@ export async function POST(
               tarifs,
               type_reservation: resa.type_reservation,
               nb_chiens: chiens.length,
-              est_membre: (resa.clients as any)?.membre ?? false,
+              est_membre: (resa as any).client_id ? await estMembreActif(supabaseAdmin, (resa as any).client_id, resa.date_debut) : false,
               est_urgence: !!resa.urgence,
               est_privatif: chiens.some((c: any) => c.doit_etre_isole),
               date_debut: resa.date_debut,
