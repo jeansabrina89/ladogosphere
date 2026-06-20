@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { BoutonCheckin, BoutonCheckout } from "./BoutonsCheckin";
@@ -14,11 +15,24 @@ const CATS = {
   parti:   { accent: "#9A8F7E", pastel: "#EDE8DF", texte: "#6B6253" },
 };
 
-export default async function CheckinPage() {
+function decalerJour(dateISO: string, delta: number): string {
+  const [a, m, j] = dateISO.split("-").map(Number);
+  const d = new Date(Date.UTC(a, m - 1, j));
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
+export default async function CheckinPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   await exigerPersonnelPage();
   const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
-  const aujourd_hui = aujourdhuiISO();
+
+  const params = await searchParams;
+  const aujourdhui = aujourdhuiISO();
+  const dateActive = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : aujourdhui;
+  const estAujourdhui = dateActive === aujourdhui;
+  const jourPrec = decalerJour(dateActive, -1);
+  const jourSuiv = decalerJour(dateActive, 1);
 
   const { data: checkins } = await supabase
     .from("checkin_checkout")
@@ -33,8 +47,8 @@ export default async function CheckinPage() {
         clients (prenom, nom)
       )
     `)
-    .gte("date_arrivee_prevue", `${aujourd_hui}T00:00:00`)
-    .lte("date_arrivee_prevue", `${aujourd_hui}T23:59:59`)
+    .gte("date_arrivee_prevue", `${dateActive}T00:00:00`)
+    .lte("date_arrivee_prevue", `${dateActive}T23:59:59`)
     .order("date_arrivee_prevue");
 
   const { data: departs } = await supabase
@@ -50,8 +64,8 @@ export default async function CheckinPage() {
         clients (prenom, nom)
       )
     `)
-    .gte("date_depart_prevu", `${aujourd_hui}T00:00:00`)
-    .lte("date_depart_prevu", `${aujourd_hui}T23:59:59`)
+    .gte("date_depart_prevu", `${dateActive}T00:00:00`)
+    .lte("date_depart_prevu", `${dateActive}T23:59:59`)
     .order("date_depart_prevu");
 
   const arrivesAttendus = checkins?.filter(c => c.statut === "attendu") ?? [];
@@ -61,18 +75,37 @@ export default async function CheckinPage() {
 
   const totalPresents = presents.length;
 
+  const dateLisible = new Date(`${dateActive}T12:00:00`).toLocaleDateString("fr-CH", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric"
+  });
+
   return (
     <main className="min-h-screen p-6 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-7xl mx-auto">
 
-        <h1 className="text-3xl md:text-4xl font-bold mb-1" style={{ fontFamily: SERIF, color: "#1B2B5E" }}>
+        <h1 className="text-3xl md:text-4xl font-bold mb-4" style={{ fontFamily: SERIF, color: "#1B2B5E" }}>
           ✅ Check-in / Check-out
         </h1>
-        <p className="mb-6" style={{ color: "#8A8275", fontSize: "14px" }}>
-          {new Date().toLocaleDateString("fr-CH", {
-            weekday: "long", day: "numeric", month: "long", year: "numeric"
-          })}
-        </p>
+
+        <div className="flex items-center gap-3 flex-wrap mb-6">
+          <Link href={`/checkin?date=${jourPrec}`} aria-label="Jour précédent"
+            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, borderRadius: 12, backgroundColor: "#fff", border: "1px solid rgba(27,43,94,.15)", color: "#1B2B5E", fontSize: 18, fontWeight: 700, textDecoration: "none" }}>
+            ←
+          </Link>
+          <span style={{ fontFamily: SERIF, color: "#1B2B5E", fontSize: 18, fontWeight: "bold", textAlign: "center", minWidth: 210 }}>
+            {dateLisible}
+          </span>
+          <Link href={`/checkin?date=${jourSuiv}`} aria-label="Jour suivant"
+            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 44, height: 44, borderRadius: 12, backgroundColor: "#fff", border: "1px solid rgba(27,43,94,.15)", color: "#1B2B5E", fontSize: 18, fontWeight: 700, textDecoration: "none" }}>
+            →
+          </Link>
+          {!estAujourdhui && (
+            <Link href="/checkin"
+              style={{ backgroundColor: "#2E8B7E", color: "#fff", padding: "9px 16px", borderRadius: 12, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
+              Aujourd'hui
+            </Link>
+          )}
+        </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <CarteStat valeur={arrivesAttendus.length} label="Arrivées attendues" cat={CATS.attendu} />
@@ -83,7 +116,7 @@ export default async function CheckinPage() {
 
         <div className="rounded-xl px-6 py-3 mb-8 font-bold text-lg"
           style={{ backgroundColor: "#DCEFE9", border: "1px solid #9FD9CB", color: "#1B2B5E" }}>
-          🐶 {totalPresents} chien(s) actuellement présent(s) dans la pension
+          🐶 {totalPresents} chien(s) {estAujourdhui ? "actuellement présent(s) dans la pension" : "présent(s) ce jour-là"}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
