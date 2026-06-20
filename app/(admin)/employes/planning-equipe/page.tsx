@@ -2,6 +2,7 @@ import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import BoutonImprimer from "./BoutonImprimer";
 
 const NOMS_MOIS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -19,6 +20,21 @@ const PALETTE: { bg: string; fg: string }[] = [
   { bg: "#E2EEF6", fg: "#185FA5" },
 ];
 const STATUTS_PRESENCE = ["travail", "ferie_travaille"];
+
+const STYLE_IMPRESSION = `
+@media print {
+  @page { size: landscape; margin: 8mm; }
+  body { background: #ffffff !important; }
+  body * { visibility: hidden; }
+  #zone-impression, #zone-impression * { visibility: visible; }
+  #zone-impression {
+    position: absolute; left: 0; top: 0; width: 100%;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .no-print { display: none !important; }
+}
+`;
 
 export default async function PlanningEquipePage({
   searchParams,
@@ -76,19 +92,23 @@ export default async function PlanningEquipePage({
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
-      <div className="max-w-6xl mx-auto">
+      <style dangerouslySetInnerHTML={{ __html: STYLE_IMPRESSION }} />
+      <div id="zone-impression" className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold" style={{ color: "#1B2B5E" }}>👥 Planning de l'équipe</h1>
-          <Link href="/employes/mon-espace" className="px-4 py-2 rounded-xl font-semibold text-sm"
-            style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>← Mon espace</Link>
+          <div className="flex gap-3 items-center no-print">
+            <BoutonImprimer />
+            <Link href="/employes/mon-espace" className="px-4 py-2 rounded-xl font-semibold text-sm"
+              style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>← Mon espace</Link>
+          </div>
         </div>
 
         <div className="flex items-center justify-center gap-4 mb-6">
           <Link href={`/employes/planning-equipe?mois=${moisPrec.m}&annee=${moisPrec.a}`}
-            className="px-3 py-2 rounded-xl font-semibold" style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>←</Link>
+            className="no-print px-3 py-2 rounded-xl font-semibold" style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>←</Link>
           <span className="text-lg font-bold" style={{ color: "#1B2B5E" }}>{NOMS_MOIS[mois - 1]} {annee}</span>
           <Link href={`/employes/planning-equipe?mois=${moisSuiv.m}&annee=${moisSuiv.a}`}
-            className="px-3 py-2 rounded-xl font-semibold" style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>→</Link>
+            className="no-print px-3 py-2 rounded-xl font-semibold" style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>→</Link>
         </div>
 
         <div className="grid grid-cols-7 gap-1 mb-1">
