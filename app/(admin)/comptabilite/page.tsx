@@ -6,6 +6,8 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import FiltresMois from "./FiltresMois";
 import { montantDuReservation } from "@/src/lib/montants";
+import { clientsMembresAJour } from "@/src/lib/membre";
+import BadgeMembre from "@/app/components/BadgeMembre";
 
 export default async function ComptabilitePage({
   searchParams,
@@ -32,6 +34,8 @@ export default async function ComptabilitePage({
     .select(`*, clients (prenom, nom, membre), boxes (numero), reservation_chiens (chiens (nom))`)
     .neq("statut", "annulee")
     .order("date_debut", { ascending: false });
+
+  const idsAJourCompta = await clientsMembresAJour(supabase, (reservations ?? []).map((r: any) => r.client_id));
 
   // Cotisations de l'année
   const { data: cotisations } = await supabase
@@ -362,7 +366,7 @@ export default async function ComptabilitePage({
                     style={{ borderBottom: "1px solid #E2E8F0" }}>
                     <td className="px-4 py-3 text-sm font-semibold" style={{ color: "#1B2B5E" }}>
                       {res.clients?.prenom} {res.clients?.nom}
-                      {res.clients?.membre && <span className="ml-1 text-green-600 text-xs">⭐</span>}
+                      <BadgeMembre membre={!!res.clients?.membre} aJour={idsAJourCompta.has(res.client_id)} compact />
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {formatDateFR(res.date_debut)} → {formatDateFR(res.date_fin)}

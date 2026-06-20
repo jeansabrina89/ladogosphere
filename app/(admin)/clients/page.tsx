@@ -2,6 +2,8 @@ import Link from "next/link";
 import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
+import { clientsMembresAJour } from "@/src/lib/membre";
+import BadgeMembre from "@/app/components/BadgeMembre";
 import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
 import Carte from "@/app/components/ui/Carte";
@@ -31,6 +33,8 @@ export default async function ClientsPage() {
       .in("role", ["employe", "admin"]);
     (profiles ?? []).forEach(p => personnelIds.add(p.id));
   }
+
+  const idsAJour = await clientsMembresAJour(supabaseAdmin, (clients ?? []).map(c => c.id));
 
   const muted: React.CSSProperties = { color: "rgba(27,43,94,0.6)", fontSize: 14, margin: 0 };
   const pill = (bg: string, color: string): React.CSSProperties => ({
@@ -73,9 +77,7 @@ export default async function ClientsPage() {
                         <p style={muted}>{client.telephone || "—"}</p>
                       </div>
                       <div style={{ textAlign: "right", flexShrink: 0 }}>
-                        {client.membre
-                          ? <span style={pill("#F4EAC9", "#6E5410")}>⭐ Membre</span>
-                          : <span style={pill("#EDE8DF", "rgba(27,43,94,0.6)")}>Standard</span>}
+                        <BadgeMembre membre={!!client.membre} aJour={idsAJour.has(client.id)} montrerStandard />
                         <p style={{ ...muted, marginTop: 6 }}>{client.chiens?.length ?? 0} chien(s)</p>
                       </div>
                     </div>

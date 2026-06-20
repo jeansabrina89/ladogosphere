@@ -1,10 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+function anneesPertinentes(dateRefISO?: string): number[] {
+  const ref = (dateRefISO ?? new Date().toISOString()).slice(0, 10);
+  const [annee, mois] = ref.split("-").map(Number);
+  if (!annee) return [];
+  const dansGrace = mois === 1 || mois === 2;
+  return dansGrace ? [annee, annee - 1] : [annee];
+}
+
 /**
  * Statut membre "à jour" pour la tarification, à une date de prestation donnée.
- * Règle : cotisation payée pour l'année de la prestation, OU délai de grâce
- * (janvier-février) avec cotisation payée l'année précédente.
- * dateRefISO : date de la prestation "YYYY-MM-DD" (défaut : aujourd'hui).
+ * Cotisation payée pour l'année de la prestation, OU grâce janvier-février
+ * avec cotisation payée l'année précédente.
  */
 export async function estMembreActif(
   supabase: SupabaseClient,
@@ -12,11 +19,8 @@ export async function estMembreActif(
   dateRefISO?: string
 ): Promise<boolean> {
   if (!client_id) return false;
-  const ref = (dateRefISO ?? new Date().toISOString()).slice(0, 10);
-  const [annee, mois] = ref.split("-").map(Number);
-  if (!annee) return false;
-  const dansGrace = mois === 1 || mois === 2;
-  const annees = dansGrace ? [annee, annee - 1] : [annee];
+  const annees = anneesPertinentes(dateRefISO);
+  if (annees.length === 0) return false;
   const { data } = await supabase
     .from("cotisations_membres")
     .select("annee")
@@ -25,4 +29,26 @@ export async function estMembreActif(
     .in("annee", annees)
     .limit(1);
   return !!(data && data.length > 0);
+}
+
+/**
+ * Version groupée : retourne l'ensemble des client_id qui ont une cotisation
+ * à jour, en une seule requête (pour les listes).
+ */
+export async function clientsMembresAJour(
+  supabase: SupabaseClient,
+  clientIds: (string | null | undefined)[],
+  dateRefISO?: string
+): Promise<Set<string>> {
+  const ids = [...new Set(clientIds.filter(Boolean) as string[])];
+  if (ids.length === 0) return new Set();
+  const annees = anneesPertinentes(dateRefISO);
+  if (annees.length === 0) return new Set();
+  const { data } = await supabase
+    .from("cotisations_membres")
+    .select("client_id")
+    .in("client_id", ids)
+    .eq("statut", "payee")
+    .in("annee", annees);
+  return new Set((data ?? []).map((r: any) => r.client_id as string));
 }
