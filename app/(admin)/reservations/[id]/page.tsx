@@ -30,7 +30,7 @@ export default async function ReservationPage({
     .from("reservations")
     .select(`
       *,
-      clients (id, prenom, nom, membre, telephone, email),
+      clients (id, prenom, nom, membre, telephone, email, auth_user_id),
       boxes (numero, nom),
       reservation_chiens (
         chiens (id, nom, race, poids, categorie_poids, sexe, sterilisation, doit_etre_isole)
@@ -52,6 +52,18 @@ export default async function ReservationPage({
   const est_membre = res.clients?.id ? await estMembreActif(supabaseAdmin, res.clients.id, res.date_debut) : false;
   const anneeActuelle = new Date().getFullYear();
   const client_id = res.clients?.id;
+
+  const authUserIdClient = (res.clients as any)?.auth_user_id;
+  let clientEstEmploye = false;
+  if (authUserIdClient) {
+    const { data: profPersonnel } = await supabaseAdmin
+      .from("profiles")
+      .select("role")
+      .eq("id", authUserIdClient)
+      .in("role", ["employe", "admin"])
+      .maybeSingle();
+    clientEstEmploye = !!profPersonnel;
+  }
 
   // Chercher cotisation en attente pour ce client
   const { data: cotisation } = await supabase
@@ -226,7 +238,7 @@ export default async function ReservationPage({
         {/* Boutons */}
         <div className="border-t pt-6 flex flex-wrap gap-4">
 
-          {perms.isAdmin && res.statut !== "annulee" && (
+          {perms.isAdmin && clientEstEmploye && res.statut !== "annulee" && (
             <BoutonOffrir id={res.id} offerte={!!res.offerte} montant_paye={Number(res.montant_paye) || 0} />
           )}
 
