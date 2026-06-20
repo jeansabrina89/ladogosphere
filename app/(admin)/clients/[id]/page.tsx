@@ -9,6 +9,8 @@ import BoutonCotisation from "./BoutonCotisation";
 import BoutonConfirmerCotisation from "./BoutonConfirmerCotisation";
 import GestionAvoir from "./GestionAvoir";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
+import { estMembreActif } from "@/src/lib/membre";
+import BadgeMembre from "@/app/components/BadgeMembre";
 import SelectionFactureGroupee from "../../reservations/SelectionFactureGroupee";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
@@ -54,6 +56,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
 
   const montantCotisation = parseFloat(parametre?.valeur ?? "180");
   const cotisationAnneeActuelle = cotisations?.find((c) => c.annee === anneeActuelle);
+  const membre_a_jour = client.id ? await estMembreActif(supabaseAdmin, client.id) : false;
 
   const mouvementsAvoir = await getMouvementsAvoir(supabaseAdmin, id);
   const soldeAvoir = calculerSoldeAvoir(mouvementsAvoir);
@@ -111,11 +114,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
 
         <EnTete
           titre={`👤 ${client.prenom} ${client.nom}`}
-          action={
-            client.membre
-              ? <span style={pill("#F4EAC9", "#6E5410")}>⭐ Membre</span>
-              : <span style={pill("#EDE8DF", "rgba(27,43,94,0.6)")}>Standard</span>
-          }
+          action={<BadgeMembre membre={!!client.membre} aJour={membre_a_jour} montrerStandard />}
         />
 
         {/* 1. Coordonnées */}

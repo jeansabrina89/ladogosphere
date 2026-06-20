@@ -5,6 +5,7 @@ import { formatBoxLabel } from "@/src/lib/boxes";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import BoutonImprimer from "./BoutonImprimer";
 import { estMembreActif } from "@/src/lib/membre";
+import BadgeMembre from "@/app/components/BadgeMembre";
 
 export default async function FacturePage({
   params,
@@ -109,8 +110,8 @@ export default async function FacturePage({
         <div className="mb-8">
           <h3 className="font-bold text-sm uppercase tracking-wide text-gray-400 mb-2">Facturé à</h3>
           <p className="font-bold text-lg" style={{ color: "#1B2B5E" }}>
-            {res.clients?.prenom} {res.clients?.nom}
-            {res.clients?.membre && <span className="ml-2 text-sm text-green-600">⭐ Membre</span>}
+            {res.clients?.prenom} {res.clients?.nom}{" "}
+            <BadgeMembre membre={!!res.clients?.membre} aJour={est_membre_actif} />
           </p>
           {res.clients?.adresse && <p className="text-sm text-gray-600">{res.clients.adresse}</p>}
           {res.clients?.email && <p className="text-sm text-gray-600">{res.clients.email}</p>}

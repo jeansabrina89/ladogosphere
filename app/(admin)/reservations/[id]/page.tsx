@@ -13,6 +13,7 @@ import { formatDateFR, formatHeure } from "@/src/lib/dates";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { estMembreActif } from "@/src/lib/membre";
+import BadgeMembre from "@/app/components/BadgeMembre";
 
 export default async function ReservationPage({
   params,
@@ -122,8 +123,8 @@ export default async function ReservationPage({
         {/* Client */}
         <div className="border-t pt-6 mb-6">
           <h2 className="text-2xl font-bold mb-4" style={{ color: "#1B2B5E" }}>👤 Client</h2>
-          <p><strong>Nom :</strong> {res.clients?.prenom} {res.clients?.nom}
-            {res.clients?.membre && <span className="ml-2 text-green-600">⭐ Membre</span>}
+          <p><strong>Nom :</strong> {res.clients?.prenom} {res.clients?.nom}{" "}
+            <BadgeMembre membre={!!res.clients?.membre} aJour={est_membre} />
           </p>
           <p><strong>Email :</strong> {res.clients?.email}</p>
           <p><strong>Téléphone :</strong> {res.clients?.telephone || "—"}</p>

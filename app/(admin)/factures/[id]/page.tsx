@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { estMembreActif } from "@/src/lib/membre";
+import BadgeMembre from "@/app/components/BadgeMembre";
 import { formatDateFR } from "@/src/lib/dates";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { lireParametresTVA, ventilerTVA } from "@/src/lib/tva";
@@ -41,7 +43,7 @@ export default async function FactureGroupeePage({
     .from("factures")
     .select(`
       *,
-      clients (prenom, nom, adresse, email, telephone, membre),
+      clients (id, prenom, nom, adresse, email, telephone, membre),
       facture_reservations (
         id, montant,
         reservations (numero, type_reservation, date_debut, date_fin)
@@ -64,6 +66,7 @@ export default async function FactureGroupeePage({
   const paiements: any[] = facture.paiements ?? [];
   const dernierPaiement = paiements[paiements.length - 1] ?? null;
   const client = facture.clients as any;
+  const membre_a_jour = client?.id ? await estMembreActif(supabaseAdmin, client.id, dateFactureISO ?? undefined) : false;
 
   const estAcquittee = facture.statut === "acquittee";
   const estAnnulee = facture.statut === "annulee";
@@ -140,8 +143,8 @@ export default async function FactureGroupeePage({
         <div className="mb-8">
           <h3 className="font-bold text-sm uppercase tracking-wide text-gray-400 mb-2">Facturé à</h3>
           <p className="font-bold text-lg" style={{ color: "#1B2B5E" }}>
-            {client?.prenom} {client?.nom}
-            {client?.membre && <span className="ml-2 text-sm text-green-600">⭐ Membre</span>}
+            {client?.prenom} {client?.nom}{" "}
+            <BadgeMembre membre={!!client?.membre} aJour={membre_a_jour} />
           </p>
           {client?.adresse && <p className="text-sm text-gray-600">{client.adresse}</p>}
           {client?.email && <p className="text-sm text-gray-600">{client.email}</p>}
