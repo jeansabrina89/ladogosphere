@@ -1,5 +1,6 @@
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { getJoursFeries } from "@/src/lib/joursFeries";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import BoutonImprimer from "./BoutonImprimer";
@@ -58,6 +59,7 @@ export default async function PlanningEquipePage({
 
   const debut = `${annee}-${moisPad}-01`;
   const fin = new Date(annee, mois, 0).toISOString().split("T")[0];
+  const feries = getJoursFeries(annee);
 
   const [{ data: employes }, { data: planning }] = await Promise.all([
     supabaseAdmin.from("employes_rh").select("id, prenom, nom").eq("actif", true).order("nom"),
@@ -128,10 +130,14 @@ export default async function PlanningEquipePage({
             if (!c) return <div key={`v${i}`} />;
             const presents = presentsParJour[c.dateStr] ?? [];
             const enConge = vacancesParJour[c.dateStr] ?? [];
+            const estFerie = feries.includes(c.dateStr);
             return (
               <div key={c.dateStr} className="rounded-lg p-1.5 flex flex-col gap-1"
-                style={{ minHeight: 96, background: c.weekend ? "#EDE8DF" : "#FFFFFF", border: "0.5px solid rgba(27,43,94,0.12)" }}>
-                <div className="text-xs font-semibold" style={{ color: "#6B7280" }}>{c.jour}</div>
+                style={{ minHeight: 96, background: estFerie ? "#F8EFD3" : c.weekend ? "#EDE8DF" : "#FFFFFF", border: estFerie ? "0.5px solid #C9A84C" : "0.5px solid rgba(27,43,94,0.12)" }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold" style={{ color: "#6B7280" }}>{c.jour}</span>
+                  {estFerie && <span style={{ fontSize: 10, fontWeight: 700, color: "#6E5410" }}>Férié</span>}
+                </div>
                 {presents.map((id) => (
                   <span key={id} className="text-xs rounded-full px-2 truncate"
                     style={{ background: couleurParId[id]?.bg ?? "#EDE8DF", color: couleurParId[id]?.fg ?? "#1B2B5E", lineHeight: "1.6" }}>
@@ -158,6 +164,10 @@ export default async function PlanningEquipePage({
           ))}
           <div className="flex items-center gap-2 text-sm" style={{ color: "#9A8F7E" }}>
             <span>🌴</span> En vacances
+          </div>
+          <div className="flex items-center gap-2 text-sm" style={{ color: "#6E5410" }}>
+            <span className="inline-block rounded" style={{ width: 12, height: 12, background: "#F8EFD3", border: "1px solid #C9A84C" }} />
+            Jour férié
           </div>
         </div>
 
