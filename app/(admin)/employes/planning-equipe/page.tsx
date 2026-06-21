@@ -1,6 +1,7 @@
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getJoursFeries } from "@/src/lib/joursFeries";
+import { aujourdhuiISO } from "@/src/lib/dates";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import BoutonImprimer from "./BoutonImprimer";
@@ -22,6 +23,9 @@ const PALETTE: { bg: string; fg: string }[] = [
 ];
 const STATUTS_PRESENCE = ["travail", "ferie_travaille"];
 const STATUTS_VACANCES = ["vacances"];
+const STATUTS_ABSENCE = ["maladie", "absent", "accident", "militaire"];
+const ICONE_ABSENCE: Record<string, string> = { maladie: "🤒", absent: "❌", accident: "🩹", militaire: "🎖️" };
+const LABEL_ABSENCE: Record<string, string> = { maladie: "Maladie", absent: "Absent", accident: "Accident", militaire: "Militaire" };
 
 const STYLE_IMPRESSION = `
 @media print {
@@ -60,6 +64,7 @@ export default async function PlanningEquipePage({
   const debut = `${annee}-${moisPad}-01`;
   const fin = new Date(annee, mois, 0).toISOString().split("T")[0];
   const feries = getJoursFeries(annee);
+  const aujourdhuiStr = aujourdhuiISO();
 
   const [{ data: employes }, { data: planning }] = await Promise.all([
     supabaseAdmin.from("employes_rh").select("id, prenom, nom").eq("actif", true).order("nom"),
@@ -75,6 +80,7 @@ export default async function PlanningEquipePage({
 
   const presentsParJour: Record<string, string[]> = {};
   const vacancesParJour: Record<string, string[]> = {};
+  const absencesParJour: Record<string, { id: string; statut: string }[]> = {};
   (planning ?? []).forEach((r: any) => {
     if (STATUTS_PRESENCE.includes(r.statut)) {
       if (!presentsParJour[r.date]) presentsParJour[r.date] = [];
@@ -82,6 +88,9 @@ export default async function PlanningEquipePage({
     } else if (STATUTS_VACANCES.includes(r.statut)) {
       if (!vacancesParJour[r.date]) vacancesParJour[r.date] = [];
       if (!vacancesParJour[r.date].includes(r.employe_id)) vacancesParJour[r.date].push(r.employe_id);
+    } else if (STATUTS_ABSENCE.includes(r.statut)) {
+      if (!absencesParJour[r.date]) absencesParJour[r.date] = [];
+      if (!absencesParJour[r.date].some((a) => a.id === r.employe_id)) absencesParJour[r.date].push({ id: r.employe_id, statut: r.statut });
     }
   });
 
@@ -130,18 +139,29 @@ export default async function PlanningEquipePage({
             if (!c) return <div key={`v${i}`} />;
             const presents = presentsParJour[c.dateStr] ?? [];
             const enConge = vacancesParJour[c.dateStr] ?? [];
+            const absences = absencesParJour[c.dateStr] ?? [];
             const estFerie = feries.includes(c.dateStr);
+            const estAujourdhui = c.dateStr === aujourdhuiStr;
             return (
               <div key={c.dateStr} className="rounded-lg p-1.5 flex flex-col gap-1"
-                style={{ minHeight: 96, background: estFerie ? "#F8EFD3" : c.weekend ? "#EDE8DF" : "#FFFFFF", border: estFerie ? "0.5px solid #C9A84C" : "0.5px solid rgba(27,43,94,0.12)" }}>
+                style={{ minHeight: 96, background: estFerie ? "#F8EFD3" : c.weekend ? "#EDE8DF" : "#FFFFFF", border: estAujourdhui ? "2px solid #2E8B7E" : estFerie ? "0.5px solid #C9A84C" : "0.5px solid rgba(27,43,94,0.12)" }}>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold" style={{ color: "#6B7280" }}>{c.jour}</span>
-                  {estFerie && <span style={{ fontSize: 10, fontWeight: 700, color: "#6E5410" }}>Férié</span>}
+                  <span className="text-xs" style={{ color: estAujourdhui ? "#2E8B7E" : "#6B7280", fontWeight: estAujourdhui ? 800 : 600 }}>{c.jour}</span>
+                  {estAujourdhui
+                    ? <span style={{ fontSize: 10, fontWeight: 700, color: "#2E8B7E" }}>Auj.</span>
+                    : estFerie ? <span style={{ fontSize: 10, fontWeight: 700, color: "#6E5410" }}>Férié</span> : null}
                 </div>
                 {presents.map((id) => (
                   <span key={id} className="text-xs rounded-full px-2 truncate"
                     style={{ background: couleurParId[id]?.bg ?? "#EDE8DF", color: couleurParId[id]?.fg ?? "#1B2B5E", lineHeight: "1.6" }}>
                     {prenomParId[id] ?? "?"}
+                  </span>
+                ))}
+                {absences.map((a) => (
+                  <span key={`abs-${a.id}`} className="text-xs rounded-full px-2 truncate"
+                    title={LABEL_ABSENCE[a.statut] ?? "Absence"}
+                    style={{ background: "#FBE2DE", color: "#A8453A", lineHeight: "1.6" }}>
+                    {ICONE_ABSENCE[a.statut] ?? "⚠️"} {prenomParId[a.id] ?? "?"}
                   </span>
                 ))}
                 {enConge.map((id) => (
@@ -162,12 +182,20 @@ export default async function PlanningEquipePage({
               {e.prenom} {e.nom}
             </div>
           ))}
+          <div className="flex items-center gap-2 text-sm" style={{ color: "#A8453A" }}>
+            <span className="inline-block rounded-full" style={{ width: 12, height: 12, background: "#FBE2DE", border: "1px solid #A8453A" }} />
+            Absent / malade
+          </div>
           <div className="flex items-center gap-2 text-sm" style={{ color: "#9A8F7E" }}>
             <span>🌴</span> En vacances
           </div>
           <div className="flex items-center gap-2 text-sm" style={{ color: "#6E5410" }}>
             <span className="inline-block rounded" style={{ width: 12, height: 12, background: "#F8EFD3", border: "1px solid #C9A84C" }} />
             Jour férié
+          </div>
+          <div className="flex items-center gap-2 text-sm" style={{ color: "#2E8B7E" }}>
+            <span className="inline-block rounded" style={{ width: 12, height: 12, border: "2px solid #2E8B7E" }} />
+            Aujourd'hui
           </div>
         </div>
 
