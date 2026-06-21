@@ -6,7 +6,7 @@ import { getSoldeAvoir } from "@/src/lib/avoirs";
 import { montantDuReservation, resteAPayer } from "@/src/lib/montants";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { estMembreActif } from "@/src/lib/membre";
-import BoutonDemanderAdhesion from "./BoutonDemanderAdhesion";
+import BoutonDemanderAdhesion from "@/app/components/BoutonDemanderAdhesion";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";

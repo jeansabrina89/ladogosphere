@@ -45,5 +45,6 @@ export async function demanderAdhesion(mode: "virement" | "prochaine_resa") {
   await supabaseAdmin.from("clients").update({ membre: true }).eq("id", client.id);
 
   revalidatePath("/mon-compte");
+  revalidatePath("/mon-compte/tarifs");
   return { ok: true };
 }

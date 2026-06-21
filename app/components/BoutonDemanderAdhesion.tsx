@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { demanderAdhesion } from "./actions";
+import { demanderAdhesion } from "@/app/(client)/mon-compte/actions";
 
 export default function BoutonDemanderAdhesion({ montant }: { montant: number }) {
   const [ouvert, setOuvert] = useState(false);

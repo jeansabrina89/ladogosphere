@@ -7,7 +7,7 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import EtatVide from "@/app/components/ui/EtatVide";
 import { estMembreActif } from "@/src/lib/membre";
-import BoutonDemanderAdhesion from "./BoutonDemanderAdhesion";
+import BoutonDemanderAdhesion from "@/app/components/BoutonDemanderAdhesion";
 
 const MARINE = "#1B2B5E";
 
