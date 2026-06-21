@@ -4,6 +4,9 @@ import Link from "next/link";
 import { formatDateFR, aujourdhuiISO } from "@/src/lib/dates";
 import { getSoldeAvoir } from "@/src/lib/avoirs";
 import { montantDuReservation, resteAPayer } from "@/src/lib/montants";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { estMembreActif } from "@/src/lib/membre";
+import BoutonDemanderAdhesion from "./BoutonDemanderAdhesion";
 import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
 import Carte from "@/app/components/ui/Carte";
@@ -53,6 +56,25 @@ export default async function MonComptePage() {
 
   const nbChiens = client?.chiens?.length ?? 0;
   const soldeAvoir = client ? await getSoldeAvoir(supabase, client.id) : 0;
+
+  const anneeAdhesion = new Date().getFullYear();
+  const estMembre = client ? await estMembreActif(supabaseAdmin, client.id) : false;
+  const { data: cotisationAnnee } = client
+    ? await supabaseAdmin
+        .from("cotisations_membres")
+        .select("statut")
+        .eq("client_id", client.id)
+        .eq("annee", anneeAdhesion)
+        .maybeSingle()
+    : { data: null };
+  const aDemandeEnAttente = cotisationAnnee?.statut === "en_attente";
+  const peutDemander = !!client && !estMembre && !cotisationAnnee;
+  const { data: paramCotis } = await supabaseAdmin
+    .from("parametres")
+    .select("valeur")
+    .eq("cle", "cotisation_montant")
+    .maybeSingle();
+  const montantCotisation = parseFloat(paramCotis?.valeur ?? "180") || 180;
 
   const raccourcis = [
     { href: "/mon-compte/chiens",      label: "Mes chiens" },
@@ -133,6 +155,29 @@ export default async function MonComptePage() {
             </Link>
           )}
         </div>
+
+        {peutDemander && (
+          <div style={{ marginBottom: "32px" }}>
+            <Carte>
+              <p style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 18, fontWeight: 700, color: "#1B2B5E", margin: "0 0 4px" }}>★ Devenir membre</p>
+              <p style={{ fontSize: 13, color: "rgba(27,43,94,0.6)", margin: "0 0 4px" }}>
+                La cotisation annuelle de {montantCotisation} CHF te donne accès aux tarifs membres sur toutes tes réservations.
+              </p>
+              <BoutonDemanderAdhesion montant={montantCotisation} />
+            </Carte>
+          </div>
+        )}
+
+        {aDemandeEnAttente && (
+          <div style={{ marginBottom: "32px" }}>
+            <div style={{ backgroundColor: "#F4EAC9", border: "1px solid #C9A84C", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 20 }}>⏳</span>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#6E5410" }}>
+                Ta demande d'adhésion est en cours de traitement par notre équipe.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Prochaine réservation */}
         <h2 style={{
