@@ -165,6 +165,11 @@ export async function creerAccesEmploye(
     .eq("id", ficheId);
   if (updateError) return { error: updateError.message };
 
+  await supabaseAdmin
+    .from("clients")
+    .update({ prenom: fiche.prenom, nom: fiche.nom })
+    .eq("auth_user_id", userId);
+
   revalidatePath("/employes");
   return { password: motDePasseProvisoire };
 }
