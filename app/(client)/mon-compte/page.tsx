@@ -7,6 +7,7 @@ import { montantDuReservation, resteAPayer } from "@/src/lib/montants";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { estMembreActif } from "@/src/lib/membre";
 import BoutonDemanderAdhesion from "./BoutonDemanderAdhesion";
+import BadgeMembre from "@/app/components/BadgeMembre";
 import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
 import Carte from "@/app/components/ui/Carte";
@@ -105,6 +106,12 @@ export default async function MonComptePage() {
             </Bouton>
           }
         />
+
+        {!aDemandeEnAttente && (
+          <div style={{ marginBottom: 24 }}>
+            <BadgeMembre membre={!!client?.membre} aJour={estMembre} montrerStandard />
+          </div>
+        )}
 
         {/* Mini-stats — 3 cartes fixes + 4e conditionnelle */}
         <div
