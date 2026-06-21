@@ -13,6 +13,7 @@ const SECTIONS_ADMIN: SectionNav[] = [
     { href: "/chiens", label: "🐶 Chiens" },
     { href: "/clients", label: "👤 Clients" },
     { href: "/reservations", label: "📅 Réservations" },
+    { href: "/adhesions", label: "🎫 Adhésions" },
   ]},
   { titre: "Gestion", liens: [
     { href: "/tarifs", label: "💰 Tarifs" },
