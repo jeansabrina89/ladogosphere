@@ -4,7 +4,7 @@ import type { CSSProperties } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/src/lib/supabase-browser";
 
-export type LienNav = { href: string; label: string };
+export type LienNav = { href: string; label: string; badge?: number };
 export type SectionNav = { titre: string | null; liens: LienNav[] };
 
 const ASIDE_W = 248;
@@ -43,6 +43,12 @@ export default function SidebarStaff({ sections }: { sections: SectionNav[] }) {
     textDecoration: "none",
   });
 
+  const pastilleStyle: CSSProperties = {
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+    minWidth: 20, height: 20, padding: "0 6px", borderRadius: 999,
+    background: "#E8847A", color: "#FFFFFF", fontSize: 12, fontWeight: 700, lineHeight: 1,
+  };
+
   const titreStyle: CSSProperties = {
     fontSize: 11, fontWeight: 700, letterSpacing: ".08em",
     textTransform: "uppercase", color: "#C9A84C", padding: "14px 12px 4px",
@@ -59,8 +65,11 @@ export default function SidebarStaff({ sections }: { sections: SectionNav[] }) {
           <div key={i}>
             {sec.titre && <div style={titreStyle}>{sec.titre}</div>}
             <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: sec.titre ? "0 0 2px" : "6px 0 2px" }}>
-              {sec.liens.map(({ href, label }) => (
-                <a key={href} href={href} style={lienStyle(isActive(href))}>{label}</a>
+              {sec.liens.map(({ href, label, badge }) => (
+                <a key={href} href={href} style={lienStyle(isActive(href))}>
+                  <span>{label}</span>
+                  {badge ? <span style={{ ...pastilleStyle, marginLeft: "auto" }}>{badge}</span> : null}
+                </a>
               ))}
             </div>
           </div>
@@ -110,12 +119,13 @@ export default function SidebarStaff({ sections }: { sections: SectionNav[] }) {
               <div key={i} style={{ marginBottom: 16 }}>
                 {sec.titre && <div style={{ ...titreStyle, padding: "0 2px 8px" }}>{sec.titre}</div>}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  {liens.map(({ href, label }) => {
+                  {liens.map(({ href, label, badge }) => {
                     const espace = label.indexOf(" ");
                     const icone = espace > 0 ? label.slice(0, espace) : "";
                     const texte = espace > 0 ? label.slice(espace + 1) : label;
                     return (
-                      <a key={href} href={href} style={tuileStyle}>
+                      <a key={href} href={href} style={{ ...tuileStyle, position: "relative" }}>
+                        {badge ? <span style={{ ...pastilleStyle, position: "absolute", top: 8, right: 8 }}>{badge}</span> : null}
                         <span style={{ fontSize: 24, lineHeight: 1 }}>{icone}</span>
                         <span style={{ fontSize: 13, fontWeight: 600 }}>{texte}</span>
                       </a>
