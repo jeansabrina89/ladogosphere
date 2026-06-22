@@ -4,6 +4,8 @@ import { createClient } from "@/src/utils/supabase/server";
 import { getEmployeRhActuel } from "@/src/lib/employeActuel";
 import FormDemandeVacances from "./FormDemandeVacances";
 import { formatDateFR } from "@/src/lib/dates";
+import EnTete from "@/app/components/ui/EnTete";
+import BadgeStatut from "@/app/components/ui/BadgeStatut";
 
 export default async function VacancesPage() {
   const supabase = await createClient();
@@ -41,40 +43,38 @@ export default async function VacancesPage() {
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-3xl mx-auto">
 
-        <h1 className="text-3xl font-bold mb-2" style={{ color: "#1B2B5E" }}>
-          🏖️ Mes vacances
-        </h1>
+        <EnTete titre="🏖️ Mes vacances" />
 
         <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             <p className="text-2xl font-bold" style={{ color: "#4AAEA0" }}>
               {joursVacancesTotal}j
             </p>
-            <p className="text-xs text-gray-500 mt-1">Droit annuel</p>
+            <p className="text-xs text-[rgba(27,43,94,0.5)] mt-1">Droit annuel</p>
           </div>
           {bonusFeriers > 0 && (
-            <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+            <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
               <p className="text-2xl font-bold" style={{ color: "#D97706" }}>
                 +{bonusFeriers}j 🎉
               </p>
-              <p className="text-xs text-gray-500 mt-1">Fériés travaillés</p>
+              <p className="text-xs text-[rgba(27,43,94,0.5)] mt-1">Fériés travaillés</p>
             </div>
           )}
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             <p className="text-2xl font-bold" style={{ color: "#E8847A" }}>
               {joursVacancesPris}j
             </p>
-            <p className="text-xs text-gray-500 mt-1">Pris</p>
+            <p className="text-xs text-[rgba(27,43,94,0.5)] mt-1">Pris</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             <p className="text-2xl font-bold" style={{ color: "#C9A84C" }}>
               {joursVacancesRestants}j
             </p>
-            <p className="text-xs text-gray-500 mt-1">Restants</p>
+            <p className="text-xs text-[rgba(27,43,94,0.5)] mt-1">Restants</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
+        <div className="mb-6" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "24px" }}>
           <h2 className="font-bold mb-4" style={{ color: "#1B2B5E" }}>
             ➕ Nouvelle demande
           </h2>
@@ -85,38 +85,31 @@ export default async function VacancesPage() {
           />
         </div>
 
-        <div className="bg-white rounded-xl p-6 shadow-sm">
+        <div style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "24px" }}>
           <h2 className="font-bold mb-4" style={{ color: "#1B2B5E" }}>
             📋 Mes demandes
           </h2>
           <div className="space-y-3">
             {demandes?.length === 0 && (
-              <p className="text-gray-400 text-sm">Aucune demande.</p>
+              <p className="text-[rgba(27,43,94,0.45)] text-sm">Aucune demande.</p>
             )}
             {demandes?.map((d: any) => (
-              <div key={d.id} className="border rounded-xl p-4">
+              <div key={d.id} className="rounded-xl p-4" style={{ border: "1px solid rgba(27,43,94,0.12)" }}>
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-semibold text-sm" style={{ color: "#1B2B5E" }}>
                       {formatDateFR(d.date_debut)} →{" "}
                       {formatDateFR(d.date_fin)}
                     </p>
-                    <p className="text-xs text-gray-500">{d.nb_jours}j</p>
+                    <p className="text-xs text-[rgba(27,43,94,0.5)]">{d.nb_jours}j</p>
                     {d.note_employe && (
-                      <p className="text-xs text-gray-400 mt-1">"{d.note_employe}"</p>
+                      <p className="text-xs text-[rgba(27,43,94,0.45)] mt-1">"{d.note_employe}"</p>
                     )}
                     {d.note_admin && (
-                      <p className="text-xs text-blue-500 mt-1">Admin : "{d.note_admin}"</p>
+                      <p className="text-xs text-[#1F6E5B] mt-1">Admin : "{d.note_admin}"</p>
                     )}
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    d.statut === "acceptee" ? "bg-green-100 text-green-700" :
-                    d.statut === "refusee" ? "bg-red-100 text-red-700" :
-                    "bg-yellow-100 text-yellow-700"
-                  }`}>
-                    {d.statut === "acceptee" ? "✅ Acceptée" :
-                     d.statut === "refusee" ? "❌ Refusée" : "⏳ En attente"}
-                  </span>
+                  <BadgeStatut statut={d.statut} />
                 </div>
               </div>
             ))}

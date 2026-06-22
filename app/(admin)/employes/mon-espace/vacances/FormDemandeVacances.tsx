@@ -96,15 +96,15 @@ export default function FormDemandeVacances({
   return (
     <div className="space-y-4">
       {error && (
-        <div className="bg-red-100 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
+        <div className="px-4 py-3 rounded-xl text-sm" style={{ backgroundColor: "#FBE2DE", color: "#A8453A" }}>{error}</div>
       )}
       {success && (
-        <div className="bg-green-100 text-green-700 px-4 py-3 rounded-xl text-sm font-semibold">
+        <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#DCEEE9", color: "#1F6E5B" }}>
           ✅ Demande envoyée ! En attente de validation.
         </div>
       )}
 
-      <div className="bg-blue-50 rounded-xl p-3 text-xs text-blue-600">
+      <div className="rounded-xl p-3 text-xs" style={{ backgroundColor: "#EAF0F6", color: "#1B2B5E" }}>
         ℹ️ À {taux_travail}% vous travaillez {joursParSemaine}j/semaine —
         1 semaine de vacances = {joursParSemaine}j déduits
       </div>
@@ -129,9 +129,8 @@ export default function FormDemandeVacances({
       </div>
 
       {nbJours > 0 && (
-        <div className={`rounded-xl p-3 text-sm font-semibold ${
-          depasseSolde ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"
-        }`}>
+        <div className="rounded-xl p-3 text-sm font-semibold"
+          style={depasseSolde ? { backgroundColor: "#FBE2DE", color: "#A8453A" } : { backgroundColor: "#DCEEE9", color: "#1F6E5B" }}>
           {nbJours}j déduits · {jours_restants}j restants
           {depasseSolde && " ⚠️ Solde insuffisant"}
         </div>
