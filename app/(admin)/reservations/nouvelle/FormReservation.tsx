@@ -4,8 +4,9 @@ import { useState, useEffect, useRef } from "react";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { formatDateFR } from "@/src/lib/dates";
 import SelectHeure from "@/app/components/SelectHeure";
+import BadgeMembre from "@/app/components/BadgeMembre";
 
-type Client = { id: string; prenom: string; nom: string; membre: boolean };
+type Client = { id: string; prenom: string; nom: string; membre: boolean; aJour: boolean };
 type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string; journee_essai_effectuee: boolean; journee_essai_invalide: boolean };
 type Box = { id: string; numero: number; nom?: string | null };
 
@@ -381,7 +382,7 @@ export default function FormReservation({
                 <button type="button"
                   onClick={() => { setClientEditMode(true); setClientSearch(""); setClientListOpen(true); }}
                   className="font-medium text-left flex-1 hover:underline">
-                  {clientSelectionne.prenom} {clientSelectionne.nom}{clientSelectionne.membre ? " ⭐" : ""}
+                  {clientSelectionne.prenom} {clientSelectionne.nom}<BadgeMembre membre={clientSelectionne.membre} aJour={clientSelectionne.aJour} compact />
                 </button>
                 <button type="button" onClick={handleClientClear}
                   className="text-gray-400 hover:text-red-500 ml-3 font-bold text-lg leading-none">
@@ -408,7 +409,7 @@ export default function FormReservation({
                           onMouseDown={e => e.preventDefault()}
                           onClick={() => handleClientSelect(c.id)}
                           className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm">
-                          {c.prenom} {c.nom}{c.membre ? " ⭐" : ""}
+                          {c.prenom} {c.nom}<BadgeMembre membre={c.membre} aJour={c.aJour} compact />
                         </button>
                       ))}
                       {clientsFiltres.length === 0 && (

@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
+import { clientsMembresAJour } from "@/src/lib/membre";
 import FormReservation from "./FormReservation";
 
 export default async function NouvelleReservationLoader() {
@@ -11,6 +12,9 @@ export default async function NouvelleReservationLoader() {
     .select("id, prenom, nom, membre")
     .eq("actif", true)
     .order("nom");
+
+  const setAJour = await clientsMembresAJour(supabase, (clients ?? []).map((c) => c.id));
+  const clientsAvecStatut = (clients ?? []).map((c) => ({ ...c, aJour: setAJour.has(c.id) }));
 
   const { data: chiens } = await supabase
     .from("chiens")
@@ -26,7 +30,7 @@ export default async function NouvelleReservationLoader() {
 
   return (
     <FormReservation
-      clients={clients ?? []}
+      clients={clientsAvecStatut}
       chiens={chiens ?? []}
       boxes={boxes ?? []}
       peutUrgence={perms.perm_tarifs_urgence}
