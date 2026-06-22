@@ -6,6 +6,9 @@ import { getEmployeRhActuel } from "@/src/lib/employeActuel";
 import { calculerDecompteHeures } from "@/src/lib/decompteHeures";
 import Link from "next/link";
 import BoutonPdf from "../planning/BoutonPdf";
+import EnTete from "@/app/components/ui/EnTete";
+import EtatVide from "@/app/components/ui/EtatVide";
+import BadgeStatut from "@/app/components/ui/BadgeStatut";
 
 export default async function MonEspaceRHPage() {
   const supabase       = await createClient();
@@ -21,12 +24,12 @@ export default async function MonEspaceRHPage() {
 
   if (!employe) return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
-      <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm text-center">
-        <p className="text-4xl mb-4">👷</p>
-        <h1 className="text-2xl font-bold mb-3" style={{ color: "#1B2B5E" }}>
-          Fiche RH non créée
-        </h1>
-        <p className="text-gray-500">Contactez l'administrateur pour créer votre fiche RH.</p>
+      <div className="max-w-2xl mx-auto">
+        <EtatVide
+          icone="👷"
+          titre="Fiche RH non créée"
+          message="Contactez l'administrateur pour créer votre fiche RH."
+        />
       </div>
     </main>
   );
@@ -118,156 +121,127 @@ export default async function MonEspaceRHPage() {
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-4xl mx-auto">
 
-        <h1 className="text-4xl font-bold mb-2" style={{ color: "#1B2B5E" }}>
-          👋 Mon espace RH
-        </h1>
-        <p className="text-gray-500 mb-6">{employe.prenom} {employe.nom} — {employe.taux_travail}%</p>
+        <EnTete
+          titre="👋 Mon espace RH"
+          sousTitre={`${employe.prenom} ${employe.nom} — ${employe.taux_travail}%`}
+        />
 
         {/* Actions rapides */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <Link href="/employes/mon-espace/timbrage"
-            className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition"
-            style={{ borderLeft: "4px solid #4AAEA0" }}>
+          <Link href="/employes/mon-espace/timbrage" className="hover:shadow-md transition"
+            style={{ display: "block", backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderLeft: "4px solid #4AAEA0", borderRadius: "18px", padding: "20px" }}>
             <p className="font-bold" style={{ color: "#1B2B5E" }}>⏱️ Timbrage</p>
-            <p className="text-xs text-gray-400 mt-1">Saisir mes heures</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.45)" }}>Saisir mes heures</p>
             {timbrageAujourdhui && (
-              <p className="text-xs text-green-600 mt-1 font-semibold">✅ Timbré aujourd'hui</p>
+              <p className="text-xs mt-1 font-semibold" style={{ color: "#1F6E5B" }}>✅ Timbré aujourd'hui</p>
             )}
           </Link>
-          <Link href="/employes/mon-espace/vacances"
-            className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition"
-            style={{ borderLeft: "4px solid #C9A84C" }}>
+          <Link href="/employes/mon-espace/vacances" className="hover:shadow-md transition"
+            style={{ display: "block", backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderLeft: "4px solid #C9A84C", borderRadius: "18px", padding: "20px" }}>
             <p className="font-bold" style={{ color: "#1B2B5E" }}>🏖️ Vacances</p>
-            <p className="text-xs text-gray-400 mt-1">Demander des vacances</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.45)" }}>Demander des vacances</p>
           </Link>
-          <Link href="/employes/mon-espace/planning"
-            className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition"
-            style={{ borderLeft: "4px solid #1B2B5E" }}>
+          <Link href="/employes/mon-espace/planning" className="hover:shadow-md transition"
+            style={{ display: "block", backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderLeft: "4px solid #1B2B5E", borderRadius: "18px", padding: "20px" }}>
             <p className="font-bold" style={{ color: "#1B2B5E" }}>📅 Mon planning</p>
-            <p className="text-xs text-gray-400 mt-1">Voir mes jours de travail</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.45)" }}>Voir mes jours de travail</p>
           </Link>
-          <Link href="/employes/planning-equipe"
-            className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition"
-            style={{ borderLeft: "4px solid #4AAEA0" }}>
+          <Link href="/employes/planning-equipe" className="hover:shadow-md transition"
+            style={{ display: "block", backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderLeft: "4px solid #4AAEA0", borderRadius: "18px", padding: "20px" }}>
             <p className="font-bold" style={{ color: "#1B2B5E" }}>👥 Planning de l'équipe</p>
-            <p className="text-xs text-gray-400 mt-1">Voir qui travaille chaque jour</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.45)" }}>Voir qui travaille chaque jour</p>
           </Link>
-          <Link href="/employes/mon-espace/indisponibilites"
-            className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition"
-            style={{ borderLeft: "4px solid #E8847A" }}>
+          <Link href="/employes/mon-espace/indisponibilites" className="hover:shadow-md transition"
+            style={{ display: "block", backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderLeft: "4px solid #E8847A", borderRadius: "18px", padding: "20px" }}>
             <p className="font-bold" style={{ color: "#1B2B5E" }}>🚫 Indisponibilités</p>
-            <p className="text-xs text-gray-400 mt-1">Indiquer mes jours indisponibles</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.45)" }}>Indiquer mes jours indisponibles</p>
             {indisponibilites && indisponibilites.length > 0 && (
-              <p className="text-xs text-orange-500 mt-1 font-semibold">
+              <p className="text-xs mt-1 font-semibold" style={{ color: "#8A6D1F" }}>
                 {indisponibilites.length} jour(s) enregistré(s)
               </p>
             )}
           </Link>
-          <Link href="/employes/mon-espace/fiches-salaire"
-            className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition"
-            style={{ borderLeft: "4px solid #E8847A" }}>
+          <Link href="/employes/mon-espace/fiches-salaire" className="hover:shadow-md transition"
+            style={{ display: "block", backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderLeft: "4px solid #E8847A", borderRadius: "18px", padding: "20px" }}>
             <p className="font-bold" style={{ color: "#1B2B5E" }}>📊 Fiches de salaire</p>
-            <p className="text-xs text-gray-400 mt-1">Consulter mes fiches</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.45)" }}>Consulter mes fiches</p>
           </Link>
-          <Link href="/employes/mon-espace/mot-de-passe"
-            className="bg-white rounded-xl p-5 shadow-sm hover:shadow-md transition"
-            style={{ borderLeft: "4px solid #6B7280" }}>
+          <Link href="/employes/mon-espace/mot-de-passe" className="hover:shadow-md transition"
+            style={{ display: "block", backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderLeft: "4px solid rgba(27,43,94,0.45)", borderRadius: "18px", padding: "20px" }}>
             <p className="font-bold" style={{ color: "#1B2B5E" }}>🔑 Changer mon mot de passe</p>
-            <p className="text-xs text-gray-400 mt-1">Modifier mon mot de passe de connexion</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.45)" }}>Modifier mon mot de passe de connexion</p>
           </Link>
         </div>
 
-        {/* Téléchargement PDF du planning */}
-        <div className="bg-white rounded-xl p-5 shadow-sm mb-6" style={{ borderLeft: "4px solid #C9A84C" }}>
+        {/* Telechargement PDF du planning */}
+        <div className="mb-6" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderLeft: "4px solid #C9A84C", borderRadius: "18px", padding: "20px" }}>
           <p className="font-bold mb-1" style={{ color: "#1B2B5E" }}>📥 Planning équipe du mois</p>
-          <p className="text-xs text-gray-400 mb-3">Télécharger le planning complet de l'équipe en PDF</p>
+          <p className="text-xs mb-3" style={{ color: "rgba(27,43,94,0.45)" }}>Télécharger le planning complet de l'équipe en PDF</p>
           <BoutonPdf mois={moisActuel} annee={anneeActuelle} />
         </div>
 
-        {/* Dernières demandes vacances */}
+        {/* Dernieres demandes vacances */}
         {demandesVacances && demandesVacances.length > 0 && (
-          <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
-            <h2 className="font-bold mb-4" style={{ color: "#1B2B5E" }}>
-              🏖️ Mes demandes de vacances
-            </h2>
+          <div className="mb-6" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "24px" }}>
+            <h2 className="font-bold mb-4" style={{ color: "#1B2B5E" }}>🏖️ Mes demandes de vacances</h2>
             <div className="space-y-3">
               {demandesVacances.map((d: any) => (
-                <div key={d.id} className="flex justify-between items-center border rounded-xl p-3">
+                <div key={d.id} className="flex justify-between items-center rounded-xl p-3" style={{ border: "1px solid rgba(27,43,94,0.12)" }}>
                   <div>
                     <p className="text-sm font-semibold" style={{ color: "#1B2B5E" }}>
-                      {formatDateFR(d.date_debut)} →{" "}
-                      {formatDateFR(d.date_fin)}
+                      {formatDateFR(d.date_debut)} → {formatDateFR(d.date_fin)}
                     </p>
-                    <p className="text-xs text-gray-500">{d.nb_jours}j</p>
+                    <p className="text-xs" style={{ color: "rgba(27,43,94,0.5)" }}>{d.nb_jours}j</p>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    d.statut === "acceptee" ? "bg-green-100 text-green-700" :
-                    d.statut === "refusee"  ? "bg-red-100 text-red-700" :
-                    "bg-yellow-100 text-yellow-700"
-                  }`}>
-                    {d.statut === "acceptee" ? "✅ Acceptée" :
-                     d.statut === "refusee"  ? "❌ Refusée" : "⏳ En attente"}
-                  </span>
+                  <BadgeStatut statut={d.statut} />
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Stats mois — alignées sur calculerDecompteHeures */}
-        <h2 className="font-bold mb-3 text-sm uppercase tracking-wide text-gray-400">Ce mois</h2>
+        {/* Stats mois */}
+        <h2 className="font-bold mb-3 text-sm uppercase tracking-wide" style={{ color: "rgba(27,43,94,0.45)" }}>Ce mois</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p className={soldeMois >= 0 ? "text-2xl font-bold" : "text-xl font-semibold"}
-              style={{ color: soldeMois >= 0 ? "#4AAEA0" : "#D97706" }}>
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
+            <p className={soldeMois >= 0 ? "text-2xl font-bold" : "text-xl font-semibold"} style={{ color: soldeMois >= 0 ? "#4AAEA0" : "#D97706" }}>
               {soldeMois >= 0 ? "+" : ""}{soldeMois.toFixed(1)}h
             </p>
-            <p className="text-xs text-gray-500 mt-1">Solde ce mois</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.5)" }}>Solde ce mois</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
-              {decompteMois.heuresFaites.toFixed(1)}h
-            </p>
-            <p className="text-xs text-gray-500 mt-1">Heures faites</p>
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
+            <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>{decompteMois.heuresFaites.toFixed(1)}h</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.5)" }}>Heures faites</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p className="text-2xl font-bold" style={{ color: "#6B7280" }}>
-              {decompteMois.heuresDues.toFixed(1)}h
-            </p>
-            <p className="text-xs text-gray-500 mt-1">Heures dues</p>
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
+            <p className="text-2xl font-bold" style={{ color: "rgba(27,43,94,0.55)" }}>{decompteMois.heuresDues.toFixed(1)}h</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.5)" }}>Heures dues</p>
           </div>
         </div>
 
-        {/* Stats année — alignées sur calculerDecompteHeures */}
-        <h2 className="font-bold mb-3 text-sm uppercase tracking-wide text-gray-400">Cette année</h2>
+        {/* Stats annee */}
+        <h2 className="font-bold mb-3 text-sm uppercase tracking-wide" style={{ color: "rgba(27,43,94,0.45)" }}>Cette année</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p className={soldeAnnee >= 0 ? "text-2xl font-bold" : "text-xl font-semibold"}
-              style={{ color: soldeAnnee >= 0 ? "#4AAEA0" : "#D97706" }}>
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
+            <p className={soldeAnnee >= 0 ? "text-2xl font-bold" : "text-xl font-semibold"} style={{ color: soldeAnnee >= 0 ? "#4AAEA0" : "#D97706" }}>
               {soldeAnnee >= 0 ? "+" : ""}{soldeAnnee.toFixed(1)}h
             </p>
-            <p className="text-xs text-gray-500 mt-1">Solde h.sup annuel</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.5)" }}>Solde h.sup annuel</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p className="text-2xl font-bold" style={{ color: "#C9A84C" }}>
-              {joursVacancesRestants.toFixed(1)}j
-            </p>
-            <p className="text-xs text-gray-500 mt-1">Vacances restantes</p>
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
+            <p className="text-2xl font-bold" style={{ color: "#C9A84C" }}>{joursVacancesRestants.toFixed(1)}j</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.5)" }}>Vacances restantes</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
               {joursVacancesTotal}j
-              {bonusFeriers > 0 && (
-                <span className="text-sm text-orange-500 ml-1">+{bonusFeriers}🎉</span>
-              )}
+              {bonusFeriers > 0 && (<span className="text-sm ml-1" style={{ color: "#8A6D1F" }}>+{bonusFeriers}🎉</span>)}
             </p>
-            <p className="text-xs text-gray-500 mt-1">Droit annuel</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.5)" }}>Droit annuel</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p className="text-2xl font-bold" style={{ color: "#E8847A" }}>
-              {joursVacancesPris}j
-            </p>
-            <p className="text-xs text-gray-500 mt-1">Vacances prises</p>
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
+            <p className="text-2xl font-bold" style={{ color: "#E8847A" }}>{joursVacancesPris}j</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.5)" }}>Vacances prises</p>
           </div>
         </div>
 
