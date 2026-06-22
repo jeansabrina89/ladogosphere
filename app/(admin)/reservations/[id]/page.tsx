@@ -16,6 +16,7 @@ import { estMembreActif } from "@/src/lib/membre";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import BoutonOffrir from "./BoutonOffrir";
 import NomClientLien from "@/app/components/NomClientLien";
+import ContactEmail from "@/app/components/ContactEmail";
 
 export default async function ReservationPage({
   params,
@@ -140,7 +141,7 @@ export default async function ReservationPage({
           <p><strong>Nom :</strong> <NomClientLien id={res.clients?.id} prenom={res.clients?.prenom} nom={res.clients?.nom} />{" "}
             <BadgeMembre membre={!!res.clients?.membre} aJour={est_membre} />
           </p>
-          <p><strong>Email :</strong> {res.clients?.email}</p>
+          <p><strong>Email :</strong> <ContactEmail email={res.clients?.email} /></p>
           <p><strong>Téléphone :</strong> {res.clients?.telephone || "—"}</p>
         </div>
 

@@ -6,6 +6,7 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import EtatVide from "@/app/components/ui/EtatVide";
 import BoutonConfirmerCotisation from "../clients/[id]/BoutonConfirmerCotisation";
+import ContactEmail from "@/app/components/ContactEmail";
 
 const MODE_LABEL: Record<string, string> = {
   virement: "🏦 Virement bancaire",
@@ -45,7 +46,7 @@ export default async function AdhesionsPage() {
                       <Link href={`/clients/${c?.id}`} style={{ fontWeight: 700, color: "#1B2B5E", textDecoration: "none" }}>
                         {c?.prenom} {c?.nom}
                       </Link>
-                      <p style={{ fontSize: 13, color: "#8A8275", margin: "2px 0 0" }}>{c?.email}</p>
+                      <p style={{ fontSize: 13, color: "#8A8275", margin: "2px 0 0" }}><ContactEmail email={c?.email} /></p>
                       <p style={{ fontSize: 13, color: "#1B2B5E", margin: "6px 0 0" }}>
                         Cotisation {d.annee} — <strong>{Number(d.montant)} CHF</strong>
                       </p>
