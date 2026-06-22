@@ -59,7 +59,7 @@ export default function FormTimbrage({
   return (
     <div className="space-y-4">
       {success && (
-        <div className="bg-green-100 text-green-700 px-4 py-3 rounded-xl text-sm font-semibold">
+        <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#E8F5F4", color: "#2E8B7E" }}>
           ✅ Timbrage enregistré !
         </div>
       )}
@@ -68,7 +68,7 @@ export default function FormTimbrage({
         <button onClick={() => setMode("travail")}
           className="flex-1 py-2 rounded-xl font-semibold text-sm border-2 transition"
           style={{
-            borderColor: mode === "travail" ? "#4AAEA0" : "#E2E8F0",
+            borderColor: mode === "travail" ? "#4AAEA0" : "rgba(27,43,94,0.12)",
             backgroundColor: mode === "travail" ? "#4AAEA0" : "white",
             color: mode === "travail" ? "white" : "#1B2B5E",
           }}>
@@ -77,7 +77,7 @@ export default function FormTimbrage({
         <button onClick={() => setMode("absence")}
           className="flex-1 py-2 rounded-xl font-semibold text-sm border-2 transition"
           style={{
-            borderColor: mode === "absence" ? "#E8847A" : "#E2E8F0",
+            borderColor: mode === "absence" ? "#E8847A" : "rgba(27,43,94,0.12)",
             backgroundColor: mode === "absence" ? "#E8847A" : "white",
             color: mode === "absence" ? "white" : "#1B2B5E",
           }}>
@@ -91,38 +91,38 @@ export default function FormTimbrage({
             <p className="font-semibold mb-3 text-sm" style={{ color: "#1B2B5E" }}>🌅 Matin</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-gray-500">Début</label>
+                <label className="text-xs text-[rgba(27,43,94,0.5)]">Début</label>
                 <input type="time" value={heureDebutMatin}
                   onChange={e => setHeureDebutMatin(e.target.value)}
                   className="w-full border rounded-xl p-2 text-sm" />
               </div>
               <div>
-                <label className="text-xs text-gray-500">Fin</label>
+                <label className="text-xs text-[rgba(27,43,94,0.5)]">Fin</label>
                 <input type="time" value={heureFinMatin}
                   onChange={e => setHeureFinMatin(e.target.value)}
                   className="w-full border rounded-xl p-2 text-sm" />
               </div>
             </div>
-            <p className="text-xs text-gray-400 mt-2">{heuresMatin.toFixed(1)}h</p>
+            <p className="text-xs text-[rgba(27,43,94,0.4)] mt-2">{heuresMatin.toFixed(1)}h</p>
           </div>
 
           <div className="border rounded-xl p-4">
             <p className="font-semibold mb-3 text-sm" style={{ color: "#1B2B5E" }}>🌇 Après-midi</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-gray-500">Début</label>
+                <label className="text-xs text-[rgba(27,43,94,0.5)]">Début</label>
                 <input type="time" value={heureDebutAprem}
                   onChange={e => setHeureDebutAprem(e.target.value)}
                   className="w-full border rounded-xl p-2 text-sm" />
               </div>
               <div>
-                <label className="text-xs text-gray-500">Fin</label>
+                <label className="text-xs text-[rgba(27,43,94,0.5)]">Fin</label>
                 <input type="time" value={heureFinAprem}
                   onChange={e => setHeureFinAprem(e.target.value)}
                   className="w-full border rounded-xl p-2 text-sm" />
               </div>
             </div>
-            <p className="text-xs text-gray-400 mt-2">{heuresAprem.toFixed(1)}h</p>
+            <p className="text-xs text-[rgba(27,43,94,0.4)] mt-2">{heuresAprem.toFixed(1)}h</p>
           </div>
 
           <div className="text-right font-bold" style={{ color: "#4AAEA0" }}>

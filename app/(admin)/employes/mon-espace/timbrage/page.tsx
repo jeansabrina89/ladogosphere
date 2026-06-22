@@ -4,6 +4,8 @@ import { createClient } from "@/src/utils/supabase/server";
 import { getEmployeRhActuel } from "@/src/lib/employeActuel";
 import { calculerDecompteHeures } from "@/src/lib/decompteHeures";
 import TimbrageCalendrier from "../../timbrage/TimbrageCalendrier";
+import EnTete from "@/app/components/ui/EnTete";
+import Bouton from "@/app/components/ui/Bouton";
 
 const NOMS_MOIS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -100,52 +102,48 @@ export default async function TimbrageEmployePage({
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-3xl mx-auto">
 
-        <h1 className="text-3xl font-bold mb-6" style={{ color: "#1B2B5E" }}>⏱️ Mon timbrage</h1>
+        <EnTete titre="⏱️ Mon timbrage" />
 
         {/* Navigation mois */}
         <div className="flex justify-between items-center mb-4">
-          <a href={`/employes/mon-espace/timbrage?mois=${moisPrecedent}`}
-            className="px-4 py-2 rounded-xl font-semibold text-sm"
-            style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
+          <Bouton href={`/employes/mon-espace/timbrage?mois=${moisPrecedent}`} variante="secondaire">
             ← {NOMS_MOIS[moisPrecNum - 1]}
-          </a>
+          </Bouton>
           <h2 className="text-xl font-bold" style={{ color: "#1B2B5E" }}>
             {NOMS_MOIS[moisNum - 1]} {annee}
           </h2>
-          <a href={`/employes/mon-espace/timbrage?mois=${moisSuivant}`}
-            className="px-4 py-2 rounded-xl font-semibold text-sm"
-            style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
+          <Bouton href={`/employes/mon-espace/timbrage?mois=${moisSuivant}`} variante="secondaire">
             {NOMS_MOIS[moisSuivNum - 1]} →
-          </a>
+          </Bouton>
         </div>
 
         {/* Totaux compacts */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
               {decompteMois.heuresFaites.toFixed(1)}h
             </p>
-            <p className="text-xs text-gray-500 mt-1">Faites ce mois</p>
+            <p className="text-xs text-[rgba(27,43,94,0.5)] mt-1">Faites ce mois</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-            <p className="text-2xl font-bold text-gray-400">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
+            <p className="text-2xl font-bold" style={{ color: "rgba(27,43,94,0.4)" }}>
               {decompteMois.heuresDues.toFixed(1)}h
             </p>
-            <p className="text-xs text-gray-500 mt-1">Dues ce mois</p>
+            <p className="text-xs text-[rgba(27,43,94,0.5)] mt-1">Dues ce mois</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             <p className="text-2xl font-bold"
               style={{ color: soldeMois >= 0 ? "#4AAEA0" : "#D97706" }}>
               {soldeMois >= 0 ? "+" : ""}{soldeMois.toFixed(1)}h
             </p>
-            <p className="text-xs text-gray-500 mt-1">Solde du mois</p>
+            <p className="text-xs text-[rgba(27,43,94,0.5)] mt-1">Solde du mois</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             <p className="text-2xl font-bold"
               style={{ color: soldeAnnee >= 0 ? "#4AAEA0" : "#D97706" }}>
               {soldeAnnee >= 0 ? "+" : ""}{soldeAnnee.toFixed(1)}h
             </p>
-            <p className="text-xs text-gray-500 mt-1">Solde {annee}</p>
+            <p className="text-xs text-[rgba(27,43,94,0.5)] mt-1">Solde {annee}</p>
           </div>
         </div>
 
@@ -160,11 +158,7 @@ export default async function TimbrageEmployePage({
         />
 
         <div className="mt-6">
-          <a href="/employes/mon-espace"
-            className="text-sm font-semibold"
-            style={{ color: "#4AAEA0" }}>
-            ← Mon espace
-          </a>
+          <Bouton href="/employes/mon-espace" variante="secondaire">← Mon espace</Bouton>
         </div>
 
       </div>
