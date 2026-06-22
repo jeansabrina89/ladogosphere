@@ -119,15 +119,18 @@ export default function FormFicheSalaire({
     setLoading(false);
   };
 
+  const inputClass = "w-full rounded-xl p-3 border border-[rgba(27,43,94,0.18)]";
+  const inputSmall = "rounded-lg p-2 text-sm border border-[rgba(27,43,94,0.18)]";
+
   return (
-    <div className="bg-white rounded-xl p-8 shadow-sm space-y-6">
+    <div className="rounded-[18px] p-8 space-y-6" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)" }}>
 
       {/* Employé */}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Employé *</label>
           <select value={employeId} onChange={e => setEmployeId(e.target.value)}
-            className="w-full border rounded-xl p-3">
+            className={inputClass}>
             <option value="">-- Sélectionner --</option>
             {employes.map(e => (
               <option key={e.id} value={e.id}>{e.prenom} {e.nom}</option>
@@ -138,7 +141,7 @@ export default function FormFicheSalaire({
           <div>
             <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Mois *</label>
             <select value={mois} onChange={e => setMois(parseInt(e.target.value))}
-              className="w-full border rounded-xl p-3">
+              className={inputClass}>
               {MOIS.map((m, i) => (
                 <option key={i + 1} value={i + 1}>{m}</option>
               ))}
@@ -147,7 +150,7 @@ export default function FormFicheSalaire({
           <div>
             <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Année *</label>
             <input type="number" value={annee} onChange={e => setAnnee(parseInt(e.target.value))}
-              className="w-full border rounded-xl p-3" />
+              className={inputClass} />
           </div>
         </div>
       </div>
@@ -159,9 +162,9 @@ export default function FormFicheSalaire({
         </label>
         <input type="number" step="0.05" value={salaireBrut}
           onChange={e => setSalaireBrut(parseFloat(e.target.value) || 0)}
-          className="w-full border rounded-xl p-3 text-lg font-bold" />
+          className={`${inputClass} text-lg font-bold`} />
         {employe && (
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.45)" }}>
             Base : CHF {(employe.salaire_base * employe.taux_travail / 100).toFixed(2)} ({employe.taux_travail}%)
           </p>
         )}
@@ -181,20 +184,20 @@ export default function FormFicheSalaire({
           {deductions.map((d, i) => (
             <div key={i} className="grid grid-cols-12 gap-2 items-center">
               <input value={d.label} onChange={e => handleDeductionChange(i, "label", e.target.value)}
-                className="col-span-4 border rounded-lg p-2 text-sm" placeholder="Label" />
+                className={`col-span-4 ${inputSmall}`} placeholder="Label" />
               <select value={d.type} onChange={e => handleDeductionChange(i, "type", e.target.value)}
-                className="col-span-3 border rounded-lg p-2 text-sm">
+                className={`col-span-3 ${inputSmall}`}>
                 <option value="pourcentage">%</option>
                 <option value="montant_fixe">CHF fixe</option>
               </select>
               <input type="number" step="0.01" value={d.valeur}
                 onChange={e => handleDeductionChange(i, "valeur", parseFloat(e.target.value) || 0)}
-                className="col-span-2 border rounded-lg p-2 text-sm" />
+                className={`col-span-2 ${inputSmall}`} />
               <div className="col-span-2 text-right text-sm font-bold" style={{ color: "#E8847A" }}>
                 -{d.montant_calcule.toFixed(2)}
               </div>
               <button onClick={() => supprimerLigne(i)}
-                className="col-span-1 text-red-400 hover:text-red-600 text-center">
+                className="col-span-1 text-center" style={{ color: "#E8847A" }}>
                 ✕
               </button>
             </div>
@@ -203,16 +206,16 @@ export default function FormFicheSalaire({
       </div>
 
       {/* Récap */}
-      <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+      <div className="rounded-xl p-4 space-y-2" style={{ backgroundColor: "#FBF8F2", border: "1px solid rgba(27,43,94,0.10)" }}>
         <div className="flex justify-between text-sm">
-          <span className="text-gray-600">Salaire brut</span>
+          <span style={{ color: "rgba(27,43,94,0.6)" }}>Salaire brut</span>
           <span className="font-bold">CHF {salaireBrut.toFixed(2)}</span>
         </div>
-        <div className="flex justify-between text-sm text-red-600">
+        <div className="flex justify-between text-sm" style={{ color: "#A8453A" }}>
           <span>Total déductions</span>
           <span className="font-bold">- CHF {totalDeductions.toFixed(2)}</span>
         </div>
-        <div className="flex justify-between text-lg font-bold border-t pt-2" style={{ color: "#1B2B5E" }}>
+        <div className="flex justify-between text-lg font-bold border-t border-[rgba(27,43,94,0.12)] pt-2" style={{ color: "#1B2B5E" }}>
           <span>Salaire net</span>
           <span>CHF {salaireNet.toFixed(2)}</span>
         </div>
@@ -222,14 +225,14 @@ export default function FormFicheSalaire({
       <div>
         <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Commentaire (optionnel)</label>
         <textarea value={commentaire} onChange={e => setCommentaire(e.target.value)}
-          rows={2} className="w-full border rounded-xl p-3 text-sm" />
+          rows={2} className={`${inputClass} text-sm`} />
       </div>
 
       {/* Boutons */}
-      <div className="flex gap-3 pt-4 border-t">
+      <div className="flex gap-3 pt-4 border-t border-[rgba(27,43,94,0.12)]">
         <button onClick={handleSubmit} disabled={loading}
           className="px-6 py-3 rounded-xl font-semibold text-white disabled:opacity-50"
-          style={{ backgroundColor: "#4AAEA0" }}>
+          style={{ backgroundColor: "#2E8B7E" }}>
           {loading ? "Génération..." : "💾 Générer la fiche"}
         </button>
         <a href="/employes/fiches-salaire"
