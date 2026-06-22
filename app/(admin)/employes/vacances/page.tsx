@@ -7,6 +7,9 @@ import { formatDateFR } from "@/src/lib/dates";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import FormPoserVacances from "./FormPoserVacances";
 import FormModifierVacances from "./FormModifierVacances";
+import EnTete from "@/app/components/ui/EnTete";
+import Bouton from "@/app/components/ui/Bouton";
+import BadgeStatut from "@/app/components/ui/BadgeStatut";
 
 export default async function GestionVacancesPage() {
   const supabase = await createClient();
@@ -36,41 +39,37 @@ export default async function GestionVacancesPage() {
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-4xl mx-auto">
 
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold" style={{ color: "#1B2B5E" }}>
-            🏖️ Demandes de vacances
-          </h1>
-          <div className="flex gap-3 items-center">
-            <FormPoserVacances employes={employes ?? []} />
-            <a href="/employes"
-              className="px-4 py-2 rounded-xl font-semibold text-sm"
-              style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
-              ← Équipe
-            </a>
-          </div>
-        </div>
+        <EnTete
+          titre="🏖️ Demandes de vacances"
+          action={
+            <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+              <FormPoserVacances employes={employes ?? []} />
+              <Bouton href="/employes" variante="secondaire">← Équipe</Bouton>
+            </div>
+          }
+        />
 
         {/* En attente */}
-        <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
+        <div className="mb-6" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "24px" }}>
           <h2 className="font-bold mb-4" style={{ color: "#1B2B5E" }}>
             ⏳ En attente
             {enAttente.length > 0 && (
-              <span className="ml-2 px-2 py-0.5 rounded-full text-sm bg-yellow-100 text-yellow-700">
+              <span className="ml-2 px-2 py-0.5 rounded-full text-sm" style={{ backgroundColor: "#F4EAC9", color: "#6E5410" }}>
                 {enAttente.length}
               </span>
             )}
           </h2>
           {enAttente.length === 0 && (
-            <p className="text-gray-400 text-sm">Aucune demande en attente.</p>
+            <p className="text-[rgba(27,43,94,0.45)] text-sm">Aucune demande en attente.</p>
           )}
           <div className="space-y-4">
             {enAttente.map((d: any) => (
-              <div key={d.id} className="border border-yellow-200 rounded-xl p-4 bg-yellow-50">
+              <div key={d.id} className="rounded-xl p-4" style={{ border: "1px solid rgba(201,168,76,0.4)", backgroundColor: "#FBF6E8" }}>
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-bold" style={{ color: "#1B2B5E" }}>
                       {d.employes_rh?.prenom} {d.employes_rh?.nom}
-                      <span className="ml-2 text-xs text-gray-400 font-normal">
+                      <span className="ml-2 text-xs text-[rgba(27,43,94,0.45)] font-normal">
                         ({d.employes_rh?.taux_travail}%)
                       </span>
                     </p>
@@ -102,16 +101,16 @@ export default async function GestionVacancesPage() {
         </div>
 
         {/* Traitées */}
-        <div className="bg-white rounded-xl p-6 shadow-sm">
+        <div style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "24px" }}>
           <h2 className="font-bold mb-4" style={{ color: "#1B2B5E" }}>
             📋 Historique
           </h2>
           {traitees.length === 0 && (
-            <p className="text-gray-400 text-sm">Aucune demande traitée.</p>
+            <p className="text-[rgba(27,43,94,0.45)] text-sm">Aucune demande traitée.</p>
           )}
           <div className="space-y-3">
             {traitees.map((d: any) => (
-              <div key={d.id} className="border rounded-xl p-4">
+              <div key={d.id} className="rounded-xl p-4" style={{ border: "1px solid rgba(27,43,94,0.12)" }}>
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="font-semibold text-sm" style={{ color: "#1B2B5E" }}>
@@ -122,15 +121,11 @@ export default async function GestionVacancesPage() {
                       {formatDateFR(d.date_fin)} · {d.nb_jours}j
                     </p>
                     {d.note_admin && (
-                      <p className="text-xs text-blue-500 mt-1">Note : "{d.note_admin}"</p>
+                      <p className="text-xs text-[#1F6E5B] mt-1">Note : "{d.note_admin}"</p>
                     )}
                   </div>
                   <div className="flex gap-2 items-center">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      d.statut === "acceptee" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                    }`}>
-                      {d.statut === "acceptee" ? "✅ Acceptée" : "❌ Refusée"}
-                    </span>
+                    <BadgeStatut statut={d.statut} />
                     {d.statut === "acceptee" && (
                       <FormModifierVacances
                         id={d.id}
