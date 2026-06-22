@@ -105,54 +105,54 @@ export default function Statistiques({
 
       {/* Résumé annuel */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-        <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+        <div className="bg-white rounded-[18px] p-6 border border-[rgba(27,43,94,0.12)] text-center">
           <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
             {totalAnneeFacture.toFixed(2)} CHF
           </p>
-          <p className="text-gray-500 text-sm mt-1">CA facturé (prestations) {annee}</p>
+          <p className="text-[rgba(27,43,94,0.55)] text-sm mt-1">CA facturé (prestations) {annee}</p>
           {evolution && (
             <p className={`text-sm font-semibold mt-1 ${parseFloat(evolution) >= 0 ? "text-green-600" : "text-red-600"}`}>
               {parseFloat(evolution) >= 0 ? "▲" : "▼"} {Math.abs(parseFloat(evolution))}% vs {annee - 1}
             </p>
           )}
         </div>
-        <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+        <div className="bg-white rounded-[18px] p-6 border border-[rgba(27,43,94,0.12)] text-center">
           <p className="text-2xl font-bold text-green-600">
             {totalAnneeEncaisse.toFixed(2)} CHF
           </p>
-          <p className="text-gray-500 text-sm mt-1">CA encaissé (prestations) {annee}</p>
+          <p className="text-[rgba(27,43,94,0.55)] text-sm mt-1">CA encaissé (prestations) {annee}</p>
         </div>
-        <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+        <div className="bg-white rounded-[18px] p-6 border border-[rgba(27,43,94,0.12)] text-center">
           <p className="text-2xl font-bold" style={{ color: "#4AAEA0" }}>
             {totalCotisations.toFixed(2)} CHF
           </p>
-          <p className="text-gray-500 text-sm mt-1">⭐ Adhésions encaissées {annee}</p>
+          <p className="text-[rgba(27,43,94,0.55)] text-sm mt-1">⭐ Adhésions encaissées {annee}</p>
         </div>
-        <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+        <div className="bg-white rounded-[18px] p-6 border border-[rgba(27,43,94,0.12)] text-center">
           <p className="text-2xl font-bold" style={{ color: "#C9A84C" }}>
             {totalEncaisse.toFixed(2)} CHF
           </p>
-          <p className="text-gray-500 text-sm mt-1">💰 Total encaissé {annee}</p>
+          <p className="text-[rgba(27,43,94,0.55)] text-sm mt-1">💰 Total encaissé {annee}</p>
         </div>
-        <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+        <div className="bg-white rounded-[18px] p-6 border border-[rgba(27,43,94,0.12)] text-center">
           <p className="text-2xl font-bold" style={{ color: "#E8847A" }}>
             {totalAnneePrec.toFixed(2)} CHF
           </p>
-          <p className="text-gray-500 text-sm mt-1">CA facturé {annee - 1}</p>
+          <p className="text-[rgba(27,43,94,0.55)] text-sm mt-1">CA facturé {annee - 1}</p>
         </div>
-        <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+        <div className="bg-white rounded-[18px] p-6 border border-[rgba(27,43,94,0.12)] text-center">
           <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
             {nbChiensActifs}
           </p>
-          <p className="text-gray-500 text-sm mt-1">🐾 Chiens actifs (clientèle)</p>
+          <p className="text-[rgba(27,43,94,0.55)] text-sm mt-1">🐾 Chiens actifs (clientèle)</p>
         </div>
       </div>
-      <p className="text-xs text-gray-400 mt-2">
+      <p className="text-xs text-[rgba(27,43,94,0.45)] mt-2">
         Facturé = prestations dues sur la période (par date de séjour). Encaissé = montants perçus (par date de paiement).
       </p>
 
       {/* Graphiques */}
-      <div className="bg-white rounded-xl p-6 shadow-sm">
+      <div className="bg-white rounded-[18px] p-6 border border-[rgba(27,43,94,0.12)]">
         <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
           <div className="flex gap-2 flex-wrap">
             {[
@@ -223,7 +223,7 @@ export default function Statistiques({
           )}
         </ResponsiveContainer>
         {vue === "remplissage" && (
-          <p className="text-xs text-gray-400 mt-3">
+          <p className="text-xs text-[rgba(27,43,94,0.45)] mt-3">
             Taux box = boxes occupées / boxes actives. Taux places = chiens présents / capacité standard totale (2 chiens/box).
           </p>
         )}
@@ -231,7 +231,7 @@ export default function Statistiques({
 
       {/* Graphique journalier */}
       {statsJours.length > 0 && (
-        <div className="bg-white rounded-xl p-6 shadow-sm">
+        <div className="bg-white rounded-[18px] p-6 border border-[rgba(27,43,94,0.12)]">
           <h3 className="font-bold mb-3" style={{ color: "#1B2B5E" }}>
             📅 Chiens présents — mois en cours (jour par jour)
           </h3>
@@ -248,7 +248,7 @@ export default function Statistiques({
       )}
 
       {/* Tableau mensuel */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white rounded-[18px] border border-[rgba(27,43,94,0.12)] overflow-hidden">
         <table className="min-w-full">
           <thead>
             <tr style={{ backgroundColor: "#1B2B5E" }}>
@@ -288,7 +288,7 @@ export default function Statistiques({
                   <td className="px-4 py-3 text-sm text-right font-bold" style={{ color: "#1B2B5E" }}>
                     {m.ca_total > 0 ? `${m.ca_total.toFixed(2)} CHF` : "—"}
                   </td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-500">
+                  <td className="px-4 py-3 text-sm text-right text-[rgba(27,43,94,0.55)]">
                     {m.ca_annee_prec > 0 ? `${m.ca_annee_prec.toFixed(2)} CHF` : "—"}
                   </td>
                   <td className="px-4 py-3 text-sm text-right font-semibold">
@@ -298,21 +298,21 @@ export default function Statistiques({
                       </span>
                     ) : "—"}
                   </td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-600">{m.nb_reservations}</td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-600">{m.nb_chiens_total}</td>
+                  <td className="px-4 py-3 text-sm text-right text-[rgba(27,43,94,0.6)]">{m.nb_reservations}</td>
+                  <td className="px-4 py-3 text-sm text-right text-[rgba(27,43,94,0.6)]">{m.nb_chiens_total}</td>
                   <td className="px-4 py-3 text-sm text-right">
                     <div className="flex flex-col gap-1 items-end">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                         m.taux_box >= 80 ? "bg-green-100 text-green-700" :
                         m.taux_box >= 50 ? "bg-yellow-100 text-yellow-700" :
-                        "bg-gray-100 text-gray-600"
+                        "bg-[#EDE8DF] text-[rgba(27,43,94,0.6)]"
                       }`}>
                         📦 {m.taux_box}%
                       </span>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                         m.taux_places >= 80 ? "bg-green-100 text-green-700" :
                         m.taux_places >= 50 ? "bg-yellow-100 text-yellow-700" :
-                        "bg-gray-100 text-gray-600"
+                        "bg-[#EDE8DF] text-[rgba(27,43,94,0.6)]"
                       }`}>
                         🐾 {m.taux_places}%
                       </span>
