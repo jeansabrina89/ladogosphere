@@ -5,6 +5,8 @@ import { BoutonCheckin, BoutonCheckout } from "./BoutonsCheckin";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
+import NomClientLien from "@/app/components/NomClientLien";
+import NomChienLien from "@/app/components/NomChienLien";
 
 const SERIF = "Georgia, 'Times New Roman', serif";
 
@@ -44,7 +46,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: Prom
         date_fin,
         type_reservation,
         boxes (numero, nom),
-        clients (prenom, nom)
+        clients (id, prenom, nom)
       )
     `)
     .gte("date_arrivee_prevue", `${dateActive}T00:00:00`)
@@ -61,7 +63,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: Prom
         date_fin,
         type_reservation,
         boxes (numero, nom),
-        clients (prenom, nom)
+        clients (id, prenom, nom)
       )
     `)
     .gte("date_depart_prevu", `${dateActive}T00:00:00`)
@@ -199,7 +201,7 @@ function CarteCheckin({ checkin, action, accent }: { checkin: any; action?: Reac
       <div className="flex justify-between items-start mb-1">
         <div>
           <p className="font-bold" style={{ color: sexeF ? "#D9706A" : "#1B2B5E", margin: 0 }}>
-            {chien?.nom || "—"}
+            <NomChienLien id={chien?.id} nom={chien?.nom} />
           </p>
           <p style={{ fontSize: "13px", color: "#8A8275", margin: "1px 0 0" }}>{chien?.race || "—"}</p>
           <p style={{ fontSize: "12px", color: "#A39A89", margin: "2px 0 5px" }}>
@@ -214,7 +216,7 @@ function CarteCheckin({ checkin, action, accent }: { checkin: any; action?: Reac
         </div>
         <div className="text-right" style={{ fontSize: "12px", color: "#8A8275" }}>
           <p style={{ margin: 0 }}>{formatBoxLabel(res?.boxes)}</p>
-          <p style={{ margin: "1px 0 0" }}>{res?.clients?.prenom} {res?.clients?.nom}</p>
+          <p style={{ margin: "1px 0 0" }}><NomClientLien id={res?.clients?.id} prenom={res?.clients?.prenom} nom={res?.clients?.nom} /></p>
         </div>
       </div>
       {action && <div className="mt-2">{action}</div>}
