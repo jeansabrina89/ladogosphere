@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/src/utils/supabase/server";
 import { getEmployeRhActuel } from "@/src/lib/employeActuel";
 import { HEURES_JOURNEE_PLEINE } from "@/src/lib/planningUtils";
+import EnTete from "@/app/components/ui/EnTete";
+import Bouton from "@/app/components/ui/Bouton";
+import EtatVide from "@/app/components/ui/EtatVide";
 
 export default async function MonPlanningPage({
   searchParams,
@@ -85,75 +88,67 @@ export default async function MonPlanningPage({
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-4xl mx-auto">
 
-        <h1 className="text-3xl font-bold mb-2" style={{ color: "#1B2B5E" }}>
-          📅 Mon planning
-        </h1>
+        <EnTete titre="📅 Mon planning" />
 
         {/* Navigation mois */}
         <div className="flex justify-between items-center mb-6">
-          <a href={`/employes/mon-espace/planning?mois=${moisPrecedent}&annee=${anneePrecedente}`}
-            className="px-4 py-2 rounded-xl font-semibold text-sm"
-            style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
+          <Bouton href={`/employes/mon-espace/planning?mois=${moisPrecedent}&annee=${anneePrecedente}`} variante="secondaire">
             ← {nomsMois[moisPrecedent - 1]}
-          </a>
+          </Bouton>
           <h2 className="text-xl font-bold" style={{ color: "#1B2B5E" }}>
             {nomsMois[moisActuel - 1]} {anneeActuelle}
           </h2>
-          <a href={`/employes/mon-espace/planning?mois=${moisSuivant}&annee=${anneeSuivante}`}
-            className="px-4 py-2 rounded-xl font-semibold text-sm"
-            style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
+          <Bouton href={`/employes/mon-espace/planning?mois=${moisSuivant}&annee=${anneeSuivante}`} variante="secondaire">
             {nomsMois[moisSuivant - 1]} →
-          </a>
+          </Bouton>
         </div>
 
         {/* Stats du mois */}
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             <p className="text-2xl font-bold" style={{ color: "#4AAEA0" }}>{joursOuvres}j</p>
-            <p className="text-xs text-gray-500 mt-1">Jours travaillés</p>
+            <p className="text-xs text-[rgba(27,43,94,0.5)] mt-1">Jours travaillés</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
               {Math.round(employe.taux_travail / 100 * 5)}j/sem
             </p>
-            <p className="text-xs text-gray-500 mt-1">Rythme habituel</p>
+            <p className="text-xs text-[rgba(27,43,94,0.5)] mt-1">Rythme habituel</p>
           </div>
           {joursFeriesTravailles > 0 ? (
-            <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+            <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
               <p className="text-2xl font-bold" style={{ color: "#D97706" }}>
                 +{joursFeriesTravailles}j 🎉
               </p>
-              <p className="text-xs text-gray-500 mt-1">Fériés → vacances</p>
+              <p className="text-xs text-[rgba(27,43,94,0.5)] mt-1">Fériés → vacances</p>
             </div>
           ) : (
-            <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+            <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
               <p className="text-2xl font-bold" style={{ color: "#C9A84C" }}>
                 {(joursOuvres * HEURES_JOURNEE_PLEINE).toFixed(1)}h
               </p>
-              <p className="text-xs text-gray-500 mt-1">Heures prévues</p>
+              <p className="text-xs text-[rgba(27,43,94,0.5)] mt-1">Heures prévues</p>
             </div>
           )}
         </div>
 
         {/* Planning pas encore généré */}
         {planning?.length === 0 && (
-          <div className="bg-white rounded-xl p-8 shadow-sm text-center mb-6">
-            <p className="text-4xl mb-3">📅</p>
-            <p className="font-semibold text-gray-500">
-              Le planning de {nomsMois[moisActuel - 1]} n'a pas encore été généré.
-            </p>
-            <p className="text-sm text-gray-400 mt-1">
-              Votre responsable le publiera vers le 15 du mois précédent.
-            </p>
+          <div className="mb-6">
+            <EtatVide
+              icone="📅"
+              titre={`Le planning de ${nomsMois[moisActuel - 1]} n'a pas encore été généré.`}
+              message="Votre responsable le publiera vers le 15 du mois précédent."
+            />
           </div>
         )}
 
         {/* Calendrier */}
         {planning && planning.length > 0 && (
-          <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
+          <div className="mb-6" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "24px" }}>
             <div className="grid grid-cols-7 gap-1 mb-2">
               {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map(j => (
-                <div key={j} className="text-center text-xs font-semibold text-gray-400 py-1">{j}</div>
+                <div key={j} className="text-center text-xs font-semibold py-1" style={{ color: "rgba(27,43,94,0.45)" }}>{j}</div>
               ))}
             </div>
             <div className="grid grid-cols-7 gap-1">
@@ -174,11 +169,11 @@ export default async function MonPlanningPage({
                   <div key={dateStr}
                     className="rounded-lg p-1.5 text-center text-xs min-h-12 flex flex-col items-center justify-center"
                     style={{
-                      backgroundColor: couleur?.bg || (estWeekend ? "#F8FAFC" : "white"),
-                      border: estAujourdhui ? "2px solid #4AAEA0" : "1px solid #E2E8F0",
+                      backgroundColor: couleur?.bg || (estWeekend ? "#EDE8DF" : "white"),
+                      border: estAujourdhui ? "2px solid #4AAEA0" : "1px solid rgba(27,43,94,0.12)",
                     }}>
                     <span className="font-bold" style={{
-                      color: estAujourdhui ? "#4AAEA0" : estWeekend ? "#CBD5E1" : "#1B2B5E"
+                      color: estAujourdhui ? "#4AAEA0" : estWeekend ? "rgba(27,43,94,0.35)" : "#1B2B5E"
                     }}>
                       {jour}
                     </span>
@@ -198,7 +193,7 @@ export default async function MonPlanningPage({
         )}
 
         {/* Légende */}
-        <div className="bg-white rounded-xl p-4 shadow-sm mb-6">
+        <div className="mb-6" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
           <div className="flex flex-wrap gap-2">
             {[
               { statut: "travail", label: "Travail" },
@@ -218,18 +213,14 @@ export default async function MonPlanningPage({
                 </span>
               );
             })}
-            <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-400">
+            <span className="px-2 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: "#FBE2DE", color: "#A8453A" }}>
               🚫 Indispo
             </span>
           </div>
         </div>
 
         <div className="flex gap-3">
-          <a href="/employes/mon-espace"
-            className="px-4 py-2 rounded-xl font-semibold text-sm"
-            style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
-            ← Retour
-          </a>
+          <Bouton href="/employes/mon-espace" variante="secondaire">← Retour</Bouton>
         </div>
 
       </div>
