@@ -17,6 +17,7 @@ import BadgeMembre from "@/app/components/BadgeMembre";
 import BoutonOffrir from "./BoutonOffrir";
 import NomClientLien from "@/app/components/NomClientLien";
 import ContactEmail from "@/app/components/ContactEmail";
+import ContactTelephone from "@/app/components/ContactTelephone";
 
 export default async function ReservationPage({
   params,
@@ -142,7 +143,7 @@ export default async function ReservationPage({
             <BadgeMembre membre={!!res.clients?.membre} aJour={est_membre} />
           </p>
           <p><strong>Email :</strong> <ContactEmail email={res.clients?.email} /></p>
-          <p><strong>Téléphone :</strong> {res.clients?.telephone || "—"}</p>
+          <p><strong>Téléphone :</strong> <ContactTelephone numero={res.clients?.telephone} /></p>
         </div>
 
         {/* Chiens */}

@@ -12,6 +12,7 @@ import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { estMembreActif } from "@/src/lib/membre";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import ContactEmail from "@/app/components/ContactEmail";
+import ContactTelephone from "@/app/components/ContactTelephone";
 import SelectionFactureGroupee from "../../reservations/SelectionFactureGroupee";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
@@ -125,7 +126,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           <Carte>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {ligne("Email", <ContactEmail email={client.email} />)}
-              {ligne("Téléphone", client.telephone || "—")}
+              {ligne("Téléphone", <ContactTelephone numero={client.telephone} />)}
               {ligne("Adresse", client.adresse || "—")}
               {ligne("Client depuis", formatDateFR(new Date(client.created_at)))}
             </div>
