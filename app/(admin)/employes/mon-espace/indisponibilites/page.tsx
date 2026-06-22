@@ -4,6 +4,7 @@ import { aujourdhuiISO } from "@/src/lib/dates";
 import { getEmployeRhActuel } from "@/src/lib/employeActuel";
 import FormIndisponibilites from "./FormIndisponibilites";
 import { supprimerIndisponibilite } from "./actions";
+import EnTete from "@/app/components/ui/EnTete";
 
 export default async function IndisponibilitesPage() {
   const supabase = await createClient();
@@ -30,15 +31,13 @@ export default async function IndisponibilitesPage() {
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-3xl mx-auto">
 
-        <h1 className="text-3xl font-bold mb-2" style={{ color: "#1B2B5E" }}>
-          🚫 Mes indisponibilités
-        </h1>
-        <p className="text-gray-500 mb-6">
-          Indiquez les jours où vous ne pouvez pas travailler. Ces jours seront pris en compte dans le générateur de planning.
-        </p>
+        <EnTete
+          titre="🚫 Mes indisponibilités"
+          sousTitre="Indiquez les jours où vous ne pouvez pas travailler. Ces jours seront pris en compte dans le générateur de planning."
+        />
 
         {/* Formulaire d'ajout */}
-        <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
+        <div className="mb-6" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "24px" }}>
           <h2 className="font-bold mb-4" style={{ color: "#1B2B5E" }}>
             ➕ Ajouter une indisponibilité
           </h2>
@@ -46,23 +45,23 @@ export default async function IndisponibilitesPage() {
         </div>
 
         {/* Liste */}
-        <div className="bg-white rounded-xl p-6 shadow-sm">
+        <div style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "24px" }}>
           <h2 className="font-bold mb-4" style={{ color: "#1B2B5E" }}>
             📋 Mes jours indisponibles
           </h2>
           {indisponibilites?.length === 0 && (
-            <p className="text-gray-400 text-sm">Aucune indisponibilité enregistrée.</p>
+            <p className="text-[rgba(27,43,94,0.45)] text-sm">Aucune indisponibilité enregistrée.</p>
           )}
           <div className="space-y-2">
             {indisponibilites?.map((ind: any) => (
-              <div key={ind.id} className="flex justify-between items-center border rounded-xl p-3">
+              <div key={ind.id} className="flex justify-between items-center rounded-xl p-3" style={{ border: "1px solid rgba(27,43,94,0.12)" }}>
                 <div>
                   <p className="text-sm font-semibold" style={{ color: "#1B2B5E" }}>
                     {new Date(ind.date + "T12:00:00").toLocaleDateString("fr-CH", {
                       weekday: "long", day: "numeric", month: "long", year: "numeric"
                     })}
                   </p>
-                  {ind.note && <p className="text-xs text-gray-400 mt-0.5">{ind.note}</p>}
+                  {ind.note && <p className="text-xs text-[rgba(27,43,94,0.45)] mt-0.5">{ind.note}</p>}
                 </div>
                 <form action={async () => {
                   "use server";

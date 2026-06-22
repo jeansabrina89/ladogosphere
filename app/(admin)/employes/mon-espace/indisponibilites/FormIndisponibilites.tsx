@@ -41,8 +41,8 @@ export default function FormIndisponibilites({ employe_id }: { employe_id: strin
 
   return (
     <div className="space-y-4">
-      {error && <div className="bg-red-100 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>}
-      {success && <div className="bg-green-100 text-green-700 px-4 py-3 rounded-xl text-sm font-semibold">✅ Indisponibilité ajoutée !</div>}
+      {error && <div className="px-4 py-3 rounded-xl text-sm" style={{ backgroundColor: "#FBE2DE", color: "#A8453A" }}>{error}</div>}
+      {success && <div className="px-4 py-3 rounded-xl text-sm font-semibold" style={{ backgroundColor: "#DCEEE9", color: "#1F6E5B" }}>✅ Indisponibilité ajoutée !</div>}
 
       <div className="grid grid-cols-2 gap-4">
         <div>
