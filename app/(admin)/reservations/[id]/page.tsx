@@ -15,6 +15,7 @@ import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { estMembreActif } from "@/src/lib/membre";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import BoutonOffrir from "./BoutonOffrir";
+import NomClientLien from "@/app/components/NomClientLien";
 
 export default async function ReservationPage({
   params,
@@ -136,7 +137,7 @@ export default async function ReservationPage({
         {/* Client */}
         <div className="border-t pt-6 mb-6">
           <h2 className="text-2xl font-bold mb-4" style={{ color: "#1B2B5E" }}>👤 Client</h2>
-          <p><strong>Nom :</strong> {res.clients?.prenom} {res.clients?.nom}{" "}
+          <p><strong>Nom :</strong> <NomClientLien id={res.clients?.id} prenom={res.clients?.prenom} nom={res.clients?.nom} />{" "}
             <BadgeMembre membre={!!res.clients?.membre} aJour={est_membre} />
           </p>
           <p><strong>Email :</strong> {res.clients?.email}</p>

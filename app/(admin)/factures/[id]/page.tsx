@@ -9,6 +9,7 @@ import { lireParametresTVA, ventilerTVA } from "@/src/lib/tva";
 import BoutonImprimer from "./BoutonImprimer";
 import BoutonReglement from "./BoutonReglement";
 import BoutonAnnulerFacture from "./BoutonAnnulerFacture";
+import NomClientLien from "@/app/components/NomClientLien";
 
 function libelleType(t: string): string {
   if (t === "journee") return "Journée";
@@ -143,7 +144,7 @@ export default async function FactureGroupeePage({
         <div className="mb-8">
           <h3 className="font-bold text-sm uppercase tracking-wide text-gray-400 mb-2">Facturé à</h3>
           <p className="font-bold text-lg" style={{ color: "#1B2B5E" }}>
-            {client?.prenom} {client?.nom}{" "}
+            <NomClientLien id={client?.id} prenom={client?.prenom} nom={client?.nom} />{" "}
             <BadgeMembre membre={!!client?.membre} aJour={membre_a_jour} />
           </p>
           {client?.adresse && <p className="text-sm text-gray-600">{client.adresse}</p>}
