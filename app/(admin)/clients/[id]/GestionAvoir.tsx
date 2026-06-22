@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ajouterAvoir, retirerAvoir, modifierMouvementAvoir, supprimerMouvementAvoir } from "./actions";
 import type { MouvementAvoir } from "@/src/lib/avoirs";
 import { formatDateFR } from "@/src/lib/dates";
+import { Wallet } from "lucide-react";
 
 const LABELS_TYPE: Record<string, string> = {
   ajout_manuel:       "➕ Ajout manuel",
@@ -141,8 +142,8 @@ export default function GestionAvoir({
 
   return (
     <div className="border-t pt-6 mb-8">
-      <h2 className="text-2xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
-        💳 Avoir client
+      <h2 className="text-2xl font-bold mb-4 flex items-center gap-2" style={{ color: "#1B2B5E" }}>
+        <Wallet size={22} style={{ color: "#4AAEA0" }} />Avoir client
       </h2>
 
       <div className="flex items-center justify-between mb-4">

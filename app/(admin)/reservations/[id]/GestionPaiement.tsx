@@ -309,7 +309,7 @@ export default function GestionPaiement({
                   disabled={avoirLoading}
                   className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
                   style={{ backgroundColor: "#4AAEA0" }}>
-                  {avoirLoading ? "…" : "💳 Utiliser l'avoir"}
+                  {avoirLoading ? "…" : <span className="flex items-center justify-center gap-1.5"><Wallet size={15} />Utiliser l'avoir</span>}
                 </button>
               </div>
             )}
