@@ -4,6 +4,8 @@ import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { aujourdhuiISO, formatDateFR, formatHeure } from "@/src/lib/dates";
 import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
 import NavDatesChiensDuJour from "./NavDatesChiensDuJour";
+import NomClientLien from "@/app/components/NomClientLien";
+import NomChienLien from "@/app/components/NomChienLien";
 
 const TYPE_LABELS: Record<string, string> = {
   journee: "Journée",
@@ -13,7 +15,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 const SELECT = `
   id, statut, date_arrivee_prevue, date_depart_prevu, date_arrivee_reelle,
-  reservations ( type_reservation, heure_arrivee, heure_depart, clients (prenom, nom) ),
+  reservations ( type_reservation, heure_arrivee, heure_depart, clients (id, prenom, nom) ),
   chiens ( id, nom )
 ` as const;
 
@@ -108,11 +110,11 @@ export default async function ChiensDuJourPage({
                     <div key={cc.id} className="border rounded-xl p-4 flex justify-between items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-bold" style={{ color: "#1B2B5E" }}>{cc.chiens?.nom || "—"}</p>
+                          <p className="font-bold" style={{ color: "#1B2B5E" }}><NomChienLien id={cc.chiens?.id} nom={cc.chiens?.nom} /></p>
                           {badge(cc.statut)}
                         </div>
                         <p className="text-sm text-gray-500 truncate">
-                          {cc.reservations?.clients?.prenom} {cc.reservations?.clients?.nom}
+                          <NomClientLien id={cc.reservations?.clients?.id} prenom={cc.reservations?.clients?.prenom} nom={cc.reservations?.clients?.nom} />
                           {cc.reservations?.type_reservation && ` · ${TYPE_LABELS[cc.reservations.type_reservation] ?? cc.reservations.type_reservation}`}
                           {heure && ` · ${heure}`}
                         </p>
@@ -147,11 +149,11 @@ export default async function ChiensDuJourPage({
                     <div key={cc.id} className="border rounded-xl p-4 flex justify-between items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-bold" style={{ color: "#1B2B5E" }}>{cc.chiens?.nom || "—"}</p>
+                          <p className="font-bold" style={{ color: "#1B2B5E" }}><NomChienLien id={cc.chiens?.id} nom={cc.chiens?.nom} /></p>
                           {badge(cc.statut)}
                         </div>
                         <p className="text-sm text-gray-500 truncate">
-                          {cc.reservations?.clients?.prenom} {cc.reservations?.clients?.nom}
+                          <NomClientLien id={cc.reservations?.clients?.id} prenom={cc.reservations?.clients?.prenom} nom={cc.reservations?.clients?.nom} />
                           {cc.reservations?.type_reservation && ` · ${TYPE_LABELS[cc.reservations.type_reservation] ?? cc.reservations.type_reservation}`}
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">
@@ -188,11 +190,11 @@ export default async function ChiensDuJourPage({
                     <div key={cc.id} className="border rounded-xl p-4 flex justify-between items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-bold" style={{ color: "#1B2B5E" }}>{cc.chiens?.nom || "—"}</p>
+                          <p className="font-bold" style={{ color: "#1B2B5E" }}><NomChienLien id={cc.chiens?.id} nom={cc.chiens?.nom} /></p>
                           {badge(cc.statut)}
                         </div>
                         <p className="text-sm text-gray-500 truncate">
-                          {cc.reservations?.clients?.prenom} {cc.reservations?.clients?.nom}
+                          <NomClientLien id={cc.reservations?.clients?.id} prenom={cc.reservations?.clients?.prenom} nom={cc.reservations?.clients?.nom} />
                           {cc.reservations?.type_reservation && ` · ${TYPE_LABELS[cc.reservations.type_reservation] ?? cc.reservations.type_reservation}`}
                           {heure && ` · ${heure}`}
                         </p>
