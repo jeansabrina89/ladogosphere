@@ -191,9 +191,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
             <Carte accent="rose">
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {ligne("Nom", `${client.contact_urgence_prenom || ""} ${client.contact_urgence_nom || "—"}`)}
-                {ligne("Téléphone", client.contact_urgence_telephone
-                  ? <a href={`tel:${client.contact_urgence_telephone}`} style={{ color: "#1F6E5B", fontWeight: 700 }}>{client.contact_urgence_telephone}</a>
-                  : "—")}
+                {ligne("Téléphone", <ContactTelephone numero={client.contact_urgence_telephone} />)}
               </div>
             </Carte>
           )}

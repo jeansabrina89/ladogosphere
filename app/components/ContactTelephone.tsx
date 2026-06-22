@@ -13,13 +13,29 @@ function pourWhatsapp(raw: string) {
   return d;
 }
 
-export default function ContactTelephone({ numero, style }: { numero?: string | null; style?: CSSProperties }) {
+export default function ContactTelephone({
+  numero,
+  appelSeul = false,
+  style,
+}: {
+  numero?: string | null;
+  appelSeul?: boolean;
+  style?: CSSProperties;
+}) {
   const [ouvert, setOuvert] = useState(false);
 
   if (!numero) return <span style={style}>—</span>;
 
   const tel = digits(numero);
   const wa = pourWhatsapp(numero);
+
+  if (appelSeul) {
+    return (
+      <a href={`tel:${tel}`} style={{ color: "inherit", textDecoration: "underline", cursor: "pointer", ...style }}>
+        {numero}
+      </a>
+    );
+  }
 
   const item: CSSProperties = {
     display: "block", width: "100%", textAlign: "left", boxSizing: "border-box",

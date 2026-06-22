@@ -10,6 +10,7 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
+import ContactTelephone from "@/app/components/ContactTelephone";
 
 export default async function ChienPage({
   params,
@@ -170,7 +171,7 @@ export default async function ChienPage({
               {ligne("Allergies", chien.allergies || "Aucune")}
               {ligne("Traitements", chien.traitements || "Aucun")}
               {ligne("Vétérinaire", chien.veterinaire_nom || "—")}
-              {ligne("Tél. vétérinaire", chien.veterinaire_telephone || "—")}
+              {ligne("Tél. vétérinaire", <ContactTelephone numero={chien.veterinaire_telephone} appelSeul />)}
             </div>
           </Carte>
 
