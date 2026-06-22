@@ -72,6 +72,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
     `)
     .eq("client_id", id)
     .order("date_debut", { ascending: false });
+  for (const r of (reservations ?? []) as any[]) { if (r.clients) r.clients.aJour = membre_a_jour; }
 
   const { data: facturesClient } = await supabase
     .from("factures")

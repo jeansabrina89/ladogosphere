@@ -1,5 +1,6 @@
 import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { clientsMembresAJour } from "@/src/lib/membre";
 import { creerChien } from "./actions";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
@@ -10,8 +11,10 @@ export default async function NouveauChienPage() {
   const supabase = supabaseAdmin;
   const { data: clients } = await supabase
     .from("clients")
-    .select("id, prenom, nom")
+    .select("id, prenom, nom, membre")
     .order("nom");
+
+  const idsAJourProprio = await clientsMembresAJour(supabase, (clients ?? []).map((c) => c.id));
 
   const labelStyle: React.CSSProperties = { display: "block", fontWeight: 600, color: "#1B2B5E", marginBottom: 6, fontSize: 14 };
   const champStyle: React.CSSProperties = { width: "100%", border: "1px solid rgba(27,43,94,0.2)", borderRadius: 12, padding: "10px 12px", fontSize: 15, color: "#1B2B5E", backgroundColor: "#FFFFFF", boxSizing: "border-box" };
@@ -44,7 +47,7 @@ export default async function NouveauChienPage() {
                   <select name="client_id" required style={champStyle}>
                     <option value="">-- Sélectionner --</option>
                     {clients?.map(c => (
-                      <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>
+                      <option key={c.id} value={c.id}>{c.membre ? (idsAJourProprio.has(c.id) ? "⭐ " : "🔔 ") : ""}{c.prenom} {c.nom}</option>
                     ))}
                   </select>
                 </div>

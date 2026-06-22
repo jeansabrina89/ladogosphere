@@ -5,6 +5,7 @@ import RechercheReservation from "./RechercheReservation";
 import SelectionFactureGroupee from "./SelectionFactureGroupee";
 import FiltrePeriodeReservations from "./FiltrePeriodeReservations";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
+import { clientsMembresAJour } from "@/src/lib/membre";
 import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
 
@@ -62,6 +63,8 @@ export default async function ReservationsPage({
   }
 
   const { data: reservations } = await query;
+  const idsAJourFacture = await clientsMembresAJour(supabase, ((reservations ?? []) as any[]).map((r) => r.client_id));
+  for (const r of (reservations ?? []) as any[]) { if (r.clients) r.clients.aJour = idsAJourFacture.has(r.client_id); }
 
   return (
     <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>

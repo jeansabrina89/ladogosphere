@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import BadgeMembre from "@/app/components/BadgeMembre";
 import { formatDateFR } from "@/src/lib/dates";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import BoutonPaiementRapide from "./BoutonPaiementRapide";
@@ -129,7 +130,9 @@ export default function SelectionFactureGroupee({
                     <p style={{ fontSize: 18, fontWeight: 700, color: "#1B2B5E", margin: 0 }}>
                       {res.clients?.prenom} {res.clients?.nom}
                       {res.clients?.membre && (
-                        <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 600, color: "#C9A84C" }}>⭐ Membre</span>
+                        <span style={{ marginLeft: 8 }}>
+                          <BadgeMembre membre={!!res.clients?.membre} aJour={!!res.clients?.aJour} />
+                        </span>
                       )}
                     </p>
                     {res.numero && (
