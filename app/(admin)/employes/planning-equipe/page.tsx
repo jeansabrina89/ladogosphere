@@ -5,6 +5,8 @@ import { aujourdhuiISO } from "@/src/lib/dates";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import BoutonImprimer from "./BoutonImprimer";
+import EnTete from "@/app/components/ui/EnTete";
+import Bouton from "@/app/components/ui/Bouton";
 
 const NOMS_MOIS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -111,14 +113,15 @@ export default async function PlanningEquipePage({
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <style dangerouslySetInnerHTML={{ __html: STYLE_IMPRESSION }} />
       <div id="zone-impression" className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold" style={{ color: "#1B2B5E" }}>👥 Planning de l'équipe</h1>
-          <div className="flex gap-3 items-center no-print">
-            <BoutonImprimer />
-            <Link href="/employes/mon-espace" className="px-4 py-2 rounded-xl font-semibold text-sm"
-              style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>← Mon espace</Link>
-          </div>
-        </div>
+        <EnTete
+          titre="👥 Planning de l'équipe"
+          action={
+            <div className="no-print" style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+              <BoutonImprimer />
+              <Bouton href="/employes/mon-espace" variante="secondaire">← Mon espace</Bouton>
+            </div>
+          }
+        />
 
         <div className="flex items-center justify-center gap-4 mb-6">
           <Link href={`/employes/planning-equipe?mois=${moisPrec.m}&annee=${moisPrec.a}`}
@@ -130,7 +133,7 @@ export default async function PlanningEquipePage({
 
         <div className="grid grid-cols-7 gap-1 mb-1">
           {NOMS_JOURS.map((j) => (
-            <div key={j} className="text-center text-xs font-semibold py-1" style={{ color: "#6B7280" }}>{j}</div>
+            <div key={j} className="text-center text-xs font-semibold py-1" style={{ color: "rgba(27,43,94,0.55)" }}>{j}</div>
           ))}
         </div>
 
@@ -146,7 +149,7 @@ export default async function PlanningEquipePage({
               <div key={c.dateStr} className="rounded-lg p-1.5 flex flex-col gap-1"
                 style={{ minHeight: 96, background: estFerie ? "#F8EFD3" : c.weekend ? "#EDE8DF" : "#FFFFFF", border: estAujourdhui ? "2px solid #2E8B7E" : estFerie ? "0.5px solid #C9A84C" : "0.5px solid rgba(27,43,94,0.12)" }}>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs" style={{ color: estAujourdhui ? "#2E8B7E" : "#6B7280", fontWeight: estAujourdhui ? 800 : 600 }}>{c.jour}</span>
+                  <span className="text-xs" style={{ color: estAujourdhui ? "#2E8B7E" : "rgba(27,43,94,0.55)", fontWeight: estAujourdhui ? 800 : 600 }}>{c.jour}</span>
                   {estAujourdhui
                     ? <span style={{ fontSize: 10, fontWeight: 700, color: "#2E8B7E" }}>Auj.</span>
                     : estFerie ? <span style={{ fontSize: 10, fontWeight: 700, color: "#6E5410" }}>Férié</span> : null}
@@ -200,7 +203,7 @@ export default async function PlanningEquipePage({
         </div>
 
         {(employes ?? []).length === 0 && (
-          <p className="text-center text-gray-400 mt-8">Aucun employé actif.</p>
+          <p className="text-center mt-8 text-[rgba(27,43,94,0.45)]">Aucun employé actif.</p>
         )}
       </div>
     </main>
