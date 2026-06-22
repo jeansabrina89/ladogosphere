@@ -242,10 +242,10 @@ export default async function ComptabilitePage({
         <div className="flex justify-between items-start mb-8 flex-wrap gap-4">
           <div>
             <h1 className="text-4xl font-bold" style={{ color: "#1B2B5E" }}>📈 Comptabilité</h1>
-            <p className="text-gray-500 mt-1">Suivi des paiements et statistiques</p>
+            <p className="text-[rgba(27,43,94,0.55)] mt-1">Suivi des paiements et statistiques</p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2 bg-white rounded-xl p-3 shadow-sm">
+            <div className="flex items-center gap-2 bg-white rounded-[18px] p-3 border border-[rgba(27,43,94,0.12)]">
               <label className="text-sm font-semibold" style={{ color: "#1B2B5E" }}>Année :</label>
               <div className="flex gap-1">
                 {[2025, 2026, 2027, 2028].map(a => (
@@ -279,48 +279,48 @@ export default async function ComptabilitePage({
 
         {/* Résumé paiements — période filtrée */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 my-8">
-          <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+          <div className="bg-white rounded-[18px] p-6 border border-[rgba(27,43,94,0.12)] text-center">
             <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>{caFacturePeriode.toFixed(2)} CHF</p>
-            <p className="text-gray-500 text-sm mt-1">CA facturé (prestations)</p>
-            <p className="text-xs text-gray-400">{periodLabel}</p>
+            <p className="text-[rgba(27,43,94,0.55)] text-sm mt-1">CA facturé (prestations)</p>
+            <p className="text-xs text-[rgba(27,43,94,0.45)]">{periodLabel}</p>
           </div>
-          <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+          <div className="bg-white rounded-[18px] p-6 border border-[rgba(27,43,94,0.12)] text-center">
             <p className="text-2xl font-bold text-green-600">{caEncaissePeriode.toFixed(2)} CHF</p>
-            <p className="text-gray-500 text-sm mt-1">CA encaissé (prestations)</p>
-            <p className="text-xs text-gray-400">{periodLabel}</p>
+            <p className="text-[rgba(27,43,94,0.55)] text-sm mt-1">CA encaissé (prestations)</p>
+            <p className="text-xs text-[rgba(27,43,94,0.45)]">{periodLabel}</p>
           </div>
-          <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+          <div className="bg-white rounded-[18px] p-6 border border-[rgba(27,43,94,0.12)] text-center">
             <p className="text-2xl font-bold" style={{ color: "#4AAEA0" }}>{totalCotisFiltrees.toFixed(2)} CHF</p>
-            <p className="text-gray-500 text-sm mt-1">⭐ Adhésions encaissées</p>
-            <p className="text-xs text-gray-400">{periodLabel}</p>
+            <p className="text-[rgba(27,43,94,0.55)] text-sm mt-1">⭐ Adhésions encaissées</p>
+            <p className="text-xs text-[rgba(27,43,94,0.45)]">{periodLabel}</p>
           </div>
-          <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+          <div className="bg-white rounded-[18px] p-6 border border-[rgba(27,43,94,0.12)] text-center">
             <p className="text-2xl font-bold" style={{ color: "#C9A84C" }}>{totalEncaissePeriode.toFixed(2)} CHF</p>
-            <p className="text-gray-500 text-sm mt-1">💰 Total encaissé</p>
-            <p className="text-xs text-gray-400">{periodLabel}</p>
+            <p className="text-[rgba(27,43,94,0.55)] text-sm mt-1">💰 Total encaissé</p>
+            <p className="text-xs text-[rgba(27,43,94,0.45)]">{periodLabel}</p>
           </div>
-          <div className="bg-white rounded-xl p-6 shadow-sm text-center">
+          <div className="bg-white rounded-[18px] p-6 border border-[rgba(27,43,94,0.12)] text-center">
             <p className="text-2xl font-bold text-red-600">{resteAPayer.toFixed(2)} CHF</p>
-            <p className="text-gray-500 text-sm mt-1">Reste à encaisser</p>
-            <p className="text-xs text-gray-400">{periodLabel}</p>
+            <p className="text-[rgba(27,43,94,0.55)] text-sm mt-1">Reste à encaisser</p>
+            <p className="text-xs text-[rgba(27,43,94,0.45)]">{periodLabel}</p>
           </div>
         </div>
-        <p className="text-xs text-gray-400 -mt-6 mb-6">
+        <p className="text-xs text-[rgba(27,43,94,0.45)] -mt-6 mb-6">
           Facturé = prestations dues sur la période (par date de séjour). Encaissé = montants perçus (par date de paiement).
         </p>
 
         <div className="grid grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="bg-white rounded-[18px] p-4 border border-[rgba(27,43,94,0.12)] text-center">
             <p className="text-2xl font-bold text-green-600">{nbPaye}</p>
-            <p className="text-gray-500 text-sm">✅ Payées</p>
+            <p className="text-[rgba(27,43,94,0.55)] text-sm">✅ Payées</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="bg-white rounded-[18px] p-4 border border-[rgba(27,43,94,0.12)] text-center">
             <p className="text-2xl font-bold text-orange-500">{nbPartiel}</p>
-            <p className="text-gray-500 text-sm">⚠️ Partielles</p>
+            <p className="text-[rgba(27,43,94,0.55)] text-sm">⚠️ Partielles</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="bg-white rounded-[18px] p-4 border border-[rgba(27,43,94,0.12)] text-center">
             <p className="text-2xl font-bold text-red-600">{nbImpaye}</p>
-            <p className="text-gray-500 text-sm">❌ Impayées</p>
+            <p className="text-[rgba(27,43,94,0.55)] text-sm">❌ Impayées</p>
           </div>
         </div>
 
@@ -328,11 +328,11 @@ export default async function ComptabilitePage({
         <FiltresMois annee={annee} moisActif={moisFiltre} />
 
         {/* Liste détaillée réservations */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+        <div className="bg-white rounded-[18px] border border-[rgba(27,43,94,0.12)] overflow-hidden mb-6">
           <div className="px-6 py-4 border-b" style={{ backgroundColor: "#F5F0E8" }}>
             <h2 className="font-bold" style={{ color: "#1B2B5E" }}>
               📅 Réservations {moisFiltre ? `— ${moisLabels[moisFiltre - 1]} ${annee}` : "— toutes"}
-              <span className="ml-2 text-sm font-normal text-gray-500">
+              <span className="ml-2 text-sm font-normal text-[rgba(27,43,94,0.55)]">
                 ({reservationsFiltrees?.length ?? 0} réservation(s))
               </span>
             </h2>
@@ -353,7 +353,7 @@ export default async function ComptabilitePage({
             <tbody>
               {reservationsFiltrees?.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-6 text-center text-gray-400 text-sm">
+                  <td colSpan={8} className="px-4 py-6 text-center text-[rgba(27,43,94,0.45)] text-sm">
                     Aucune réservation pour ce mois.
                   </td>
                 </tr>
@@ -369,10 +369,10 @@ export default async function ComptabilitePage({
                       <NomClientLien id={res.client_id} prenom={res.clients?.prenom} nom={res.clients?.nom} />
                       <BadgeMembre membre={!!res.clients?.membre} aJour={idsAJourCompta.has(res.client_id)} compact />
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
+                    <td className="px-4 py-3 text-sm text-[rgba(27,43,94,0.55)]">
                       {formatDateFR(res.date_debut)} → {formatDateFR(res.date_fin)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{chiens}</td>
+                    <td className="px-4 py-3 text-sm text-[rgba(27,43,94,0.55)]">{chiens}</td>
                     <td className="px-4 py-3 text-sm text-right font-semibold" style={{ color: "#1B2B5E" }}>
                       {res.montant_final ? `${res.montant_final} CHF` : "—"}
                     </td>
@@ -383,7 +383,7 @@ export default async function ComptabilitePage({
                       style={{ color: reste > 0 ? "#DC2626" : "#16A34A" }}>
                       {res.montant_final ? `${reste.toFixed(2)} CHF` : "—"}
                     </td>
-                    <td className="px-4 py-3 text-sm text-center text-gray-500 capitalize">
+                    <td className="px-4 py-3 text-sm text-center text-[rgba(27,43,94,0.55)] capitalize">
                       {res.mode_paiement || "—"}
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -406,11 +406,11 @@ export default async function ComptabilitePage({
 
         {/* Liste cotisations */}
         {cotisationsFiltrees && cotisationsFiltrees.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white rounded-[18px] border border-[rgba(27,43,94,0.12)] overflow-hidden">
             <div className="px-6 py-4 border-b" style={{ backgroundColor: "#F5F0E8" }}>
               <h2 className="font-bold" style={{ color: "#1B2B5E" }}>
                 ⭐ Adhésions membres {moisFiltre ? `— ${moisLabels[moisFiltre - 1]} ${annee}` : `— ${annee}`}
-                <span className="ml-2 text-sm font-normal text-gray-500">
+                <span className="ml-2 text-sm font-normal text-[rgba(27,43,94,0.55)]">
                   ({cotisationsFiltrees.length} adhésion(s) — {totalCotisFiltrees.toFixed(2)} CHF)
                 </span>
               </h2>
@@ -432,10 +432,10 @@ export default async function ComptabilitePage({
                     <td className="px-4 py-3 text-sm font-semibold" style={{ color: "#1B2B5E" }}>
                       <NomClientLien id={c.client_id} prenom={c.clients?.prenom} nom={c.clients?.nom} /> ⭐
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
+                    <td className="px-4 py-3 text-sm text-[rgba(27,43,94,0.55)]">
                       {c.date_paiement ? formatDateFR(c.date_paiement) : "—"}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 capitalize">
+                    <td className="px-4 py-3 text-sm text-[rgba(27,43,94,0.55)] capitalize">
                       {c.mode_paiement === "cash" ? "💵 Cash" :
                        c.mode_paiement === "virement" ? "🏦 Virement" :
                        c.mode_paiement === "prochaine_resa" ? "📅 Réservation" : "—"}
