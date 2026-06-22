@@ -8,6 +8,7 @@ import FiltresMois from "./FiltresMois";
 import { montantDuReservation } from "@/src/lib/montants";
 import { clientsMembresAJour } from "@/src/lib/membre";
 import BadgeMembre from "@/app/components/BadgeMembre";
+import NomClientLien from "@/app/components/NomClientLien";
 
 export default async function ComptabilitePage({
   searchParams,
@@ -365,7 +366,7 @@ export default async function ComptabilitePage({
                     className={idx % 2 === 0 ? "bg-white" : "bg-slate-50"}
                     style={{ borderBottom: "1px solid #E2E8F0" }}>
                     <td className="px-4 py-3 text-sm font-semibold" style={{ color: "#1B2B5E" }}>
-                      {res.clients?.prenom} {res.clients?.nom}
+                      <NomClientLien id={res.client_id} prenom={res.clients?.prenom} nom={res.clients?.nom} />
                       <BadgeMembre membre={!!res.clients?.membre} aJour={idsAJourCompta.has(res.client_id)} compact />
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
@@ -429,7 +430,7 @@ export default async function ComptabilitePage({
                     className={idx % 2 === 0 ? "bg-white" : "bg-slate-50"}
                     style={{ borderBottom: "1px solid #E2E8F0" }}>
                     <td className="px-4 py-3 text-sm font-semibold" style={{ color: "#1B2B5E" }}>
-                      {c.clients?.prenom} {c.clients?.nom} ⭐
+                      <NomClientLien id={c.client_id} prenom={c.clients?.prenom} nom={c.clients?.nom} /> ⭐
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {c.date_paiement ? formatDateFR(c.date_paiement) : "—"}
