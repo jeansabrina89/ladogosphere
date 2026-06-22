@@ -1,4 +1,7 @@
-import Link from "next/link";
+import EnTete from "@/app/components/ui/EnTete";
+import Carte from "@/app/components/ui/Carte";
+import EtatVide from "@/app/components/ui/EtatVide";
+import Bouton from "@/app/components/ui/Bouton";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { createClient } from "@/src/utils/supabase/server";
@@ -35,10 +38,10 @@ export default async function TimbrageAdminPage({
   if (!employes || employes.length === 0) {
     return (
       <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
-        <div className="max-w-4xl mx-auto bg-white rounded-xl p-8 shadow-sm text-center">
-          <p className="text-gray-500">Aucun employé actif.</p>
-          <Link href="/employes" className="mt-4 inline-block px-4 py-2 rounded-xl font-semibold text-sm"
-            style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>← Équipe</Link>
+        <div className="max-w-4xl mx-auto">
+          <Carte>
+            <EtatVide icone="⏱️" titre="Aucun employé actif" message="Ajoute un employé pour suivre son timbrage." action={<Bouton href="/employes" variante="secondaire">← Équipe</Bouton>} />
+          </Carte>
         </div>
       </main>
     );
@@ -133,23 +136,19 @@ export default async function TimbrageAdminPage({
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-5xl mx-auto">
 
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold" style={{ color: "#1B2B5E" }}>⏱️ Timbrage équipe</h1>
-            <p className="text-gray-500 mt-1">Consultation et édition</p>
-          </div>
-          <Link href="/employes" className="px-4 py-2 rounded-xl font-semibold text-sm"
-            style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>← Équipe</Link>
-        </div>
+        <EnTete
+          titre="⏱️ Timbrage équipe"
+          sousTitre="Consultation et édition"
+          action={<Bouton href="/employes" variante="secondaire">← Équipe</Bouton>}
+        />
 
         {/* Sélecteur */}
-        <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
+        <div className="mb-4" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
           <form method="GET" className="flex flex-wrap gap-4 items-end">
             <div>
               <label className="block text-xs font-semibold mb-1 text-gray-500">Employé</label>
               <select name="employe" defaultValue={emp.id}
-                className="border border-gray-200 rounded-xl p-2 text-sm min-w-48">
+                className="border border-[rgba(27,43,94,0.18)] rounded-xl p-2 text-sm min-w-48">
                 {employes.map((e: any) => (
                   <option key={e.id} value={e.id}>{e.prenom} {e.nom} — {e.taux_travail}%</option>
                 ))}
@@ -158,7 +157,7 @@ export default async function TimbrageAdminPage({
             <div>
               <label className="block text-xs font-semibold mb-1 text-gray-500">Mois</label>
               <input type="month" name="mois" defaultValue={moisParam}
-                className="border border-gray-200 rounded-xl p-2 text-sm" />
+                className="border border-[rgba(27,43,94,0.18)] rounded-xl p-2 text-sm" />
             </div>
             <button type="submit" className="px-4 py-2 rounded-xl font-semibold text-white text-sm"
               style={{ backgroundColor: "#4AAEA0" }}>Afficher</button>
@@ -184,26 +183,26 @@ export default async function TimbrageAdminPage({
 
         {/* Totaux du mois */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
               {decompteMois.heuresFaites.toFixed(1)}h
             </p>
             <p className="text-xs text-gray-500 mt-1">Faites ce mois</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             <p className="text-2xl font-bold" style={{ color: "#6B7280" }}>
               {decompteMois.heuresDues.toFixed(1)}h
             </p>
             <p className="text-xs text-gray-500 mt-1">Dues ce mois</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             <p className="text-2xl font-bold"
               style={{ color: decompteMois.solde >= 0 ? "#4AAEA0" : "#D97706" }}>
               {decompteMois.solde >= 0 ? "+" : ""}{decompteMois.solde.toFixed(1)}h
             </p>
             <p className="text-xs text-gray-500 mt-1">Solde du mois</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             {nonValides > 0 ? (
               <>
                 <p className="text-2xl font-bold text-orange-500">{nonValides}</p>
@@ -220,26 +219,26 @@ export default async function TimbrageAdminPage({
 
         {/* Cumul année + solde vacances */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
               {decompteAnnee.heuresFaites.toFixed(1)}h
             </p>
             <p className="text-xs text-gray-500 mt-1">Faites {annee}</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             <p className="text-2xl font-bold" style={{ color: "#6B7280" }}>
               {decompteAnnee.heuresDues.toFixed(1)}h
             </p>
             <p className="text-xs text-gray-500 mt-1">Dues {annee}</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             <p className="text-2xl font-bold"
               style={{ color: decompteAnnee.solde >= 0 ? "#4AAEA0" : "#D97706" }}>
               {decompteAnnee.solde >= 0 ? "+" : ""}{decompteAnnee.solde.toFixed(1)}h
             </p>
             <p className="text-xs text-gray-500 mt-1">Solde {annee}</p>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             <p className="text-2xl font-bold" style={{ color: "#C9A84C" }}>
               {joursVacancesRestants.toFixed(1)}j
               {bonusFeriers > 0 && (
