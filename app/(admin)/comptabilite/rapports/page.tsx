@@ -105,7 +105,7 @@ export default async function RapportsPage({
           action={<Bouton href="/comptabilite" variante="secondaire">← Comptabilité</Bouton>}
         />
 
-        <div className="flex items-center gap-2 mb-6">
+        <div className="flex items-center gap-2 mb-6 flex-wrap">
           <span className="text-sm font-semibold" style={{ color: marine }}>Exercice :</span>
           {[2025, 2026, 2027, 2028].map(a => (
             <a key={a} href={`/comptabilite/rapports?annee=${a}`}
@@ -114,6 +114,11 @@ export default async function RapportsPage({
               {a}
             </a>
           ))}
+          <a href={`/api/comptabilite/rapports-export?annee=${annee}`}
+            className="ml-auto px-4 py-2 rounded-xl text-sm font-semibold text-white"
+            style={{ backgroundColor: "#2E8B7E" }}>
+            📥 Télécharger l&apos;exercice
+          </a>
         </div>
 
         {balance.length === 0 ? (
