@@ -236,6 +236,13 @@ export default async function FactureGroupeePage({
           </tfoot>
         </table>
 
+        {/* Mention TVA — entreprise non assujettie (Lot 2) */}
+        {!paramsTV.assujettie && (
+          <p className="text-xs text-gray-500 mb-6">
+            TVA non applicable — entreprise non assujettie (art. 10 LTVA).
+          </p>
+        )}
+
         {/* Coordonnées paiement si non réglée */}
         {!estAcquittee && !estAnnulee && (
           <div
