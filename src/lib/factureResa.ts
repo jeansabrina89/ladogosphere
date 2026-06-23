@@ -20,7 +20,6 @@ async function chargerResa(reservationId: string) {
   } | null;
 }
 
-// Facture ACTIVE (non annulée) liée à une réservation, ou null.
 async function factureActive(
   reservationId: string
 ): Promise<{ facture_id: string; numero: string | null; statut: string } | null> {
@@ -37,9 +36,6 @@ async function factureActive(
 
 const arrondi = (n: number) => Math.round(n * 100) / 100;
 
-// À la VALIDATION : crée une facture brouillon (sans numéro) pour la résa,
-// ou met à jour ses montants si un brouillon existe déjà.
-// Ne touche JAMAIS une facture déjà figée (numéro attribué).
 export async function creerOuMajFactureBrouillon(reservationId: string): Promise<void> {
   const resa = await chargerResa(reservationId);
   if (!resa || !resa.client_id) return;
@@ -76,10 +72,8 @@ export async function creerOuMajFactureBrouillon(reservationId: string): Promise
     return;
   }
 
-  // Déjà figée (numéro) → on ne touche pas
   if (active.numero) return;
 
-  // Encore en brouillon → mise à jour des montants
   await supabaseAdmin
     .from("factures")
     .update({ montant_total: total, montant_paye: paye, montant_restant: reste })
@@ -92,9 +86,88 @@ export async function creerOuMajFactureBrouillon(reservationId: string): Promise
     .eq("reservation_id", reservationId);
 }
 
-// À l'ANNULATION / REFUS : si la facture n'a jamais reçu de numéro, on la supprime
-// proprement. Si elle a déjà un numéro (déjà émise), on ne supprime jamais :
-// on l'annule sans laisser de trou dans la numérotation.
+// Au CHECK-OUT : fige la facture. Si pas encore numérotée, on fige d'abord le
+// montant de la ligne PUIS on attribue le numéro (ensuite tout est verrouillé).
+// Si déjà numérotée (ex. re-check-out), le montant est gelé : on ne touche qu'au paiement.
+export async function figerFactureResa(reservationId: string): Promise<void> {
+  const resa = await chargerResa(reservationId);
+  if (!resa || !resa.client_id) return;
+
+  const total = arrondi(montantDuReservation(resa));
+  const paye = arrondi(Number(resa.montant_paye ?? 0));
+  const reste = arrondi(resteAPayer(resa));
+  const statutFacture = reste <= 0 ? "payee" : "envoyee";
+  const aujourdhui = new Date().toISOString().split("T")[0];
+
+  let active = await factureActive(reservationId);
+
+  if (!active) {
+    const { data: facture, error: facErr } = await supabaseAdmin
+      .from("factures")
+      .insert({
+        numero: null,
+        client_id: resa.client_id,
+        type_facture: "reservation",
+        date_facture: aujourdhui,
+        montant_total: total,
+        montant_paye: paye,
+        montant_restant: reste,
+        statut: "brouillon",
+        reservation_id: null,
+      })
+      .select("id")
+      .single();
+    if (facErr || !facture) return;
+    await supabaseAdmin.from("facture_reservations").insert({
+      facture_id: facture.id,
+      reservation_id: reservationId,
+      montant: total,
+    });
+    active = { facture_id: facture.id, numero: null, statut: "brouillon" };
+  }
+
+  // Déjà émise : montant figé, on ne modifie que le suivi de paiement.
+  if (active.numero) {
+    await supabaseAdmin
+      .from("factures")
+      .update({ statut: statutFacture, montant_paye: paye, montant_restant: reste })
+      .eq("id", active.facture_id);
+    return;
+  }
+
+  // Premier figeage : figer le montant de la ligne AVANT d'attribuer le numéro.
+  await supabaseAdmin
+    .from("facture_reservations")
+    .update({ montant: total })
+    .eq("facture_id", active.facture_id)
+    .eq("reservation_id", reservationId);
+
+  const { data: numeroData, error: rpcErr } = await supabaseAdmin.rpc("generer_numero_facture");
+  if (rpcErr || !numeroData) return;
+  const numero = numeroData as string;
+
+  await supabaseAdmin
+    .from("factures")
+    .update({
+      numero,
+      statut: statutFacture,
+      date_facture: aujourdhui,
+      montant_total: total,
+      montant_paye: paye,
+      montant_restant: reste,
+    })
+    .eq("id", active.facture_id);
+}
+
+export async function defigerFactureResa(reservationId: string): Promise<void> {
+  const active = await factureActive(reservationId);
+  if (!active) return;
+  await supabaseAdmin
+    .from("factures")
+    .update({ statut: "brouillon" })
+    .eq("id", active.facture_id);
+}
+
 export async function annulerFactureResa(reservationId: string): Promise<void> {
   const active = await factureActive(reservationId);
   if (!active) return;
@@ -112,81 +185,9 @@ export async function annulerFactureResa(reservationId: string): Promise<void> {
     .eq("facture_id", active.facture_id);
 }
 
-// Au CHECKOUT : assigne un numéro (si pas encore fait) et fige la facture.
-// Crée la facture si elle n'existe pas encore.
-export async function figerFactureResa(reservationId: string): Promise<void> {
-  const resa = await chargerResa(reservationId);
-  if (!resa || !resa.client_id) return;
-
-  const total = arrondi(montantDuReservation(resa));
-  const paye = arrondi(Number(resa.montant_paye ?? 0));
-  const reste = arrondi(resteAPayer(resa));
-  const statut = reste <= 0 ? "payee" : "envoyee";
-
-  let active = await factureActive(reservationId);
-
-  if (!active) {
-    const { data: facture, error: facErr } = await supabaseAdmin
-      .from("factures")
-      .insert({
-        numero: null,
-        client_id: resa.client_id,
-        type_facture: "reservation",
-        date_facture: new Date().toISOString().split("T")[0],
-        montant_total: total,
-        montant_paye: paye,
-        montant_restant: reste,
-        statut: "brouillon",
-        reservation_id: null,
-      })
-      .select("id")
-      .single();
-    if (facErr || !facture) return;
-
-    await supabaseAdmin.from("facture_reservations").insert({
-      facture_id: facture.id,
-      reservation_id: reservationId,
-      montant: total,
-    });
-
-    active = { facture_id: facture.id, numero: null, statut: "brouillon" };
-  }
-
-  // Assigner un numéro seulement si pas encore numérotée
-  let numero = active.numero;
-  if (!numero) {
-    const { data: numData } = await supabaseAdmin.rpc("generer_numero_facture");
-    numero = numData ?? null;
-  }
-
-  await supabaseAdmin
-    .from("factures")
-    .update({ numero, montant_total: total, montant_paye: paye, montant_restant: reste, statut })
-    .eq("id", active.facture_id);
-
-  await supabaseAdmin
-    .from("facture_reservations")
-    .update({ montant: total })
-    .eq("facture_id", active.facture_id)
-    .eq("reservation_id", reservationId);
-}
-
-// À l'ANNULATION DU CHECKOUT : remet la facture en brouillon sans effacer le numéro.
-export async function defigerFactureResa(reservationId: string): Promise<void> {
-  const active = await factureActive(reservationId);
-  if (!active) return;
-
-  await supabaseAdmin
-    .from("factures")
-    .update({ statut: "brouillon" })
-    .eq("id", active.facture_id);
-}
-
-// Met à jour les montants d'un brouillon EXISTANT (jamais de création, jamais de figeage).
-// Appelé après toute modif de montant d'une résa déjà validée.
 export async function rafraichirFactureBrouillon(reservationId: string): Promise<void> {
   const active = await factureActive(reservationId);
-  if (!active || active.numero) return; // pas de facture, ou déjà figée → on ne touche pas
+  if (!active || active.numero) return;
 
   const resa = await chargerResa(reservationId);
   if (!resa) return;
