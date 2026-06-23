@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { formatDateFR, formatHeure } from "@/src/lib/dates";
@@ -31,6 +32,17 @@ export default async function FacturePage({
 
   if (!res) return <div>Réservation introuvable</div>;
 
+  // Lot 1 : si une vraie facture persistée existe pour cette résa, on l'affiche (plus ce document volatile)
+  const { data: lienFacture } = await supabase
+    .from("facture_reservations")
+    .select("facture_id")
+    .eq("reservation_id", id)
+    .eq("facture_annulee", false)
+    .maybeSingle();
+  if (lienFacture?.facture_id) {
+    redirect(`/factures/${lienFacture.facture_id}`);
+  }
+
   const coords = await getCoordonneesPaiement(supabaseAdmin);
   const est_membre_actif = res.clients?.id ? await estMembreActif(supabaseAdmin, res.clients.id, res.date_debut) : false;
 
@@ -42,7 +54,7 @@ export default async function FacturePage({
   const nbJours = Math.max(1, Math.round((dateFin.getTime() - dateDebut.getTime()) / (1000 * 60 * 60 * 24)) + (res.type_reservation === "sejour" ? 0 : 1));
 
   // Numéro de facture
-  const numeroFacture = `FAC-${res.id.substring(0, 8).toUpperCase()}`;
+  const numeroFacture = "(brouillon — non émise)";
   const dateFacture = formatDateFR(new Date());
 
   return (

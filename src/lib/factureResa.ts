@@ -181,3 +181,26 @@ export async function defigerFactureResa(reservationId: string): Promise<void> {
     .update({ statut: "brouillon" })
     .eq("id", active.facture_id);
 }
+
+// Met à jour les montants d'un brouillon EXISTANT (jamais de création, jamais de figeage).
+// Appelé après toute modif de montant d'une résa déjà validée.
+export async function rafraichirFactureBrouillon(reservationId: string): Promise<void> {
+  const active = await factureActive(reservationId);
+  if (!active || active.numero) return; // pas de facture, ou déjà figée → on ne touche pas
+
+  const resa = await chargerResa(reservationId);
+  if (!resa) return;
+  const total = arrondi(montantDuReservation(resa));
+  const paye = arrondi(Number(resa.montant_paye ?? 0));
+  const reste = arrondi(resteAPayer(resa));
+
+  await supabaseAdmin
+    .from("factures")
+    .update({ montant_total: total, montant_paye: paye, montant_restant: reste })
+    .eq("id", active.facture_id);
+  await supabaseAdmin
+    .from("facture_reservations")
+    .update({ montant: total })
+    .eq("facture_id", active.facture_id)
+    .eq("reservation_id", reservationId);
+}

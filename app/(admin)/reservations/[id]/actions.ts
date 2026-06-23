@@ -11,6 +11,7 @@ import { calculerMontant } from "@/src/lib/calculTarif";
 import { calculerStatut } from "@/src/lib/factures";
 import { estMembreActif } from "@/src/lib/membre";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
+import { rafraichirFactureBrouillon } from "@/src/lib/factureResa";
 
 async function verifierAdmin(): Promise<{ error?: string; userId?: string }> {
   const supabase = await createSupabaseServerClient();
@@ -103,6 +104,8 @@ async function recalculerTotalEtPaiement(reservationId: string, createdBy?: stri
     })
     .eq("id", reservationId);
   if (updateError) return { error: updateError.message };
+
+  await rafraichirFactureBrouillon(reservationId);
 
   return { nouveau_total: nouveauTotal, ecart, type_ecart };
 }
