@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { montantDuReservation, resteAPayer } from "@/src/lib/montants";
+import { referenceQrrDepuisNumero } from "@/src/lib/referenceQrr";
 
 const CHAMPS_MONTANT =
   "id, client_id, montant_calcule, montant_final, ajustement_manuel, montant_paye";
@@ -150,6 +151,7 @@ export async function figerFactureResa(reservationId: string): Promise<void> {
     .from("factures")
     .update({
       numero,
+      reference_qr: referenceQrrDepuisNumero(numero),
       statut: statutFacture,
       date_facture: aujourdhui,
       montant_total: total,

@@ -1,12 +1,7 @@
 import { SwissQRBill } from "swissqrbill/svg";
-import { isIBANValid, isQRIBAN, calculateQRReferenceChecksum } from "swissqrbill/utils";
+import { isIBANValid, isQRIBAN } from "swissqrbill/utils";
+import { referenceQrrDepuisNumero } from "./referenceQrr";
 import type { AdresseCreancier } from "./coordonneesPaiement";
-
-function referenceQRR(seed: string): string {
-  const digits = (seed || "").replace(/\D/g, "");
-  const base = (digits || "0").padStart(26, "0").slice(-26);
-  return base + calculateQRReferenceChecksum(base);
-}
 
 // Retourne le SVG du bulletin QR, ou null si les donnees sont incompletes/invalides
 // (dans ce cas la facture affiche le bloc texte de coordonnees de paiement).
@@ -16,8 +11,9 @@ export function genererQrBillSvg(opts: {
   adresse: AdresseCreancier;
   montant?: number;
   numeroFacture: string;
+  referenceStockee?: string | null;
 }): string | null {
-  const { iban, titulaire, adresse, montant, numeroFacture } = opts;
+  const { iban, titulaire, adresse, montant, numeroFacture, referenceStockee } = opts;
   const ibanClean = (iban || "").replace(/\s/g, "");
 
   if (!ibanClean || !isIBANValid(ibanClean)) return null;
@@ -41,9 +37,11 @@ export function genererQrBillSvg(opts: {
     data.amount = Math.round(montant * 100) / 100;
   }
 
-  // QR-IBAN -> reference QRR obligatoire ; IBAN normal -> pas de reference (NON)
+  // QR-IBAN -> reference QRR obligatoire. On prend la reference figee sur la
+  // facture si elle existe (27 chiffres), sinon on la derive du numero.
   if (isQRIBAN(ibanClean)) {
-    data.reference = referenceQRR(numeroFacture);
+    const ref = (referenceStockee || "").replace(/\D/g, "");
+    data.reference = ref.length === 27 ? ref : referenceQrrDepuisNumero(numeroFacture);
   }
 
   try {

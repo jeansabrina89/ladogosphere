@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { resteAPayer } from "@/src/lib/montants";
+import { referenceQrrDepuisNumero } from "@/src/lib/referenceQrr";
 
 const STATUTS_FACTURABLES = ["validee", "terminee"];
 const PAIEMENTS_FACTURABLES = ["impaye", "partiel"];
@@ -157,7 +158,7 @@ export async function POST(req: NextRequest) {
 
   const { error: majErr } = await supabaseAdmin
     .from("factures")
-    .update({ numero, statut: "envoyee" })
+    .update({ numero, statut: "envoyee", reference_qr: referenceQrrDepuisNumero(numero) })
     .eq("id", facture.id);
 
   if (majErr) {

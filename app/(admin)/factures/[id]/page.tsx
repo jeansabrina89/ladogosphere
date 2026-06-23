@@ -83,6 +83,7 @@ export default async function FactureGroupeePage({
         adresse: coords.adresse,
         montant: montantQr,
         numeroFacture: String(facture.numero ?? ""),
+        referenceStockee: facture.reference_qr ?? null,
       })
     : null;
 
