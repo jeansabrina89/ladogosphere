@@ -12,6 +12,7 @@ import { calculerStatut } from "@/src/lib/factures";
 import { estMembreActif } from "@/src/lib/membre";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { rafraichirFactureBrouillon } from "@/src/lib/factureResa";
+import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 
 async function verifierAdmin(): Promise<{ error?: string; userId?: string }> {
   const supabase = await createSupabaseServerClient();
@@ -107,6 +108,8 @@ async function recalculerTotalEtPaiement(reservationId: string, createdBy?: stri
 
   await rafraichirFactureBrouillon(reservationId);
 
+  try { await synchroniserComptaResa(reservationId); } catch (e) { console.error("compta resa:", e); }
+
   return { nouveau_total: nouveauTotal, ecart, type_ecart };
 }
 
@@ -182,6 +185,8 @@ export async function enregistrerPaiement(formData: FormData): Promise<{ error?:
       created_by: verif.userId ?? null,
     });
   }
+
+  try { await synchroniserComptaResa(reservation_id); } catch (e) { console.error("compta resa:", e); }
 
   revalidatePath(`/reservations/${reservation_id}`);
   return {};
@@ -477,6 +482,8 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
       created_by: verif.userId ?? null,
     });
   }
+
+  try { await synchroniserComptaResa(reservation_id); } catch (e) { console.error("compta resa:", e); }
 
   revalidatePath(`/reservations/${reservation_id}`);
   return {};

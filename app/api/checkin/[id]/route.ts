@@ -3,6 +3,7 @@ import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPersonnel } from "@/src/lib/apiAuth";
 import { figerFactureResa, defigerFactureResa } from "@/src/lib/factureResa";
+import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 
 export async function POST(
   req: NextRequest,
@@ -76,6 +77,7 @@ export async function POST(
       if (action === "checkout") {
         await supabaseAdmin.from("reservations").update({ statut: "terminee" }).eq("id", reservationId);
         await figerFactureResa(reservationId);
+        try { await synchroniserComptaResa(reservationId); } catch (e) { console.error("compta resa:", e); }
       } else {
         await supabaseAdmin.from("reservations").update({ statut: "validee" }).eq("id", reservationId);
         await defigerFactureResa(reservationId);
