@@ -5,6 +5,7 @@ import { estMembreActif } from "@/src/lib/membre";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import { formatDateFR } from "@/src/lib/dates";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
+import { genererQrBillSvg } from "@/src/lib/qrFacture";
 import { lireParametresTVA, ventilerTVA } from "@/src/lib/tva";
 import BoutonImprimer from "./BoutonImprimer";
 import BoutonReglement from "./BoutonReglement";
@@ -72,6 +73,19 @@ export default async function FactureGroupeePage({
   const estAcquittee = facture.statut === "acquittee";
   const estAnnulee = facture.statut === "annulee";
 
+  const montantQr = Number(facture.montant_restant) > 0
+    ? Number(facture.montant_restant)
+    : Number(facture.montant_total);
+  const qrBillSvg = (!estAcquittee && !estAnnulee)
+    ? genererQrBillSvg({
+        iban: coords.iban,
+        titulaire: coords.titulaire,
+        adresse: coords.adresse,
+        montant: montantQr,
+        numeroFacture: String(facture.numero ?? ""),
+      })
+    : null;
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: `
@@ -86,6 +100,7 @@ export default async function FactureGroupeePage({
     margin: 1cm;
     size: A4;
   }
+  .qrbill-wrap svg { width: 100%; height: auto; max-width: 820px; display: block; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 ` }} />
 
@@ -243,8 +258,13 @@ export default async function FactureGroupeePage({
           </p>
         )}
 
-        {/* Coordonnées paiement si non réglée */}
-        {!estAcquittee && !estAnnulee && (
+        {/* Paiement : bulletin QR si donnees completes, sinon bloc texte */}
+        {!estAcquittee && !estAnnulee && qrBillSvg ? (
+          <div className="mb-8">
+            <p className="font-bold mb-2 no-print" style={{ color: "#1B2B5E" }}>💳 Bulletin de versement QR</p>
+            <div className="qrbill-wrap" style={{ width: "100%", overflowX: "auto" }} dangerouslySetInnerHTML={{ __html: qrBillSvg }} />
+          </div>
+        ) : !estAcquittee && !estAnnulee ? (
           <div
             className="border rounded-xl p-4 mb-8 text-sm"
             style={{ borderColor: "#C9A84C", backgroundColor: "#FFFBF0" }}
@@ -255,14 +275,14 @@ export default async function FactureGroupeePage({
                 <p><strong>Virement bancaire :</strong> IBAN {coords.iban}</p>
                 <p><strong>Titulaire :</strong> {coords.titulaire}</p>
                 <p className="text-gray-500 mt-1">
-                  Merci d'indiquer votre nom et le numéro de facture {facture.numero} en référence.
+                  Merci d&apos;indiquer votre nom et le numéro de facture {facture.numero} en référence.
                 </p>
               </>
             ) : (
               <p>Coordonnées de paiement communiquées prochainement.</p>
             )}
           </div>
-        )}
+        ) : null}
 
         {/* Badge annulée */}
         {estAnnulee && (
