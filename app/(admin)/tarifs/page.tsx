@@ -31,7 +31,8 @@ export default async function TarifsPage({
     .from("parametres")
     .select("cle, valeur")
     .in("cle", [
-      "cotisation_montant", "iban",
+      "cotisation_montant", "iban", "titulaire",
+      "adresse_rue", "adresse_numero", "adresse_npa", "adresse_ville", "adresse_pays",
       "tva_assujettie", "tva_taux", "tva_numero", "tva_date_debut", "tva_taux_dette_nette",
     ]);
 
@@ -42,16 +43,22 @@ export default async function TarifsPage({
 
   const anneesUniques = [...new Set(anneesDispo?.map(t => t.annee) ?? [])];
 
-  const cotisationMontant = parseFloat(
-    parametres?.find(p => p.cle === "cotisation_montant")?.valeur ?? "180"
-  );
-  const iban = parametres?.find(p => p.cle === "iban")?.valeur ?? "";
+  const val = (cle: string, def = "") => parametres?.find(p => p.cle === cle)?.valeur ?? def;
 
-  const tvaAssujettie = parametres?.find(p => p.cle === "tva_assujettie")?.valeur === "true";
-  const tvaTaux       = parametres?.find(p => p.cle === "tva_taux")?.valeur ?? "8.1";
-  const tvaNumero     = parametres?.find(p => p.cle === "tva_numero")?.valeur ?? "";
-  const tvaDateDebut  = parametres?.find(p => p.cle === "tva_date_debut")?.valeur ?? "";
-  const tvaTauxDetteNette = parametres?.find(p => p.cle === "tva_taux_dette_nette")?.valeur ?? "";
+  const cotisationMontant = parseFloat(val("cotisation_montant", "180"));
+  const iban = val("iban");
+  const titulaire = val("titulaire");
+  const adresseRue = val("adresse_rue");
+  const adresseNumero = val("adresse_numero");
+  const adresseNpa = val("adresse_npa");
+  const adresseVille = val("adresse_ville");
+  const adressePays = val("adresse_pays", "CH");
+
+  const tvaAssujettie = val("tva_assujettie") === "true";
+  const tvaTaux       = val("tva_taux", "8.1");
+  const tvaNumero     = val("tva_numero");
+  const tvaDateDebut  = val("tva_date_debut");
+  const tvaTauxDetteNette = val("tva_taux_dette_nette");
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -65,6 +72,12 @@ export default async function TarifsPage({
           anneesDisponibles={anneesUniques}
           cotisationMontant={cotisationMontant}
           ibanInitial={iban}
+          titulaireInitial={titulaire}
+          adresseRueInitial={adresseRue}
+          adresseNumeroInitial={adresseNumero}
+          adresseNpaInitial={adresseNpa}
+          adresseVilleInitial={adresseVille}
+          adressePaysInitial={adressePays}
           tvaAssujettie={tvaAssujettie}
           tvaTaux={tvaTaux}
           tvaNumero={tvaNumero}

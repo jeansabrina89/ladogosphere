@@ -6,7 +6,7 @@ export async function PUT(req: NextRequest) {
   const supabase = await createClient();
   const garde = await exigerPersonnel(supabase);
   if (garde) return garde;
-  const { updates, cotisation, iban, tva } = await req.json();
+  const { updates, cotisation, iban, coordonnees, tva } = await req.json();
 
   // Mettre à jour les tarifs
   for (const { id, prix } of updates) {
@@ -19,10 +19,19 @@ export async function PUT(req: NextRequest) {
     .eq("cle", "cotisation_montant");
 
   // Mettre à jour l'IBAN
-  if (iban) {
+  if (iban !== undefined) {
     await supabase.from("parametres")
       .update({ valeur: iban, updated_at: new Date().toISOString() })
       .eq("cle", "iban");
+  }
+
+  // Coordonnées de paiement (titulaire + adresse) pour le bulletin QR
+  if (coordonnees && typeof coordonnees === "object") {
+    for (const [cle, valeur] of Object.entries(coordonnees as Record<string, string>)) {
+      await supabase.from("parametres")
+        .update({ valeur: valeur ?? "", updated_at: new Date().toISOString() })
+        .eq("cle", cle);
+    }
   }
 
   // Mettre à jour les paramètres TVA
