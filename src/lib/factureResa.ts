@@ -111,3 +111,73 @@ export async function annulerFactureResa(reservationId: string): Promise<void> {
     .update({ facture_annulee: true })
     .eq("facture_id", active.facture_id);
 }
+
+// Au CHECKOUT : assigne un numéro (si pas encore fait) et fige la facture.
+// Crée la facture si elle n'existe pas encore.
+export async function figerFactureResa(reservationId: string): Promise<void> {
+  const resa = await chargerResa(reservationId);
+  if (!resa || !resa.client_id) return;
+
+  const total = arrondi(montantDuReservation(resa));
+  const paye = arrondi(Number(resa.montant_paye ?? 0));
+  const reste = arrondi(resteAPayer(resa));
+  const statut = reste <= 0 ? "payee" : "envoyee";
+
+  let active = await factureActive(reservationId);
+
+  if (!active) {
+    const { data: facture, error: facErr } = await supabaseAdmin
+      .from("factures")
+      .insert({
+        numero: null,
+        client_id: resa.client_id,
+        type_facture: "reservation",
+        date_facture: new Date().toISOString().split("T")[0],
+        montant_total: total,
+        montant_paye: paye,
+        montant_restant: reste,
+        statut: "brouillon",
+        reservation_id: null,
+      })
+      .select("id")
+      .single();
+    if (facErr || !facture) return;
+
+    await supabaseAdmin.from("facture_reservations").insert({
+      facture_id: facture.id,
+      reservation_id: reservationId,
+      montant: total,
+    });
+
+    active = { facture_id: facture.id, numero: null, statut: "brouillon" };
+  }
+
+  // Assigner un numéro seulement si pas encore numérotée
+  let numero = active.numero;
+  if (!numero) {
+    const { data: numData } = await supabaseAdmin.rpc("generer_numero_facture");
+    numero = numData ?? null;
+  }
+
+  await supabaseAdmin
+    .from("factures")
+    .update({ numero, montant_total: total, montant_paye: paye, montant_restant: reste, statut })
+    .eq("id", active.facture_id);
+
+  await supabaseAdmin
+    .from("facture_reservations")
+    .update({ montant: total })
+    .eq("facture_id", active.facture_id)
+    .eq("reservation_id", reservationId);
+}
+
+// À l'ANNULATION DU CHECKOUT : remet la facture en brouillon sans effacer le numéro.
+export async function defigerFactureResa(reservationId: string): Promise<void> {
+  const active = await factureActive(reservationId);
+  if (!active) return;
+
+  await supabaseAdmin
+    .from("factures")
+    .update({ statut: "brouillon" })
+    .eq("id", active.facture_id);
+}

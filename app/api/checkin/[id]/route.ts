@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/server";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPersonnel } from "@/src/lib/apiAuth";
+import { figerFactureResa, defigerFactureResa } from "@/src/lib/factureResa";
 
 export async function POST(
   req: NextRequest,
@@ -57,6 +59,26 @@ export async function POST(
           .from("chiens")
           .update({ journee_essai_effectuee: true })
           .in("id", chienIds);
+      }
+    }
+  }
+
+  // Checkout / annuler_checkout : clôture ou réouvre la réservation + gère la facture
+  if (action === "checkout" || action === "annuler_checkout") {
+    const { data: cc } = await supabase
+      .from("checkin_checkout")
+      .select("reservation_id")
+      .eq("id", id)
+      .single();
+
+    if (cc?.reservation_id) {
+      const reservationId = cc.reservation_id;
+      if (action === "checkout") {
+        await supabaseAdmin.from("reservations").update({ statut: "terminee" }).eq("id", reservationId);
+        await figerFactureResa(reservationId);
+      } else {
+        await supabaseAdmin.from("reservations").update({ statut: "validee" }).eq("id", reservationId);
+        await defigerFactureResa(reservationId);
       }
     }
   }
