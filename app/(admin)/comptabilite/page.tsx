@@ -261,6 +261,7 @@ export default async function ComptabilitePage({
               </div>
             </div>
             <ExportCompta />
+            <a href="/comptabilite/journal" className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: "#1B2B5E" }}>📒 Journal comptable</a>
           </div>
         </div>
 
