@@ -7,6 +7,7 @@ import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { calculerMontant } from "@/src/lib/calculTarif";
 import { recalculerMontantSejour, enregistrerMontantCalcule } from "@/app/(admin)/reservations/[id]/actions";
 import { estMembreActif } from "@/src/lib/membre";
+import { creerOuMajFactureBrouillon, annulerFactureResa } from "@/src/lib/factureResa";
 
 export async function POST(
   req: NextRequest,
@@ -74,6 +75,21 @@ export async function POST(
       }
     } catch (calcError) {
       console.error("Erreur calcul montant à la validation:", calcError);
+    }
+  }
+
+  // Facture liée à la réservation (Lot 1)
+  if (statut === "validee") {
+    try {
+      await creerOuMajFactureBrouillon(id);
+    } catch (factErr) {
+      console.error("Erreur création facture brouillon:", factErr);
+    }
+  } else if (statut === "annulee" || statut === "refusee") {
+    try {
+      await annulerFactureResa(id);
+    } catch (factErr) {
+      console.error("Erreur annulation facture:", factErr);
     }
   }
 
