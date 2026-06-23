@@ -422,7 +422,7 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
     const { error: e1 } = await supabaseAdmin.from("avoirs_mouvements").insert({
       client_id,
       montant: avoirApplique,
-      type: "annulation_paiement",
+      type: "reprise",
       motif: `Reprise avoir (annulation paiement résa #${reservation.numero ?? reservation_id})`,
       reservation_id,
       created_by: verif.userId ?? null,
@@ -437,7 +437,7 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
     const { error: e2 } = await supabaseAdmin.from("avoirs_mouvements").insert({
       client_id,
       montant: cashPaye,
-      type: "annulation_paiement",
+      type: "mise_en_avoir",
       motif: "Annulation de paiement",
       reservation_id,
       created_by: verif.userId ?? null,
@@ -594,7 +594,7 @@ export async function reprendreAvoir(formData: FormData): Promise<{ error?: stri
   const { error: insertError } = await supabaseAdmin.from("avoirs_mouvements").insert({
     client_id,
     montant: avoirApplique,
-    type: "annulation_paiement",
+    type: "reprise",
     motif: "Reprise de l'avoir utilisé",
     reservation_id,
     created_by: verif.userId ?? null,
