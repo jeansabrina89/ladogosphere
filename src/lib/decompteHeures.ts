@@ -29,8 +29,12 @@ export type Decompte = {
   jours: JourDecompte[];
 };
 
-// Créditent 8,5h uniquement si le planning prévoit un jour travaillé (du > 0)
-const ABSENCES_CREDITEES_SUR_TRAVAIL = ["maladie", "accident", "militaire"];
+// Crediter 8,5h uniquement si le planning prevoit un jour travaille (du > 0).
+// "vacances" est inclus pour neutraliser un conge saisi a la main dans le
+// calendrier de timbrage sur un jour reste "travail" au planning : sans ca,
+// le jour afficherait -8,5h au lieu d'etre neutre. Via une demande acceptee,
+// le jour passe en "vacances" au planning (du = 0) : aucun double comptage.
+const ABSENCES_CREDITEES_SUR_TRAVAIL = ["maladie", "accident", "militaire", "vacances"];
 
 function calculerDuree(debut: string | null, fin: string | null): number {
   if (!debut || !fin) return 0;
