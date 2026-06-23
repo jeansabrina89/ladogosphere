@@ -3,6 +3,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/src/utils/supabase/server";
 import { getEmployeRhActuel } from "@/src/lib/employeActuel";
 import Link from "next/link";
+import EnTete from "@/app/components/ui/EnTete";
+import Carte from "@/app/components/ui/Carte";
+import Bouton from "@/app/components/ui/Bouton";
+import EtatVide from "@/app/components/ui/EtatVide";
 
 const MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -27,70 +31,57 @@ export default async function MesFichesSalairePage() {
     .order("annee", { ascending: false })
     .order("mois", { ascending: false });
 
-  const anneeActuelle = new Date().getFullYear();
-
-  // Années disponibles
   const annees = [...new Set(fiches?.map((f: any) => f.annee) ?? [])].sort((a, b) => b - a);
+
+  const marine = "#1B2B5E";
+  const sousTexte = "rgba(27,43,94,0.6)";
+  const bordure = "1px solid rgba(27,43,94,0.12)";
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-3xl mx-auto">
+        <EnTete
+          titre="📊 Mes fiches de salaire"
+          action={<Bouton href="/employes/mon-espace" variante="secondaire">← Retour</Bouton>}
+        />
 
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold" style={{ color: "#1B2B5E" }}>📊 Mes fiches de salaire</h1>
-          <Link href="/employes/mon-espace"
-            className="px-4 py-2 rounded-xl font-semibold text-sm"
-            style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
-            ← Retour
-          </Link>
-        </div>
-
-        {/* Certificats annuels */}
         {annees.length > 0 && (
-          <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
-            <h2 className="font-bold mb-3" style={{ color: "#1B2B5E" }}>📋 Certificats de salaire</h2>
-            <div className="flex flex-wrap gap-3">
-              {annees.map((annee: number) => (
-                <Link key={annee}
-                  href={`/employes/fiches-salaire/certificat?annee=${annee}`}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold text-white"
-                  style={{ backgroundColor: "#1B2B5E" }}>
-                  📋 Certificat {annee}
-                </Link>
-              ))}
-            </div>
+          <div style={{ marginBottom: "24px" }}>
+            <Carte>
+              <h2 style={{ fontWeight: 700, color: marine, margin: "0 0 12px" }}>📋 Certificats de salaire</h2>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
+                {annees.map((annee: number) => (
+                  <Bouton key={annee} href={`/employes/fiches-salaire/certificat?annee=${annee}`} variante="secondaire" icone="📋">
+                    Certificat {annee}
+                  </Bouton>
+                ))}
+              </div>
+            </Carte>
           </div>
         )}
 
-        {/* Fiches mensuelles */}
-        <div className="bg-white rounded-xl p-6 shadow-sm">
-          <h2 className="font-bold mb-4" style={{ color: "#1B2B5E" }}>Fiches mensuelles</h2>
-          {fiches?.length === 0 && (
-            <p className="text-gray-400 text-sm">Aucune fiche de salaire disponible.</p>
+        <Carte>
+          <h2 style={{ fontWeight: 700, color: marine, margin: "0 0 16px" }}>Fiches mensuelles</h2>
+          {(!fiches || fiches.length === 0) ? (
+            <EtatVide icone="📄" titre="Aucune fiche de salaire" message="Tes fiches de salaire apparaîtront ici dès qu'elles seront émises." />
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {fiches.map((f: any) => (
+                <Link key={f.id} href={`/employes/fiches-salaire/${f.id}`}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: bordure, borderRadius: "14px", padding: "16px", textDecoration: "none" }}>
+                  <div>
+                    <p style={{ fontWeight: 700, color: marine, margin: 0 }}>{MOIS[f.mois - 1]} {f.annee}</p>
+                    <p style={{ fontSize: "14px", color: sousTexte, margin: "2px 0 0" }}>Brut : CHF {Number(f.salaire_brut).toFixed(2)}</p>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <p style={{ fontWeight: 700, fontSize: "18px", color: "#4AAEA0", margin: 0 }}>CHF {Number(f.salaire_net).toFixed(2)}</p>
+                    <p style={{ fontSize: "12px", color: sousTexte, margin: 0 }}>Net</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
           )}
-          <div className="space-y-3">
-            {fiches?.map((f: any) => (
-              <Link key={f.id} href={`/employes/fiches-salaire/${f.id}`}
-                className="flex justify-between items-center border rounded-xl p-4 hover:bg-slate-50">
-                <div>
-                  <p className="font-bold" style={{ color: "#1B2B5E" }}>
-                    {MOIS[f.mois - 1]} {f.annee}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Brut : CHF {Number(f.salaire_brut).toFixed(2)}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-lg" style={{ color: "#4AAEA0" }}>
-                    CHF {Number(f.salaire_net).toFixed(2)}
-                  </p>
-                  <p className="text-xs text-gray-400">Net</p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-
+        </Carte>
       </div>
     </main>
   );
