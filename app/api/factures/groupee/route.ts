@@ -96,25 +96,18 @@ export async function POST(req: NextRequest) {
     lignes.reduce((s, l) => s + l.montant, 0) * 100
   ) / 100;
 
-  // 7. Générer le numéro de facture via la fonction SQL
-  const { data: numeroData, error: rpcErr } = await supabaseAdmin.rpc("generer_numero_facture");
-  if (rpcErr || !numeroData) {
-    return NextResponse.json({ error: "Erreur lors de la génération du numéro de facture." }, { status: 500 });
-  }
-  const numero = numeroData as string;
-
-  // 8. Insérer la facture
+  // 7. Insérer la facture EN BROUILLON (sans numéro tant que les lignes ne sont pas posées)
   const { data: facture, error: facErr } = await supabaseAdmin
     .from("factures")
     .insert({
-      numero,
+      numero: null,
       client_id,
       type_facture: "reservation",
       date_facture: new Date().toISOString().split("T")[0],
       montant_total: montantTotal,
       montant_paye: 0,
       montant_restant: montantTotal,
-      statut: "envoyee",
+      statut: "brouillon",
       reservation_id: null,
     })
     .select("id")
@@ -127,7 +120,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 9. Insérer les lignes facture_reservations
+  // 8. Insérer les lignes facture_reservations
   const { error: lignesErr } = await supabaseAdmin
     .from("facture_reservations")
     .insert(
@@ -139,18 +132,38 @@ export async function POST(req: NextRequest) {
     );
 
   if (lignesErr) {
-    // Violation d'unicité = course concurrente sur l'index uniq_reservation_facture_active
+    // La facture n'a pas encore de numéro → suppression sûre (rollback)
+    await supabaseAdmin.from("factures").delete().eq("id", facture.id);
     if (
       lignesErr.code === "23505" ||
       lignesErr.message.includes("uniq_reservation_facture_active")
     ) {
-      await supabaseAdmin.from("factures").delete().eq("id", facture.id);
       return NextResponse.json(
         { error: "Une de ces réservations vient d'être facturée. Actualise et réessaie." },
         { status: 409 }
       );
     }
     return NextResponse.json({ error: lignesErr.message }, { status: 500 });
+  }
+
+  // 9. Tout est en place → on attribue le numéro officiel et on émet la facture
+  const { data: numeroData, error: rpcErr } = await supabaseAdmin.rpc("generer_numero_facture");
+  if (rpcErr || !numeroData) {
+    await supabaseAdmin.from("facture_reservations").delete().eq("facture_id", facture.id);
+    await supabaseAdmin.from("factures").delete().eq("id", facture.id);
+    return NextResponse.json({ error: "Erreur lors de la génération du numéro de facture." }, { status: 500 });
+  }
+  const numero = numeroData as string;
+
+  const { error: majErr } = await supabaseAdmin
+    .from("factures")
+    .update({ numero, statut: "envoyee" })
+    .eq("id", facture.id);
+
+  if (majErr) {
+    await supabaseAdmin.from("facture_reservations").delete().eq("facture_id", facture.id);
+    await supabaseAdmin.from("factures").delete().eq("id", facture.id);
+    return NextResponse.json({ error: majErr.message }, { status: 500 });
   }
 
   return NextResponse.json({ facture_id: facture.id, numero, total: montantTotal });
