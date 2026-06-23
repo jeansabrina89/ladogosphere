@@ -465,9 +465,11 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
       reservation_id,
       client_id,
       date_paiement: dateAnnul,
-      mode: (reservation.mode_paiement as string) || "cash",
+      // Mise en avoir : le cash reste, il bascule sur le compte avoir du client (2035).
+      // Sinon (remboursement) : sortie de tresorerie sur le mode d'origine.
+      mode: mettreEnAvoir ? "avoir" : ((reservation.mode_paiement as string) || "cash"),
       montant: -cashPaye,
-      motif: "Annulation de paiement",
+      motif: mettreEnAvoir ? "Mise en avoir (annulation paiement)" : "Annulation de paiement",
       created_by: verif.userId ?? null,
     });
   }
@@ -558,6 +560,8 @@ export async function appliquerAvoir(formData: FormData): Promise<{ error?: stri
     created_by: verif.userId ?? null,
   });
 
+  try { await synchroniserComptaResa(reservation_id); } catch (e) { console.error("compta resa:", e); }
+
   revalidatePath(`/reservations/${reservation_id}`);
   return {};
 }
@@ -625,6 +629,8 @@ export async function reprendreAvoir(formData: FormData): Promise<{ error?: stri
     motif: "Reprise de l'avoir utilise",
     created_by: verif.userId ?? null,
   });
+
+  try { await synchroniserComptaResa(reservation_id); } catch (e) { console.error("compta resa:", e); }
 
   revalidatePath(`/reservations/${reservation_id}`);
   return {};

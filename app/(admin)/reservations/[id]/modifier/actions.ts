@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { getAvoirAppliqueReservation } from "@/src/lib/avoirs";
+import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 
 export async function modifierReservation(id: string, formData: FormData) {
   const verif = await verifierPermission("perm_reservations_modifier");
@@ -94,6 +95,7 @@ export async function annulerReservation(formData: FormData) {
 
   // Si demandé : mettre le montant payé en avoir AVANT d'annuler
   if (mettreEnAvoir && montantPaye > 0 && client_id) {
+    const dateAnnul = new Date().toISOString().split("T")[0];
     // a) restituer l'avoir éventuellement consommé sur cette résa
     const avoirApplique = await getAvoirAppliqueReservation(supabaseAdmin, client_id, id);
     if (avoirApplique > 0) {
@@ -106,6 +108,15 @@ export async function annulerReservation(formData: FormData) {
         created_by: verif.userId ?? null,
       });
       if (e1) throw new Error(e1.message);
+      await supabaseAdmin.from("paiements_resa").insert({
+        reservation_id: id,
+        client_id,
+        date_paiement: dateAnnul,
+        mode: "avoir",
+        montant: -avoirApplique,
+        motif: `Reprise avoir (annulation résa #${resa?.numero ?? id})`,
+        created_by: verif.userId ?? null,
+      });
     }
     // b) mettre la partie cash (non-avoir) en avoir
     const cashPaye = Math.max(0, montantPaye - avoirApplique);
@@ -119,6 +130,15 @@ export async function annulerReservation(formData: FormData) {
         created_by: verif.userId ?? null,
       });
       if (e2) throw new Error(e2.message);
+      await supabaseAdmin.from("paiements_resa").insert({
+        reservation_id: id,
+        client_id,
+        date_paiement: dateAnnul,
+        mode: "avoir",
+        montant: -cashPaye,
+        motif: `Mise en avoir (annulation résa #${resa?.numero ?? id})`,
+        created_by: verif.userId ?? null,
+      });
     }
     // c) remettre le paiement à zéro sur la résa
     const { error: e3 } = await supabaseAdmin
@@ -136,6 +156,8 @@ export async function annulerReservation(formData: FormData) {
   if (error) throw new Error(error.message);
 
   await supabaseAdmin.from("occupation_boxes").delete().eq("reservation_id", id);
+
+  try { await synchroniserComptaResa(id); } catch (e) { console.error("compta resa:", e); }
 
   redirect(`/reservations/${id}`);
 }

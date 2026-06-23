@@ -1,16 +1,17 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 
 const COMPTE_LIQUIDITE: Record<string, string> = {
-  cash: "1000", virement: "1020", twint: "1021", stripe: "1021",
+  cash: "1000", virement: "1020", twint: "1021", stripe: "1021", avoir: "2035",
 };
 const COMPTE_PRODUIT: Record<string, string> = {
-  sejour: "3000", journee: "3001", garderie: "3001", essai: "3000",
+  sejour: "3000", journee: "3000", garderie: "3000", essai: "3000",
 };
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 // Synchronise les ecritures comptables d'une reservation (idempotent).
-// Etape 2a : ne traite que les reservations SANS mouvement d'avoir.
+// L'avoir est traite comme une source de financement mappee sur le compte 2035
+// (debit quand l'avoir est utilise, credit quand il est cree ou repris).
 export async function synchroniserComptaResa(reservationId: string): Promise<void> {
   const { data: resa } = await supabaseAdmin
     .from("reservations")
@@ -24,9 +25,6 @@ export async function synchroniserComptaResa(reservationId: string): Promise<voi
     .select("mode, montant")
     .eq("reservation_id", reservationId);
   const mvts = mouvements ?? [];
-
-  // 2a : si un avoir est impliquee, on laisse la compta manuelle (gere en 2b)
-  if (mvts.some((m: any) => m.mode === "avoir")) return;
 
   const cible: Record<string, number> = {};
   const add = (compte: string, montant: number) => {
