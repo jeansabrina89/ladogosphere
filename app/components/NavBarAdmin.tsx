@@ -25,6 +25,7 @@ export default async function NavBarAdmin() {
     ]},
     { titre: "Gestion", liens: [
       { href: "/tarifs", label: "💰 Tarifs" },
+      { href: "/factures", label: "🧾 Factures" },
       { href: "/comptabilite", label: "📈 Compta" },
     ]},
     { titre: "RH", liens: [
