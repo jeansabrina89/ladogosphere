@@ -132,7 +132,7 @@ export async function enregistrerPaiement(formData: FormData): Promise<{ error?:
 
   const { data: reservation, error: resError } = await supabaseAdmin
     .from("reservations")
-    .select("montant_final, montant_calcule, statut")
+    .select("montant_final, montant_calcule, statut, montant_paye")
     .eq("id", reservation_id)
     .single();
   if (resError || !reservation) return { error: "Réservation introuvable." };
@@ -168,6 +168,20 @@ export async function enregistrerPaiement(formData: FormData): Promise<{ error?:
     })
     .eq("id", reservation_id);
   if (updateError) return { error: updateError.message };
+
+  // Journal des paiements : mouvement liquide (delta)
+  const deltaLiquide = Math.round((nouveauMontant - Number(reservation.montant_paye ?? 0)) * 100) / 100;
+  if (deltaLiquide !== 0 && mode) {
+    await supabaseAdmin.from("paiements_resa").insert({
+      reservation_id,
+      client_id,
+      date_paiement: date_paiement || new Date().toISOString().split("T")[0],
+      mode,
+      montant: deltaLiquide,
+      motif: "Paiement",
+      created_by: verif.userId ?? null,
+    });
+  }
 
   revalidatePath(`/reservations/${reservation_id}`);
   return {};
@@ -383,7 +397,7 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
 
   const { data: reservation, error: resError } = await supabaseAdmin
     .from("reservations")
-    .select("montant_paye, montant_final, montant_calcule, numero")
+    .select("montant_paye, montant_final, montant_calcule, numero, mode_paiement")
     .eq("id", reservation_id)
     .single();
   if (resError || !reservation) return { error: "Réservation introuvable." };
@@ -439,6 +453,30 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
     })
     .eq("id", reservation_id);
   if (updateError) return { error: updateError.message };
+
+  const dateAnnul = new Date().toISOString().split("T")[0];
+  if (cashPaye > 0) {
+    await supabaseAdmin.from("paiements_resa").insert({
+      reservation_id,
+      client_id,
+      date_paiement: dateAnnul,
+      mode: (reservation.mode_paiement as string) || "cash",
+      montant: -cashPaye,
+      motif: "Annulation de paiement",
+      created_by: verif.userId ?? null,
+    });
+  }
+  if (avoirApplique > 0) {
+    await supabaseAdmin.from("paiements_resa").insert({
+      reservation_id,
+      client_id,
+      date_paiement: dateAnnul,
+      mode: "avoir",
+      montant: -avoirApplique,
+      motif: "Reprise avoir (annulation paiement)",
+      created_by: verif.userId ?? null,
+    });
+  }
 
   revalidatePath(`/reservations/${reservation_id}`);
   return {};
@@ -503,6 +541,16 @@ export async function appliquerAvoir(formData: FormData): Promise<{ error?: stri
     .eq("id", reservation_id);
   if (updErr) return { error: updErr.message };
 
+  await supabaseAdmin.from("paiements_resa").insert({
+    reservation_id,
+    client_id,
+    date_paiement: new Date().toISOString().split("T")[0],
+    mode: "avoir",
+    montant: montantAvoir,
+    motif: "Paiement par avoir",
+    created_by: verif.userId ?? null,
+  });
+
   revalidatePath(`/reservations/${reservation_id}`);
   return {};
 }
@@ -560,6 +608,16 @@ export async function reprendreAvoir(formData: FormData): Promise<{ error?: stri
     })
     .eq("id", reservation_id);
   if (updateError) return { error: updateError.message };
+
+  await supabaseAdmin.from("paiements_resa").insert({
+    reservation_id,
+    client_id,
+    date_paiement: new Date().toISOString().split("T")[0],
+    mode: "avoir",
+    montant: -avoirApplique,
+    motif: "Reprise de l'avoir utilise",
+    created_by: verif.userId ?? null,
+  });
 
   revalidatePath(`/reservations/${reservation_id}`);
   return {};
