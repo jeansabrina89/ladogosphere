@@ -263,6 +263,8 @@ export default async function ComptabilitePage({
             <ExportCompta />
             <a href="/comptabilite/journal" className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: "#1B2B5E" }}>📒 Journal comptable</a>
             <a href="/comptabilite/rapports" className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: "#2E8B7E" }}>📊 Rapports</a>
+            <a href="/comptabilite/reconciliation" className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: "#C9A84C" }}>🔄 Réconciliation</a>
+            <a href="/comptabilite/non-clotures" className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: "#E8847A" }}>⚠️ Non clôturés</a>
           </div>
         </div>
 
