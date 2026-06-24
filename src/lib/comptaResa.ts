@@ -18,10 +18,16 @@ export async function synchroniserComptaResa(reservationId: string, dateOperatio
   try {
     const { data: resa } = await supabaseAdmin
       .from("reservations")
-      .select("statut, type_reservation, montant_final, montant_calcule")
+      .select("statut, type_reservation, montant_final, montant_calcule, abonnement_id")
       .eq("id", reservationId)
       .maybeSingle();
     if (!resa) {
+      await marquerStatutCompta(reservationId, true);
+      return;
+    }
+
+    // Reservation payee par abonnement : la compta est portee par l'abonnement, pas par la reservation.
+    if (resa.abonnement_id) {
       await marquerStatutCompta(reservationId, true);
       return;
     }
