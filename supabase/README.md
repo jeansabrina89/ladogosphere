@@ -1,0 +1,1 @@
+schema.sql est l'instantane de reference du schema de la base de production (schema uniquement, sans donnees). Regenere via supabase db dump. Sert a reproduire la structure de la base (staging, restauration).
