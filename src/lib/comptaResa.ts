@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { calculerLignesEcriture } from "@/src/lib/comptaResaLogique";
 
@@ -58,6 +59,7 @@ export async function synchroniserComptaResa(reservationId: string, dateOperatio
 
     await marquerStatutCompta(reservationId, true);
   } catch (e: any) {
+    Sentry.captureException(e);
     await marquerStatutCompta(reservationId, false, String(e?.message ?? e).slice(0, 500));
     console.error("compta resa:", e);
   }

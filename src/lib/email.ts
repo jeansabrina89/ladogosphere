@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 
@@ -111,7 +112,10 @@ async function envoyerEmail(p: {
     erreur: error ? String((error as any).message ?? error).slice(0, 500) : null,
     reservation_id: p.reservationId ?? null,
   });
-  if (error) throw new Error("Resend: " + ((error as any).message ?? error));
+  if (error) {
+    Sentry.captureException(error);
+    throw new Error("Resend: " + ((error as any).message ?? error));
+  }
 }
 
 export async function envoyerEmailConfirmationDemande({
