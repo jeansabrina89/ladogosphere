@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -17,7 +18,7 @@ const emailTemplate = (contenu: string) => `
     <tr>
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px; width:100%; background-color:white; border-radius:16px; overflow:hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
-          
+
           <!-- Header -->
           <tr>
             <td style="background-color:#1B2B5E; padding:30px 40px; text-align:center;">
@@ -88,15 +89,40 @@ const typeLabel = (type: string) => {
   return "🏠 Séjour";
 };
 
+async function envoyerEmail(p: {
+  destinataire: string;
+  type: string;
+  sujet: string;
+  html: string;
+  reservationId?: string | null;
+}) {
+  const { data, error } = await resend.emails.send({
+    from: FROM,
+    to: p.destinataire,
+    subject: p.sujet,
+    html: p.html,
+  });
+  await supabaseAdmin.from("emails_envoyes").insert({
+    destinataire: p.destinataire,
+    type: p.type,
+    sujet: p.sujet,
+    statut: error ? "echec" : "envoye",
+    resend_id: data?.id ?? null,
+    erreur: error ? String((error as any).message ?? error).slice(0, 500) : null,
+    reservation_id: p.reservationId ?? null,
+  });
+  if (error) throw new Error("Resend: " + ((error as any).message ?? error));
+}
+
 export async function envoyerEmailConfirmationDemande({
   email, prenom, date_debut, date_fin, type,
 }: {
   email: string; prenom: string; date_debut: string; date_fin: string; type: string;
 }) {
-  await resend.emails.send({
-    from: FROM,
-    to: email,
-    subject: "🐾 Votre demande de réservation a été reçue",
+  await envoyerEmail({
+    destinataire: email,
+    type: "confirmation_demande",
+    sujet: "🐾 Votre demande de réservation a été reçue",
     html: emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom} ! 👋</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">Nous avons bien reçu votre demande de réservation et nous vous en remercions.</p>
@@ -138,10 +164,10 @@ export async function envoyerEmailReservationValidee({
   email: string; prenom: string; date_debut: string; date_fin: string;
   type: string; box_label?: string; heure_arrivee?: string; heure_depart?: string;
 }) {
-  await resend.emails.send({
-    from: FROM,
-    to: email,
-    subject: "✅ Votre réservation est confirmée !",
+  await envoyerEmail({
+    destinataire: email,
+    type: "reservation_validee",
+    sujet: "✅ Votre réservation est confirmée !",
     html: emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom} ! 🎉</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">Excellente nouvelle ! Votre réservation a été <strong style="color:#4AAEA0;">confirmée</strong> par notre équipe.</p>
@@ -190,10 +216,10 @@ export async function envoyerEmailReservationAnnulee({
 }: {
   email: string; prenom: string; date_debut: string; date_fin: string; type: string;
 }) {
-  await resend.emails.send({
-    from: FROM,
-    to: email,
-    subject: "❌ Votre réservation a été annulée",
+  await envoyerEmail({
+    destinataire: email,
+    type: "reservation_annulee",
+    sujet: "❌ Votre réservation a été annulée",
     html: emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom},</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">Nous vous informons que votre réservation a été <strong style="color:#E8847A;">annulée</strong>.</p>
@@ -228,6 +254,7 @@ export async function envoyerEmailReservationAnnulee({
     `),
   });
 }
+
 export async function envoyerEmailPaiement({
   email, prenom, montant, date_debut, date_fin, type, iban, titulaire,
 }: {
@@ -235,10 +262,10 @@ export async function envoyerEmailPaiement({
   date_debut: string; date_fin: string; type: string;
   iban: string; titulaire: string;
 }) {
-  await resend.emails.send({
-    from: FROM,
-    to: email,
-    subject: "💰 Règlement de votre séjour à La Dogosphère",
+  await envoyerEmail({
+    destinataire: email,
+    type: "paiement",
+    sujet: "💰 Règlement de votre séjour à La Dogosphère",
     html: emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom},</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">Voici le récapitulatif de votre séjour et les informations de paiement.</p>
@@ -293,10 +320,10 @@ export async function envoyerEmailSatisfactionEssai({
 }: {
   email: string; prenom: string; nom_chien: string;
 }) {
-  await resend.emails.send({
-    from: FROM,
-    to: email,
-    subject: "🐾 Comment s'est passée la journée d'essai ?",
+  await envoyerEmail({
+    destinataire: email,
+    type: "satisfaction_essai",
+    sujet: "🐾 Comment s'est passée la journée d'essai ?",
     html: emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom} ! 🐶</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">
@@ -306,7 +333,7 @@ export async function envoyerEmailSatisfactionEssai({
 
       <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">
         <p style="margin:0; color:#1B5E4F; font-size:14px;">
-          Votre avis nous tient à cœur — si vous avez quelques minutes, nous serions très reconnaissants de recevoir votre retour. 
+          Votre avis nous tient à cœur — si vous avez quelques minutes, nous serions très reconnaissants de recevoir votre retour.
           Cela nous aide à nous améliorer et à faire connaître La Dogosphère.
         </p>
       </div>
@@ -324,10 +351,10 @@ export async function envoyerEmailRappelVeille({
   email: string; prenom: string; nom_chien: string;
   date_debut: string; heure_arrivee?: string; type: string;
 }) {
-  await resend.emails.send({
-    from: FROM,
-    to: email,
-    subject: "📅 Rappel — votre chien arrive demain !",
+  await envoyerEmail({
+    destinataire: email,
+    type: "rappel_veille",
+    sujet: "📅 Rappel — votre chien arrive demain !",
     html: emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom} ! 🐶</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">
@@ -372,16 +399,17 @@ export async function envoyerEmailRappelVeille({
     `),
   });
 }
+
 export async function envoyerEmailRappelCotisation({
   email, prenom, nom, annee, montant, iban, titulaire,
 }: {
   email: string; prenom: string; nom: string; annee: number; montant: number; iban: string; titulaire: string;
 }) {
   const anneeProchaine = annee + 1;
-  await resend.emails.send({
-    from: FROM,
-    to: email,
-    subject: `⭐ Renouvellement de votre adhésion membre ${annee}`,
+  await envoyerEmail({
+    destinataire: email,
+    type: "rappel_cotisation",
+    sujet: `⭐ Renouvellement de votre adhésion membre ${annee}`,
     html: emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom} ! ⭐</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">

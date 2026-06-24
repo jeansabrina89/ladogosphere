@@ -43,21 +43,6 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Stocker le rôle dans un cookie accessible côté client
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (profile?.role) {
-    response.cookies.set("user_role", profile.role, {
-      httpOnly: false,
-      sameSite: "lax",
-      path: "/",
-    });
-  }
-
   return response
 }
 

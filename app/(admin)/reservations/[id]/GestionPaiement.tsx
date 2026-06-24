@@ -53,6 +53,7 @@ export default function GestionPaiement({
   const [avoirLoading, setAvoirLoading] = useState(false);
   const [reprendreLoading, setReprendreLoading] = useState(false);
   const [montantAvoir, setMontantAvoir] = useState("");
+  const [cleIdempotence, setCleIdempotence] = useState(() => crypto.randomUUID());
   const router = useRouter();
 
   // Synchronise les états avec les props après router.refresh()
@@ -83,12 +84,13 @@ export default function GestionPaiement({
     formData.set("date_paiement", date || "");
     formData.set("mode_paiement", mode || "");
 
-    const res = await enregistrerPaiement(formData);
+    const res = await enregistrerPaiement(formData, cleIdempotence);
     if (res?.error) {
       alert(res.error);
       setLoading(false);
       return;
     }
+    setCleIdempotence(crypto.randomUUID());
     setSauvegarde(true);
     setTimeout(() => setSauvegarde(false), 3000);
     router.refresh();

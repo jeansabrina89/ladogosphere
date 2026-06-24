@@ -77,7 +77,8 @@ export async function POST(
       if (action === "checkout") {
         await supabaseAdmin.from("reservations").update({ statut: "terminee" }).eq("id", reservationId);
         await figerFactureResa(reservationId);
-        try { await synchroniserComptaResa(reservationId); } catch (e) { console.error("compta resa:", e); }
+        const { data: resaDate } = await supabaseAdmin.from("reservations").select("date_fin").eq("id", reservationId).maybeSingle();
+        await synchroniserComptaResa(reservationId, resaDate?.date_fin ?? undefined);
       } else {
         await supabaseAdmin.from("reservations").update({ statut: "validee" }).eq("id", reservationId);
         await defigerFactureResa(reservationId);

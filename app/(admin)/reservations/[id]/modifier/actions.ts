@@ -157,7 +157,7 @@ export async function annulerReservation(formData: FormData) {
 
   await supabaseAdmin.from("occupation_boxes").delete().eq("reservation_id", id);
 
-  try { await synchroniserComptaResa(id); } catch (e) { console.error("compta resa:", e); }
+  await synchroniserComptaResa(id);
 
   redirect(`/reservations/${id}`);
 }

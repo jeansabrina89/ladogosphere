@@ -108,7 +108,7 @@ async function recalculerTotalEtPaiement(reservationId: string, createdBy?: stri
 
   await rafraichirFactureBrouillon(reservationId);
 
-  try { await synchroniserComptaResa(reservationId); } catch (e) { console.error("compta resa:", e); }
+  await synchroniserComptaResa(reservationId);
 
   return { nouveau_total: nouveauTotal, ecart, type_ecart };
 }
@@ -120,7 +120,7 @@ async function recalculerTotalEtPaiement(reservationId: string, createdBy?: stri
  * - Recalcule le statut automatiquement.
  * - Ne touche pas aux avoirs_mouvements.
  */
-export async function enregistrerPaiement(formData: FormData): Promise<{ error?: string }> {
+export async function enregistrerPaiement(formData: FormData, cleIdempotence?: string): Promise<{ error?: string }> {
   const verif = await verifierPermission("perm_encaissements");
   if (verif.error) return verif;
 
@@ -175,7 +175,7 @@ export async function enregistrerPaiement(formData: FormData): Promise<{ error?:
   // Journal des paiements : mouvement liquide (delta)
   const deltaLiquide = Math.round((nouveauMontant - Number(reservation.montant_paye ?? 0)) * 100) / 100;
   if (deltaLiquide !== 0 && mode) {
-    await supabaseAdmin.from("paiements_resa").insert({
+    const { error: insErr } = await supabaseAdmin.from("paiements_resa").insert({
       reservation_id,
       client_id,
       date_paiement: date_paiement || new Date().toISOString().split("T")[0],
@@ -183,10 +183,18 @@ export async function enregistrerPaiement(formData: FormData): Promise<{ error?:
       montant: deltaLiquide,
       motif: "Paiement",
       created_by: verif.userId ?? null,
+      cle_idempotence: cleIdempotence ?? null,
     });
+    if (insErr) {
+      if (insErr.code === "23505") {
+        revalidatePath(`/reservations/${reservation_id}`);
+        return {};
+      }
+      return { error: insErr.message };
+    }
   }
 
-  try { await synchroniserComptaResa(reservation_id); } catch (e) { console.error("compta resa:", e); }
+  await synchroniserComptaResa(reservation_id, date_paiement || undefined);
 
   revalidatePath(`/reservations/${reservation_id}`);
   return {};
@@ -485,7 +493,7 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
     });
   }
 
-  try { await synchroniserComptaResa(reservation_id); } catch (e) { console.error("compta resa:", e); }
+  await synchroniserComptaResa(reservation_id, dateAnnul);
 
   revalidatePath(`/reservations/${reservation_id}`);
   return {};
@@ -560,7 +568,7 @@ export async function appliquerAvoir(formData: FormData): Promise<{ error?: stri
     created_by: verif.userId ?? null,
   });
 
-  try { await synchroniserComptaResa(reservation_id); } catch (e) { console.error("compta resa:", e); }
+  await synchroniserComptaResa(reservation_id, new Date().toISOString().split("T")[0]);
 
   revalidatePath(`/reservations/${reservation_id}`);
   return {};
@@ -630,7 +638,7 @@ export async function reprendreAvoir(formData: FormData): Promise<{ error?: stri
     created_by: verif.userId ?? null,
   });
 
-  try { await synchroniserComptaResa(reservation_id); } catch (e) { console.error("compta resa:", e); }
+  await synchroniserComptaResa(reservation_id, new Date().toISOString().split("T")[0]);
 
   revalidatePath(`/reservations/${reservation_id}`);
   return {};
