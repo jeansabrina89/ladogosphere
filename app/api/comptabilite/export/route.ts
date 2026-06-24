@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
   for (const res of reservations ?? []) {
     const c = res.clients as { prenom?: string; nom?: string } | null;
     const client = `${c?.prenom ?? ""} ${c?.nom ?? ""}`.trim();
-    const facResas = (res.facture_reservations ?? []) as { factures: { numero: string; statut: string } | null }[];
+    const facResas = (res.facture_reservations ?? []) as unknown as { factures: { numero: string; statut: string } | null }[];
     const factureActive = facResas.map(fr => fr.factures).find(f => f && f.statut !== "annulee");
     const piece = factureActive?.numero ?? `Résa #${res.numero}`;
     const montant = Number(res.montant_paye ?? 0);

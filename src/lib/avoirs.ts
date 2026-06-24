@@ -23,7 +23,8 @@ export async function getMouvementsAvoir(
 
   if (error) throw new Error(error.message);
 
-  return (data ?? []).map((m) => ({ ...m, montant: Number(m.montant) }));
+  // Supabase infers the FK join as an array; we know it's a single object or null at runtime
+  return (data ?? []).map((m) => ({ ...m, montant: Number(m.montant) })) as unknown as MouvementAvoir[];
 }
 
 export function calculerSoldeAvoir(mouvements: { montant: number }[]): number {
