@@ -2,6 +2,8 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { createClient } from "@/src/utils/supabase/server";
 import FormFicheSalaire from "./FormFicheSalaire";
+import EnTete from "@/app/components/ui/EnTete";
+import Bouton from "@/app/components/ui/Bouton";
 
 export default async function CreerFicheSalairePage({
   searchParams,
@@ -34,9 +36,11 @@ export default async function CreerFicheSalairePage({
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-4xl font-bold mb-6" style={{ color: "#1B2B5E" }}>
-          📊 Nouvelle fiche de salaire
-        </h1>
+        <EnTete
+          titre="📊 Nouvelle fiche de salaire"
+          sousTitre="Sélectionne l'employé, le mois, et ajuste les déductions"
+          action={<Bouton href="/employes/fiches-salaire" variante="secondaire">← Retour</Bouton>}
+        />
         <FormFicheSalaire
           employes={employes ?? []}
           modeles={modeles ?? []}
