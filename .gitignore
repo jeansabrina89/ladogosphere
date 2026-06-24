@@ -43,3 +43,6 @@ next-env.d.ts
 # supabase cli temp files (credentials, branch state — never commit)
 supabase/.temp
 supabase/.branches
+
+# sauvegardes de donnees — contiennent des donnees clients, jamais sur GitHub
+backups/
