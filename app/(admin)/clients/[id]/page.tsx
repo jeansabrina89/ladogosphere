@@ -3,10 +3,13 @@ import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
 import { formatDateFR } from "@/src/lib/dates";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getMouvementsAvoir, calculerSoldeAvoir } from "@/src/lib/avoirs";
+import { getAbonnementsClient } from "@/src/lib/abonnementSolde";
+import { labelAbonnement } from "@/src/lib/abonnementsTypes";
 import BoutonArchiverClient from "./BoutonArchiverClient";
 import BoutonSupprimerClient from "./BoutonSupprimerClient";
 import BoutonCotisation from "./BoutonCotisation";
 import BoutonConfirmerCotisation from "./BoutonConfirmerCotisation";
+import BoutonConfirmerAbonnement from "./BoutonConfirmerAbonnement";
 import GestionAvoir from "./GestionAvoir";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { estMembreActif } from "@/src/lib/membre";
@@ -62,6 +65,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
 
   const mouvementsAvoir = await getMouvementsAvoir(supabaseAdmin, id);
   const soldeAvoir = calculerSoldeAvoir(mouvementsAvoir);
+  const abonnements = await getAbonnementsClient(id);
 
   const { data: reservations } = await supabase
     .from("reservations")
@@ -240,7 +244,47 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           </section>
         )}
 
-        {/* 6. Factures */}
+        {/* 6. Abonnements */}
+        <section style={{ marginBottom: 28 }}>
+          <h2 style={h2}>🎟️ Abonnements</h2>
+          {abonnements.length === 0 ? (
+            <Carte>
+              <EtatVide icone="🎟️" titre="Aucun abonnement" message="Ce client n'a pas de carte journées." />
+            </Carte>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {abonnements.map((abo) => (
+                <Carte key={abo.id}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ color: "#1B2B5E", fontWeight: 700, fontSize: 14, margin: "0 0 4px" }}>
+                        {labelAbonnement(abo.categorie)}
+                      </p>
+                      <p style={{ ...muted, fontSize: 13 }}>{abo.jours_restants} / {abo.jours_total} journées</p>
+                      {abo.date_expiration && (
+                        <p style={{ ...muted, fontSize: 12 }}>Expire le {formatDateFR(abo.date_expiration)}</p>
+                      )}
+                      {abo.mode_paiement && (
+                        <p style={{ ...muted, fontSize: 12 }}>
+                          {abo.mode_paiement === "cash" ? "Espèces" :
+                           abo.mode_paiement === "twint" ? "TWINT" :
+                           abo.mode_paiement === "virement" ? "Virement" :
+                           abo.mode_paiement === "stripe" ? "Stripe" : abo.mode_paiement}
+                        </p>
+                      )}
+                      {abo.statut === "en_attente_paiement" && perms.perm_encaissements && (
+                        <BoutonConfirmerAbonnement abonnementId={abo.id} />
+                      )}
+                    </div>
+                    <BadgeStatut statut={abo.statut} />
+                  </div>
+                </Carte>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* 8. Factures */}
         <section style={{ marginBottom: 28 }}>
           <h2 style={h2}>📋 Factures</h2>
           {!facturesClient || facturesClient.length === 0 ? (
@@ -267,7 +311,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           )}
         </section>
 
-        {/* 7. Réservations — composant inchangé */}
+        {/* 9. Réservations — composant inchangé */}
         <section style={{ marginBottom: 28 }}>
           <h2 style={h2}>📅 Réservations</h2>
           <SelectionFactureGroupee reservations={reservations ?? []} permEncaissements={perms.perm_encaissements} />

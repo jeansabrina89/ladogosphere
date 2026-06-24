@@ -6,6 +6,8 @@ import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getSoldeAvoir } from "@/src/lib/avoirs";
 import { verifierPermission } from "@/src/lib/verifierPermission";
+import { labelAbonnement } from "@/src/lib/abonnementsTypes";
+import { synchroniserComptaAbonnement } from "@/src/lib/comptaAbonnement";
 
 // Types crédit (montant positif) vs débit (montant négatif)
 const TYPES_CREDIT = ["ajout_manuel", "annulation_paiement", "trop_percu"];
@@ -156,6 +158,53 @@ export async function supprimerMouvementAvoir(formData: FormData): Promise<{ err
 
   revalidatePath(`/clients/${client_id}`);
   return {};
+}
+
+export async function confirmerPaiementAbonnement(
+  abonnementId: string,
+  mode: string,
+): Promise<{ ok?: boolean; error?: string }> {
+  const verif = await verifierPermission("perm_encaissements");
+  if (verif.error) return verif;
+
+  const modesValides = ["cash", "twint", "virement", "stripe"];
+  if (!modesValides.includes(mode)) return { error: "Mode de paiement invalide." };
+
+  const { data: abo } = await supabaseAdmin
+    .from("abonnements")
+    .select("id, client_id, statut, jours_total, categorie")
+    .eq("id", abonnementId)
+    .maybeSingle();
+  if (!abo) return { error: "Abonnement introuvable." };
+
+  if (abo.statut === "actif") return { ok: true };
+  if (abo.statut !== "en_attente_paiement") return { error: "Carte non confirmable." };
+
+  const today = new Date();
+  const datePaiement = today.toISOString().split("T")[0];
+  const dateExpObj = new Date(today);
+  dateExpObj.setFullYear(dateExpObj.getFullYear() + 1);
+  const dateExpiration = dateExpObj.toISOString().split("T")[0];
+
+  const { error: upErr } = await supabaseAdmin
+    .from("abonnements")
+    .update({ statut: "actif", mode_paiement: mode, date_paiement: datePaiement, date_expiration: dateExpiration })
+    .eq("id", abonnementId);
+  if (upErr) return { error: upErr.message };
+
+  const { error: mvErr } = await supabaseAdmin.from("abonnements_mouvements").insert({
+    abonnement_id: abonnementId,
+    client_id: abo.client_id,
+    delta: abo.jours_total,
+    type: "achat",
+    motif: "Achat carte " + labelAbonnement(abo.categorie),
+  });
+  if (mvErr) return { error: mvErr.message };
+
+  await synchroniserComptaAbonnement(abonnementId);
+
+  revalidatePath(`/clients/${abo.client_id}`);
+  return { ok: true };
 }
 
 export async function archiverClient(formData: FormData) {

@@ -78,9 +78,10 @@ export default async function MonComptePage() {
   const montantCotisation = parseFloat(paramCotis?.valeur ?? "180") || 180;
 
   const raccourcis = [
-    { href: "/mon-compte/chiens",      label: "Mes chiens" },
-    { href: "/mon-compte/reservations", label: "Mes réservations" },
-    { href: "/mon-compte/profil",       label: "Mon profil" },
+    { href: "/mon-compte/chiens",        label: "Mes chiens" },
+    { href: "/mon-compte/reservations",  label: "Mes réservations" },
+    { href: "/mon-compte/abonnements",   label: "Mes abonnements" },
+    { href: "/mon-compte/profil",        label: "Mon profil" },
   ];
 
   const statCardStyle = (bg: string): React.CSSProperties => ({
