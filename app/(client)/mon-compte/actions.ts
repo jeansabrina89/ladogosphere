@@ -3,7 +3,7 @@
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { revalidatePath } from "next/cache";
-import { JOURS_PAR_CARTE, JOURS_PAYES, TYPES_ABONNEMENT } from "@/src/lib/abonnementsTypes";
+import { JOURS_PAR_CARTE, JOURS_PAYES, TYPES_ABONNEMENT, cartesEligibles, type ChienHebergement } from "@/src/lib/abonnementsTypes";
 import { estMembreActif } from "@/src/lib/membre";
 
 export async function demanderAdhesion(mode: "virement" | "prochaine_resa") {
@@ -69,6 +69,15 @@ export async function commanderAbonnement(categorie: string): Promise<{ ok?: boo
 
   const membre = await estMembreActif(supabaseAdmin, client.id);
   if (!membre) return { error: "Reserve aux membres a jour de cotisation." };
+
+  const { data: chiens } = await supabaseAdmin
+    .from("chiens")
+    .select("hebergement_autorise, actif")
+    .eq("client_id", client.id);
+  const eligibles = cartesEligibles((chiens ?? []) as ChienHebergement[]);
+  if (!eligibles.includes(categorie)) {
+    return { error: "Cette formule ne correspond pas au profil de vos chiens." };
+  }
 
   const { data: existant } = await supabaseAdmin
     .from("abonnements")

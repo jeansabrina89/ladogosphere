@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { estMembreActif } from "@/src/lib/membre";
-import { TYPES_ABONNEMENT, JOURS_PAR_CARTE, JOURS_PAYES, labelAbonnement } from "@/src/lib/abonnementsTypes";
+import { TYPES_ABONNEMENT, JOURS_PAR_CARTE, JOURS_PAYES, labelAbonnement, cartesEligibles, type ChienHebergement } from "@/src/lib/abonnementsTypes";
 import { getAbonnementsClient } from "@/src/lib/abonnementSolde";
 import { formatDateFR } from "@/src/lib/dates";
 import EnTete from "@/app/components/ui/EnTete";
@@ -28,6 +28,12 @@ export default async function AbonnementsPage() {
   if (!client) redirect("/mon-compte");
 
   const estMembre = await estMembreActif(supabaseAdmin, client.id);
+
+  const { data: chiensClient } = await supabaseAdmin
+    .from("chiens")
+    .select("hebergement_autorise, actif")
+    .eq("client_id", client.id);
+  const eligibles = cartesEligibles((chiensClient ?? []) as ChienHebergement[]);
 
   const annee = new Date().getFullYear();
   const { data: tarifsRows } = await supabaseAdmin
@@ -77,11 +83,23 @@ export default async function AbonnementsPage() {
               </div>
             </Carte>
           </section>
+        ) : eligibles.length === 0 ? (
+          <section style={{ marginBottom: 28 }}>
+            <Carte>
+              <p style={{ fontFamily: "Georgia, serif", fontSize: 16, fontWeight: 700, color: MARINE, margin: "0 0 8px" }}>
+                Aucune carte disponible
+              </p>
+              <p style={muted}>
+                Selon le profil de vos chiens, aucune carte n'est disponible pour le moment.
+                Complétez le profil (hébergement) de vos chiens ou contactez l'équipe.
+              </p>
+            </Carte>
+          </section>
         ) : (
           <section style={{ marginBottom: 28 }}>
             <h2 style={h2}>Choisir une formule</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {TYPES_ABONNEMENT.map((type) => {
+              {TYPES_ABONNEMENT.filter((type) => eligibles.includes(type.categorie)).map((type) => {
                 const tarifRow = (tarifsRows ?? []).find((t) => t.categorie === type.categorie);
                 if (!tarifRow) return null;
                 const prix = JOURS_PAYES * Number(tarifRow.prix);

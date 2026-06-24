@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
-import { aujourdhuiISO, formatHeure } from "@/src/lib/dates";
+import { aujourdhuiISO, formatHeure, formatDateFR } from "@/src/lib/dates";
+import { labelAbonnement } from "@/src/lib/abonnementsTypes";
 import CarteReservationAttente from "@/app/components/CarteReservationAttente";
 import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
 import EnTete from "@/app/components/ui/EnTete";
@@ -35,6 +36,7 @@ export default async function Home() {
     { data: dernieresReservations },
     { data: arrivees },
     { data: departs },
+    { data: abonnementsAttente },
   ] = await Promise.all([
     supabaseAdmin.from("chiens").select("*", { count: "exact", head: true }).eq("actif", true),
     supabaseAdmin.from("clients").select("*", { count: "exact", head: true }).eq("actif", true),
@@ -68,6 +70,10 @@ export default async function Home() {
       .in("statut", ["arrive", "a_recuperer", "parti"])
       .gte("date_depart_prevu", `${aujourd_hui}T00:00:00Z`)
       .lte("date_depart_prevu", `${aujourd_hui}T23:59:59Z`),
+    supabaseAdmin.from("abonnements")
+      .select("id, client_id, categorie, prix_paye, date_commande, clients (prenom, nom)")
+      .eq("statut", "en_attente_paiement")
+      .order("date_commande", { ascending: false }),
   ]);
 
   const accesRapides = [
@@ -137,6 +143,44 @@ export default async function Home() {
           ) : (
             <Carte>
               <EtatVide icone="✅" titre="Aucune réservation en attente" message="Tout est à jour." />
+            </Carte>
+          )}
+        </div>
+
+        {/* Demandes d'abonnement */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <h2 style={h2}>
+              Demandes d&apos;abonnement
+              {abonnementsAttente?.length ? <span style={pill("#F4EAC9", "#6E5410")}>{abonnementsAttente.length}</span> : null}
+            </h2>
+          </div>
+          {abonnementsAttente?.length ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {abonnementsAttente.map((abo: any) => (
+                <Link key={abo.id} href={`/clients/${abo.client_id}`} style={{ textDecoration: "none" }}>
+                  <Carte>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                      <div>
+                        <p style={{ fontWeight: 600, color: "#1B2B5E", fontSize: 14, margin: 0 }}>
+                          {(abo.clients as any)?.prenom} {(abo.clients as any)?.nom}
+                        </p>
+                        <p style={{ color: "rgba(27,43,94,0.6)", fontSize: 13, margin: "2px 0 0" }}>
+                          {labelAbonnement(abo.categorie)}
+                          {abo.date_commande && ` · ${formatDateFR(abo.date_commande)}`}
+                        </p>
+                      </div>
+                      <p style={{ fontWeight: 700, color: "#1B2B5E", fontSize: 14, margin: 0, flexShrink: 0 }}>
+                        CHF {Number(abo.prix_paye).toFixed(2)}
+                      </p>
+                    </div>
+                  </Carte>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <Carte>
+              <EtatVide icone="🎟️" titre="Aucune demande en attente" message="" />
             </Carte>
           )}
         </div>
