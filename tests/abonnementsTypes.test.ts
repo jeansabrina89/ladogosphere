@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cartesEligibles } from "../src/lib/abonnementsTypes";
+import { cartesEligibles, categorieJourneePourChiens } from "../src/lib/abonnementsTypes";
 
 describe("cartesEligibles", () => {
   it("1 chien partage_autorise -> [journee_partage_1]", () => {
@@ -13,6 +13,16 @@ describe("cartesEligibles", () => {
         { hebergement_autorise: "partage_autorise" },
       ])
     ).toEqual(["journee_partage_1", "journee_partage_2"]);
+  });
+
+  it("3 chiens partage_autorise -> [journee_partage_1, journee_partage_2, journee_partage_3]", () => {
+    expect(
+      cartesEligibles([
+        { hebergement_autorise: "partage_autorise" },
+        { hebergement_autorise: "partage_autorise" },
+        { hebergement_autorise: "partage_autorise" },
+      ])
+    ).toEqual(["journee_partage_1", "journee_partage_2", "journee_partage_3"]);
   });
 
   it("1 chien privatif_obligatoire -> [journee_privatif]", () => {
@@ -48,5 +58,54 @@ describe("cartesEligibles", () => {
 
   it("liste vide -> []", () => {
     expect(cartesEligibles([])).toEqual([]);
+  });
+});
+
+describe("categorieJourneePourChiens", () => {
+  it("[] -> null", () => {
+    expect(categorieJourneePourChiens([])).toBeNull();
+  });
+
+  it("1 chien partage -> journee_partage_1", () => {
+    expect(categorieJourneePourChiens([{ hebergement_autorise: "partage_autorise" }])).toBe("journee_partage_1");
+  });
+
+  it("2 chiens partage -> journee_partage_2", () => {
+    expect(
+      categorieJourneePourChiens([
+        { hebergement_autorise: "partage_autorise" },
+        { hebergement_autorise: "partage_autorise" },
+      ])
+    ).toBe("journee_partage_2");
+  });
+
+  it("3 chiens partage -> journee_partage_3", () => {
+    expect(
+      categorieJourneePourChiens([
+        { hebergement_autorise: "partage_autorise" },
+        { hebergement_autorise: "partage_autorise" },
+        { hebergement_autorise: "partage_autorise" },
+      ])
+    ).toBe("journee_partage_3");
+  });
+
+  it("4 chiens partage -> null", () => {
+    expect(
+      categorieJourneePourChiens([
+        { hebergement_autorise: "partage_autorise" },
+        { hebergement_autorise: "partage_autorise" },
+        { hebergement_autorise: "partage_autorise" },
+        { hebergement_autorise: "partage_autorise" },
+      ])
+    ).toBeNull();
+  });
+
+  it("tout lot avec un privatif_obligatoire -> journee_privatif", () => {
+    expect(
+      categorieJourneePourChiens([
+        { hebergement_autorise: "partage_autorise" },
+        { hebergement_autorise: "privatif_obligatoire" },
+      ])
+    ).toBe("journee_privatif");
   });
 });
