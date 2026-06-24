@@ -1,27 +1,26 @@
 # Sauvegarde et restauration
 
-Projet Supabase : lljxyrbocdqerricggfc (region Zurich, plan Free).
+Projet Supabase lljxyrbocdqerricggfc (region Zurich, plan Free).
 Sur le plan Free, Supabase ne fournit pas de sauvegarde automatique restaurable.
-La sauvegarde est donc geree manuellement, en deux couches.
+La sauvegarde est donc geree manuellement, en deux couches. (Le CLI Supabase exige Docker :
+on ne l'utilise pas, on passe par une connexion directe a la base.)
 
 ## 1. Schema (structure)
-Fichier de reference : supabase/schema.sql (versionne dans ce depot, sans donnees).
-Regenerer apres tout changement de structure :
-  npx --yes supabase@latest db dump --linked --schema public -f supabase/schema.sql
+Fichier de reference versionne : supabase/schema.sql (sans donnees).
 
 ## 2. Donnees
-Exporter les donnees a la demande :
-  npm run backup:data
-Cela cree un fichier backups/donnees-AAAAMMJJ-HHMM.sql .
-IMPORTANT : ce fichier contient des donnees clients. Il est ignore par git (jamais sur GitHub).
-Le conserver dans un endroit prive et sauvegarde (disque externe ou cloud chiffre).
+1. Recuperer la chaine "Session pooler" dans Supabase : Settings > Database > Connection string >
+   Session pooler. Forme : postgresql://postgres.lljxyrbocdqerricggfc:[MOT-DE-PASSE]@...pooler.supabase.com:5432/postgres
+   Remplacer [MOT-DE-PASSE] par le mot de passe de la base.
+2. Definir la variable d'environnement SUPABASE_DB_URL avec cette chaine.
+3. Lancer : npm run backup:data
+Cree backups/donnees-AAAAMMJJ-HHMM.sql (donnees uniquement).
+IMPORTANT : contient des donnees clients. Ignore par git. A conserver dans un endroit prive et sauvegarde.
 Frequence conseillee avant lancement : une fois par mois et avant toute grosse migration.
 
-## 3. Restauration
-Vers une base PostgreSQL vide (nouveau projet Supabase ou local) :
-  1. Appliquer la structure :  psql "<connexion>" -f supabase/schema.sql
-  2. Appliquer les donnees  :  psql "<connexion>" -f backups/donnees-AAAAMMJJ-HHMM.sql
+## 3. Restauration (vers une base PostgreSQL vide)
+1. Structure : psql "<connexion cible>" -f supabase/schema.sql
+2. Donnees  : psql "<connexion cible>" -f backups/donnees-AAAAMMJJ-HHMM.sql
 
 ## 4. Au lancement
-Passer le projet en plan Pro et activer le PITR (point-in-time recovery) pour des
-sauvegardes automatiques restaurables des qu'il y aura de vrais clients.
+Passer en plan Pro et activer le PITR pour des sauvegardes automatiques restaurables.
