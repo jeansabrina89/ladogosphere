@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-function anneesPertinentes(dateRefISO?: string): number[] {
+export function anneesPertinentes(dateRefISO?: string): number[] {
   const ref = (dateRefISO ?? new Date().toISOString()).slice(0, 10);
   const [annee, mois] = ref.split("-").map(Number);
   if (!annee) return [];
