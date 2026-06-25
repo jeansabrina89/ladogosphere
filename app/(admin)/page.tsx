@@ -189,9 +189,11 @@ export default async function Home() {
           </div>
         </div>
 
-        {/* Accès rapides — desktop uniquement, conditionné par les permissions */}
+        {/* Accès rapides */}
         {accesRapides.length > 0 && (
-          <div className="hidden md:grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div style={{ marginBottom: 32 }}>
+            <h2 style={h2}>Accès rapides</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {accesRapides.map(({ href, label, desc }) => (
               <Link key={href} href={href} style={{ textDecoration: "none" }}>
                 <Carte accent="teal">
@@ -200,6 +202,7 @@ export default async function Home() {
                 </Carte>
               </Link>
             ))}
+          </div>
           </div>
         )}
 
