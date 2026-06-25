@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/src/lib/supabase-browser";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [voirMdp, setVoirMdp] = useState(false);
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -135,11 +137,19 @@ export default function LoginForm() {
 
       <div>
         <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>Mot de passe</label>
-        <input type="password" required
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          className="w-full border rounded-xl p-3"
-          placeholder="••••••••" />
+        <div className="relative">
+          <input type={voirMdp ? "text" : "password"} required
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            className="w-full border rounded-xl p-3 pr-12"
+            placeholder="••••••••" />
+          <button type="button"
+            onClick={() => setVoirMdp(v => !v)}
+            aria-label={voirMdp ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+            className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-gray-600">
+            {voirMdp ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        </div>
       </div>
 
       {/* Se souvenir de moi */}
