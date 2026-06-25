@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { estMembreActif } from "@/src/lib/membre";
-import { TYPES_ABONNEMENT, JOURS_PAR_CARTE, JOURS_PAYES, labelAbonnement, cartesEligibles, type ChienHebergement } from "@/src/lib/abonnementsTypes";
+import { TYPES_ABONNEMENT, JOURS_PAR_CARTE, JOURS_PAYES, labelAbonnement, cartesEligibles, type ChienSociabilite } from "@/src/lib/abonnementsTypes";
 import { getAbonnementsClient } from "@/src/lib/abonnementSolde";
 import { formatDateFR } from "@/src/lib/dates";
 import EnTete from "@/app/components/ui/EnTete";
@@ -31,9 +31,9 @@ export default async function AbonnementsPage() {
 
   const { data: chiensClient } = await supabaseAdmin
     .from("chiens")
-    .select("hebergement_autorise, actif")
+    .select("doit_etre_isole, actif")
     .eq("client_id", client.id);
-  const eligibles = cartesEligibles((chiensClient ?? []) as ChienHebergement[]);
+  const eligibles = cartesEligibles((chiensClient ?? []) as ChienSociabilite[]);
 
   const annee = new Date().getFullYear();
   const { data: tarifsRows } = await supabaseAdmin

@@ -3,8 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
-import { aujourdhuiISO, formatHeure, formatDateFR } from "@/src/lib/dates";
-import { labelAbonnement } from "@/src/lib/abonnementsTypes";
+import { aujourdhuiISO, formatHeure } from "@/src/lib/dates";
 import CarteReservationAttente from "@/app/components/CarteReservationAttente";
 import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
 import EnTete from "@/app/components/ui/EnTete";
@@ -147,42 +146,18 @@ export default async function Home() {
           )}
         </div>
 
-        {/* Demandes d'abonnement */}
+        {/* Demandes d'abonnement — petit carré */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <h2 style={h2}>
-              Demandes d&apos;abonnement
-              {abonnementsAttente?.length ? <span style={pill("#F4EAC9", "#6E5410")}>{abonnementsAttente.length}</span> : null}
-            </h2>
-          </div>
-          {abonnementsAttente?.length ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {abonnementsAttente.map((abo: any) => (
-                <Link key={abo.id} href={`/clients/${abo.client_id}`} style={{ textDecoration: "none" }}>
-                  <Carte>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                      <div>
-                        <p style={{ fontWeight: 600, color: "#1B2B5E", fontSize: 14, margin: 0 }}>
-                          {(abo.clients as any)?.prenom} {(abo.clients as any)?.nom}
-                        </p>
-                        <p style={{ color: "rgba(27,43,94,0.6)", fontSize: 13, margin: "2px 0 0" }}>
-                          {labelAbonnement(abo.categorie)}
-                          {abo.date_commande && ` · ${formatDateFR(abo.date_commande)}`}
-                        </p>
-                      </div>
-                      <p style={{ fontWeight: 700, color: "#1B2B5E", fontSize: 14, margin: 0, flexShrink: 0 }}>
-                        CHF {Number(abo.prix_paye).toFixed(2)}
-                      </p>
-                    </div>
-                  </Carte>
-                </Link>
-              ))}
+          <Link href="/abonnements" style={{ textDecoration: "none" }}>
+            <div style={{ backgroundColor: "#F4EAC9", borderRadius: 16, padding: "20px 16px", textAlign: "center", display: "inline-block", minWidth: 160 }}>
+              <p style={{ fontSize: 24, fontWeight: 500, color: "#6E5410", margin: 0, lineHeight: 1 }}>
+                {abonnementsAttente?.length ?? 0}
+              </p>
+              <p style={{ fontSize: 13, color: "rgba(110,84,16,0.7)", marginTop: 6, marginBottom: 0 }}>
+                🎟️ Demandes d&apos;abonnement
+              </p>
             </div>
-          ) : (
-            <Carte>
-              <EtatVide icone="🎟️" titre="Aucune demande en attente" message="" />
-            </Carte>
-          )}
+          </Link>
         </div>
 
         {/* Arrivées et départs */}
