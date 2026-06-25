@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPersonnel } from "@/src/lib/apiAuth";
 import { figerFactureResa, defigerFactureResa } from "@/src/lib/factureResa";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
+import { synchroniserComptaAbonnement } from "@/src/lib/comptaAbonnement";
 
 export async function POST(
   req: NextRequest,
@@ -77,11 +78,18 @@ export async function POST(
       if (action === "checkout") {
         await supabaseAdmin.from("reservations").update({ statut: "terminee" }).eq("id", reservationId);
         await figerFactureResa(reservationId);
-        const { data: resaDate } = await supabaseAdmin.from("reservations").select("date_fin").eq("id", reservationId).maybeSingle();
+        const { data: resaDate } = await supabaseAdmin.from("reservations").select("date_fin, abonnement_id").eq("id", reservationId).maybeSingle();
         await synchroniserComptaResa(reservationId, resaDate?.date_fin ?? undefined);
+        if (resaDate?.abonnement_id) {
+          await synchroniserComptaAbonnement(resaDate.abonnement_id);
+        }
       } else {
         await supabaseAdmin.from("reservations").update({ statut: "validee" }).eq("id", reservationId);
         await defigerFactureResa(reservationId);
+        const { data: resaAbo } = await supabaseAdmin.from("reservations").select("abonnement_id").eq("id", reservationId).maybeSingle();
+        if (resaAbo?.abonnement_id) {
+          await synchroniserComptaAbonnement(resaAbo.abonnement_id);
+        }
       }
     }
   }

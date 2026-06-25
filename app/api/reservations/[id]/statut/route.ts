@@ -8,6 +8,7 @@ import { calculerMontant } from "@/src/lib/calculTarif";
 import { recalculerMontantSejour, enregistrerMontantCalcule } from "@/app/(admin)/reservations/[id]/actions";
 import { estMembreActif } from "@/src/lib/membre";
 import { creerOuMajFactureBrouillon, annulerFactureResa } from "@/src/lib/factureResa";
+import { recrediterAbonnementResa } from "@/src/lib/consommationAbonnement";
 
 export async function POST(
   req: NextRequest,
@@ -90,6 +91,11 @@ export async function POST(
       await annulerFactureResa(id);
     } catch (factErr) {
       console.error("Erreur annulation facture:", factErr);
+    }
+    try {
+      await recrediterAbonnementResa(id);
+    } catch (aboErr) {
+      console.error("Erreur recredit abonnement:", aboErr);
     }
   }
 

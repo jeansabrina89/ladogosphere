@@ -2,7 +2,9 @@
 
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { revalidatePath } from "next/cache";
 import { envoyerEmailConfirmationDemande } from "@/src/lib/email";
+import { consommerAbonnementResa } from "@/src/lib/consommationAbonnement";
 
 // ---------------------------------------------------------------------------
 // Types publics (consommés par le futur tunnel)
@@ -197,4 +199,25 @@ export async function creerDemandeReservation(
   }
 
   return { ok: true, ids: reservationIds };
+}
+
+export async function reglerReservationAvecAbonnement(
+  reservationId: string
+): Promise<{ ok?: boolean; error?: string }> {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Non connecte." };
+
+  const { data: client } = await supabaseAdmin
+    .from("clients")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  if (!client) return { error: "Client introuvable." };
+
+  const res = await consommerAbonnementResa(reservationId, client.id);
+  if (res?.error) return res;
+
+  revalidatePath(`/mon-compte/reservations/${reservationId}`);
+  return {};
 }

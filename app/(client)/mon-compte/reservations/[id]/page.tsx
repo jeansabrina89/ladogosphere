@@ -6,8 +6,11 @@ import { formatDateFR, formatHeure } from "@/src/lib/dates";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { getMouvementsAvoirReservation, getSoldeAvoir } from "@/src/lib/avoirs";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
+import { trouverAbonnementUtilisable } from "@/src/lib/consommationAbonnement";
+import { categorieJourneePourChiens, type ChienSociabilite } from "@/src/lib/abonnementsTypes";
 import { Wallet } from "lucide-react";
 import BoutonPaiementClient from "../BoutonPaiementClient";
+import BoutonReglerAbonnement from "./BoutonReglerAbonnement";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
@@ -75,7 +78,7 @@ export default async function DetailReservationClientPage({
 
   const { data: res } = await supabase
     .from("reservations")
-    .select(`*, boxes (numero, nom), reservation_chiens (chiens (nom)), reservation_extras (id, libelle, montant)`)
+    .select(`*, boxes (numero, nom), reservation_chiens (chiens (nom, doit_etre_isole)), reservation_extras (id, libelle, montant)`)
     .eq("id", id)
     .maybeSingle();
 
@@ -99,6 +102,14 @@ export default async function DetailReservationClientPage({
   const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens?.nom).filter(Boolean) ?? [];
   const resteAPayer = (res.montant_final || 0) - (res.montant_paye || 0);
 
+  const regleParAbo = !!res.abonnement_id;
+  const dogs = (res.reservation_chiens ?? []).map((rc: any) => rc.chiens).filter(Boolean) as ChienSociabilite[];
+  const categorieAbo = categorieJourneePourChiens(dogs);
+  const aboUtilisable =
+    !regleParAbo && categorieAbo && res.client_id
+      ? await trouverAbonnementUtilisable(res.client_id, categorieAbo)
+      : null;
+
   const [mouvementsAvoir, coords, soldeAvoir] = await Promise.all([
     getMouvementsAvoirReservation(supabase, res.client_id, id),
     getCoordonneesPaiement(supabaseAdmin),
@@ -106,6 +117,7 @@ export default async function DetailReservationClientPage({
   ]);
 
   const peutPayer =
+    !regleParAbo &&
     (res.statut === "validee" || res.statut === "terminee") &&
     (!res.statut_paiement || res.statut_paiement === "impaye" || res.statut_paiement === "partiel") &&
     resteAPayer > 0;
@@ -153,11 +165,24 @@ export default async function DetailReservationClientPage({
             )}
             <Ligne label="Montant">{Number(res.montant_final) > 0 ? `${Number(res.montant_final).toFixed(2)} CHF` : "—"}</Ligne>
             <Ligne label="Payé">{Number(res.montant_paye || 0).toFixed(2)} CHF</Ligne>
-            {resteAPayer > 0 && res.statut !== "annulee" && (
-              <Ligne label="Reste à payer"><span style={{ color: "#A8453A", fontWeight: 700 }}>{resteAPayer.toFixed(2)} CHF</span></Ligne>
+            {regleParAbo ? (
+              <Ligne label="Mode de règlement"><span style={{ color: "#1F6E5B", fontWeight: 700 }}>🎟️ Réglée par carte journées</span></Ligne>
+            ) : (
+              resteAPayer > 0 && res.statut !== "annulee" && (
+                <Ligne label="Reste à payer"><span style={{ color: "#A8453A", fontWeight: 700 }}>{resteAPayer.toFixed(2)} CHF</span></Ligne>
+              )
             )}
             <Ligne label="Statut paiement"><BadgePaiement statut={res.statut_paiement} /></Ligne>
           </Carte>
+
+          {res.type_reservation === "journee" &&
+            ["en_attente", "validee"].includes(res.statut) &&
+            aboUtilisable && (
+            <Carte>
+              <p style={{ ...sSecTitre, fontSize: 16, marginBottom: 10 }}>🎟️ Payer avec mon abonnement</p>
+              <BoutonReglerAbonnement reservationId={id} joursRestants={aboUtilisable.jours_restants} />
+            </Carte>
+          )}
 
           {peutPayer && (
             <Carte>
