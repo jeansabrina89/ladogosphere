@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { sauvegarderPlanning } from "./actions";
-import BoutonPdf from "./BoutonPdf";
 import { joursTravaillesSemaine, reequilibrerCfc, equilibrerPlanningMois } from "@/src/lib/planningUtils";
 
 type Employe = {
@@ -530,7 +529,13 @@ export default function GenerateurPlanning({
           style={{ backgroundColor: "#1B2B5E" }}>
           {saving ? "Sauvegarde..." : "💾 Sauvegarder"}
         </button>
-        <BoutonPdf mois={mois} annee={annee} />
+        <a
+          href={`/employes/planning-equipe?mois=${mois}&annee=${annee}`}
+          className="inline-flex items-center px-6 py-3 rounded-xl font-semibold text-white"
+          style={{ backgroundColor: "#2E8B7E" }}
+        >
+          🖨️ Imprimer le planning
+        </a>
       </div>
 
       {erreurSave && (
