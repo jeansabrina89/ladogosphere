@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { sauvegarderPlanning } from "./actions";
 import BoutonPdf from "./BoutonPdf";
-import { joursTravaillesSemaine, reequilibrerCfc } from "@/src/lib/planningUtils";
+import { joursTravaillesSemaine, reequilibrerCfc, equilibrerPlanningMois } from "@/src/lib/planningUtils";
 
 type Employe = {
   id: string;
@@ -412,6 +412,37 @@ export default function GenerateurPlanning({
         carry[emp.id] = c;
       });
     });
+
+    // Equilibrage global du mois : CFC garantie d'abord, puis 2 personnes partout,
+    // et 3 seulement si tous les jours ont deja 2 (nivellement des effectifs).
+    {
+      const joursMoisEq = Array.from(new Set(
+        semaines.flatMap(s => s.days).filter(d => d.startsWith(datePrefix))
+      )).sort();
+      const empsMeta = employesActifs.map(e => ({
+        id: e.id,
+        estCfc: e.poste === POSTE_CFC,
+        limite: maxConsecutif(e.taux_travail).exceptionnel,
+      }));
+      const statutsMois: Record<string, Record<string, string>> = {};
+      employesActifs.forEach(e => {
+        statutsMois[e.id] = {};
+        joursMoisEq.forEach(d => {
+          statutsMois[e.id][d] = nouveauPlanning[e.id]?.[d]?.statut ?? "repos";
+        });
+      });
+      const equilibre = equilibrerPlanningMois({
+        jours: joursMoisEq,
+        feries: joursFeries,
+        employes: empsMeta,
+        statuts: statutsMois,
+      });
+      employesActifs.forEach(e => {
+        joursMoisEq.forEach(d => {
+          nouveauPlanning[e.id][d] = { employe_id: e.id, date: d, statut: equilibre[e.id][d] };
+        });
+      });
+    }
 
     // Avertissement : jours du mois cible sans aucune gardienne CFC reellement presente
     const sansCfc: string[] = [];

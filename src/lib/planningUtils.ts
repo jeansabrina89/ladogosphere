@@ -142,3 +142,100 @@ export function reequilibrerCfc(args: {
 
   return travail;
 }
+
+/**
+ * Equilibrage global du mois pour le planning :
+ *  1) garantit qu'une gardienne CFC est presente chaque jour (echange depuis un jour
+ *     ou une autre CFC couvre deja), sans changer le nombre de jours de personne ;
+ *  2) nivelle les effectifs : on deplace les personnes des jours les plus charges vers
+ *     les jours les moins charges jusqu'a un ecart <= 1 (donc 2 personnes partout avant
+ *     d'en mettre 3 quelque part), en respectant la limite de jours consecutifs et sans
+ *     jamais retirer la derniere CFC d'un jour.
+ * Statuts : "travail"/"ferie_travaille" = present ; "repos" = jour libre deplacable.
+ * "vacances", "repos_vacances", "absent" ne sont jamais touches.
+ */
+export function equilibrerPlanningMois(args: {
+  jours: string[];
+  feries: string[];
+  employes: { id: string; estCfc: boolean; limite: number }[];
+  statuts: Record<string, Record<string, string>>;
+}): Record<string, Record<string, string>> {
+  const { jours, feries, employes } = args;
+  const feriesSet = new Set(feries);
+
+  const st: Record<string, Record<string, string>> = {};
+  Object.keys(args.statuts).forEach(id => { st[id] = { ...args.statuts[id] }; });
+
+  const cfcIds = employes.filter(e => e.estCfc).map(e => e.id);
+  const limiteOf: Record<string, number> = {};
+  employes.forEach(e => { limiteOf[e.id] = e.limite; });
+
+  const present = (id: string, d: string) =>
+    st[id]?.[d] === "travail" || st[id]?.[d] === "ferie_travaille";
+  const libre = (id: string, d: string) => st[id]?.[d] === "repos";
+  const effectif = (d: string) => employes.reduce((n, e) => n + (present(e.id, d) ? 1 : 0), 0);
+  const cfcCount = (d: string) => cfcIds.reduce((n, id) => n + (present(id, d) ? 1 : 0), 0);
+
+  const maxRun = (id: string): number => {
+    let run = 0, mx = 0;
+    for (const d of jours) {
+      if (present(id, d)) { run++; if (run > mx) mx = run; } else run = 0;
+    }
+    return mx;
+  };
+
+  const poser = (id: string, d: string) => { st[id][d] = feriesSet.has(d) ? "ferie_travaille" : "travail"; };
+  const liberer = (id: string, d: string) => { st[id][d] = "repos"; };
+
+  // 1) Couverture CFC
+  for (const d of jours) {
+    if (cfcCount(d) > 0) continue;
+    for (const cid of cfcIds) {
+      if (!libre(cid, d)) continue;
+      const donneur = jours.find(d2 =>
+        d2 !== d && present(cid, d2) && cfcIds.some(o => o !== cid && present(o, d2))
+      );
+      if (!donneur) continue;
+      liberer(cid, donneur);
+      poser(cid, d);
+      if (maxRun(cid) > limiteOf[cid]) {
+        liberer(cid, d);
+        poser(cid, donneur);
+        continue;
+      }
+      break;
+    }
+  }
+
+  // 2) Nivellement des effectifs
+  const MAX_ITER = jours.length * employes.length * 4 + 20;
+  for (let iter = 0; iter < MAX_ITER; iter++) {
+    const hauts = [...jours].sort((a, b) => effectif(b) - effectif(a));
+    const bas = [...jours].sort((a, b) => effectif(a) - effectif(b));
+    let bouge = false;
+    for (const dH of hauts) {
+      for (const dL of bas) {
+        if (effectif(dH) - effectif(dL) <= 1) break;
+        let trouve = false;
+        for (const e of employes) {
+          if (!present(e.id, dH) || !libre(e.id, dL)) continue;
+          if (e.estCfc && cfcCount(dH) === 1) continue;
+          liberer(e.id, dH);
+          poser(e.id, dL);
+          if (maxRun(e.id) > limiteOf[e.id]) {
+            liberer(e.id, dL);
+            poser(e.id, dH);
+            continue;
+          }
+          trouve = true;
+          break;
+        }
+        if (trouve) { bouge = true; break; }
+      }
+      if (bouge) break;
+    }
+    if (!bouge) break;
+  }
+
+  return st;
+}

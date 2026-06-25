@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { joursTravaillesSemaine, moyenneJoursTravaillesSemaine, joursVacancesTheoriques, reequilibrerCfc } from "../src/lib/planningUtils";
+import { joursTravaillesSemaine, moyenneJoursTravaillesSemaine, joursVacancesTheoriques, reequilibrerCfc, equilibrerPlanningMois } from "../src/lib/planningUtils";
 
 describe("joursTravaillesSemaine", () => {
   it("100% → 5 jours (entier, constant)", () => {
@@ -131,5 +131,73 @@ describe("reequilibrerCfc", () => {
     expect(r.F.size).toBe(2);
     expect(r.F.has(J(1))).toBe(true);
     expect(r.F.has(J(2))).toBe(true);
+  });
+});
+
+describe("equilibrerPlanningMois", () => {
+  const J = (n: number) => `2026-07-${String(n).padStart(2, "0")}`;
+  const mk = (jours: string[], days: string[]) => {
+    const o: Record<string, string> = {};
+    jours.forEach(d => { o[d] = days.includes(d) ? "travail" : "repos"; });
+    return o;
+  };
+  const cnt = (st: Record<string, Record<string, string>>, jours: string[], id: string) =>
+    jours.filter(d => st[id][d] === "travail" || st[id][d] === "ferie_travaille").length;
+
+  it("nivelle les effectifs (ecart <= 1) sans changer les taux", () => {
+    const jours = [J(1), J(2), J(3), J(4), J(5), J(6)];
+    const employes = [
+      { id: "A", estCfc: false, limite: 6 },
+      { id: "B", estCfc: false, limite: 6 },
+      { id: "C", estCfc: false, limite: 6 },
+    ];
+    const statuts = {
+      A: mk(jours, [J(1), J(2), J(3)]),
+      B: mk(jours, [J(1), J(2), J(3)]),
+      C: mk(jours, [J(1), J(2), J(3)]),
+    };
+    const r = equilibrerPlanningMois({ jours, feries: [], employes, statuts });
+    const effs = jours.map(d => ["A", "B", "C"].filter(id =>
+      r[id][d] === "travail" || r[id][d] === "ferie_travaille").length);
+    expect(Math.max(...effs) - Math.min(...effs)).toBeLessThanOrEqual(1);
+    expect(cnt(r, jours, "A")).toBe(3);
+    expect(cnt(r, jours, "B")).toBe(3);
+    expect(cnt(r, jours, "C")).toBe(3);
+  });
+
+  it("garantit une CFC chaque jour par echange, taux preserves", () => {
+    const jours = [J(1), J(2), J(3), J(4)];
+    const employes = [
+      { id: "S", estCfc: true, limite: 6 },
+      { id: "F", estCfc: true, limite: 6 },
+      { id: "A", estCfc: false, limite: 6 },
+    ];
+    const statuts = {
+      S: mk(jours, [J(1), J(2)]),
+      F: mk(jours, [J(1), J(2)]),
+      A: mk(jours, [J(3), J(4)]),
+    };
+    const r = equilibrerPlanningMois({ jours, feries: [], employes, statuts });
+    for (const d of jours) {
+      const cfc = ["S", "F"].some(id => r[id][d] === "travail" || r[id][d] === "ferie_travaille");
+      expect(cfc).toBe(true);
+    }
+    expect(cnt(r, jours, "S")).toBe(2);
+    expect(cnt(r, jours, "F")).toBe(2);
+    expect(cnt(r, jours, "A")).toBe(2);
+  });
+
+  it("laisse inchange un planning deja equilibre et couvert", () => {
+    const jours = [J(1), J(2)];
+    const employes = [
+      { id: "S", estCfc: true, limite: 6 },
+      { id: "A", estCfc: false, limite: 6 },
+    ];
+    const statuts = { S: mk(jours, [J(1), J(2)]), A: mk(jours, [J(1), J(2)]) };
+    const r = equilibrerPlanningMois({ jours, feries: [], employes, statuts });
+    expect(r.S[J(1)]).toBe("travail");
+    expect(r.S[J(2)]).toBe("travail");
+    expect(r.A[J(1)]).toBe("travail");
+    expect(r.A[J(2)]).toBe("travail");
   });
 });
