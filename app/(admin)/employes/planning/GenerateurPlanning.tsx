@@ -73,6 +73,23 @@ const ABSENCE_VIEW = ["maladie", "absent", "accident", "militaire"];
 const AUTRES_VIEW = ["repos_vacances", "heures_sup", "autre"];
 const ICONE_ABSENCE_CAL: Record<string, string> = { maladie: "🤒", absent: "❌", accident: "🩹", militaire: "🎖️" };
 
+const STYLE_IMPRESSION = `
+.titre-impression { display: none; }
+@media print {
+  @page { size: landscape; margin: 8mm; }
+  body { background: #ffffff !important; }
+  body * { visibility: hidden; }
+  #zone-impression, #zone-impression * { visibility: visible; }
+  #zone-impression {
+    position: absolute; left: 0; top: 0; width: 100%;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .no-print { display: none !important; }
+  .titre-impression { display: block !important; }
+}
+`;
+
 
 export default function GenerateurPlanning({
   employes, mois, annee, planningExistant, planningPrecedent, vacancesAcceptees, indisponibilites,
@@ -557,7 +574,9 @@ export default function GenerateurPlanning({
   };
 
   return (
-    <div>
+    <>
+      <style dangerouslySetInnerHTML={{ __html: STYLE_IMPRESSION }} />
+      <div>
       <div className="flex justify-between items-center mb-6">
         <a href={`/employes/planning?mois=${moisPrecedent}&annee=${anneePrecedente}`}
           className="px-4 py-2 rounded-xl font-semibold text-sm"
@@ -585,13 +604,13 @@ export default function GenerateurPlanning({
           style={{ backgroundColor: "#1B2B5E" }}>
           {saving ? "Sauvegarde..." : "💾 Sauvegarder"}
         </button>
-        <a
-          href={`/employes/planning-equipe?mois=${mois}&annee=${annee}`}
+        <button
+          onClick={() => window.print()}
           className="inline-flex items-center px-6 py-3 rounded-xl font-semibold text-white"
           style={{ backgroundColor: "#2E8B7E" }}
         >
           🖨️ Imprimer le planning
-        </a>
+        </button>
       </div>
 
       {erreurSave && (
@@ -612,6 +631,10 @@ export default function GenerateurPlanning({
         Clique sur un prénom pour changer son statut (Repos le retire de la case ; Vacances / Absent / Maladie l'affichent en mention). « + » ajoute une personne en présence.
       </p>
 
+      <div id="zone-impression">
+      <h2 className="titre-impression" style={{ textAlign: "center", fontWeight: 700, fontSize: 20, color: "#1B2B5E", marginBottom: 12 }}>
+        {NOMS_MOIS[mois - 1]} {annee}
+      </h2>
       <div className="grid grid-cols-7 gap-1 mb-1">
         {NOMS_JOURS_CAL.map(j => (
           <div key={j} className="text-center text-xs font-semibold py-1" style={{ color: "rgba(27,43,94,0.55)" }}>{j}</div>
@@ -695,7 +718,7 @@ export default function GenerateurPlanning({
 
               <button
                 onClick={() => setPopover(popActif && popover?.mode === "add" ? null : { date: c.dateStr, employe_id: null, mode: "add" })}
-                className="mt-auto text-xs rounded-md py-0.5"
+                className="no-print mt-auto text-xs rounded-md py-0.5"
                 style={{ color: "#9AA3B2", border: "0.5px dashed rgba(27,43,94,0.2)" }}>
                 +
               </button>
@@ -771,10 +794,12 @@ export default function GenerateurPlanning({
           <span className="inline-block rounded" style={{ width: 12, height: 12, border: "2px solid #2E8B7E" }} /> aujourd'hui
         </span>
       </div>
+      </div>
 
       {popover && (
         <div className="fixed inset-0 z-40" onClick={() => setPopover(null)} />
       )}
     </div>
+    </>
   );
 }

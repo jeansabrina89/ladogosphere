@@ -37,8 +37,7 @@ export default async function NavBarAdmin() {
     ]},
     { titre: "RH", liens: [
       { href: "/employes", label: "👥 Équipe" },
-      { href: "/employes/planning-equipe", label: "🗓️ Planning équipe" },
-      { href: "/employes/planning", label: "🛠️ Générer planning" },
+      { href: "/employes/planning", label: "🗓️ Planning équipe" },
       { href: "/employes/timbrage", label: "⏱️ Timbrage" },
       { href: "/employes/vacances", label: "🌴 Vacances" },
     ]},
