@@ -148,7 +148,7 @@ export default async function MonEspaceRHPage() {
           <Link href="/employes/planning-equipe" className="hover:shadow-md transition"
             style={{ display: "block", backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderLeft: "4px solid #4AAEA0", borderRadius: "18px", padding: "20px" }}>
             <p className="font-bold" style={{ color: "#1B2B5E" }}>👥 Planning de l'équipe</p>
-            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.45)" }}>Voir qui travaille chaque jour</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.45)" }}>Voir qui travaille — et imprimer</p>
           </Link>
           <Link href="/employes/mon-espace/indisponibilites" className="hover:shadow-md transition"
             style={{ display: "block", backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderLeft: "4px solid #E8847A", borderRadius: "18px", padding: "20px" }}>
@@ -170,17 +170,6 @@ export default async function MonEspaceRHPage() {
             <p className="font-bold" style={{ color: "#1B2B5E" }}>🔑 Changer mon mot de passe</p>
             <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.45)" }}>Modifier mon mot de passe de connexion</p>
           </Link>
-        </div>
-
-        {/* Impression du planning (vue calendrier, comme le generateur) */}
-        <div className="mb-6" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderLeft: "4px solid #C9A84C", borderRadius: "18px", padding: "20px" }}>
-          <p className="font-bold mb-1" style={{ color: "#1B2B5E" }}>🖨️ Imprimer le planning de l'équipe</p>
-          <p className="text-xs mb-3" style={{ color: "rgba(27,43,94,0.45)" }}>Ouvre le calendrier du mois, prêt à imprimer ou enregistrer en PDF</p>
-          <a href={`/employes/planning-equipe?mois=${moisActuel}&annee=${anneeActuelle}`}
-            className="inline-flex items-center px-6 py-3 rounded-xl font-semibold text-white"
-            style={{ backgroundColor: "#2E8B7E" }}>
-            🖨️ Imprimer le planning
-          </a>
         </div>
 
         {/* Dernieres demandes vacances */}
