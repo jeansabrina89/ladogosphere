@@ -8,6 +8,12 @@ export default async function NavBarAdmin() {
     .eq("statut", "en_attente");
   const nbAdhesions = count ?? 0;
 
+  const { count: cAbo } = await supabaseAdmin
+    .from("abonnements")
+    .select("id", { count: "exact", head: true })
+    .eq("statut", "en_attente_paiement");
+  const nbAbonnements = cAbo ?? 0;
+
   const SECTIONS_ADMIN: SectionNav[] = [
     { titre: null, liens: [{ href: "/", label: "📋 Tableau de bord" }] },
     { titre: "Opérationnel", liens: [
@@ -22,6 +28,7 @@ export default async function NavBarAdmin() {
       { href: "/clients", label: "👤 Clients" },
       { href: "/reservations", label: "📅 Réservations" },
       { href: "/adhesions", label: "🎫 Adhésions", badge: nbAdhesions || undefined },
+      { href: "/abonnements", label: "🎟️ Abonnements", badge: nbAbonnements || undefined },
     ]},
     { titre: "Gestion", liens: [
       { href: "/tarifs", label: "💰 Tarifs" },

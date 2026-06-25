@@ -35,7 +35,6 @@ export default async function Home() {
     { data: dernieresReservations },
     { data: arrivees },
     { data: departs },
-    { data: abonnementsAttente },
   ] = await Promise.all([
     supabaseAdmin.from("chiens").select("*", { count: "exact", head: true }).eq("actif", true),
     supabaseAdmin.from("clients").select("*", { count: "exact", head: true }).eq("actif", true),
@@ -69,14 +68,9 @@ export default async function Home() {
       .in("statut", ["arrive", "a_recuperer", "parti"])
       .gte("date_depart_prevu", `${aujourd_hui}T00:00:00Z`)
       .lte("date_depart_prevu", `${aujourd_hui}T23:59:59Z`),
-    supabaseAdmin.from("abonnements")
-      .select("id, client_id, categorie, prix_paye, date_commande, clients (prenom, nom)")
-      .eq("statut", "en_attente_paiement")
-      .order("date_commande", { ascending: false }),
   ]);
 
   const accesRapides = [
-    perms.perm_encaissements && { href: "/abonnements", label: "🎟️ Demandes d'abonnement", desc: `${abonnementsAttente?.length ?? 0} en attente` },
     perms.perm_checkin && { href: "/checkin", label: "✅ Check-in / Check-out", desc: "Gérer les arrivées et départs" },
     perms.perm_box && { href: "/planning", label: "🏠 Planning des boxes", desc: "Vue semaine et mois" },
     perms.perm_reservations_creer && { href: "/reservations/nouvelle", label: "📅 Nouvelle réservation", desc: "Créer une réservation admin" },
