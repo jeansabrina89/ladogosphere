@@ -5,7 +5,6 @@ import { formatDateFR } from "@/src/lib/dates";
 import { getEmployeRhActuel } from "@/src/lib/employeActuel";
 import { calculerDecompteHeures } from "@/src/lib/decompteHeures";
 import Link from "next/link";
-import BoutonPdf from "../planning/BoutonPdf";
 import EnTete from "@/app/components/ui/EnTete";
 import EtatVide from "@/app/components/ui/EtatVide";
 import BadgeStatut from "@/app/components/ui/BadgeStatut";
@@ -173,11 +172,15 @@ export default async function MonEspaceRHPage() {
           </Link>
         </div>
 
-        {/* Telechargement PDF du planning */}
+        {/* Impression du planning (vue calendrier, comme le generateur) */}
         <div className="mb-6" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderLeft: "4px solid #C9A84C", borderRadius: "18px", padding: "20px" }}>
-          <p className="font-bold mb-1" style={{ color: "#1B2B5E" }}>📥 Planning équipe du mois</p>
-          <p className="text-xs mb-3" style={{ color: "rgba(27,43,94,0.45)" }}>Télécharger le planning complet de l'équipe en PDF</p>
-          <BoutonPdf mois={moisActuel} annee={anneeActuelle} />
+          <p className="font-bold mb-1" style={{ color: "#1B2B5E" }}>🖨️ Imprimer le planning de l'équipe</p>
+          <p className="text-xs mb-3" style={{ color: "rgba(27,43,94,0.45)" }}>Ouvre le calendrier du mois, prêt à imprimer ou enregistrer en PDF</p>
+          <a href={`/employes/planning-equipe?mois=${moisActuel}&annee=${anneeActuelle}`}
+            className="inline-flex items-center px-6 py-3 rounded-xl font-semibold text-white"
+            style={{ backgroundColor: "#2E8B7E" }}>
+            🖨️ Imprimer le planning
+          </a>
         </div>
 
         {/* Dernieres demandes vacances */}
