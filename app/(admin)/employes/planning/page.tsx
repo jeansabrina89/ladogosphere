@@ -24,9 +24,19 @@ export default async function PlanningAdminPage({
   const dateDebutMois = `${anneeActuelle}-${String(moisActuel).padStart(2, "0")}-01`;
   const dateFinMois = new Date(anneeActuelle, moisActuel, 0).toISOString().split("T")[0];
 
+  // Fenetre du mois precedent (controle des jours consecutifs a la jonction des mois)
+  const fmtDate = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const premierDuMois = new Date(anneeActuelle, moisActuel - 1, 1);
+  const debutPrec = new Date(premierDuMois); debutPrec.setDate(premierDuMois.getDate() - 16);
+  const finPrec = new Date(premierDuMois); finPrec.setDate(premierDuMois.getDate() - 1);
+  const dateDebutPrec = fmtDate(debutPrec);
+  const dateFinPrec = fmtDate(finPrec);
+
   const [
     { data: employes },
     { data: planningExistant },
+    { data: planningPrecedent },
     { data: vacancesAcceptees },
     { data: indisponibilites },
   ] = await Promise.all([
@@ -40,6 +50,11 @@ export default async function PlanningAdminPage({
       .select("*")
       .gte("date", dateDebutMois)
       .lte("date", dateFinMois),
+    supabaseAdmin
+      .from("planning_employes")
+      .select("employe_id, date, statut")
+      .gte("date", dateDebutPrec)
+      .lte("date", dateFinPrec),
     supabaseAdmin
       .from("demandes_vacances")
       .select("*, employes_rh (id)")
@@ -72,6 +87,7 @@ export default async function PlanningAdminPage({
           mois={moisActuel}
           annee={anneeActuelle}
           planningExistant={planningExistant ?? []}
+          planningPrecedent={planningPrecedent ?? []}
           vacancesAcceptees={vacancesAcceptees ?? []}
           indisponibilites={indisponibilites ?? []}
         />

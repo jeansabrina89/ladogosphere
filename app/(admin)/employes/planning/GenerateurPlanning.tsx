@@ -75,12 +75,13 @@ const ICONE_ABSENCE_CAL: Record<string, string> = { maladie: "🤒", absent: "�
 
 
 export default function GenerateurPlanning({
-  employes, mois, annee, planningExistant, vacancesAcceptees, indisponibilites,
+  employes, mois, annee, planningExistant, planningPrecedent, vacancesAcceptees, indisponibilites,
 }: {
   employes: Employe[];
   mois: number;
   annee: number;
   planningExistant: any[];
+  planningPrecedent: any[];
   vacancesAcceptees: any[];
   indisponibilites: any[];
 }) {
@@ -215,9 +216,30 @@ export default function GenerateurPlanning({
       groupe.forEach((emp, rang) => { rangDephasage[emp.id] = rang; });
     });
 
-    // Carry inter-semaines : nb de jours de travail consécutifs terminant la semaine précédente
+    // Carry inter-semaines : nb de jours de travail consécutifs terminant la semaine précédente.
+    // Initialisé depuis la fin du mois précédent (jonction des mois) pour ne pas dépasser la
+    // limite de jours consécutifs à la frontière. La série compte les présences réelles
+    // (travail / ferie_travaille) finissant la veille du premier lundi de la grille.
     const carry: Record<string, number> = {};
-    employesActifs.forEach(emp => { carry[emp.id] = 0; });
+    const veilleDepart = new Date(lundiDepart);
+    veilleDepart.setDate(lundiDepart.getDate() - 1);
+    employesActifs.forEach(emp => {
+      let serie = 0;
+      const cur = new Date(veilleDepart);
+      for (let k = 0; k < 8; k++) {
+        const ds = toDateStr(cur);
+        const ligne = (planningPrecedent ?? []).find(
+          (p: any) => p.employe_id === emp.id && p.date === ds
+        );
+        if (ligne && (ligne.statut === "travail" || ligne.statut === "ferie_travaille")) {
+          serie++;
+          cur.setDate(cur.getDate() - 1);
+        } else {
+          break;
+        }
+      }
+      carry[emp.id] = serie;
+    });
 
     // Toutes les combinaisons de k éléments parmi arr (ordre préservé)
     const combinations = (arr: string[], k: number): string[][] => {
