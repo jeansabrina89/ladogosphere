@@ -450,6 +450,16 @@ export default function GenerateurPlanning({
 
   const dates = getDates();
 
+  const employesAffichage = employes
+    .filter(e => e.actif)
+    .sort((a, b) => {
+      const aCfc = a.poste === "Gardien-ne d'animaux CFC" ? 0 : 1;
+      const bCfc = b.poste === "Gardien-ne d'animaux CFC" ? 0 : 1;
+      if (aCfc !== bCfc) return aCfc - bCfc;
+      if (b.taux_travail !== a.taux_travail) return b.taux_travail - a.taux_travail;
+      return a.nom.localeCompare(b.nom);
+    });
+
   const getStats = (emp: Employe) => {
     const p = planning[emp.id] || {};
     return {
@@ -539,7 +549,7 @@ export default function GenerateurPlanning({
             </tr>
           </thead>
           <tbody>
-            {employes.filter(e => e.actif).map((emp, idx) => {
+            {employesAffichage.map((emp, idx) => {
               const stats = getStats(emp);
               return (
                 <tr key={emp.id} style={{ borderBottom: "1px solid #E2E8F0" }}
