@@ -1,0 +1,3 @@
+ALTER TABLE employes_rh 
+ADD COLUMN IF NOT EXISTS numero_avs TEXT,
+ADD COLUMN IF NOT EXISTS date_naissance DATE;
