@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CreditCard, Smartphone, Landmark, Wallet } from "lucide-react";
+import { reglerReservationAvecAbonnement } from "./actions";
 
 export default function BoutonPaiementClient({
   reservation_id,
@@ -13,6 +14,8 @@ export default function BoutonPaiementClient({
   montant_paye,
   statut_paiement,
   soldeAvoir,
+  abonnementDisponible,
+  joursAbonnement,
 }: {
   reservation_id: string;
   numero: number;
@@ -22,14 +25,18 @@ export default function BoutonPaiementClient({
   montant_paye: number;
   statut_paiement: string;
   soldeAvoir: number;
+  abonnementDisponible?: boolean;
+  joursAbonnement?: number;
 }) {
   const router = useRouter();
   const [ouvert, setOuvert] = useState(false);
-  const [methode, setMethode] = useState<"" | "iban" | "stripe" | "twint" | "avoir">("");
+  const [methode, setMethode] = useState<"" | "iban" | "stripe" | "twint" | "avoir" | "abonnement">("");
   const resteInitial = Math.max(0, montant_final - (montant_paye || 0));
   const [montantASaisir, setMontantASaisir] = useState(resteInitial.toFixed(2));
   const [avoirLoading, setAvoirLoading] = useState(false);
   const [avoirErreur, setAvoirErreur] = useState<string | null>(null);
+  const [aboLoading, setAboLoading] = useState(false);
+  const [aboErreur, setAboErreur] = useState<string | null>(null);
 
   const montantNum = parseFloat(montantASaisir) || 0;
 
@@ -37,6 +44,7 @@ export default function BoutonPaiementClient({
     setMethode("");
     setMontantASaisir(resteInitial.toFixed(2));
     setAvoirErreur(null);
+    setAboErreur(null);
     setOuvert(false);
   };
 
@@ -136,6 +144,21 @@ export default function BoutonPaiementClient({
                     </div>
                   </button>
 
+                  {abonnementDisponible && (
+                    <button
+                      onClick={() => { setAboErreur(null); setMethode("abonnement"); }}
+                      className="w-full border-2 rounded-xl p-4 flex items-center gap-3 hover:bg-slate-50 transition"
+                      style={{ borderColor: "#E2E8F0" }}>
+                      <Wallet size={24} style={{ color: "#4AAEA0" }} />
+                      <div className="text-left">
+                        <p className="font-semibold" style={{ color: "#1B2B5E" }}>Mon abonnement</p>
+                        <p className="text-xs text-gray-400">
+                          Régler cette journée avec votre carte ({joursAbonnement} journée{joursAbonnement !== 1 ? "s" : ""} restante{joursAbonnement !== 1 ? "s" : ""})
+                        </p>
+                      </div>
+                    </button>
+                  )}
+
                   {soldeAvoir > 0 && (
                     <button
                       onClick={() => { setAvoirErreur(null); setMethode("avoir"); }}
@@ -195,6 +218,45 @@ export default function BoutonPaiementClient({
                     className="flex-1 py-2 rounded-xl font-semibold text-sm text-white disabled:opacity-50"
                     style={{ backgroundColor: "#4AAEA0" }}>
                     {avoirLoading ? "…" : `✅ Confirmer ${resteInitial.toFixed(2)} CHF`}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {methode === "abonnement" && (
+              <div className="space-y-4">
+                <div className="rounded-xl p-4" style={{ backgroundColor: "#E8F5F4" }}>
+                  <p className="font-bold mb-3 flex items-center gap-2" style={{ color: "#1B2B5E" }}>
+                    <Wallet size={18} style={{ color: "#4AAEA0" }} />Paiement par abonnement
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    1 journée sera déduite de votre carte ({joursAbonnement} journée{joursAbonnement !== 1 ? "s" : ""} restante{joursAbonnement !== 1 ? "s" : ""}).
+                  </p>
+                </div>
+                {aboErreur && <p className="text-xs text-red-600">{aboErreur}</p>}
+                <div className="flex gap-3">
+                  <button onClick={() => setMethode("")}
+                    className="flex-1 py-2 rounded-xl font-semibold text-sm"
+                    style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
+                    ← Retour
+                  </button>
+                  <button
+                    disabled={aboLoading}
+                    onClick={async () => {
+                      setAboLoading(true);
+                      setAboErreur(null);
+                      const r = await reglerReservationAvecAbonnement(reservation_id);
+                      if (r?.error) {
+                        setAboErreur(r.error);
+                        setAboLoading(false);
+                      } else {
+                        router.refresh();
+                        reset();
+                      }
+                    }}
+                    className="flex-1 py-2 rounded-xl font-semibold text-sm text-white disabled:opacity-50"
+                    style={{ backgroundColor: "#4AAEA0" }}>
+                    {aboLoading ? "…" : "✅ Confirmer"}
                   </button>
                 </div>
               </div>

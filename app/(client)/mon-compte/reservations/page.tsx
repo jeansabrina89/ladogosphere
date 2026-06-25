@@ -10,6 +10,8 @@ import FiltresPeriode from "./FiltresPeriode";
 import { aujourdhuiISO } from "@/src/lib/reservationsFiltres";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { getSoldeAvoir } from "@/src/lib/avoirs";
+import { getAbonnementsClient } from "@/src/lib/abonnementSolde";
+import { categorieJourneePourChiens, type ChienSociabilite } from "@/src/lib/abonnementsTypes";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
@@ -73,14 +75,25 @@ export default async function MesReservationsPage({
 
   const { data: reservationsData } = await supabase
     .from("reservations")
-    .select(`*, boxes (numero, nom), reservation_chiens (chiens (nom))`)
+    .select(`*, boxes (numero, nom), reservation_chiens (chiens (nom, doit_etre_isole))`)
     .eq("client_id", client.id)
     .order("date_debut", { ascending: false });
 
-  const [coords, soldeAvoir] = await Promise.all([
+  const today = new Date().toISOString().split("T")[0];
+  const [coords, soldeAvoir, abos] = await Promise.all([
     getCoordonneesPaiement(supabaseAdmin),
     getSoldeAvoir(supabaseAdmin, client.id),
+    getAbonnementsClient(client.id),
   ]);
+
+  const cartesParCategorie = new Map<string, number>();
+  for (const a of abos) {
+    const valide = a.statut === "actif" && a.jours_restants >= 1 &&
+      (!a.date_expiration || a.date_expiration >= today);
+    if (valide && a.categorie) {
+      cartesParCategorie.set(a.categorie, Math.max(cartesParCategorie.get(a.categorie) ?? 0, a.jours_restants));
+    }
+  }
 
   const aujourd_hui = aujourdhuiISO();
   const estAnnulee = (r: any) => r.statut === "annulee" || r.statut === "refusee";
@@ -147,6 +160,12 @@ export default async function MesReservationsPage({
               const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens?.nom).filter(Boolean) ?? [];
               const resteAPayer = reste(res);
               const montrerPayer = peutPayer(res);
+              const dogs = (res.reservation_chiens ?? []).map((rc: any) => rc.chiens).filter(Boolean) as ChienSociabilite[];
+              const categorieAbo = categorieJourneePourChiens(dogs);
+              const abonnementDisponible =
+                res.type_reservation === "journee" && res.statut === "validee" && !res.abonnement_id &&
+                categorieAbo != null && cartesParCategorie.has(categorieAbo);
+              const joursAbonnement = categorieAbo ? (cartesParCategorie.get(categorieAbo) ?? 0) : 0;
               const bs = badgeStatut(res.statut);
               const bp = badgePaiement(res.statut_paiement);
               return (
@@ -183,6 +202,8 @@ export default async function MesReservationsPage({
                         montant_paye={res.montant_paye || 0}
                         statut_paiement={res.statut_paiement || "impaye"}
                         soldeAvoir={soldeAvoir}
+                        abonnementDisponible={abonnementDisponible}
+                        joursAbonnement={joursAbonnement}
                       />
                     ) : null}
                   </div>
