@@ -13,6 +13,7 @@ type Employe = {
   taux_travail: number;
   email: string;
   actif: boolean;
+  poste?: string | null;
 };
 
 type JourPlanning = {
@@ -353,6 +354,26 @@ export default function GenerateurPlanning({
           if (forceable) joursChoisis[forceable.id].add(dateStr);
         }
       });
+
+      // Secours CFC : au moins une gardienne CFC (poste CFC) presente chaque jour du mois cible
+      const POSTE_CFC = "Gardien-ne d'animaux CFC";
+      const cfcActifs = employesActifs.filter(e => e.poste === POSTE_CFC);
+      if (cfcActifs.length > 0) {
+        semaine.forEach(dateStr => {
+          if (!dateStr.startsWith(datePrefix)) return;
+          const cfcPresent = cfcActifs.some(emp =>
+            joursChoisis[emp.id].has(dateStr) || fixes[emp.id][dateStr] === "travail"
+          );
+          if (cfcPresent) return;
+          const candidates = cfcActifs
+            .filter(emp => !fixes[emp.id][dateStr] && !joursChoisis[emp.id].has(dateStr))
+            .sort((a, b) => joursChoisis[a.id].size - joursChoisis[b.id].size);
+          if (candidates.length > 0) {
+            joursChoisis[candidates[0].id].add(dateStr);
+            presence[dateStr] = (presence[dateStr] ?? 0) + 1;
+          }
+        });
+      }
 
       // Écrire les statuts dans nouveauPlanning (UNIQUEMENT les jours du mois cible)
       employesActifs.forEach(emp => {
