@@ -201,3 +201,38 @@ describe("equilibrerPlanningMois", () => {
     expect(r.A[J(2)]).toBe("travail");
   });
 });
+
+describe("equilibrerPlanningMois - week-ends", () => {
+  // 2026-07-04 = samedi, 2026-07-05 = dimanche, 2026-07-06 = lundi, 2026-07-07 = mardi
+  const J = (n: number) => `2026-07-${String(n).padStart(2, "0")}`;
+  const mk = (jours: string[], days: string[]) => {
+    const o: Record<string, string> = {};
+    jours.forEach(d => { o[d] = days.includes(d) ? "travail" : "repos"; });
+    return o;
+  };
+  const cnt = (st: Record<string, Record<string, string>>, jours: string[], id: string) =>
+    jours.filter(d => st[id][d] === "travail" || st[id][d] === "ferie_travaille").length;
+  const weOf = (jours: string[]) => jours.filter(d => {
+    const dow = new Date(d + "T12:00:00").getDay();
+    return dow === 0 || dow === 6;
+  });
+
+  it("equilibre les week-ends au sein d'un groupe (ecart <= 1), taux preserves", () => {
+    const jours = [J(4), J(5), J(6), J(7)]; // sam, dim, lun, mar
+    const employes = [
+      { id: "S", estCfc: true, limite: 6 },
+      { id: "F", estCfc: true, limite: 6 },
+    ];
+    const statuts = {
+      S: mk(jours, [J(4), J(5)]),
+      F: mk(jours, [J(6), J(7)]),
+    };
+    const r = equilibrerPlanningMois({ jours, feries: [], employes, statuts });
+    const we = weOf(jours);
+    const weS = we.filter(d => r.S[d] === "travail" || r.S[d] === "ferie_travaille").length;
+    const weF = we.filter(d => r.F[d] === "travail" || r.F[d] === "ferie_travaille").length;
+    expect(Math.abs(weS - weF)).toBeLessThanOrEqual(1);
+    expect(cnt(r, jours, "S")).toBe(2);
+    expect(cnt(r, jours, "F")).toBe(2);
+  });
+});

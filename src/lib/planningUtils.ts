@@ -237,5 +237,49 @@ export function equilibrerPlanningMois(args: {
     if (!bouge) break;
   }
 
+  // 3) Rotation des week-ends : equilibre le nombre de WE travailles au sein de chaque groupe
+  const weJours = new Set(jours.filter(d => {
+    const dow = new Date(d + "T12:00:00").getDay();
+    return dow === 0 || dow === 6;
+  }));
+
+  if (weJours.size > 0) {
+    const groupes: string[][] = [
+      employes.filter(e => e.estCfc).map(e => e.id),
+      employes.filter(e => !e.estCfc).map(e => e.id),
+    ];
+
+    for (const groupe of groupes) {
+      if (groupe.length < 2) continue;
+      const MAX_WE = groupe.length * groupe.length * (weJours.size + 1);
+      for (let iter = 0; iter < MAX_WE; iter++) {
+        const weCount = (id: string) => [...weJours].filter(d => present(id, d)).length;
+        const tries = [...groupe].sort((a, b) => weCount(b) - weCount(a));
+        const donneur = tries[0];
+        const receveur = tries[tries.length - 1];
+        if (weCount(donneur) - weCount(receveur) <= 1) break;
+
+        const weD = [...weJours].filter(d => present(donneur, d) && libre(receveur, d));
+        const nonWeR = jours.filter(d => !weJours.has(d) && present(receveur, d) && libre(donneur, d));
+        if (weD.length === 0 || nonWeR.length === 0) break;
+
+        let fait = false;
+        for (const dWe of weD) {
+          if (fait) break;
+          for (const dNW of nonWeR) {
+            liberer(donneur, dWe); poser(donneur, dNW);
+            liberer(receveur, dNW); poser(receveur, dWe);
+            if (maxRun(donneur) <= limiteOf[donneur] && maxRun(receveur) <= limiteOf[receveur]) {
+              fait = true; break;
+            }
+            poser(donneur, dWe); liberer(donneur, dNW);
+            poser(receveur, dNW); liberer(receveur, dWe);
+          }
+        }
+        if (!fait) break;
+      }
+    }
+  }
+
   return st;
 }
