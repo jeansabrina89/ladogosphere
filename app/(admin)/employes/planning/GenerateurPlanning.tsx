@@ -56,6 +56,23 @@ function getJoursFeries(annee: number): string[] {
 const NOMS_MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
+// ── Vue calendrier éditable ──────────────────────────────────────────────────
+const PALETTE_CAL: { bg: string; fg: string }[] = [
+  { bg: "#DBEFEA", fg: "#1F6E5B" },
+  { bg: "#F4EAC9", fg: "#6E5410" },
+  { bg: "#FBE2DE", fg: "#A8453A" },
+  { bg: "#E0E7FF", fg: "#283C7A" },
+  { bg: "#EDE7F6", fg: "#5B3E8E" },
+  { bg: "#E6F0D9", fg: "#3B6D11" },
+  { bg: "#FDE8D0", fg: "#9A5B12" },
+  { bg: "#E2EEF6", fg: "#185FA5" },
+];
+const NOMS_JOURS_CAL = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+const PRESENCE_VIEW = ["travail", "ferie_travaille"];
+const ABSENCE_VIEW = ["maladie", "absent", "accident", "militaire"];
+const AUTRES_VIEW = ["repos_vacances", "heures_sup", "autre"];
+const ICONE_ABSENCE_CAL: Record<string, string> = { maladie: "🤒", absent: "❌", accident: "🩹", militaire: "🎖️" };
+
 
 export default function GenerateurPlanning({
   employes, mois, annee, planningExistant, vacancesAcceptees, indisponibilites,
@@ -71,7 +88,7 @@ export default function GenerateurPlanning({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [erreurSave, setErreurSave] = useState<string | null>(null);
-  const [celluleActive, setCelluleActive] = useState<{ employe_id: string; date: string } | null>(null);
+  const [popover, setPopover] = useState<{ date: string; employe_id: string | null; mode: "statut" | "add" } | null>(null);
   const [joursSansCfc, setJoursSansCfc] = useState<string[]>([]);
 
   const joursParMois = new Date(annee, mois, 0).getDate();
@@ -117,18 +134,12 @@ export default function GenerateurPlanning({
 
   const getStatut = (id: string, d: string) => planning[id]?.[d]?.statut || null;
 
-  const getStyle = (statut: string | null, estWE: boolean) => {
-    if (!statut) return { bg: estWE ? "#F8FAFC" : "white", text: "#CBD5E1" };
-    const s = STATUTS.find(x => x.val === statut);
-    return { bg: s?.bg || "white", text: s?.text || "#6B7280" };
-  };
-
   const changerStatut = (employe_id: string, date: string, statut: string) => {
     setPlanning(prev => ({
       ...prev,
       [employe_id]: { ...prev[employe_id], [date]: { employe_id, date, statut } }
     }));
-    setCelluleActive(null);
+    setPopover(null);
   };
 
   const generer = async () => {
@@ -478,8 +489,6 @@ export default function GenerateurPlanning({
     }
   };
 
-  const dates = getDates();
-
   const employesAffichage = employes
     .filter(e => e.actif)
     .sort((a, b) => {
@@ -490,14 +499,39 @@ export default function GenerateurPlanning({
       return a.nom.localeCompare(b.nom);
     });
 
-  const getStats = (emp: Employe) => {
+  const estCfc = (e: Employe) => e.poste === "Gardien-ne d'animaux CFC";
+
+  const couleurParId: Record<string, { bg: string; fg: string }> = {};
+  const prenomParId: Record<string, string> = {};
+  employesAffichage.forEach((e, i) => {
+    couleurParId[e.id] = PALETTE_CAL[i % PALETTE_CAL.length];
+    prenomParId[e.id] = e.prenom;
+  });
+
+  const offsetCal = (new Date(annee, mois - 1, 1).getDay() + 6) % 7;
+  const casesCal: ({ jour: number; dateStr: string; weekend: boolean } | null)[] = [];
+  for (let k = 0; k < offsetCal; k++) casesCal.push(null);
+  for (let d = 1; d <= joursParMois; d++) {
+    const ds = `${annee}-${String(mois).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    casesCal.push({ jour: d, dateStr: ds, weekend: estWeekend(ds) });
+  }
+  const aujourdhuiStr = new Date().toISOString().split("T")[0];
+
+  const presentsDe = (ds: string) => employesAffichage.filter(e => PRESENCE_VIEW.includes(getStatut(e.id, ds) ?? ""));
+  const vacancesDe = (ds: string) => employesAffichage.filter(e => getStatut(e.id, ds) === "vacances");
+  const absencesDe = (ds: string) => employesAffichage.filter(e => ABSENCE_VIEW.includes(getStatut(e.id, ds) ?? ""));
+  const autresDe   = (ds: string) => employesAffichage.filter(e => AUTRES_VIEW.includes(getStatut(e.id, ds) ?? ""));
+
+  const statsEmp = (emp: Employe) => {
     const p = planning[emp.id] || {};
-    return {
-      joursT:  Object.values(p).filter(j => j.statut === "travail").length,
-      joursV:  Object.values(p).filter(j => j.statut === "vacances").length,
-      joursFT: Object.values(p).filter(j => j.statut === "ferie_travaille").length,
-      joursHS: Object.values(p).filter(j => j.statut === "heures_sup").length,
-    };
+    let jours = 0, we = 0;
+    Object.values(p).forEach(j => {
+      if (PRESENCE_VIEW.includes(j.statut)) {
+        jours++;
+        if (estWeekend(j.date)) we++;
+      }
+    });
+    return { jours, we };
   };
 
   return (
@@ -552,96 +586,172 @@ export default function GenerateurPlanning({
         </div>
       )}
 
-      <div className="bg-white rounded-xl p-4 shadow-sm mb-4">
-        <div className="flex flex-wrap gap-2">
-          {STATUTS.map(s => (
-            <span key={s.val} className="px-2 py-1 rounded-full text-xs font-semibold"
-              style={{ backgroundColor: s.bg, color: s.text }}>
-              {s.label}
-            </span>
-          ))}
+      <p className="text-sm mb-3" style={{ color: "rgba(27,43,94,0.6)" }}>
+        Clique sur un prénom pour changer son statut (Repos le retire de la case ; Vacances / Absent / Maladie l'affichent en mention). « + » ajoute une personne en présence.
+      </p>
+
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {NOMS_JOURS_CAL.map(j => (
+          <div key={j} className="text-center text-xs font-semibold py-1" style={{ color: "rgba(27,43,94,0.55)" }}>{j}</div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-7 gap-1">
+        {casesCal.map((c, i) => {
+          if (!c) return <div key={`v${i}`} />;
+          const presents = presentsDe(c.dateStr);
+          const vacs = vacancesDe(c.dateStr);
+          const abs = absencesDe(c.dateStr);
+          const autres = autresDe(c.dateStr);
+          const estF = estFerie(c.dateStr);
+          const estAuj = c.dateStr === aujourdhuiStr;
+          const seul = presents.length === 1;
+          const popActif = popover?.date === c.dateStr;
+          const dejaPresent = new Set(presents.map(e => e.id));
+          const ajoutables = employesAffichage.filter(e => !dejaPresent.has(e.id));
+          return (
+            <div key={c.dateStr} className="rounded-lg p-1.5 flex flex-col gap-1"
+              style={{
+                minHeight: 108,
+                position: "relative",
+                zIndex: popActif ? 50 : 1,
+                background: estF ? "#F8EFD3" : c.weekend ? "#EDE8DF" : "#FFFFFF",
+                border: estAuj ? "2px solid #2E8B7E" : estF ? "0.5px solid #C9A84C" : "0.5px solid rgba(27,43,94,0.12)",
+              }}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: estAuj ? "#2E8B7E" : "rgba(27,43,94,0.55)", fontWeight: estAuj ? 800 : 600 }}>{c.jour}</span>
+                <span className="flex items-center gap-1">
+                  {seul && (
+                    <span title="Une seule personne ce jour"
+                      style={{ fontSize: 9, fontWeight: 700, color: "#B45309", background: "#FEF3C7", borderRadius: 4, padding: "0 4px" }}>seul</span>
+                  )}
+                  {estAuj
+                    ? <span style={{ fontSize: 10, fontWeight: 700, color: "#2E8B7E" }}>Auj.</span>
+                    : estF ? <span style={{ fontSize: 10, fontWeight: 700, color: "#6E5410" }}>Férié</span> : null}
+                </span>
+              </div>
+
+              {presents.map(e => (
+                <button key={e.id}
+                  onClick={() => setPopover(popActif && popover?.employe_id === e.id && popover?.mode === "statut" ? null : { date: c.dateStr, employe_id: e.id, mode: "statut" })}
+                  className="text-xs rounded-full px-2 truncate text-left flex items-center gap-1"
+                  style={{ background: couleurParId[e.id]?.bg, color: couleurParId[e.id]?.fg, lineHeight: "1.7" }}>
+                  {estCfc(e) && <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: couleurParId[e.id]?.fg, flex: "0 0 auto" }} />}
+                  {getStatut(e.id, c.dateStr) === "ferie_travaille" ? "🎉 " : ""}{e.prenom}
+                </button>
+              ))}
+
+              {abs.map(e => (
+                <button key={`a-${e.id}`}
+                  onClick={() => setPopover({ date: c.dateStr, employe_id: e.id, mode: "statut" })}
+                  className="text-xs rounded-full px-2 truncate text-left"
+                  style={{ background: "#FBE2DE", color: "#A8453A", lineHeight: "1.7" }}>
+                  {ICONE_ABSENCE_CAL[getStatut(e.id, c.dateStr) ?? ""] ?? "⚠️"} {e.prenom}
+                </button>
+              ))}
+
+              {vacs.map(e => (
+                <button key={`v-${e.id}`}
+                  onClick={() => setPopover({ date: c.dateStr, employe_id: e.id, mode: "statut" })}
+                  className="text-xs rounded-full px-2 truncate text-left"
+                  style={{ background: "#F1ECE3", color: "#9A8F7E", lineHeight: "1.7" }}>
+                  🌴 {e.prenom}
+                </button>
+              ))}
+
+              {autres.map(e => {
+                const st = STATUTS.find(s => s.val === getStatut(e.id, c.dateStr));
+                return (
+                  <button key={`o-${e.id}`}
+                    onClick={() => setPopover({ date: c.dateStr, employe_id: e.id, mode: "statut" })}
+                    className="text-xs rounded-full px-2 truncate text-left"
+                    style={{ background: st?.bg, color: st?.text, lineHeight: "1.7" }}>
+                    {st?.emoji} {e.prenom}
+                  </button>
+                );
+              })}
+
+              <button
+                onClick={() => setPopover(popActif && popover?.mode === "add" ? null : { date: c.dateStr, employe_id: null, mode: "add" })}
+                className="mt-auto text-xs rounded-md py-0.5"
+                style={{ color: "#9AA3B2", border: "0.5px dashed rgba(27,43,94,0.2)" }}>
+                +
+              </button>
+
+              {popActif && popover?.mode === "statut" && popover.employe_id && (
+                <div className="absolute z-50 bg-white rounded-xl shadow-xl border p-2"
+                  style={{ minWidth: 150, left: 4, top: 30 }}>
+                  <div className="text-xs font-semibold mb-1 px-1" style={{ color: "#1B2B5E" }}>{prenomParId[popover.employe_id]}</div>
+                  {STATUTS.map(s => (
+                    <button key={s.val} onClick={() => changerStatut(popover.employe_id!, popover.date, s.val)}
+                      className="w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-80 mb-1"
+                      style={{ backgroundColor: s.bg, color: s.text }}>
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {popActif && popover?.mode === "add" && (
+                <div className="absolute z-50 bg-white rounded-xl shadow-xl border p-2"
+                  style={{ minWidth: 160, left: 4, top: 30 }}>
+                  <div className="text-xs font-semibold mb-1 px-1" style={{ color: "#1B2B5E" }}>Ajouter (présent)</div>
+                  {ajoutables.length === 0 && (
+                    <div className="text-xs px-1 py-1" style={{ color: "#9AA3B2" }}>Tout le monde est déjà présent</div>
+                  )}
+                  {ajoutables.map(e => (
+                    <button key={e.id} onClick={() => changerStatut(e.id, c.dateStr, "travail")}
+                      className="w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-80 mb-1 flex items-center gap-2"
+                      style={{ backgroundColor: couleurParId[e.id]?.bg, color: couleurParId[e.id]?.fg }}>
+                      {estCfc(e) && <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: couleurParId[e.id]?.fg }} />}
+                      {e.prenom}{estCfc(e) ? " · CFC" : ""}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-5 bg-white rounded-xl p-4 shadow-sm">
+        <div className="text-xs font-semibold mb-2" style={{ color: "rgba(27,43,94,0.55)" }}>Récapitulatif du mois</div>
+        <div className="flex flex-wrap gap-x-5 gap-y-2">
+          {employesAffichage.map(e => {
+            const s = statsEmp(e);
+            return (
+              <div key={e.id} className="flex items-center gap-2 text-sm" style={{ color: "#1B2B5E" }}>
+                <span className="inline-block rounded-full" style={{ width: 11, height: 11, background: couleurParId[e.id]?.fg }} />
+                {estCfc(e) && <span style={{ fontSize: 10, color: "#1F6E5B", fontWeight: 700 }}>CFC</span>}
+                <span className="font-semibold">{e.prenom}</span>
+                <span style={{ color: "rgba(27,43,94,0.6)" }}>{s.jours} j · {s.we} we · {e.taux_travail}%</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm overflow-x-auto">
-        <table className="min-w-full">
-          <thead>
-            <tr style={{ backgroundColor: "#1B2B5E" }}>
-              <th className="px-4 py-3 text-left text-sm font-semibold text-white sticky left-0"
-                style={{ backgroundColor: "#1B2B5E", minWidth: "150px" }}>Employé</th>
-              {dates.map(dateStr => {
-                const d = new Date(dateStr + "T12:00:00");
-                const estWE = [0, 6].includes(d.getDay());
-                const estF = estFerie(dateStr);
-                return (
-                  <th key={dateStr} className="px-1 py-2 text-center text-xs font-semibold text-white"
-                    style={{ minWidth: "36px", backgroundColor: estWE ? "#0f1d3e" : estF ? "#2d4a8a" : "#1B2B5E" }}>
-                    <div>{["Di", "Lu", "Ma", "Me", "Je", "Ve", "Sa"][d.getDay()]}</div>
-                    <div>{d.getDate()}</div>
-                  </th>
-                );
-              })}
-              <th className="px-3 py-3 text-center text-xs font-semibold text-white">Stats</th>
-            </tr>
-          </thead>
-          <tbody>
-            {employesAffichage.map((emp, idx) => {
-              const stats = getStats(emp);
-              return (
-                <tr key={emp.id} style={{ borderBottom: "1px solid #E2E8F0" }}
-                  className={idx % 2 === 0 ? "bg-white" : "bg-slate-50"}>
-                  <td className="px-4 py-2 sticky left-0 bg-white font-semibold text-sm"
-                    style={{ color: "#1B2B5E", borderRight: "1px solid #E2E8F0" }}>
-                    {emp.prenom} {emp.nom}
-                    <span className="block text-xs text-gray-400 font-normal">{emp.taux_travail}%</span>
-                  </td>
-                  {dates.map(dateStr => {
-                    const statut = getStatut(emp.id, dateStr);
-                    const estWE = estWeekend(dateStr);
-                    const estF = estFerie(dateStr);
-                    const style = getStyle(statut, estWE);
-                    const estActif = celluleActive?.employe_id === emp.id && celluleActive?.date === dateStr;
-                    return (
-                      <td key={dateStr} className="p-0.5 relative">
-                        <button
-                          onClick={() => setCelluleActive(estActif ? null : { employe_id: emp.id, date: dateStr })}
-                          className="w-full h-8 rounded text-xs font-semibold transition"
-                          style={{
-                            backgroundColor: style.bg, color: style.text,
-                            border: estActif ? "2px solid #4AAEA0" : estF ? "1px dashed #D97706" : "1px solid #E2E8F0",
-                          }}>
-                          {statut ? (STATUTS.find(s => s.val === statut)?.emoji ?? "") : estF ? "🎉" : ""}
-                        </button>
-                        {estActif && (
-                          <div className="absolute z-50 top-9 left-0 bg-white rounded-xl shadow-xl border p-2"
-                            style={{ minWidth: "160px" }}>
-                            {STATUTS.map(s => (
-                              <button key={s.val} onClick={() => changerStatut(emp.id, dateStr, s.val)}
-                                className="w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-80 mb-1"
-                                style={{ backgroundColor: s.bg, color: s.text }}>
-                                {s.label}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
-                  <td className="px-3 py-2 text-xs text-center">
-                    <div style={{ color: "#4AAEA0" }} className="font-bold">{stats.joursT}j ✅</div>
-                    {stats.joursV  > 0 && <div style={{ color: "#CA8A04" }}>{stats.joursV}j 🏖️</div>}
-                    {stats.joursFT > 0 && <div style={{ color: "#D97706" }}>{stats.joursFT}j 🎉</div>}
-                    {stats.joursHS > 0 && <div style={{ color: "#2563EB" }}>{stats.joursHS}j ⏱️</div>}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      <div className="flex flex-wrap gap-3 mt-4 text-sm">
+        <span className="flex items-center gap-2" style={{ color: "#1B2B5E" }}>
+          <span className="inline-block rounded-full" style={{ width: 6, height: 6, background: "#1F6E5B" }} /> point = gardienne CFC
+        </span>
+        <span className="flex items-center gap-2" style={{ color: "#A8453A" }}>
+          <span className="inline-block rounded" style={{ width: 12, height: 12, background: "#FBE2DE", border: "1px solid #A8453A" }} /> absent / malade
+        </span>
+        <span className="flex items-center gap-2" style={{ color: "#9A8F7E" }}>🌴 vacances</span>
+        <span className="flex items-center gap-2" style={{ color: "#6E5410" }}>
+          <span className="inline-block rounded" style={{ width: 12, height: 12, background: "#F8EFD3", border: "1px solid #C9A84C" }} /> férié
+        </span>
+        <span className="flex items-center gap-2" style={{ color: "#B45309" }}>
+          <span style={{ fontSize: 9, fontWeight: 700, background: "#FEF3C7", borderRadius: 4, padding: "0 4px" }}>seul</span> 1 seule personne
+        </span>
+        <span className="flex items-center gap-2" style={{ color: "#2E8B7E" }}>
+          <span className="inline-block rounded" style={{ width: 12, height: 12, border: "2px solid #2E8B7E" }} /> aujourd'hui
+        </span>
       </div>
 
-      {celluleActive && (
-        <div className="fixed inset-0 z-40" onClick={() => setCelluleActive(null)} />
+      {popover && (
+        <div className="fixed inset-0 z-40" onClick={() => setPopover(null)} />
       )}
     </div>
   );
