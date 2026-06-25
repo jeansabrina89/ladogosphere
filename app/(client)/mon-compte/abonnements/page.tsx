@@ -4,13 +4,12 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { estMembreActif } from "@/src/lib/membre";
 import { TYPES_ABONNEMENT, JOURS_PAR_CARTE, JOURS_PAYES, labelAbonnement, cartesEligibles, type ChienSociabilite } from "@/src/lib/abonnementsTypes";
-import { getAbonnementsClient } from "@/src/lib/abonnementSolde";
+import { getAbonnementsClient, type AbonnementClient } from "@/src/lib/abonnementSolde";
 import { formatDateFR } from "@/src/lib/dates";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import BadgeStatut from "@/app/components/ui/BadgeStatut";
-import EtatVide from "@/app/components/ui/EtatVide";
 import BoutonCommander from "./BoutonCommander";
 
 const MARINE = "#1B2B5E";
@@ -45,6 +44,9 @@ export default async function AbonnementsPage() {
 
   const abonnements = await getAbonnementsClient(client.id);
 
+  const actifs   = abonnements.filter((a) => a.statut === "actif" || a.statut === "en_attente_paiement");
+  const termines = abonnements.filter((a) => ["epuise", "expire", "annule"].includes(a.statut));
+
   const muted: React.CSSProperties = { color: "rgba(27,43,94,0.6)", fontSize: 14, margin: 0 };
   const h2: React.CSSProperties = {
     fontFamily: "Georgia, 'Times New Roman', serif",
@@ -53,6 +55,42 @@ export default async function AbonnementsPage() {
     fontWeight: 700,
     margin: "0 0 12px",
   };
+
+  function renderCarteAbo(abo: AbonnementClient) {
+    return (
+      <Carte key={abo.id}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontWeight: 700, color: MARINE, fontSize: 15, margin: "0 0 4px" }}>
+              {labelAbonnement(abo.categorie)}
+            </p>
+            <p style={{ ...muted, fontSize: 13, margin: "0 0 4px" }}>
+              {abo.jours_restants} / {abo.jours_total} journées restantes
+            </p>
+            {abo.date_expiration && (
+              <p style={{ ...muted, fontSize: 12, margin: "0 0 6px" }}>
+                Expire le {formatDateFR(abo.date_expiration)}
+              </p>
+            )}
+            {abo.statut === "en_attente_paiement" && (
+              <div style={{
+                color: "#6E5410",
+                fontSize: 13,
+                fontWeight: 600,
+                backgroundColor: "#F4EAC9",
+                borderRadius: 8,
+                padding: "6px 10px",
+                marginTop: 6,
+              }}>
+                En attente de paiement — réglez par TWINT/virement, l'équipe validera.
+              </div>
+            )}
+          </div>
+          <BadgeStatut statut={abo.statut} />
+        </div>
+      </Carte>
+    );
+  }
 
   return (
     <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -69,6 +107,17 @@ export default async function AbonnementsPage() {
           sousTitre="Achetez une carte de 11 journées (10 payées + 1 offerte) et utilisez-les à votre rythme."
         />
 
+        {/* (1) Cartes actives — en haut, toujours si présentes */}
+        {actifs.length > 0 && (
+          <section style={{ marginBottom: 28 }}>
+            <h2 style={h2}>Mes cartes actives</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {actifs.map((abo) => renderCarteAbo(abo))}
+            </div>
+          </section>
+        )}
+
+        {/* (2) Bloc commander — au milieu */}
         {!estMembre ? (
           <section style={{ marginBottom: 28 }}>
             <Carte>
@@ -129,55 +178,16 @@ export default async function AbonnementsPage() {
           </section>
         )}
 
-        {/* Mes cartes */}
-        <section style={{ marginBottom: 28 }}>
-          <h2 style={h2}>Mes cartes</h2>
-          {abonnements.length === 0 ? (
-            <Carte>
-              <EtatVide
-                icone="🎟️"
-                titre="Aucune carte"
-                message="Vous n'avez pas encore de carte journées."
-              />
-            </Carte>
-          ) : (
+        {/* (3) Cartes terminées — en bas */}
+        {termines.length > 0 && (
+          <section style={{ marginBottom: 28 }}>
+            <h2 style={{ ...h2, color: "rgba(27,43,94,0.55)" }}>Cartes terminées</h2>
+            <p style={{ ...muted, fontSize: 13, margin: "0 0 12px" }}>Cartes échues ou entièrement utilisées.</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {abonnements.map((abo) => (
-                <Carte key={abo.id}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontWeight: 700, color: MARINE, fontSize: 15, margin: "0 0 4px" }}>
-                        {labelAbonnement(abo.categorie)}
-                      </p>
-                      <p style={{ ...muted, fontSize: 13, margin: "0 0 4px" }}>
-                        {abo.jours_restants} / {abo.jours_total} journées restantes
-                      </p>
-                      {abo.date_expiration && (
-                        <p style={{ ...muted, fontSize: 12, margin: "0 0 6px" }}>
-                          Expire le {formatDateFR(abo.date_expiration)}
-                        </p>
-                      )}
-                      {abo.statut === "en_attente_paiement" && (
-                        <div style={{
-                          color: "#6E5410",
-                          fontSize: 13,
-                          fontWeight: 600,
-                          backgroundColor: "#F4EAC9",
-                          borderRadius: 8,
-                          padding: "6px 10px",
-                          marginTop: 6,
-                        }}>
-                          En attente de paiement — réglez par TWINT/virement, l'équipe validera.
-                        </div>
-                      )}
-                    </div>
-                    <BadgeStatut statut={abo.statut} />
-                  </div>
-                </Carte>
-              ))}
+              {termines.map((abo) => renderCarteAbo(abo))}
             </div>
-          )}
-        </section>
+          </section>
+        )}
 
       </div>
     </main>
