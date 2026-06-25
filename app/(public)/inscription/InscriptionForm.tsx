@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/src/lib/supabase-browser";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function InscriptionForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [voirMdp, setVoirMdp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -82,20 +84,36 @@ export default function InscriptionForm() {
         <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>
           Mot de passe *
         </label>
-        <input type="password" required value={password}
-          onChange={e => setPassword(e.target.value)}
-          className="w-full border rounded-xl p-3"
-          placeholder="minimum 6 caractères" />
+        <div className="relative">
+          <input type={voirMdp ? "text" : "password"} required value={password}
+            onChange={e => setPassword(e.target.value)}
+            className="w-full border rounded-xl p-3 pr-12"
+            placeholder="minimum 6 caractères" />
+          <button type="button"
+            onClick={() => setVoirMdp(v => !v)}
+            aria-label={voirMdp ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+            className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-gray-600">
+            {voirMdp ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        </div>
       </div>
 
       <div>
         <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>
           Confirmer le mot de passe *
         </label>
-        <input type="password" required value={confirm}
-          onChange={e => setConfirm(e.target.value)}
-          className="w-full border rounded-xl p-3"
-          placeholder="répétez le mot de passe" />
+        <div className="relative">
+          <input type={voirMdp ? "text" : "password"} required value={confirm}
+            onChange={e => setConfirm(e.target.value)}
+            className="w-full border rounded-xl p-3 pr-12"
+            placeholder="répétez le mot de passe" />
+          <button type="button"
+            onClick={() => setVoirMdp(v => !v)}
+            aria-label={voirMdp ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+            className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-gray-600">
+            {voirMdp ? <EyeOff size={20} /> : <Eye size={20} />}
+          </button>
+        </div>
       </div>
 
       <button type="submit" disabled={loading}

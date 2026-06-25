@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
+import { Eye, EyeOff } from "lucide-react";
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,6 +16,7 @@ export default function ResetPasswordPage() {
   const [message, setMessage] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const [voirMdp, setVoirMdp] = useState(false);
   const [enCours, setEnCours] = useState(false);
   const dejaLance = useRef(false);
 
@@ -80,18 +82,34 @@ export default function ResetPasswordPage() {
 
       {etat === "pret" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <input
-            type="password"
-            placeholder="Nouveau mot de passe"
-            value={motDePasse}
-            onChange={(e) => setMotDePasse(e.target.value)}
-          />
-          <input
-            type="password"
-            placeholder="Confirmer le mot de passe"
-            value={confirmation}
-            onChange={(e) => setConfirmation(e.target.value)}
-          />
+          <div style={{ position: "relative" }}>
+            <input
+              type={voirMdp ? "text" : "password"}
+              placeholder="Nouveau mot de passe"
+              value={motDePasse}
+              onChange={(e) => setMotDePasse(e.target.value)}
+              style={{ width: "100%", paddingRight: 40, boxSizing: "border-box" }}
+            />
+            <button type="button" onClick={() => setVoirMdp((v) => !v)}
+              aria-label={voirMdp ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+              style={{ position: "absolute", top: "50%", right: 8, transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#888", display: "flex", padding: 0 }}>
+              {voirMdp ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+          <div style={{ position: "relative" }}>
+            <input
+              type={voirMdp ? "text" : "password"}
+              placeholder="Confirmer le mot de passe"
+              value={confirmation}
+              onChange={(e) => setConfirmation(e.target.value)}
+              style={{ width: "100%", paddingRight: 40, boxSizing: "border-box" }}
+            />
+            <button type="button" onClick={() => setVoirMdp((v) => !v)}
+              aria-label={voirMdp ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+              style={{ position: "absolute", top: "50%", right: 8, transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#888", display: "flex", padding: 0 }}>
+              {voirMdp ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
           {message && <p style={{ color: "#b00" }}>{message}</p>}
           <button onClick={enregistrer} disabled={enCours}>
             {enCours ? "Enregistrement…" : "Enregistrer le nouveau mot de passe"}
