@@ -71,3 +71,74 @@ export function joursVacancesTheoriques(taux: number, dateDebut: string, dateFin
 
   return total;
 }
+
+/**
+ * Reequilibrage CFC : garantit qu'une gardienne CFC est presente le plus de jours
+ * possible SANS changer le nombre de jours de chaque personne (echange = respect
+ * du taux). Pour chaque jour du mois sans CFC, on deplace une CFC depuis un de ses
+ * jours redondants (jour encore couvert par une autre CFC, ou jour hors du mois)
+ * vers le jour decouvert. Limite de jours consecutifs respectee. Les jours qui
+ * restent sans CFC (capacite insuffisante) ne sont pas forces.
+ */
+export function reequilibrerCfc(args: {
+  semaine: string[];
+  estDansMois: (d: string) => boolean;
+  cfcIds: string[];
+  travail: Record<string, Set<string>>;
+  estIndispo: (id: string, d: string) => boolean;
+  estEnVacances: (id: string, d: string) => boolean;
+  limiteConsecutive: (id: string) => number;
+  carryIn: (id: string) => number;
+}): Record<string, Set<string>> {
+  const { semaine, estDansMois, cfcIds, estIndispo, estEnVacances, limiteConsecutive, carryIn } = args;
+
+  const travail: Record<string, Set<string>> = {};
+  Object.keys(args.travail).forEach(id => { travail[id] = new Set(args.travail[id]); });
+
+  const presentCfc = (id: string, d: string) =>
+    !!travail[id] && travail[id].has(d) && !estEnVacances(id, d) && !estIndispo(id, d);
+  const jourCouvert = (d: string) => cfcIds.some(id => presentCfc(id, d));
+
+  const maxSerie = (id: string): number => {
+    let streak = carryIn(id);
+    let maxS = streak;
+    for (const d of semaine) {
+      if (travail[id] && travail[id].has(d) && !estIndispo(id, d)) {
+        streak++;
+        if (streak > maxS) maxS = streak;
+      } else {
+        streak = 0;
+      }
+    }
+    return maxS;
+  };
+
+  for (const jour of semaine) {
+    if (!estDansMois(jour) || jourCouvert(jour)) continue;
+
+    for (const cfc of cfcIds) {
+      if (!travail[cfc]) continue;
+      if (estIndispo(cfc, jour) || estEnVacances(cfc, jour) || travail[cfc].has(jour)) continue;
+
+      const donneurs = [...travail[cfc]]
+        .filter(d2 => d2 !== jour)
+        .filter(d2 => {
+          if (!estDansMois(d2)) return true;
+          return cfcIds.some(autre => autre !== cfc && presentCfc(autre, d2));
+        })
+        .sort((a, b) => (estDansMois(a) ? 1 : 0) - (estDansMois(b) ? 1 : 0));
+
+      let fait = false;
+      for (const d2 of donneurs) {
+        travail[cfc].delete(d2);
+        travail[cfc].add(jour);
+        if (maxSerie(cfc) <= limiteConsecutive(cfc)) { fait = true; break; }
+        travail[cfc].delete(jour);
+        travail[cfc].add(d2);
+      }
+      if (fait) break;
+    }
+  }
+
+  return travail;
+}

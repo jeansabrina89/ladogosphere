@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { sauvegarderPlanning } from "./actions";
 import BoutonPdf from "./BoutonPdf";
-import { joursTravaillesSemaine } from "@/src/lib/planningUtils";
+import { joursTravaillesSemaine, reequilibrerCfc } from "@/src/lib/planningUtils";
 
 type Employe = {
   id: string;
@@ -358,25 +358,23 @@ export default function GenerateurPlanning({
         }
       });
 
-      // Secours CFC : au moins une gardienne CFC presente chaque jour du mois cible
+      // Reequilibrage CFC : garantir une gardienne CFC chaque jour par echange (respecte le taux)
       if (cfcActifs.length > 0) {
-        semaine.forEach(dateStr => {
-          if (!dateStr.startsWith(datePrefix)) return;
-          const cfcPresent = cfcActifs.some(emp =>
-            (joursChoisis[emp.id].has(dateStr) || fixes[emp.id][dateStr] === "travail")
-            && !estEnVacances(emp.id, dateStr) && !estIndispo(emp.id, dateStr)
-          );
-          if (cfcPresent) return;
-          const candidates = cfcActifs
-            .filter(emp =>
-              !fixes[emp.id][dateStr] && !joursChoisis[emp.id].has(dateStr)
-              && !estEnVacances(emp.id, dateStr) && !estIndispo(emp.id, dateStr)
-            )
-            .sort((a, b) => joursChoisis[a.id].size - joursChoisis[b.id].size);
-          if (candidates.length > 0) {
-            joursChoisis[candidates[0].id].add(dateStr);
-          }
+        const cfcIds = cfcActifs.map(e => e.id);
+        const repartition = reequilibrerCfc({
+          semaine,
+          estDansMois: (d) => d.startsWith(datePrefix),
+          cfcIds,
+          travail: Object.fromEntries(cfcIds.map(id => [id, joursChoisis[id] ?? new Set()])),
+          estIndispo: (id, d) => fixes[id]?.[d] === "absent",
+          estEnVacances,
+          limiteConsecutive: (id) => {
+            const emp = cfcActifs.find(e => e.id === id);
+            return emp ? maxConsecutif(emp.taux_travail).exceptionnel : 6;
+          },
+          carryIn: (id) => carry[id] ?? 0,
         });
+        Object.keys(repartition).forEach(id => { joursChoisis[id] = repartition[id]; });
       }
 
       // Écrire les statuts dans nouveauPlanning (UNIQUEMENT les jours du mois cible)

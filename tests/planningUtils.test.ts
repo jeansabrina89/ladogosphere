@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { joursTravaillesSemaine, moyenneJoursTravaillesSemaine, joursVacancesTheoriques } from "../src/lib/planningUtils";
+import { joursTravaillesSemaine, moyenneJoursTravaillesSemaine, joursVacancesTheoriques, reequilibrerCfc } from "../src/lib/planningUtils";
 
 describe("joursTravaillesSemaine", () => {
   it("100% → 5 jours (entier, constant)", () => {
@@ -65,5 +65,71 @@ describe("joursVacancesTheoriques", () => {
     const j = joursVacancesTheoriques(100, "2024-01-01", "2024-01-01");
     expect(j).toBeGreaterThanOrEqual(0);
     expect(j).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("reequilibrerCfc", () => {
+  const J = (n: number) => `2026-06-${String(n).padStart(2, "0")}`;
+  const semaine = [J(1), J(2), J(3), J(4), J(5), J(6), J(7)];
+  const dansMois = (d: string) => d.startsWith("2026-06-");
+  const faux = () => false;
+  const couvre = (t: Record<string, Set<string>>, ids: string[], d: string) =>
+    ids.some(id => t[id]?.has(d));
+
+  it("echange pour couvrir tous les jours sans changer les taux", () => {
+    const travail = {
+      S: new Set([J(1), J(2), J(3), J(4), J(5)]),
+      F: new Set([J(1), J(2)]),
+    };
+    const r = reequilibrerCfc({
+      semaine, estDansMois: dansMois, cfcIds: ["S", "F"], travail,
+      estIndispo: faux, estEnVacances: faux,
+      limiteConsecutive: () => 6, carryIn: () => 0,
+    });
+    expect(r.S.size).toBe(5);
+    expect(r.F.size).toBe(2);
+    for (const d of semaine) expect(couvre(r, ["S", "F"], d)).toBe(true);
+  });
+
+  it("capacite insuffisante : Sabrina en vacances toute la semaine, Francine inchangee", () => {
+    const travail = {
+      S: new Set([J(1), J(2), J(3), J(4), J(5)]),
+      F: new Set([J(1), J(2)]),
+    };
+    const r = reequilibrerCfc({
+      semaine, estDansMois: dansMois, cfcIds: ["S", "F"], travail,
+      estIndispo: faux, estEnVacances: (id) => id === "S",
+      limiteConsecutive: () => 6, carryIn: () => 0,
+    });
+    expect(r.S.size).toBe(5);
+    expect(r.F.size).toBe(2);
+    const couverts = semaine.filter(d =>
+      ["S", "F"].some(id => r[id].has(d) && id !== "S")
+    );
+    expect(couverts.length).toBe(2);
+  });
+
+  it("utilise un jour donneur hors mois (CFC unique)", () => {
+    const semaineB = ["2026-05-30", "2026-05-31", J(1), J(2), J(3), J(4), J(5)];
+    const travail = { F: new Set(["2026-05-30", "2026-05-31", J(1), J(2), J(3)]) };
+    const r = reequilibrerCfc({
+      semaine: semaineB, estDansMois: dansMois, cfcIds: ["F"], travail,
+      estIndispo: faux, estEnVacances: faux,
+      limiteConsecutive: () => 6, carryIn: () => 0,
+    });
+    expect(r.F.size).toBe(5);
+    for (const d of [J(1), J(2), J(3), J(4), J(5)]) expect(r.F.has(d)).toBe(true);
+  });
+
+  it("une CFC unique ne peut pas couvrir plus de jours qu'elle n'en travaille", () => {
+    const travail = { F: new Set([J(1), J(2)]) };
+    const r = reequilibrerCfc({
+      semaine, estDansMois: dansMois, cfcIds: ["F"], travail,
+      estIndispo: faux, estEnVacances: faux,
+      limiteConsecutive: () => 6, carryIn: () => 0,
+    });
+    expect(r.F.size).toBe(2);
+    expect(r.F.has(J(1))).toBe(true);
+    expect(r.F.has(J(2))).toBe(true);
   });
 });
