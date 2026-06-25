@@ -73,6 +73,7 @@ export default function GenerateurPlanning({
   const [saving, setSaving] = useState(false);
   const [erreurSave, setErreurSave] = useState<string | null>(null);
   const [celluleActive, setCelluleActive] = useState<{ employe_id: string; date: string } | null>(null);
+  const [joursSansCfc, setJoursSansCfc] = useState<string[]>([]);
 
   const joursParMois = new Date(annee, mois, 0).getDate();
   const joursFeries = getJoursFeries(annee);
@@ -142,6 +143,8 @@ export default function GenerateurPlanning({
     setLoading(true);
     const nouveauPlanning: Record<string, Record<string, JourPlanning>> = {};
     const employesActifs = employes.filter(e => e.actif);
+    const POSTE_CFC = "Gardien-ne d'animaux CFC";
+    const cfcActifs = employesActifs.filter(e => e.poste === POSTE_CFC);
 
     employes.forEach(emp => { nouveauPlanning[emp.id] = {}; });
 
@@ -355,22 +358,23 @@ export default function GenerateurPlanning({
         }
       });
 
-      // Secours CFC : au moins une gardienne CFC (poste CFC) presente chaque jour du mois cible
-      const POSTE_CFC = "Gardien-ne d'animaux CFC";
-      const cfcActifs = employesActifs.filter(e => e.poste === POSTE_CFC);
+      // Secours CFC : au moins une gardienne CFC presente chaque jour du mois cible
       if (cfcActifs.length > 0) {
         semaine.forEach(dateStr => {
           if (!dateStr.startsWith(datePrefix)) return;
           const cfcPresent = cfcActifs.some(emp =>
-            joursChoisis[emp.id].has(dateStr) || fixes[emp.id][dateStr] === "travail"
+            (joursChoisis[emp.id].has(dateStr) || fixes[emp.id][dateStr] === "travail")
+            && !estEnVacances(emp.id, dateStr) && !estIndispo(emp.id, dateStr)
           );
           if (cfcPresent) return;
           const candidates = cfcActifs
-            .filter(emp => !fixes[emp.id][dateStr] && !joursChoisis[emp.id].has(dateStr))
+            .filter(emp =>
+              !fixes[emp.id][dateStr] && !joursChoisis[emp.id].has(dateStr)
+              && !estEnVacances(emp.id, dateStr) && !estIndispo(emp.id, dateStr)
+            )
             .sort((a, b) => joursChoisis[a.id].size - joursChoisis[b.id].size);
           if (candidates.length > 0) {
             joursChoisis[candidates[0].id].add(dateStr);
-            presence[dateStr] = (presence[dateStr] ?? 0) + 1;
           }
         });
       }
@@ -410,6 +414,19 @@ export default function GenerateurPlanning({
         carry[emp.id] = c;
       });
     });
+
+    // Avertissement : jours du mois cible sans aucune gardienne CFC reellement presente
+    const sansCfc: string[] = [];
+    Array.from(new Set(semaines.flatMap(s => s.days).filter(d => d.startsWith(datePrefix))))
+      .sort()
+      .forEach(dateStr => {
+        const couvert = cfcActifs.some(emp => {
+          const j = nouveauPlanning[emp.id]?.[dateStr];
+          return j && (j.statut === "travail" || j.statut === "ferie_travaille");
+        });
+        if (!couvert) sansCfc.push(dateStr);
+      });
+    setJoursSansCfc(sansCfc);
 
     setPlanning(nouveauPlanning);
     setLoading(false);
@@ -480,6 +497,14 @@ export default function GenerateurPlanning({
       {erreurSave && (
         <div className="mb-4 px-4 py-3 rounded-xl bg-red-100 text-red-700 text-sm font-semibold">
           ❌ Erreur : {erreurSave}
+        </div>
+      )}
+
+      {joursSansCfc.length > 0 && (
+        <div className="mb-4 px-4 py-3 rounded-xl text-sm font-semibold"
+          style={{ background: "#FEF3C7", color: "#92400E", border: "1px solid #FCD34D" }}>
+          ⚠️ Aucune gardienne CFC présente ces jours-là : {joursSansCfc.map(d => d.slice(8)).join(", ")}.
+          Vérifie les vacances et absences de Sabrina et Francine pour ces dates.
         </div>
       )}
 
