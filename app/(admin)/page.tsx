@@ -76,6 +76,7 @@ export default async function Home() {
   ]);
 
   const accesRapides = [
+    perms.perm_encaissements && { href: "/abonnements", label: "🎟️ Demandes d'abonnement", desc: `${abonnementsAttente?.length ?? 0} en attente` },
     perms.perm_checkin && { href: "/checkin", label: "✅ Check-in / Check-out", desc: "Gérer les arrivées et départs" },
     perms.perm_box && { href: "/planning", label: "🏠 Planning des boxes", desc: "Vue semaine et mois" },
     perms.perm_reservations_creer && { href: "/reservations/nouvelle", label: "📅 Nouvelle réservation", desc: "Créer une réservation admin" },
@@ -144,20 +145,6 @@ export default async function Home() {
               <EtatVide icone="✅" titre="Aucune réservation en attente" message="Tout est à jour." />
             </Carte>
           )}
-        </div>
-
-        {/* Demandes d'abonnement — petit carré */}
-        <div style={{ marginBottom: 32 }}>
-          <Link href="/abonnements" style={{ textDecoration: "none" }}>
-            <div style={{ backgroundColor: "#F4EAC9", borderRadius: 16, padding: "20px 16px", textAlign: "center", display: "inline-block", minWidth: 160 }}>
-              <p style={{ fontSize: 24, fontWeight: 500, color: "#6E5410", margin: 0, lineHeight: 1 }}>
-                {abonnementsAttente?.length ?? 0}
-              </p>
-              <p style={{ fontSize: 13, color: "rgba(110,84,16,0.7)", marginTop: 6, marginBottom: 0 }}>
-                🎟️ Demandes d&apos;abonnement
-              </p>
-            </div>
-          </Link>
         </div>
 
         {/* Arrivées et départs */}
