@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
@@ -17,6 +18,7 @@ const MODE_LABEL: Record<string, string> = {
 export default async function AdhesionsPage() {
   await exigerPersonnelPage();
   const perms = await getProfilePerms();
+  if (!perms.perm_encaissements) redirect("/");
 
   const { data: demandes } = await supabaseAdmin
     .from("cotisations_membres")
