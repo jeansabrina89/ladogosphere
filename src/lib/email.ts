@@ -124,6 +124,12 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
     intro: "Nous vous informons que votre réservation a été <strong style=\"color:#E8847A;\">annulée</strong>.",
     message_final: "Nous espérons vous revoir bientôt à La Dogosphère ! 🐾",
   },
+  reservation_refusee: {
+    sujet: "🐾 Votre demande de réservation",
+    titre: "Bonjour {prenom},",
+    intro: "Nous sommes navrés : nous ne pouvons malheureusement pas <strong style=\"color:#E8847A;\">donner suite</strong> à votre demande de réservation pour les dates indiquées.",
+    message_final: "N'hésitez pas à nous proposer d'autres dates — nous espérons pouvoir accueillir votre compagnon très bientôt ! 🐾",
+  },
   paiement: {
     sujet: "💰 Règlement de votre séjour à La Dogosphère",
     titre: "Bonjour {prenom},",
@@ -155,6 +161,7 @@ export const MODELES_META: { type: string; label: string; variables: string[] }[
   { type: "confirmation_demande", label: "Demande reçue", variables: ["prenom", "date_debut", "date_fin"] },
   { type: "reservation_validee", label: "Réservation confirmée", variables: ["prenom", "date_debut", "date_fin"] },
   { type: "reservation_annulee", label: "Réservation annulée", variables: ["prenom", "date_debut", "date_fin"] },
+  { type: "reservation_refusee", label: "Réservation refusée", variables: ["prenom", "date_debut", "date_fin"] },
   { type: "paiement", label: "Paiement / règlement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
   { type: "satisfaction_essai", label: "Satisfaction après essai", variables: ["prenom", "nom_chien"] },
   { type: "rappel_veille", label: "Rappel la veille", variables: ["prenom", "nom_chien", "date_debut"] },
@@ -365,6 +372,53 @@ export async function envoyerEmailReservationAnnulee({
       <div style="background-color:#FEF2F2; border-left:4px solid #E8847A; border-radius:8px; padding:16px; margin:0 0 24px 0;">
         <p style="margin:0; color:#7F1D1D; font-size:14px;">
           Si vous n'êtes pas à l'origine de cette annulation ou si vous souhaitez faire une nouvelle réservation, contactez-nous directement.
+        </p>
+      </div>
+
+      <p style="color:#6B7280; font-size:14px; margin:0;">
+        ${m.message_final}
+      </p>
+    `),
+  });
+}
+
+export async function envoyerEmailReservationRefusee({
+  email, prenom, date_debut, date_fin, type,
+}: {
+  email: string; prenom: string; date_debut: string; date_fin: string; type: string;
+}) {
+  const m = await modeleEmail("reservation_refusee", {
+    prenom, date_debut: formatDate(date_debut), date_fin: formatDate(date_fin),
+  });
+  await envoyerEmail({
+    destinataire: email,
+    type: "reservation_refusee",
+    sujet: m.sujet,
+    html: emailTemplate(`
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
+
+      <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
+        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Votre demande</h3>
+        <table cellpadding="0" cellspacing="0" style="width:100%;">
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Type</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${typeLabel(type)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Arrivée</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${formatDate(date_debut)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Départ</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${formatDate(date_fin)}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="background-color:#FEF2F2; border-left:4px solid #E8847A; border-radius:8px; padding:16px; margin:0 0 24px 0;">
+        <p style="margin:0; color:#7F1D1D; font-size:14px;">
+          Vos dates ne sont peut-être plus disponibles, mais nous ferons notre possible pour trouver une solution. Contactez-nous ou proposez-nous d'autres dates.
         </p>
       </div>
 

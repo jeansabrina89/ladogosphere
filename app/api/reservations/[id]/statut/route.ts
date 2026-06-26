@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { envoyerEmailReservationValidee, envoyerEmailReservationAnnulee } from "@/src/lib/email";
+import { envoyerEmailReservationValidee, envoyerEmailReservationAnnulee, envoyerEmailReservationRefusee } from "@/src/lib/email";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { calculerMontant } from "@/src/lib/calculTarif";
@@ -121,6 +121,14 @@ export async function POST(
         });
       } else if (statut === "annulee") {
         await envoyerEmailReservationAnnulee({
+          email: reservation.clients.email,
+          prenom: reservation.clients.prenom || "Client",
+          date_debut: reservation.date_debut,
+          date_fin: reservation.date_fin,
+          type: reservation.type_reservation,
+        });
+      } else if (statut === "refusee") {
+        await envoyerEmailReservationRefusee({
           email: reservation.clients.email,
           prenom: reservation.clients.prenom || "Client",
           date_debut: reservation.date_debut,
