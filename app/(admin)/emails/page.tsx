@@ -29,5 +29,11 @@ export default async function EmailsPage() {
     perso: persoParType[meta.type] ?? null,
   }));
 
-  return <GestionEmails emails={emails} />;
+  const { data: campagnes } = await supabaseAdmin
+    .from("emails_campagnes")
+    .select("id, sujet, cible, nb_destinataires, nb_echecs, created_at")
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  return <GestionEmails emails={emails} campagnes={campagnes ?? []} />;
 }

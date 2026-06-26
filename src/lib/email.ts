@@ -232,6 +232,32 @@ async function envoyerEmail(p: {
   }
 }
 
+// Message libre (campagne / annonce) envoye a une liste de clients ou membres.
+// {prenom} et {nom} sont remplaces pour chaque destinataire.
+export async function envoyerMessageLibre(p: {
+  email: string;
+  sujet: string;
+  corps: string;
+  prenom?: string | null;
+  nom?: string | null;
+}) {
+  const vars = { prenom: p.prenom ?? "", nom: p.nom ?? "" };
+  const sujet = interpoler(p.sujet, vars);
+  const corpsHtml = interpoler(p.corps, vars)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>");
+  await envoyerEmail({
+    destinataire: p.email,
+    type: "campagne",
+    sujet,
+    html: emailTemplate(`
+      <div style="color:#1B2B5E; font-size:15px; line-height:1.7;">${corpsHtml}</div>
+    `),
+  });
+}
+
 export async function envoyerEmailConfirmationDemande({
   email, prenom, date_debut, date_fin, type,
 }: {
