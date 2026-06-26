@@ -32,6 +32,7 @@ export default async function NavBarAdmin() {
     ]},
     { titre: "Gestion", liens: [
       { href: "/tarifs", label: "💰 Tarifs" },
+      { href: "/comptabilite/a-regulariser", label: "🧾 À régulariser" },
       { href: "/factures", label: "🧾 Factures" },
       { href: "/comptabilite", label: "📈 Compta" },
       { href: "/emails", label: "✉️ Emails" },
