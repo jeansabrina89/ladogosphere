@@ -34,6 +34,7 @@ export default async function NavBarAdmin() {
       { href: "/tarifs", label: "💰 Tarifs" },
       { href: "/factures", label: "🧾 Factures" },
       { href: "/comptabilite", label: "📈 Compta" },
+      { href: "/emails", label: "✉️ Emails" },
     ]},
     { titre: "RH", liens: [
       { href: "/employes", label: "👥 Équipe" },

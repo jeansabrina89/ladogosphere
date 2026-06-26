@@ -90,6 +90,113 @@ const typeLabel = (type: string) => {
   return "🏠 Séjour";
 };
 
+// ===========================================================================
+// MODELES D'EMAILS PERSONNALISABLES
+// 4 champs editables par email (sujet, titre, intro, message_final).
+// Si l'admin n'a rien personnalise (table modeles_email), on retombe sur les
+// textes par defaut ci-dessous : le comportement reste identique a l'existant.
+// Les variables {prenom}, {nom_chien}, {date_debut}... sont remplacees a l'envoi.
+// ===========================================================================
+
+export type ChampsModele = {
+  sujet: string;
+  titre: string;
+  intro: string;
+  message_final: string;
+};
+
+export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
+  confirmation_demande: {
+    sujet: "🐾 Votre demande de réservation a été reçue",
+    titre: "Bonjour {prenom} ! 👋",
+    intro: "Nous avons bien reçu votre demande de réservation et nous vous en remercions.",
+    message_final: "Pour toute question, n'hésitez pas à nous contacter directement par email ou téléphone.",
+  },
+  reservation_validee: {
+    sujet: "✅ Votre réservation est confirmée !",
+    titre: "Bonjour {prenom} ! 🎉",
+    intro: "Excellente nouvelle ! Votre réservation a été <strong style=\"color:#4AAEA0;\">confirmée</strong> par notre équipe.",
+    message_final: "Nous sommes impatients d'accueillir votre compagnon ! 🐶",
+  },
+  reservation_annulee: {
+    sujet: "❌ Votre réservation a été annulée",
+    titre: "Bonjour {prenom},",
+    intro: "Nous vous informons que votre réservation a été <strong style=\"color:#E8847A;\">annulée</strong>.",
+    message_final: "Nous espérons vous revoir bientôt à La Dogosphère ! 🐾",
+  },
+  paiement: {
+    sujet: "💰 Règlement de votre séjour à La Dogosphère",
+    titre: "Bonjour {prenom},",
+    intro: "Voici le récapitulatif de votre séjour et les informations de paiement.",
+    message_final: "Merci de procéder au règlement dans les meilleurs délais. N'hésitez pas à nous contacter pour toute question. 🐾",
+  },
+  satisfaction_essai: {
+    sujet: "🐾 Comment s'est passée la journée d'essai ?",
+    titre: "Bonjour {prenom} ! 🐶",
+    intro: "Nous espérons que <strong>{nom_chien}</strong> est bien rentré à la maison ! Toute l'équipe a été ravie de l'avoir avec nous.",
+    message_final: "À très bientôt pour un prochain séjour ! 🐾",
+  },
+  rappel_veille: {
+    sujet: "📅 Rappel — votre chien arrive demain !",
+    titre: "Bonjour {prenom} ! 🐶",
+    intro: "Petit rappel — <strong>{nom_chien}</strong> arrive <strong>demain</strong> à La Dogosphère !",
+    message_final: "En cas d'imprévu, contactez-nous au plus vite. À demain ! 🐾",
+  },
+  rappel_cotisation: {
+    sujet: "⭐ Renouvellement de votre adhésion membre {annee}",
+    titre: "Bonjour {prenom} ! ⭐",
+    intro: "Votre adhésion membre La Dogosphère arrive à échéance le <strong>31 décembre {annee}</strong>.",
+    message_final: "Merci pour votre fidélité ! Nous espérons vous accueillir encore longtemps. 🐶",
+  },
+};
+
+// Libelles lisibles + variables proposees (pour l'ecran d'administration)
+export const MODELES_META: { type: string; label: string; variables: string[] }[] = [
+  { type: "confirmation_demande", label: "Demande reçue", variables: ["prenom", "date_debut", "date_fin"] },
+  { type: "reservation_validee", label: "Réservation confirmée", variables: ["prenom", "date_debut", "date_fin"] },
+  { type: "reservation_annulee", label: "Réservation annulée", variables: ["prenom", "date_debut", "date_fin"] },
+  { type: "paiement", label: "Paiement / règlement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
+  { type: "satisfaction_essai", label: "Satisfaction après essai", variables: ["prenom", "nom_chien"] },
+  { type: "rappel_veille", label: "Rappel la veille", variables: ["prenom", "nom_chien", "date_debut"] },
+  { type: "rappel_cotisation", label: "Rappel cotisation", variables: ["prenom", "nom", "annee", "montant"] },
+];
+
+function interpoler(texte: string, vars: Record<string, string | number | undefined | null>): string {
+  return texte.replace(/\{(\w+)\}/g, (_m, cle) => {
+    const v = vars[cle];
+    return v === undefined || v === null ? "" : String(v);
+  });
+}
+
+// Charge le modele personnalise (ou le defaut), et remplace les variables.
+async function modeleEmail(
+  type: string,
+  vars: Record<string, string | number | undefined | null>
+): Promise<ChampsModele> {
+  const def = DEFAUTS_MODELES[type];
+  let row: Partial<ChampsModele> | null = null;
+  try {
+    const { data } = await supabaseAdmin
+      .from("modeles_email")
+      .select("sujet, titre, intro, message_final")
+      .eq("type", type)
+      .maybeSingle();
+    row = data;
+  } catch {
+    row = null;
+  }
+  const choisir = (perso: string | null | undefined, defaut: string) => {
+    const base = perso && perso.trim() !== "" ? perso : defaut;
+    return interpoler(base, vars);
+  };
+  return {
+    sujet: choisir(row?.sujet, def.sujet),
+    titre: choisir(row?.titre, def.titre),
+    intro: choisir(row?.intro, def.intro),
+    message_final: choisir(row?.message_final, def.message_final),
+  };
+}
+
 async function envoyerEmail(p: {
   destinataire: string;
   type: string;
@@ -123,13 +230,16 @@ export async function envoyerEmailConfirmationDemande({
 }: {
   email: string; prenom: string; date_debut: string; date_fin: string; type: string;
 }) {
+  const m = await modeleEmail("confirmation_demande", {
+    prenom, date_debut: formatDate(date_debut), date_fin: formatDate(date_fin),
+  });
   await envoyerEmail({
     destinataire: email,
     type: "confirmation_demande",
-    sujet: "🐾 Votre demande de réservation a été reçue",
+    sujet: m.sujet,
     html: emailTemplate(`
-      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom} ! 👋</h2>
-      <p style="color:#6B7280; margin:0 0 24px 0;">Nous avons bien reçu votre demande de réservation et nous vous en remercions.</p>
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
       <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
         <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Récapitulatif</h3>
@@ -156,7 +266,7 @@ export async function envoyerEmailConfirmationDemande({
       </div>
 
       <p style="color:#6B7280; font-size:14px; margin:0;">
-        Pour toute question, n'hésitez pas à nous contacter directement par email ou téléphone.
+        ${m.message_final}
       </p>
     `),
   });
@@ -168,13 +278,16 @@ export async function envoyerEmailReservationValidee({
   email: string; prenom: string; date_debut: string; date_fin: string;
   type: string; box_label?: string; heure_arrivee?: string; heure_depart?: string;
 }) {
+  const m = await modeleEmail("reservation_validee", {
+    prenom, date_debut: formatDate(date_debut), date_fin: formatDate(date_fin),
+  });
   await envoyerEmail({
     destinataire: email,
     type: "reservation_validee",
-    sujet: "✅ Votre réservation est confirmée !",
+    sujet: m.sujet,
     html: emailTemplate(`
-      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom} ! 🎉</h2>
-      <p style="color:#6B7280; margin:0 0 24px 0;">Excellente nouvelle ! Votre réservation a été <strong style="color:#4AAEA0;">confirmée</strong> par notre équipe.</p>
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
       <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
         <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Détails de votre séjour</h3>
@@ -209,7 +322,7 @@ export async function envoyerEmailReservationValidee({
       </div>
 
       <p style="color:#6B7280; font-size:14px; margin:0;">
-        Nous sommes impatients d'accueillir votre compagnon ! 🐶
+        ${m.message_final}
       </p>
     `),
   });
@@ -220,13 +333,16 @@ export async function envoyerEmailReservationAnnulee({
 }: {
   email: string; prenom: string; date_debut: string; date_fin: string; type: string;
 }) {
+  const m = await modeleEmail("reservation_annulee", {
+    prenom, date_debut: formatDate(date_debut), date_fin: formatDate(date_fin),
+  });
   await envoyerEmail({
     destinataire: email,
     type: "reservation_annulee",
-    sujet: "❌ Votre réservation a été annulée",
+    sujet: m.sujet,
     html: emailTemplate(`
-      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom},</h2>
-      <p style="color:#6B7280; margin:0 0 24px 0;">Nous vous informons que votre réservation a été <strong style="color:#E8847A;">annulée</strong>.</p>
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
       <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
         <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Réservation annulée</h3>
@@ -253,7 +369,7 @@ export async function envoyerEmailReservationAnnulee({
       </div>
 
       <p style="color:#6B7280; font-size:14px; margin:0;">
-        Nous espérons vous revoir bientôt à La Dogosphère ! 🐾
+        ${m.message_final}
       </p>
     `),
   });
@@ -266,13 +382,17 @@ export async function envoyerEmailPaiement({
   date_debut: string; date_fin: string; type: string;
   iban: string; titulaire: string;
 }) {
+  const m = await modeleEmail("paiement", {
+    prenom, montant: montant.toFixed(2),
+    date_debut: formatDate(date_debut), date_fin: formatDate(date_fin),
+  });
   await envoyerEmail({
     destinataire: email,
     type: "paiement",
-    sujet: "💰 Règlement de votre séjour à La Dogosphère",
+    sujet: m.sujet,
     html: emailTemplate(`
-      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom},</h2>
-      <p style="color:#6B7280; margin:0 0 24px 0;">Voici le récapitulatif de votre séjour et les informations de paiement.</p>
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
       <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
         <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Votre séjour</h3>
@@ -313,7 +433,7 @@ export async function envoyerEmailPaiement({
       </div>
 
       <p style="color:#6B7280; font-size:14px; margin:0;">
-        Merci de procéder au règlement dans les meilleurs délais. N'hésitez pas à nous contacter pour toute question. 🐾
+        ${m.message_final}
       </p>
     `),
   });
@@ -324,15 +444,15 @@ export async function envoyerEmailSatisfactionEssai({
 }: {
   email: string; prenom: string; nom_chien: string;
 }) {
+  const m = await modeleEmail("satisfaction_essai", { prenom, nom_chien });
   await envoyerEmail({
     destinataire: email,
     type: "satisfaction_essai",
-    sujet: "🐾 Comment s'est passée la journée d'essai ?",
+    sujet: m.sujet,
     html: emailTemplate(`
-      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom} ! 🐶</h2>
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">
-        Nous espérons que <strong>${nom_chien}</strong> est bien rentré à la maison !
-        Toute l'équipe a été ravie de l'avoir avec nous.
+        ${m.intro}
       </p>
 
       <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">
@@ -343,7 +463,7 @@ export async function envoyerEmailSatisfactionEssai({
       </div>
 
       <p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">
-        À très bientôt pour un prochain séjour ! 🐾
+        ${m.message_final}
       </p>
     `),
   });
@@ -355,14 +475,17 @@ export async function envoyerEmailRappelVeille({
   email: string; prenom: string; nom_chien: string;
   date_debut: string; heure_arrivee?: string; type: string;
 }) {
+  const m = await modeleEmail("rappel_veille", {
+    prenom, nom_chien, date_debut: formatDate(date_debut),
+  });
   await envoyerEmail({
     destinataire: email,
     type: "rappel_veille",
-    sujet: "📅 Rappel — votre chien arrive demain !",
+    sujet: m.sujet,
     html: emailTemplate(`
-      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom} ! 🐶</h2>
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">
-        Petit rappel — <strong>${nom_chien}</strong> arrive <strong>demain</strong> à La Dogosphère !
+        ${m.intro}
       </p>
 
       <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
@@ -398,7 +521,7 @@ export async function envoyerEmailRappelVeille({
       </div>
 
       <p style="color:#6B7280; font-size:14px; margin:0;">
-        En cas d'imprévu, contactez-nous au plus vite. À demain ! 🐾
+        ${m.message_final}
       </p>
     `),
   });
@@ -410,14 +533,17 @@ export async function envoyerEmailRappelCotisation({
   email: string; prenom: string; nom: string; annee: number; montant: number; iban: string; titulaire: string;
 }) {
   const anneeProchaine = annee + 1;
+  const m = await modeleEmail("rappel_cotisation", {
+    prenom, nom, annee, montant: montant.toFixed(2),
+  });
   await envoyerEmail({
     destinataire: email,
     type: "rappel_cotisation",
-    sujet: `⭐ Renouvellement de votre adhésion membre ${annee}`,
+    sujet: m.sujet,
     html: emailTemplate(`
-      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Bonjour ${prenom} ! ⭐</h2>
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">
-        Votre adhésion membre La Dogosphère arrive à échéance le <strong>31 décembre ${annee}</strong>.
+        ${m.intro}
       </p>
 
       <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
@@ -477,7 +603,7 @@ export async function envoyerEmailRappelCotisation({
       </div>
 
       <p style="color:#6B7280; font-size:14px; margin:0;">
-        Merci pour votre fidélité ! Nous espérons vous accueillir encore longtemps. 🐶
+        ${m.message_final}
       </p>
     `),
   });
