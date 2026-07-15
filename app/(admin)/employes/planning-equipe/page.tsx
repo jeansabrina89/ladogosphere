@@ -2,6 +2,7 @@ import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getJoursFeries } from "@/src/lib/joursFeries";
 import { aujourdhuiISO } from "@/src/lib/dates";
+import { couleurEmploye } from "@/src/lib/couleursEmployes";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import BoutonImprimer from "./BoutonImprimer";
@@ -13,16 +14,6 @@ const NOMS_MOIS = [
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
 ];
 const NOMS_JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-const PALETTE: { bg: string; fg: string }[] = [
-  { bg: "#DBEFEA", fg: "#1F6E5B" },
-  { bg: "#F4EAC9", fg: "#6E5410" },
-  { bg: "#DDE3EC", fg: "#3B4A63" },
-  { bg: "#E0E7FF", fg: "#283C7A" },
-  { bg: "#EDE7F6", fg: "#5B3E8E" },
-  { bg: "#E6F0D9", fg: "#3B6D11" },
-  { bg: "#FDE8D0", fg: "#9A5B12" },
-  { bg: "#E2EEF6", fg: "#185FA5" },
-];
 const STATUTS_PRESENCE = ["travail", "ferie_travaille"];
 const STATUTS_VACANCES = ["vacances"];
 const STATUTS_ABSENCE = ["maladie", "absent", "accident", "militaire"];
@@ -76,7 +67,7 @@ export default async function PlanningEquipePage({
   const couleurParId: Record<string, { bg: string; fg: string }> = {};
   const prenomParId: Record<string, string> = {};
   (employes ?? []).forEach((e: any, i: number) => {
-    couleurParId[e.id] = PALETTE[i % PALETTE.length];
+    couleurParId[e.id] = couleurEmploye(e.prenom, i);
     prenomParId[e.id] = e.prenom;
   });
 

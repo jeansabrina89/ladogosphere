@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { sauvegarderPlanning } from "./actions";
 import { joursTravaillesSemaine, reequilibrerCfc, equilibrerPlanningMois } from "@/src/lib/planningUtils";
+import { couleurEmploye } from "@/src/lib/couleursEmployes";
 
 type Employe = {
   id: string;
@@ -59,16 +60,6 @@ const NOMS_MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
 // ── Vue calendrier éditable ──────────────────────────────────────────────────
-const PALETTE_CAL: { bg: string; fg: string }[] = [
-  { bg: "#DBEFEA", fg: "#1F6E5B" },
-  { bg: "#F4EAC9", fg: "#6E5410" },
-  { bg: "#DDE3EC", fg: "#3B4A63" },
-  { bg: "#E0E7FF", fg: "#283C7A" },
-  { bg: "#EDE7F6", fg: "#5B3E8E" },
-  { bg: "#E6F0D9", fg: "#3B6D11" },
-  { bg: "#FDE8D0", fg: "#9A5B12" },
-  { bg: "#E2EEF6", fg: "#185FA5" },
-];
 const NOMS_JOURS_CAL = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const PRESENCE_VIEW = ["travail", "ferie_travaille"];
 const ABSENCE_VIEW = ["maladie", "absent", "accident", "militaire"];
@@ -567,7 +558,7 @@ export default function GenerateurPlanning({
   const couleurParId: Record<string, { bg: string; fg: string }> = {};
   const prenomParId: Record<string, string> = {};
   employesAffichage.forEach((e, i) => {
-    couleurParId[e.id] = PALETTE_CAL[i % PALETTE_CAL.length];
+    couleurParId[e.id] = couleurEmploye(e.prenom, i);
     prenomParId[e.id] = e.prenom;
   });
 
