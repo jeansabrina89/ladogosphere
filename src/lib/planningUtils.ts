@@ -237,6 +237,39 @@ export function equilibrerPlanningMois(args: {
     if (!bouge) break;
   }
 
+  // 2.5) Plafond week-end : eviter 3 personnes le week-end, pousser l'excedent vers la semaine.
+  //      (garde au moins une CFC le WE, respecte la limite de jours consecutifs).
+  const estWeCap = (d: string) => {
+    const dow = new Date(d + "T12:00:00").getDay();
+    return dow === 0 || dow === 6;
+  };
+  const joursWeCap = jours.filter(estWeCap);
+  const joursSemaineCap = jours.filter(d => !estWeCap(d));
+  const MAX_WE_CAP = jours.length * employes.length * 4 + 20;
+  for (let iter = 0; iter < MAX_WE_CAP; iter++) {
+    let bougeCap = false;
+    for (const dWe of joursWeCap) {
+      if (effectif(dWe) <= 2) continue;
+      for (const e of employes) {
+        if (!present(e.id, dWe)) continue;
+        if (e.estCfc && cfcCount(dWe) === 1) continue; // garder au moins une CFC le week-end
+        const dCible = joursSemaineCap.find(dS => libre(e.id, dS) && effectif(dS) < effectif(dWe));
+        if (!dCible) continue;
+        liberer(e.id, dWe);
+        poser(e.id, dCible);
+        if (maxRun(e.id) > limiteOf[e.id]) {
+          liberer(e.id, dCible);
+          poser(e.id, dWe);
+          continue;
+        }
+        bougeCap = true;
+        break;
+      }
+      if (bougeCap) break;
+    }
+    if (!bougeCap) break;
+  }
+
   // 3) Rotation des week-ends : equilibre le nombre de WE travailles au sein de chaque groupe
   const weJours = new Set(jours.filter(d => {
     const dow = new Date(d + "T12:00:00").getDay();
