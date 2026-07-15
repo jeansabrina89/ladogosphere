@@ -15,9 +15,28 @@ import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { estMembreActif } from "@/src/lib/membre";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import BoutonOffrir from "./BoutonOffrir";
+import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
 import NomClientLien from "@/app/components/NomClientLien";
 import ContactEmail from "@/app/components/ContactEmail";
 import ContactTelephone from "@/app/components/ContactTelephone";
+
+function badgeCheckin(statut: string) {
+  const map: Record<string, { label: string; bg: string; color: string }> = {
+    attendu: { label: "⏳ Attendu", bg: "#FBF3DC", color: "#8A6D1F" },
+    arrive: { label: "🟢 Présent", bg: "#DEF1EC", color: "#1F6E5B" },
+    a_recuperer: { label: "🟡 À récupérer", bg: "#FBF3DC", color: "#8A6D1F" },
+    parti: { label: "✅ Parti", bg: "#ECECEC", color: "#6B7280" },
+  };
+  const b = map[statut] ?? { label: statut, bg: "#ECECEC", color: "#6B7280" };
+  return (
+    <span
+      className="text-xs px-2 py-0.5 rounded-full font-semibold ml-2"
+      style={{ background: b.bg, color: b.color }}
+    >
+      {b.label}
+    </span>
+  );
+}
 
 export default async function ReservationPage({
   params,
@@ -47,6 +66,12 @@ export default async function ReservationPage({
     .from("tarifs")
     .select("categorie, membre, prix")
     .eq("actif", true);
+
+  const { data: checkins } = await supabase
+    .from("checkin_checkout")
+    .select("id, statut, chien_id, date_arrivee_reelle, date_depart_reel, chiens (id, nom)")
+    .eq("reservation_id", id)
+    .order("created_at", { ascending: true });
 
   if (!res) return <div>Réservation introuvable</div>;
 
@@ -191,6 +216,43 @@ export default async function ReservationPage({
             <p><strong>Commentaire :</strong> {res.commentaire_admin}</p>
           )}
         </div>
+
+        {/* Arrivée / Départ (check-in / check-out) */}
+        {perms.perm_checkin && (checkins?.length ?? 0) > 0 && (
+          <div className="border-t pt-6 mb-6">
+            <h2 className="text-2xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
+              🚪 Arrivée / Départ
+            </h2>
+            <div className="space-y-3">
+              {checkins!.map((cc: any) => (
+                <div
+                  key={cc.id}
+                  className="border rounded-xl p-4 flex justify-between items-center gap-3 flex-wrap"
+                >
+                  <div className="min-w-0">
+                    <p className="font-bold inline" style={{ color: "#1B2B5E" }}>
+                      {cc.chiens?.nom ?? "Chien"}
+                    </p>
+                    {badgeCheckin(cc.statut)}
+                    {(cc.date_arrivee_reelle || cc.date_depart_reel) && (
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {cc.date_arrivee_reelle ? `Arrivé le ${formatDateFR(cc.date_arrivee_reelle)}` : ""}
+                        {cc.date_depart_reel ? `${cc.date_arrivee_reelle ? " · " : ""}Parti le ${formatDateFR(cc.date_depart_reel)}` : ""}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type="arrivee" />
+                    <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type="depart" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              Le départ (check-out) clôture la réservation et fige sa facture.
+            </p>
+          </div>
+        )}
 
         {/* Facturation */}
         <CalculFacture
