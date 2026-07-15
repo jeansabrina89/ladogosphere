@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
       )
     `)
     .eq("date_debut", dateDemain)
-    .eq("statut", "validee");
+    .eq("statut", "validee")
+    .eq("type_reservation", "sejour");
 
   if (error) {
     console.error("Erreur cron rappel:", error);
