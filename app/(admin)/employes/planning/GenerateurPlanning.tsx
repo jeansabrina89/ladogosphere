@@ -72,7 +72,7 @@ const PALETTE_CAL: { bg: string; fg: string }[] = [
 const NOMS_JOURS_CAL = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const PRESENCE_VIEW = ["travail", "ferie_travaille"];
 const ABSENCE_VIEW = ["maladie", "absent", "accident", "militaire"];
-const AUTRES_VIEW = ["repos_vacances", "heures_sup", "autre"];
+const AUTRES_VIEW = ["repos_vacances", "heures_sup", "autre", "cours"];
 const ICONE_ABSENCE_CAL: Record<string, string> = { maladie: "🤒", absent: "❌", accident: "🩹", militaire: "🎖️" };
 
 const STYLE_IMPRESSION = `
@@ -586,7 +586,7 @@ export default function GenerateurPlanning({
     const p = planning[emp.id] || {};
     let jours = 0, we = 0;
     Object.values(p).forEach(j => {
-      if (PRESENCE_VIEW.includes(j.statut)) {
+      if (PRESENCE_VIEW.includes(j.statut) || j.statut === "cours") {
         jours++;
         if (estWeekend(j.date)) we++;
       }
