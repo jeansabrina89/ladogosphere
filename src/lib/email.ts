@@ -154,6 +154,24 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
     intro: "Votre adhésion membre La Dogosphère arrive à échéance le <strong>31 décembre {annee}</strong>.",
     message_final: "Merci pour votre fidélité ! Nous espérons vous accueillir encore longtemps. 🐶",
   },
+  relance_paiement: {
+    sujet: "Rappel : règlement de votre séjour à La Dogosphère",
+    titre: "Bonjour {prenom},",
+    intro: "Nous revenons vers vous au sujet du séjour de votre compagnon : son règlement de CHF {montant} ne nous est pas encore parvenu.",
+    message_final: "Si le paiement a été effectué très récemment, merci de ne pas tenir compte de ce message. Un grand merci !",
+  },
+  rappel_paiement_1: {
+    sujet: "1er rappel — règlement en attente",
+    titre: "Bonjour {prenom},",
+    intro: "Sauf erreur de notre part, le montant de CHF {montant} pour le séjour de votre compagnon reste impayé à ce jour.",
+    message_final: "Nous vous remercions de bien vouloir procéder au règlement dans les meilleurs délais.",
+  },
+  rappel_paiement_2: {
+    sujet: "2ème rappel — règlement impayé",
+    titre: "Bonjour {prenom},",
+    intro: "Malgré nos précédents messages, le montant de CHF {montant} reste impayé à ce jour. Nous vous remercions de régulariser votre situation sans tarder.",
+    message_final: "Sans règlement de votre part, nous serons contraints d'envisager les démarches nécessaires. Nous restons bien sûr à votre disposition pour toute question.",
+  },
 };
 
 // Libelles lisibles + variables proposees (pour l'ecran d'administration)
@@ -166,6 +184,9 @@ export const MODELES_META: { type: string; label: string; variables: string[] }[
   { type: "satisfaction_essai", label: "Satisfaction après essai", variables: ["prenom", "nom_chien"] },
   { type: "rappel_veille", label: "Rappel la veille", variables: ["prenom", "nom_chien", "date_debut"] },
   { type: "rappel_cotisation", label: "Rappel cotisation", variables: ["prenom", "nom", "annee", "montant"] },
+  { type: "relance_paiement", label: "Relance paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
+  { type: "rappel_paiement_1", label: "1er rappel paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
+  { type: "rappel_paiement_2", label: "2ème rappel paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
 ];
 
 function interpoler(texte: string, vars: Record<string, string | number | undefined | null>): string {
@@ -491,6 +512,72 @@ export async function envoyerEmailPaiement({
           </tr>
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px;">Montant</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">CHF ${montant.toFixed(2)}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="background-color:#FFF8E1; border-left:4px solid #C9A84C; border-radius:8px; padding:16px; margin:0 0 24px 0;">
+        <p style="margin:0 0 8px 0; color:#7A5C00; font-size:14px; font-weight:bold;">💳 Moyens de paiement</p>
+        ${iban ? `
+        <p style="margin:0 0 6px 0; color:#7A5C00; font-size:13px;">
+          <strong>Virement bancaire :</strong> IBAN ${iban}<br/>
+          <strong>Titulaire :</strong> ${titulaire}<br/>
+          <strong>Référence :</strong> Votre nom + date du séjour
+        </p>` : `
+        <p style="margin:0 0 6px 0; color:#7A5C00; font-size:13px;">
+          Les coordonnées de paiement vous seront communiquées séparément.
+        </p>`}
+        <p style="margin:8px 0 0 0; color:#7A5C00; font-size:13px;">
+          <strong>Twint :</strong> disponible sur demande
+        </p>
+      </div>
+
+      <p style="color:#6B7280; font-size:14px; margin:0;">
+        ${m.message_final}
+      </p>
+    `),
+  });
+}
+
+export async function envoyerEmailRelancePaiement({
+  email, prenom, montant, date_debut, date_fin, type, iban, titulaire, niveau,
+}: {
+  email: string; prenom: string; montant: number;
+  date_debut: string; date_fin: string; type: string;
+  iban: string; titulaire: string; niveau: 1 | 2 | 3;
+}) {
+  const typeModele =
+    niveau === 3 ? "rappel_paiement_2" : niveau === 2 ? "rappel_paiement_1" : "relance_paiement";
+  const m = await modeleEmail(typeModele, {
+    prenom, montant: montant.toFixed(2),
+    date_debut: formatDate(date_debut), date_fin: formatDate(date_fin),
+  });
+  await envoyerEmail({
+    destinataire: email,
+    type: typeModele,
+    sujet: m.sujet,
+    html: emailTemplate(`
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
+
+      <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
+        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Votre séjour</h3>
+        <table cellpadding="0" cellspacing="0" style="width:100%;">
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Type</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${typeLabel(type)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Arrivée</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${formatDate(date_debut)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Départ</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${formatDate(date_fin)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Montant dû</td>
             <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">CHF ${montant.toFixed(2)}</td>
           </tr>
         </table>
