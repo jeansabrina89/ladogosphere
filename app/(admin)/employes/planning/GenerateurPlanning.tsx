@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { sauvegarderPlanning } from "./actions";
 import { joursTravaillesSemaine, reequilibrerCfc, equilibrerPlanningMois } from "@/src/lib/planningUtils";
@@ -109,7 +109,6 @@ export default function GenerateurPlanning({
   const [saving, setSaving] = useState(false);
   const [erreurSave, setErreurSave] = useState<string | null>(null);
   const [popover, setPopover] = useState<{ date: string; employe_id: string | null; mode: "statut" | "add" } | null>(null);
-  const [joursSansCfc, setJoursSansCfc] = useState<string[]>([]);
 
   const joursParMois = new Date(annee, mois, 0).getDate();
   const joursFeries = getJoursFeries(annee);
@@ -153,6 +152,23 @@ export default function GenerateurPlanning({
     indisponibilites.some(i => i.employe_id === id && i.date === d);
 
   const getStatut = (id: string, d: string) => planning[id]?.[d]?.statut || null;
+
+  // Alerte live : jours du mois sans aucune gardienne CFC presente (recalcule a chaque changement).
+  const joursSansCfc = useMemo(() => {
+    const cfc = employes.filter(e => e.actif && e.poste === "Gardien-ne d'animaux CFC");
+    if (cfc.length === 0) return [];
+    const jours: string[] = [];
+    for (let d = 1; d <= joursParMois; d++) {
+      jours.push(`${annee}-${String(mois).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+    }
+    return jours.filter(dateStr => {
+      const couvert = cfc.some(emp => {
+        const st = planning[emp.id]?.[dateStr]?.statut;
+        return st === "travail" || st === "ferie_travaille";
+      });
+      return !couvert;
+    });
+  }, [planning, employes, annee, mois, joursParMois]);
 
   const changerStatut = (employe_id: string, date: string, statut: string) => {
     setPlanning(prev => ({
@@ -513,19 +529,6 @@ export default function GenerateurPlanning({
         });
       });
     }
-
-    // Avertissement : jours du mois cible sans aucune gardienne CFC reellement presente
-    const sansCfc: string[] = [];
-    Array.from(new Set(semaines.flatMap(s => s.days).filter(d => d.startsWith(datePrefix))))
-      .sort()
-      .forEach(dateStr => {
-        const couvert = cfcActifs.some(emp => {
-          const j = nouveauPlanning[emp.id]?.[dateStr];
-          return j && (j.statut === "travail" || j.statut === "ferie_travaille");
-        });
-        if (!couvert) sansCfc.push(dateStr);
-      });
-    setJoursSansCfc(sansCfc);
 
     setPlanning(nouveauPlanning);
     setLoading(false);
