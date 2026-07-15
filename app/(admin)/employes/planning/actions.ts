@@ -19,10 +19,10 @@ type JourPlanning = {
   note?: string;
 };
 
-// 11 valeurs actives — 'ferie' (chômé) supprimé : anciennes lignes converties en 'repos' en base
+// 12 valeurs actives — 'ferie' (chômé) supprimé : anciennes lignes converties en 'repos' en base
 const DB_STATUTS_VALIDES = new Set([
   "travail", "repos", "repos_vacances", "vacances", "maladie", "accident", "militaire",
-  "ferie_travaille", "absent", "heures_sup", "autre",
+  "ferie_travaille", "absent", "heures_sup", "autre", "cours",
 ]);
 
 function toDbStatut(s: string): string {
