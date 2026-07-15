@@ -16,7 +16,7 @@ const NOMS_JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const PALETTE: { bg: string; fg: string }[] = [
   { bg: "#DBEFEA", fg: "#1F6E5B" },
   { bg: "#F4EAC9", fg: "#6E5410" },
-  { bg: "#FBE2DE", fg: "#A8453A" },
+  { bg: "#DDE3EC", fg: "#3B4A63" },
   { bg: "#E0E7FF", fg: "#283C7A" },
   { bg: "#EDE7F6", fg: "#5B3E8E" },
   { bg: "#E6F0D9", fg: "#3B6D11" },
@@ -83,6 +83,7 @@ export default async function PlanningEquipePage({
   const presentsParJour: Record<string, string[]> = {};
   const vacancesParJour: Record<string, string[]> = {};
   const absencesParJour: Record<string, { id: string; statut: string }[]> = {};
+  const coursParJour: Record<string, string[]> = {};
   (planning ?? []).forEach((r: any) => {
     if (STATUTS_PRESENCE.includes(r.statut)) {
       if (!presentsParJour[r.date]) presentsParJour[r.date] = [];
@@ -93,6 +94,9 @@ export default async function PlanningEquipePage({
     } else if (STATUTS_ABSENCE.includes(r.statut)) {
       if (!absencesParJour[r.date]) absencesParJour[r.date] = [];
       if (!absencesParJour[r.date].some((a) => a.id === r.employe_id)) absencesParJour[r.date].push({ id: r.employe_id, statut: r.statut });
+    } else if (r.statut === "cours") {
+      if (!coursParJour[r.date]) coursParJour[r.date] = [];
+      if (!coursParJour[r.date].includes(r.employe_id)) coursParJour[r.date].push(r.employe_id);
     }
   });
 
@@ -173,6 +177,12 @@ export default async function PlanningEquipePage({
                     🌴 {prenomParId[id] ?? "?"}
                   </span>
                 ))}
+                {(coursParJour[c.dateStr] ?? []).map((id) => (
+                  <span key={`cours-${id}`} className="text-xs rounded-full px-2 truncate"
+                    style={{ background: "#E0F2FE", color: "#0369A1", lineHeight: "1.6" }}>
+                    🎓 {prenomParId[id] ?? "?"}
+                  </span>
+                ))}
               </div>
             );
           })}
@@ -191,6 +201,9 @@ export default async function PlanningEquipePage({
           </div>
           <div className="flex items-center gap-2 text-sm" style={{ color: "#9A8F7E" }}>
             <span>🌴</span> En vacances
+          </div>
+          <div className="flex items-center gap-2 text-sm" style={{ color: "#0369A1" }}>
+            <span>🎓</span> Cours
           </div>
           <div className="flex items-center gap-2 text-sm" style={{ color: "#6E5410" }}>
             <span className="inline-block rounded" style={{ width: 12, height: 12, background: "#F8EFD3", border: "1px solid #C9A84C" }} />

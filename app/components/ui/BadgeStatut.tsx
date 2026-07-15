@@ -1,10 +1,11 @@
-type Ton = "or-doux" | "marine-doux" | "teal-doux" | "rose-doux" | "neutre";
+type Ton = "or-doux" | "marine-doux" | "teal-doux" | "rose-doux" | "bleu-doux" | "neutre";
 
 const STYLES: Record<Ton, { bg: string; texte: string }> = {
   "or-doux":     { bg: "#F4EAC9", texte: "#6E5410" },
   "marine-doux": { bg: "#E4E7F1", texte: "#2A3B6B" },
   "teal-doux":   { bg: "#DBEFEA", texte: "#1F6E5B" },
   "rose-doux":   { bg: "#FBE2DE", texte: "#A8453A" },
+  "bleu-doux":   { bg: "#E0F2FE", texte: "#0369A1" },
   "neutre":      { bg: "#EDE8DF", texte: "rgba(27,43,94,0.6)" },
 };
 
@@ -31,6 +32,7 @@ const TABLE: Record<string, { libelle: string; ton: Ton }> = {
   parti:            { libelle: "Parti",             ton: "neutre" },
   // Planning RH
   travail:          { libelle: "Travail",           ton: "teal-doux" },
+  cours:            { libelle: "Cours",             ton: "bleu-doux" },
   repos:            { libelle: "Repos",             ton: "neutre" },
   repos_vacances:   { libelle: "Repos vacances",    ton: "marine-doux" },
   vacances:         { libelle: "Vacances",          ton: "marine-doux" },

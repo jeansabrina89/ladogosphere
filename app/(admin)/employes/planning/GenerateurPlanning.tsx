@@ -13,6 +13,7 @@ type Employe = {
   email: string;
   actif: boolean;
   poste?: string | null;
+  jour_cours?: number | null;
 };
 
 type JourPlanning = {
@@ -35,6 +36,7 @@ const STATUTS = [
   { val: "ferie_travaille", label: "🎉✅ Férié travaillé", emoji: "🎉✅", bg: "#FEF3C7", text: "#15803D" },
   { val: "heures_sup",      label: "⏱️ Déd. H.sup",        emoji: "⏱️",  bg: "#DBEAFE", text: "#2563EB" },
   { val: "autre",           label: "📋 Autre",             emoji: "📋",   bg: "#F1F5F9", text: "#6B7280" },
+  { val: "cours",           label: "🎓 Cours",             emoji: "🎓",   bg: "#E0F2FE", text: "#0369A1" },
 ];
 
 
@@ -60,7 +62,7 @@ const NOMS_MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
 const PALETTE_CAL: { bg: string; fg: string }[] = [
   { bg: "#DBEFEA", fg: "#1F6E5B" },
   { bg: "#F4EAC9", fg: "#6E5410" },
-  { bg: "#FBE2DE", fg: "#A8453A" },
+  { bg: "#DDE3EC", fg: "#3B4A63" },
   { bg: "#E0E7FF", fg: "#283C7A" },
   { bg: "#EDE7F6", fg: "#5B3E8E" },
   { bg: "#E6F0D9", fg: "#3B6D11" },
@@ -172,6 +174,7 @@ export default function GenerateurPlanning({
     const nouveauPlanning: Record<string, Record<string, JourPlanning>> = {};
     const employesActifs = employes.filter(e => e.actif);
     const POSTE_CFC = "Gardien-ne d'animaux CFC";
+    const POSTE_APPRENTI = "Apprenti-e Gardien-ne d'animaux";
     const cfcActifs = employesActifs.filter(e => e.poste === POSTE_CFC);
 
     employes.forEach(emp => { nouveauPlanning[emp.id] = {}; });
@@ -315,6 +318,24 @@ export default function GenerateurPlanning({
         });
       });
 
+      // Jour de cours des apprentis : fixe ce jour de semaine en "cours"
+      // (compte comme 1 jour de travail ; ne compte pas comme presence a la pension).
+      const coursParEmp: Record<string, number> = {};
+      employesActifs.forEach(emp => {
+        coursParEmp[emp.id] = 0;
+        if (emp.poste !== POSTE_APPRENTI || emp.jour_cours == null) return;
+        semaine.forEach(d => {
+          if (!d.startsWith(datePrefix)) return;
+          if (fixes[emp.id][d]) return;
+          if (joursFeries.includes(d)) return;
+          if (estEnVacances(emp.id, d)) return;
+          if (new Date(d + "T12:00:00").getDay() === emp.jour_cours) {
+            fixes[emp.id][d] = "cours";
+            coursParEmp[emp.id] += 1;
+          }
+        });
+      });
+
       // Trier : taux croissant → les plus contraints (plus de repos) d'abord
       const empOrdres = [...employesActifs].sort((a, b) => a.taux_travail - b.taux_travail);
 
@@ -372,7 +393,7 @@ export default function GenerateurPlanning({
 
       // Placement initial
       empOrdres.forEach(emp => {
-        const cible = joursTravaillesSemaine(emp.taux_travail, idxSemaine + rangDephasage[emp.id]);
+        const cible = Math.max(0, joursTravaillesSemaine(emp.taux_travail, idxSemaine + rangDephasage[emp.id]) - coursParEmp[emp.id]);
         const joursLibres = semaine.filter(d => !fixes[emp.id][d]);
         if (joursLibres.length === 0) return;
         choisirEtAppliquerJours(emp, joursLibres, Math.min(cible, joursLibres.length));
@@ -381,7 +402,7 @@ export default function GenerateurPlanning({
       // 2 passes de ré-optimisation pour stabiliser l'équilibre global
       for (let pass = 0; pass < 2; pass++) {
         empOrdres.forEach(emp => {
-          const cible = joursTravaillesSemaine(emp.taux_travail, idxSemaine + rangDephasage[emp.id]);
+          const cible = Math.max(0, joursTravaillesSemaine(emp.taux_travail, idxSemaine + rangDephasage[emp.id]) - coursParEmp[emp.id]);
           const joursLibres = semaine.filter(d => !fixes[emp.id][d]);
           if (joursLibres.length === 0) return;
           const cible_actual = Math.min(cible, joursLibres.length);

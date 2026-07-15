@@ -4,6 +4,7 @@ import BoutonSupprimerEmploye from "./BoutonSupprimerEmploye";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
+import ChampsRh from "./ChampsRh";
 
 export default async function ModifierEmployePage({
   params,
@@ -120,51 +121,20 @@ export default async function ModifierEmployePage({
               <div>
                 <h2 className={titreSection}>Informations RH</h2>
 
-                <div className="mb-4">
-                  <label className="block font-semibold mb-1 text-sm">Poste</label>
-                  <select name="poste" defaultValue={rhData.poste || "Auxiliaire"}
-                    className={inputClass}>
-                    <option value="Gardien-ne d'animaux CFC">Gardien-ne d'animaux CFC</option>
-                    <option value="Apprenti-e Gardien-ne d'animaux">Apprenti-e Gardien-ne d'animaux</option>
-                    <option value="Auxiliaire">Auxiliaire</option>
-                    <option value="Autre">Autre</option>
-                  </select>
-                </div>
-
-                <div className="mb-4">
-                  <label className="block font-semibold mb-1 text-sm">
-                    Précision poste (si "Autre")
-                  </label>
-                  <input name="poste_autre" type="text"
-                    defaultValue={rhData.poste_autre || ""}
-                    placeholder="Ex: Responsable administrative"
-                    className={inputClass} />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block font-semibold mb-1 text-sm">Taux de travail</label>
-                    <select name="taux_travail" defaultValue={rhData.taux_travail}
-                      className={inputClass}>
-                      <option value="100">100% — 5j/semaine</option>
-                      <option value="90">90% — alternance 4/5j</option>
-                      <option value="80">80% — 4j/semaine</option>
-                      <option value="70">70% — alternance 3/4j</option>
-                      <option value="60">60% — 3j/semaine</option>
-                      <option value="50">50% — alternance 2/3j</option>
-                      <option value="40">40% — 2j/semaine</option>
-                      <option value="30">30% — alternance 1/2j</option>
-                      <option value="20">20% — 1j/semaine</option>
-                      <option value="10">10% — alternance 0/1j</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block font-semibold mb-1 text-sm">Salaire base 100% (CHF)</label>
-                    <input name="salaire_base" type="number" step="50"
-                      defaultValue={rhData.salaire_base}
-                      className={inputClass} />
-                  </div>
-                </div>
+                <ChampsRh
+                  inputClass={inputClass}
+                  initial={{
+                    poste: rhData.poste || "Auxiliaire",
+                    poste_autre: rhData.poste_autre || "",
+                    taux_travail: rhData.taux_travail,
+                    salaire_base: rhData.salaire_base ?? null,
+                    jour_cours: rhData.jour_cours ?? null,
+                    salaire_annee_1: rhData.salaire_annee_1 ?? null,
+                    salaire_annee_2: rhData.salaire_annee_2 ?? null,
+                    salaire_annee_3: rhData.salaire_annee_3 ?? null,
+                    annee_apprentissage: rhData.annee_apprentissage ?? null,
+                  }}
+                />
                 <div className="mt-4">
                   <label className="block font-semibold mb-1 text-sm">Date d'entrée</label>
                   <input name="date_entree" type="date"

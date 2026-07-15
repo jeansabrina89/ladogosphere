@@ -83,7 +83,7 @@ export function calculerDecompteHeures({
     const statut = planningParDate[dateStr] ?? null;
     const t = timbragesParDate[dateStr] ?? null;
 
-    const du = (statut === "travail" || statut === "ferie_travaille")
+    const du = (statut === "travail" || statut === "ferie_travaille" || statut === "cours")
       ? HEURES_JOURNEE_PLEINE
       : 0;
 
@@ -91,6 +91,9 @@ export function calculerDecompteHeures({
     if (t && !t.type_absence) {
       fait = calculerDuree(t.heure_debut_matin, t.heure_fin_matin)
         + calculerDuree(t.heure_debut_aprem, t.heure_fin_aprem);
+    } else if (statut === "cours") {
+      // Jour de cours d'apprenti : compte comme une journee pleine (neutre).
+      fait = HEURES_JOURNEE_PLEINE;
     } else if (t && du > 0 && t.type_absence !== null
       && ABSENCES_CREDITEES_SUR_TRAVAIL.includes(t.type_absence)) {
       fait = HEURES_JOURNEE_PLEINE;

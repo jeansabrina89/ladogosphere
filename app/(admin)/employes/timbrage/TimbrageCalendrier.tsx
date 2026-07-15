@@ -64,6 +64,7 @@ function bgPillStatut(s: string): string {
     repos_vacances: "#FFFBEB", vacances: "#FEF9C3", absent: "#FEE2E2",
     maladie: "#FEE2E2", accident: "#FEE2E2", militaire: "#EDE9FE",
     heures_sup: "#DBEAFE", autre: "#F1F5F9",
+    cours: "#E0F2FE",
   };
   return M[s] ?? "#F1F5F9";
 }
@@ -74,6 +75,7 @@ function textPillStatut(s: string): string {
     repos_vacances: "#D97706", vacances: "#CA8A04", absent: "#DC2626",
     maladie: "#DC2626", accident: "#DC2626", militaire: "#7C3AED",
     heures_sup: "#2563EB", autre: "#6B7280",
+    cours: "#0369A1",
   };
   return M[s] ?? "#9CA3AF";
 }
@@ -91,6 +93,8 @@ function getBadge(
             + calculerDuree(t.heure_debut_aprem, t.heure_fin_aprem);
     return { label: `✓ ${h.toFixed(1)}h`, bg: "#DCFCE7", text: "#16A34A" };
   }
+
+  if (statut === "cours") return { label: "🎓 Cours", bg: "#E0F2FE", text: "#0369A1" };
 
   if (t && t.type_absence) {
     const LABELS: Record<string, string> = {

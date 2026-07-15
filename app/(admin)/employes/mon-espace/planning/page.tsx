@@ -60,6 +60,7 @@ export default async function MonPlanningPage({
   const couleurStatut = (statut: string) => {
     switch (statut) {
       case "travail": return { bg: "#E8F5F4", text: "#4AAEA0", label: "✅ Travail" };
+      case "cours": return { bg: "#E0F2FE", text: "#0369A1", label: "🎓 Cours" };
       case "repos": return { bg: "#F1F5F9", text: "#6B7280", label: "😴 Repos" };
       case "repos_vacances": return { bg: "#FFFBEB", text: "#D97706", label: "🏖️ RV" };
       case "vacances": return { bg: "#FEF9C3", text: "#CA8A04", label: "🏖️ Vacances" };
