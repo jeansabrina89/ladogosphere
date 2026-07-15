@@ -57,7 +57,12 @@ export default async function FacturesListePage({
         <EnTete
           titre="🧾 Factures"
           sousTitre={`${toutes.length} facture${toutes.length > 1 ? "s" : ""} · ${nbAttente} en attente`}
-          action={<Bouton href="/comptabilite" variante="secondaire">← Comptabilité</Bouton>}
+          action={
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Bouton href="/factures/groupee" variante="principal">🧾 Facture groupée</Bouton>
+              <Bouton href="/comptabilite" variante="secondaire">← Comptabilité</Bouton>
+            </div>
+          }
         />
 
         <FiltresFactures />

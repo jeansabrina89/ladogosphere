@@ -70,22 +70,29 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 5. Aucune déjà liée à une facture non annulée
+  // 5. Detecter les factures individuelles ACTIVES liees a ces reservations.
+  //    Elles seront annulees automatiquement et remplacees par la groupee.
   const { data: liens, error: liensErr } = await supabaseAdmin
     .from("facture_reservations")
-    .select("reservation_id, factures!inner(statut)")
-    .in("reservation_id", reservation_ids);
+    .select("facture_id, factures!inner(id, statut)")
+    .in("reservation_id", reservation_ids)
+    .eq("facture_annulee", false);
 
   if (liensErr) return NextResponse.json({ error: liensErr.message }, { status: 500 });
 
-  const dejaFacturees = (liens ?? []).filter(
-    (l: any) => l.factures?.statut !== "annulee"
-  );
-  if (dejaFacturees.length > 0) {
-    return NextResponse.json(
-      { error: "Une ou plusieurs réservations sont déjà liées à une facture active." },
-      { status: 400 }
-    );
+  const facturesAAnnuler = new Map<string, string>();
+  for (const l of (liens ?? []) as any[]) {
+    const f = l.factures;
+    if (f && f.statut !== "annulee") facturesAAnnuler.set(f.id, f.statut);
+  }
+  // Une facture deja reglee (acquittee) ne peut pas etre regroupee.
+  for (const statut of facturesAAnnuler.values()) {
+    if (statut === "acquittee") {
+      return NextResponse.json(
+        { error: "Une reservation est deja liee a une facture reglee ; impossible de la regrouper." },
+        { status: 400 }
+      );
+    }
   }
 
   // 6. Calcul des montants par réservation et du total
@@ -119,6 +126,16 @@ export async function POST(req: NextRequest) {
       { error: facErr?.message ?? "Erreur lors de la création de la facture." },
       { status: 500 }
     );
+  }
+
+  // 7bis. Annuler les factures individuelles actives (remplacees par la groupee).
+  //        Sans impact comptable : les factures ne generent aucune ecriture.
+  for (const factureId of facturesAAnnuler.keys()) {
+    await supabaseAdmin.from("factures").update({ statut: "annulee" }).eq("id", factureId);
+    await supabaseAdmin
+      .from("facture_reservations")
+      .update({ facture_annulee: true })
+      .eq("facture_id", factureId);
   }
 
   // 8. Insérer les lignes facture_reservations
