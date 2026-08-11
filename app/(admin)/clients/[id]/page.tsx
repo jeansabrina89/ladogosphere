@@ -13,6 +13,7 @@ import BoutonConfirmerAbonnement from "./BoutonConfirmerAbonnement";
 import GestionAvoir from "./GestionAvoir";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { estMembreActif } from "@/src/lib/membre";
+import { etatAdhesion } from "@/src/lib/cotisation";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import ContactEmail from "@/app/components/ContactEmail";
 import ContactTelephone from "@/app/components/ContactTelephone";
@@ -61,6 +62,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
 
   const montantCotisation = parseFloat(parametre?.valeur ?? "200");
   const cotisationAnneeActuelle = cotisations?.find((c) => c.annee === anneeActuelle);
+  const etatCotisation = etatAdhesion(cotisationAnneeActuelle);
   const membre_a_jour = client.id ? await estMembreActif(supabaseAdmin, client.id) : false;
 
   const mouvementsAvoir = await getMouvementsAvoir(supabaseAdmin, id);
@@ -152,7 +154,8 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                 client_id={client.id}
                 client_nom={`${client.prenom} ${client.nom}`}
                 est_membre={client.membre}
-                cotisation_existante={!!cotisationAnneeActuelle}
+                cotisation_payee={etatCotisation === "payee"}
+                cotisation_en_attente={etatCotisation === "en_attente"}
                 montant={montantCotisation}
                 annee={anneeActuelle}
                 est_exempte={client.cotisation_exemptee}

@@ -4,13 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function BoutonCotisation({
-  client_id, client_nom, est_membre, cotisation_existante, montant, annee,
+  client_id, client_nom, est_membre, cotisation_payee, cotisation_en_attente = false, montant, annee,
   est_exempte = false, raison_exemption,
 }: {
   client_id: string;
   client_nom: string;
   est_membre: boolean;
-  cotisation_existante: boolean;
+  cotisation_payee: boolean;
+  cotisation_en_attente?: boolean;
   montant: number;
   annee: number;
   est_exempte?: boolean;
@@ -55,27 +56,40 @@ export default function BoutonCotisation({
     );
   }
 
-  if (cotisation_existante) {
+  // Seul le statut 'payee' verrouille l'affichage.
+  if (cotisation_payee) {
     return (
       <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-700 font-semibold">
-        ✅ Adhésion {annee} enregistrée
+        ✅ Adhésion {annee} payée
       </div>
     );
   }
 
+  const libelleBouton = cotisation_en_attente
+    ? `💳 Encaisser l'adhésion ${annee} (en attente)`
+    : est_membre ? `🔄 Renouveler adhésion ${annee}` : `⭐ Enregistrer comme membre ${annee}`;
+  const libelleTitre = cotisation_en_attente
+    ? `💳 Encaissement adhésion ${annee}`
+    : est_membre ? `🔄 Renouvellement adhésion ${annee}` : `⭐ Inscription membre ${annee}`;
+
   return (
     <div>
+      {cotisation_en_attente && !ouvert && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-sm text-yellow-800 mb-3">
+          ⏳ Adhésion {annee} en attente de paiement. Encaisse-la (le montant sera fixé à la valeur courante) ou corrige-la.
+        </div>
+      )}
       {!ouvert ? (
         <button onClick={() => setOuvert(true)}
           className="px-5 py-2 rounded-xl font-semibold text-white"
-          style={{ backgroundColor: est_membre ? "#C9A84C" : "#4AAEA0" }}>
-          {est_membre ? `🔄 Renouveler adhésion ${annee}` : `⭐ Enregistrer comme membre ${annee}`}
+          style={{ backgroundColor: cotisation_en_attente ? "#4AAEA0" : est_membre ? "#C9A84C" : "#4AAEA0" }}>
+          {libelleBouton}
         </button>
       ) : (
         <div className="border-2 rounded-xl p-5 space-y-4"
           style={{ borderColor: "#4AAEA0", backgroundColor: "#E8F5F4" }}>
           <p className="font-bold" style={{ color: "#1B2B5E" }}>
-            {est_membre ? `🔄 Renouvellement adhésion ${annee}` : `⭐ Inscription membre ${annee}`} — {client_nom}
+            {libelleTitre} — {client_nom}
           </p>
           <p className="text-sm text-gray-600">
             Montant : <strong>CHF {montant.toFixed(2)}</strong>

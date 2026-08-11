@@ -30,6 +30,24 @@ export async function POST(
       updateData.mode_paiement = mode_paiement;
     }
 
+    // À l'encaissement d'une cotisation de l'année en cours, rafraîchir son
+    // montant à la valeur courante du paramètre (les années passées gardent
+    // leur montant historique).
+    const { data: cotisation } = await supabaseAdmin
+      .from("cotisations_membres")
+      .select("annee")
+      .eq("id", id)
+      .maybeSingle();
+    if (cotisation?.annee === new Date().getFullYear()) {
+      const { data: paramCotis } = await supabaseAdmin
+        .from("parametres")
+        .select("valeur")
+        .eq("cle", "cotisation_montant")
+        .maybeSingle();
+      const montantCourant = parseFloat(paramCotis?.valeur ?? "200") || 200;
+      updateData.montant = montantCourant;
+    }
+
     const { error } = await supabaseAdmin
       .from("cotisations_membres")
       .update(updateData)

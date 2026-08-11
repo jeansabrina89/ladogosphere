@@ -7,9 +7,17 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const garde = await exigerPermissionApi(supabase, "perm_encaissements");
   if (garde) return garde;
-  const { client_id, annee, montant, mode_paiement, statut, date_paiement } = await req.json();
+  const { client_id, annee, mode_paiement, statut, date_paiement } = await req.json();
 
-  // Enregistrer la cotisation
+  // Montant TOUJOURS lu depuis le paramètre (jamais une constante ni le corps de requête).
+  const { data: paramCotis } = await supabaseAdmin
+    .from("parametres")
+    .select("valeur")
+    .eq("cle", "cotisation_montant")
+    .maybeSingle();
+  const montant = parseFloat(paramCotis?.valeur ?? "200") || 200;
+
+  // Enregistrer / mettre à jour la cotisation (upsert par client + année).
   const { error: errCotisation } = await supabaseAdmin
     .from("cotisations_membres")
     .upsert({
