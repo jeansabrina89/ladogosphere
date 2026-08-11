@@ -173,7 +173,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                       <p style={{ ...muted, fontSize: 12, marginTop: 2 }}>
                         {c.mode_paiement === "cash" ? "💵 Cash" :
                          c.mode_paiement === "virement" ? "🏦 Virement IBAN" :
-                         c.mode_paiement === "prochaine_resa" ? "📅 Prochaine réservation" : "—"}
+                         c.mode_paiement === "prochaine_resa" ? (c.reservation_id ? "🧾 Payé sur réservation" : "📅 Prochaine réservation") : "—"}
                         {c.date_paiement && ` — ${formatDateFR(c.date_paiement)}`}
                       </p>
                     </div>

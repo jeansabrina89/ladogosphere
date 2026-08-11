@@ -7,10 +7,8 @@ import {
   type Occurrence,
 } from "@/app/(client)/mon-compte/reservations/actions";
 import { calculerMontant } from "@/src/lib/calculTarif";
-import { MESSAGE_ADHESION_REQUISE } from "@/src/lib/membre";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
-import BoutonDemanderAdhesion from "@/app/components/BoutonDemanderAdhesion";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -333,14 +331,16 @@ function CalendrierSelecteur({
 export default function TunnelReservation({
   chiens,
   tarifs,
-  estMembre,
+  estMembreAJour,
   estExempte,
+  essaiTermine,
   montantCotisation,
 }: {
   chiens: ChienTunnel[];
   tarifs: TarifLite[];
-  estMembre: boolean;
+  estMembreAJour: boolean;
   estExempte: boolean;
+  essaiTermine: boolean;
   montantCotisation: number;
 }) {
 
@@ -422,9 +422,10 @@ export default function TunnelReservation({
   const chiensValidesSelectionnes = chiensSelectionnes.filter(c => c.journee_essai_effectuee && !c.journee_essai_invalide);
   const estMixte = chiensNonValidesSelectionnes.length > 0 && chiensValidesSelectionnes.length > 0;
 
-  // Adhésion obligatoire pour réserver une journée/séjour (branche "complete").
-  // La journée d'essai (branche "essai") reste toujours autorisée.
-  const adhesionRequise = branche === "complete" && !estMembre && !estExempte;
+  // 1ère pension d'un client non-membre non-exempté (essai terminé) : l'adhésion
+  // est EMBARQUÉE dans la réservation (aucun blocage). La journée d'essai reste
+  // toujours réservable librement.
+  const bundleAdhesion = branche === "complete" && !estMembreAJour && !estExempte && essaiTermine;
 
   const etapes: EtapeId[] = branche === "essai"
     ? (estMixte
@@ -471,7 +472,7 @@ export default function TunnelReservation({
         tarifs: tarifsPourAnnee(anneeDe(dateEssai)),
         type_reservation: "essai",
         nb_chiens: chienIdsEssai.length,
-        est_membre: estMembre,
+        est_membre: true,
         est_urgence: false,
         est_privatif: false,
         date_debut: dateEssai,
@@ -489,7 +490,7 @@ export default function TunnelReservation({
           tarifs: tarifsPourAnnee(anneeDe(o.date_debut)),
           type_reservation: formule,
           nb_chiens: chiensSelectionnes.length,
-          est_membre: estMembre,
+          est_membre: true,
           est_urgence: false,
           est_privatif: false,
           date_debut: o.date_debut,
@@ -587,12 +588,6 @@ export default function TunnelReservation({
 
   async function soumettre() {
     setErreur("");
-
-    if (adhesionRequise) {
-      setErreur(MESSAGE_ADHESION_REQUISE);
-      return;
-    }
-
     setChargement(true);
 
     let input: Parameters<typeof creerDemandeReservation>[0];
@@ -1178,27 +1173,20 @@ export default function TunnelReservation({
           />
         </div>
 
-        {adhesionRequise ? (
+        {bundleAdhesion && (
           <div style={{
             backgroundColor: "#FBF3DC", border: "1px solid #C9A84C",
-            borderRadius: 12, padding: "16px 18px",
+            borderRadius: 12, padding: "14px 16px", marginBottom: 12,
           }}>
-            <p style={{ margin: "0 0 6px", fontWeight: 700, color: "#6E5410", fontSize: 15 }}>
-              ⭐ Adhésion requise
+            <p style={{ margin: 0, fontWeight: 700, color: "#6E5410", fontSize: 14.5 }}>
+              ⭐ Adhésion {montantCotisation.toFixed(0)}.- ajoutée à cette réservation
             </p>
-            <p style={{ margin: "0 0 12px", fontSize: 13, color: "#6E5410", lineHeight: 1.5 }}>
-              {MESSAGE_ADHESION_REQUISE} La journée d&apos;essai reste possible sans adhésion.
+            <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "#6E5410", lineHeight: 1.5 }}>
+              Votre première réservation de pension inclut l&apos;adhésion annuelle. Vous devenez membre immédiatement ; le montant est réglé avec cette réservation.
             </p>
-            <BoutonDemanderAdhesion montant={montantCotisation} />
-            <div style={{ marginTop: 12 }}>
-              <Bouton variante="discret" onClick={allerPrecedent} type="button">
-                ← Précédent
-              </Bouton>
-            </div>
           </div>
-        ) : (
-          renderNavFooter(soumettre, sendLabel, chargement)
         )}
+        {renderNavFooter(soumettre, sendLabel, chargement)}
       </>
     );
   }

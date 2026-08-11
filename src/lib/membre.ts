@@ -57,6 +57,30 @@ export async function estMembreActif(
 }
 
 /**
+ * Statut « membre à jour » pour le DROIT à réserver une pension.
+ * DIFFÉRENT de estMembreActif : ici une cotisation 'en_attente' compte AUSSI
+ * (une adhésion demandée mais pas encore encaissée donne accès).
+ * Ne PAS utiliser pour l'achat d'abonnement / la tarification (garder estMembreActif).
+ */
+export async function estMembreAJourReservation(
+  supabase: SupabaseClient,
+  client_id: string | null | undefined,
+  dateRefISO?: string
+): Promise<boolean> {
+  if (!client_id) return false;
+  const annees = anneesPertinentes(dateRefISO);
+  if (annees.length === 0) return false;
+  const { data } = await supabase
+    .from("cotisations_membres")
+    .select("annee")
+    .eq("client_id", client_id)
+    .in("statut", ["payee", "en_attente"])
+    .in("annee", annees)
+    .limit(1);
+  return !!(data && data.length > 0);
+}
+
+/**
  * Version groupée : retourne l'ensemble des client_id qui ont une cotisation
  * à jour, en une seule requête (pour les listes).
  */

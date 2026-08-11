@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 import TunnelReservation from "./TunnelReservation";
-import { estMembreActif } from "@/src/lib/membre";
+import { estMembreAJourReservation } from "@/src/lib/membre";
 
 export default async function NouvelleDemandeReservationPage() {
   const supabase = await createClient();
@@ -86,8 +86,18 @@ export default async function NouvelleDemandeReservationPage() {
     .select("categorie, membre, prix, annee")
     .eq("actif", true);
 
-  const estMembre = await estMembreActif(supabaseAdmin, client.id);
+  const estMembreAJour = await estMembreAJourReservation(supabaseAdmin, client.id);
   const estExempte = !!(client as { cotisation_exemptee?: boolean }).cotisation_exemptee;
+
+  // Le client a-t-il au moins une journée d'essai TERMINÉE ?
+  const { data: essaisTermines } = await supabaseAdmin
+    .from("reservations")
+    .select("id")
+    .eq("client_id", client.id)
+    .eq("type_reservation", "essai")
+    .eq("statut", "terminee")
+    .limit(1);
+  const essaiTermine = !!(essaisTermines && essaisTermines.length > 0);
 
   const { data: paramCotis } = await supabaseAdmin
     .from("parametres")
@@ -114,8 +124,9 @@ export default async function NouvelleDemandeReservationPage() {
         <TunnelReservation
           chiens={chiens}
           tarifs={tarifs}
-          estMembre={estMembre}
+          estMembreAJour={estMembreAJour}
           estExempte={estExempte}
+          essaiTermine={essaiTermine}
           montantCotisation={montantCotisation}
         />
       </div>

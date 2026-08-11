@@ -5,7 +5,8 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { revalidatePath } from "next/cache";
 import { envoyerEmailConfirmationDemande } from "@/src/lib/email";
 import { consommerAbonnementResa } from "@/src/lib/consommationAbonnement";
-import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "@/src/lib/membre";
+import { estMembreAJourReservation } from "@/src/lib/membre";
+import { peutReserverPension, MESSAGE_ESSAI_REQUIS } from "@/src/lib/adhesionReservation";
 
 // ---------------------------------------------------------------------------
 // Types publics (consommés par le futur tunnel)
@@ -132,19 +133,35 @@ export async function creerDemandeReservation(
     }
   }
 
-  // 5bis. Adhésion obligatoire pour réserver (sauf essai ou client exempté).
-  //       Contrôle SERVEUR autoritatif : le statut membre est recalculé ici,
-  //       à la première date de prestation, via le client service-role.
+  // 5bis. Porte d'accès pension + décision de bundling de l'adhésion.
+  //       Contrôle SERVEUR autoritatif (le gate de sécurité par-chien ci-dessus
+  //       reste actif ; celui-ci s'AJOUTE au niveau client). Admin exclu : ce
+  //       chemin est exclusivement client (session authentifiée).
+  const dateRef = [...input.occurrences.map((o) => o.date_debut)].sort()[0];
+  let bundlerAdhesion = false;
   if (input.type_reservation !== "essai") {
-    const dateRef = [...input.occurrences.map((o) => o.date_debut)].sort()[0];
-    const estMembre = await estMembreActif(supabaseAdmin, fiche.id, dateRef);
-    if (!reservationAutorisee({
-      estMembre,
+    const [estMembreAJour, essaiTermine] = await Promise.all([
+      estMembreAJourReservation(supabaseAdmin, fiche.id, dateRef),
+      supabaseAdmin
+        .from("reservations")
+        .select("id")
+        .eq("client_id", fiche.id)
+        .eq("type_reservation", "essai")
+        .eq("statut", "terminee")
+        .limit(1)
+        .then(({ data }) => !!(data && data.length > 0)),
+    ]);
+    const decision = peutReserverPension({
+      estMembreAJour,
       estExempte: !!(fiche as { cotisation_exemptee?: boolean }).cotisation_exemptee,
+      essaiTermine,
       typeReservation: input.type_reservation,
-    })) {
-      return { ok: false, erreur: MESSAGE_ADHESION_REQUISE };
+      estAdmin: false,
+    });
+    if (!decision.autorise) {
+      return { ok: false, erreur: MESSAGE_ESSAI_REQUIS };
     }
+    bundlerAdhesion = decision.bundlerAdhesion;
   }
 
   // 6. INSERT groupé : toutes les réservations en une seule requête
@@ -195,6 +212,54 @@ export async function creerDemandeReservation(
         "Erreur lors de la liaison des chiens. " +
         "Les réservations créées ont été annulées automatiquement.",
     };
+  }
+
+  // 7bis. Bundling adhésion : 1ère pension d'un client non-membre non-exempté
+  //       (essai terminé). Une seule adhésion par client+année (garantie par
+  //       l'unicité cotisation), attachée à UNE seule réservation.
+  if (bundlerAdhesion) {
+    const anneeAdhesion = new Date(dateRef + "T12:00:00").getFullYear();
+    const resaPorteuse = reservationIds[0];
+
+    const { data: paramCotis } = await supabaseAdmin
+      .from("parametres")
+      .select("valeur")
+      .eq("cle", "cotisation_montant")
+      .maybeSingle();
+    const montantAdhesion = parseFloat(paramCotis?.valeur ?? "200") || 200;
+
+    // Cotisation en_attente liée à la réservation. onConflict (client_id, annee)
+    // ignoré si une adhésion existe déjà : jamais de doublon.
+    const { error: errCotis } = await supabaseAdmin
+      .from("cotisations_membres")
+      .upsert({
+        client_id: fiche.id,
+        annee: anneeAdhesion,
+        montant: montantAdhesion,
+        mode_paiement: "prochaine_resa", // affiché « Payé sur réservation »
+        statut: "en_attente",
+        reservation_id: resaPorteuse,
+      }, { onConflict: "client_id,annee", ignoreDuplicates: true });
+
+    // La ligne « Adhésion » n'est ajoutée au total QUE si la cotisation vient
+    // d'être posée par CETTE requête (aucune adhésion préexistante pour l'année).
+    if (!errCotis) {
+      const { data: cotisLiee } = await supabaseAdmin
+        .from("cotisations_membres")
+        .select("reservation_id")
+        .eq("client_id", fiche.id)
+        .eq("annee", anneeAdhesion)
+        .maybeSingle();
+      if (cotisLiee?.reservation_id === resaPorteuse) {
+        await supabaseAdmin.from("reservation_extras").insert({
+          reservation_id: resaPorteuse,
+          libelle: `Adhésion membre ${anneeAdhesion}`,
+          montant: montantAdhesion,
+        });
+        // Membre à jour immédiatement.
+        await supabaseAdmin.from("clients").update({ membre: true }).eq("id", fiche.id);
+      }
+    }
   }
 
   // 8. Email de confirmation — une seule fois pour tout le batch
