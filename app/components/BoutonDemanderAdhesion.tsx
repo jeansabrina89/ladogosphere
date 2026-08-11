@@ -41,7 +41,7 @@ export default function BoutonDemanderAdhesion({ montant }: { montant: number })
           >
             <p style={{ fontFamily: "Georgia, serif", fontSize: 18, fontWeight: 700, color: "#1B2B5E", margin: "0 0 6px" }}>Demander mon adhésion</p>
             <p style={{ fontSize: 13, color: "rgba(27,43,94,0.6)", margin: "0 0 18px" }}>
-              Cotisation annuelle de {montant || 180} CHF. Comment souhaites-tu la régler ?
+              Cotisation annuelle de {montant || 200} CHF. Comment souhaites-tu la régler ?
             </p>
             <button
               disabled={loading}

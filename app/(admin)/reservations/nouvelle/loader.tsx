@@ -9,7 +9,7 @@ export default async function NouvelleReservationLoader() {
 
   const { data: clients } = await supabase
     .from("clients")
-    .select("id, prenom, nom, membre")
+    .select("id, prenom, nom, membre, cotisation_exemptee")
     .eq("actif", true)
     .order("nom");
 

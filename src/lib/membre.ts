@@ -1,5 +1,30 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+/**
+ * Message unique renvoyé côté serveur ET affiché côté UI quand l'adhésion
+ * est requise pour réserver. (Le montant reste géré via parametres.cotisation_montant ;
+ * ce libellé de blocage cite la valeur courante de 200.-.)
+ */
+export const MESSAGE_ADHESION_REQUISE =
+  "Adhésion requise : la cotisation annuelle (200.-) doit être réglée avant de pouvoir réserver.";
+
+/**
+ * Règle métier (pure, testable) : un client peut créer une réservation si et
+ * seulement s'il est membre à jour, OU exempté de cotisation, OU s'il s'agit
+ * d'une journée d'essai.
+ */
+export function reservationAutorisee({
+  estMembre,
+  estExempte,
+  typeReservation,
+}: {
+  estMembre: boolean;
+  estExempte: boolean;
+  typeReservation: string;
+}): boolean {
+  return typeReservation === "essai" || estMembre || estExempte;
+}
+
 export function anneesPertinentes(dateRefISO?: string): number[] {
   const ref = (dateRefISO ?? new Date().toISOString()).slice(0, 10);
   const [annee, mois] = ref.split("-").map(Number);

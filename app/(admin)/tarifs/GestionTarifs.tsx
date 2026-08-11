@@ -370,7 +370,8 @@ export default function GestionTarifs({
       {/* Tableaux de tarifs par groupe */}
       {GROUPES.map(({ label, prefix }) => {
         const categories = [`${prefix}_partage_1`, `${prefix}_partage_2`, `${prefix}_partage_3`, `${prefix}_privatif`];
-        const aMembreUniquement = prefix === "urgence";
+        // Réservations au tarif membre uniquement : on ne gère plus de colonne non-membre.
+        const aMembreUniquement = true;
 
         return (
           <div key={prefix} className="bg-white rounded-xl p-6 shadow-sm">

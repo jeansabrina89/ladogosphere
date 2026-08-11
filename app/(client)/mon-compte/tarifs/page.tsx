@@ -47,27 +47,16 @@ function getPrix(
 
 function LigneGrille({
   label,
-  nm,
-  mb,
-  estMembre,
+  prix,
 }: {
   label: string;
-  nm: string;
-  mb: string;
-  estMembre: boolean;
+  prix: string;
 }) {
-  const highlightNm: CSSProperties = !estMembre
-    ? { fontWeight: 700, color: MARINE }
-    : { color: "rgba(27,43,94,0.6)" };
-  const highlightMb: CSSProperties = estMembre
-    ? { fontWeight: 700, color: "#1F6E5B" }
-    : { color: "rgba(27,43,94,0.6)" };
-
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "1fr 1fr 1fr",
+        gridTemplateColumns: "1fr auto",
         gap: 8,
         padding: "10px 0",
         borderBottom: "1px solid rgba(27,43,94,0.07)",
@@ -75,8 +64,7 @@ function LigneGrille({
       }}
     >
       <span style={{ fontSize: 14, color: MARINE }}>{label}</span>
-      <span style={{ fontSize: 14, textAlign: "right", ...highlightNm }}>{nm}</span>
-      <span style={{ fontSize: 14, textAlign: "right", ...highlightMb }}>{mb}</span>
+      <span style={{ fontSize: 16, fontWeight: 700, textAlign: "right", color: "#1F6E5B" }}>{prix}</span>
     </div>
   );
 }
@@ -86,7 +74,7 @@ function EnTeteGrille() {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "1fr 1fr 1fr",
+        gridTemplateColumns: "1fr auto",
         gap: 8,
         padding: "0 0 8px",
         borderBottom: "2px solid rgba(27,43,94,0.12)",
@@ -94,8 +82,7 @@ function EnTeteGrille() {
       }}
     >
       <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(27,43,94,0.4)", textTransform: "uppercase", letterSpacing: "0.5px" }}></span>
-      <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(27,43,94,0.4)", textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "right" }}>Non-membre</span>
-      <span style={{ fontSize: 11, fontWeight: 700, color: "#1F6E5B", textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "right" }}>Membre ★</span>
+      <span style={{ fontSize: 11, fontWeight: 700, color: "#1F6E5B", textTransform: "uppercase", letterSpacing: "0.5px", textAlign: "right" }}>Tarif ★</span>
     </div>
   );
 }
@@ -203,7 +190,7 @@ export default async function TarifsClientPage() {
           {peutDemander && (
             <Carte>
               <p style={sSecTitre}>★ Devenir membre</p>
-              <p style={sSecSous}>La cotisation annuelle de {cotisation || 180} CHF te donne accès aux tarifs membres sur toutes tes réservations.</p>
+              <p style={sSecSous}>La cotisation annuelle de {cotisation || 200} CHF est obligatoire pour pouvoir réserver (hors journée d&apos;essai).</p>
               <BoutonDemanderAdhesion montant={cotisation} />
             </Carte>
           )}
@@ -223,9 +210,9 @@ export default async function TarifsClientPage() {
                 <p style={sSecTitre}>☀️ Garderie (journée)</p>
                 <p style={sSecSous}>Tarif par chien, pour une journée.</p>
                 <EnTeteGrille />
-                <LigneGrille label="1 chien" nm={getPrix(tarifs, "journee_partage_1", false)} mb={getPrix(tarifs, "journee_partage_1", true)} estMembre={estMembre} />
-                <LigneGrille label="2 chiens" nm={getPrix(tarifs, "journee_partage_2", false)} mb={getPrix(tarifs, "journee_partage_2", true)} estMembre={estMembre} />
-                <LigneGrille label="3 chiens" nm={getPrix(tarifs, "journee_partage_3", false)} mb={getPrix(tarifs, "journee_partage_3", true)} estMembre={estMembre} />
+                <LigneGrille label="1 chien" prix={getPrix(tarifs, "journee_partage_1", true)} />
+                <LigneGrille label="2 chiens" prix={getPrix(tarifs, "journee_partage_2", true)} />
+                <LigneGrille label="3 chiens" prix={getPrix(tarifs, "journee_partage_3", true)} />
                 <p style={sNote}>Au-delà de 3 chiens : tarif sur demande.</p>
               </Carte>
 
@@ -234,9 +221,9 @@ export default async function TarifsClientPage() {
                 <p style={sSecTitre}>🏠 Pension (par nuit)</p>
                 <p style={sSecSous}>Tarif par chien et par nuit.</p>
                 <EnTeteGrille />
-                <LigneGrille label="1 chien" nm={getPrix(tarifs, "sejour_partage_1", false)} mb={getPrix(tarifs, "sejour_partage_1", true)} estMembre={estMembre} />
-                <LigneGrille label="2 chiens" nm={getPrix(tarifs, "sejour_partage_2", false)} mb={getPrix(tarifs, "sejour_partage_2", true)} estMembre={estMembre} />
-                <LigneGrille label="3 chiens" nm={getPrix(tarifs, "sejour_partage_3", false)} mb={getPrix(tarifs, "sejour_partage_3", true)} estMembre={estMembre} />
+                <LigneGrille label="1 chien" prix={getPrix(tarifs, "sejour_partage_1", true)} />
+                <LigneGrille label="2 chiens" prix={getPrix(tarifs, "sejour_partage_2", true)} />
+                <LigneGrille label="3 chiens" prix={getPrix(tarifs, "sejour_partage_3", true)} />
                 <p style={sNote}>Au-delà de 3 chiens : tarif sur demande.</p>
               </Carte>
 
@@ -255,16 +242,16 @@ export default async function TarifsClientPage() {
               </Carte>
 
               {/* PRIVATIF */}
-              {(getPrix(tarifs, "journee_privatif", false) !== "—" || getPrix(tarifs, "sejour_privatif", false) !== "—") && (
+              {(getPrix(tarifs, "journee_privatif", true) !== "—" || getPrix(tarifs, "sejour_privatif", true) !== "—") && (
                 <Carte>
                   <p style={sSecTitre}>🚪 Hébergement privatif</p>
                   <p style={sSecSous}>Box réservé exclusivement à ton chien (sur demande).</p>
                   <EnTeteGrille />
-                  {getPrix(tarifs, "journee_privatif", false) !== "—" && (
-                    <LigneGrille label="Garderie privatif" nm={getPrix(tarifs, "journee_privatif", false)} mb={getPrix(tarifs, "journee_privatif", true)} estMembre={estMembre} />
+                  {getPrix(tarifs, "journee_privatif", true) !== "—" && (
+                    <LigneGrille label="Garderie privatif" prix={getPrix(tarifs, "journee_privatif", true)} />
                   )}
-                  {getPrix(tarifs, "sejour_privatif", false) !== "—" && (
-                    <LigneGrille label="Pension privatif / nuit" nm={getPrix(tarifs, "sejour_privatif", false)} mb={getPrix(tarifs, "sejour_privatif", true)} estMembre={estMembre} />
+                  {getPrix(tarifs, "sejour_privatif", true) !== "—" && (
+                    <LigneGrille label="Pension privatif / nuit" prix={getPrix(tarifs, "sejour_privatif", true)} />
                   )}
                 </Carte>
               )}

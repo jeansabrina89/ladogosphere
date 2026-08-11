@@ -182,7 +182,7 @@ export default async function FacturePage({
                 {res.type_reservation === "journee" ? "Journée" :
                  res.type_reservation === "sejour" ? "Séjour" : "Journée d'essai"} —{" "}
                 {chiens.length} chien{chiens.length > 1 ? "s" : ""}
-                {est_membre_actif ? " (tarif membre)" : " (tarif non-membre)"}
+                {" (tarif membre)"}
               </td>
               <td className="px-4 py-3 text-center">{nbJours} j.</td>
               <td className="px-4 py-3 text-right font-semibold">

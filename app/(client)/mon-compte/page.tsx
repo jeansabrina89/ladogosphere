@@ -75,7 +75,7 @@ export default async function MonComptePage() {
     .select("valeur")
     .eq("cle", "cotisation_montant")
     .maybeSingle();
-  const montantCotisation = parseFloat(paramCotis?.valeur ?? "180") || 180;
+  const montantCotisation = parseFloat(paramCotis?.valeur ?? "200") || 200;
 
   const raccourcis = [
     { href: "/mon-compte/chiens",        label: "Mes chiens" },

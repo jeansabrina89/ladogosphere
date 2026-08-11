@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { envoyerEmailConfirmationDemande } from "@/src/lib/email";
+import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "@/src/lib/membre";
 
 export async function POST(req: NextRequest) {
   const supabaseServer = await createSupabaseServerClient();
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
   // Récupérer la fiche client liée à la session (RLS : uniquement la sienne)
   const { data: fiche, error: ficheErr } = await supabaseServer
     .from("clients")
-    .select("id, email, prenom")
+    .select("id, email, prenom, cotisation_exemptee")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
@@ -76,6 +77,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         error: `${noms} ${chiensNonValides.length > 1 ? "doivent" : "doit"} d'abord valider ${chiensNonValides.length > 1 ? "leur" : "sa"} journée d'essai avant de pouvoir réserver une journée ou un séjour.`,
       }, { status: 400 });
+    }
+  }
+
+  // Adhésion obligatoire pour réserver (sauf essai ou client exempté).
+  if (type_reservation !== "essai") {
+    const estMembre = await estMembreActif(supabaseAdmin, fiche.id, date_debut);
+    if (!reservationAutorisee({
+      estMembre,
+      estExempte: !!(fiche as { cotisation_exemptee?: boolean }).cotisation_exemptee,
+      typeReservation: type_reservation,
+    })) {
+      return NextResponse.json({ error: MESSAGE_ADHESION_REQUISE }, { status: 400 });
     }
   }
 

@@ -33,7 +33,7 @@ export async function demanderAdhesion(mode: "virement" | "prochaine_resa") {
     .select("valeur")
     .eq("cle", "cotisation_montant")
     .maybeSingle();
-  const montant = parseFloat(param?.valeur ?? "180") || 180;
+  const montant = parseFloat(param?.valeur ?? "200") || 200;
 
   const { error } = await supabaseAdmin.from("cotisations_membres").insert({
     client_id: client.id,

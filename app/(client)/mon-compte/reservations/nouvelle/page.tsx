@@ -14,7 +14,7 @@ export default async function NouvelleDemandeReservationPage() {
 
   const { data: client } = await supabase
     .from("clients")
-    .select("id, prenom, chiens (id, nom, race, poids, categorie_poids, journee_essai_effectuee, journee_essai_invalide)")
+    .select("id, prenom, cotisation_exemptee, chiens (id, nom, race, poids, categorie_poids, journee_essai_effectuee, journee_essai_invalide)")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
@@ -87,6 +87,15 @@ export default async function NouvelleDemandeReservationPage() {
     .eq("actif", true);
 
   const estMembre = await estMembreActif(supabaseAdmin, client.id);
+  const estExempte = !!(client as { cotisation_exemptee?: boolean }).cotisation_exemptee;
+
+  const { data: paramCotis } = await supabaseAdmin
+    .from("parametres")
+    .select("valeur")
+    .eq("cle", "cotisation_montant")
+    .maybeSingle();
+  const montantCotisation = parseFloat(paramCotis?.valeur ?? "200") || 200;
+
   const tarifs = (tarifsRows ?? []).map((t) => ({
     categorie: t.categorie as string,
     membre: t.membre as boolean,
@@ -102,7 +111,13 @@ export default async function NouvelleDemandeReservationPage() {
             ← Mes réservations
           </Bouton>
         </div>
-        <TunnelReservation chiens={chiens} tarifs={tarifs} estMembre={estMembre} />
+        <TunnelReservation
+          chiens={chiens}
+          tarifs={tarifs}
+          estMembre={estMembre}
+          estExempte={estExempte}
+          montantCotisation={montantCotisation}
+        />
       </div>
     </main>
   );

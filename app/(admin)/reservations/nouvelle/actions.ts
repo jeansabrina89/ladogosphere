@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
+import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "@/src/lib/membre";
 
 export async function creerReservation(formData: FormData) {
   const verif = await verifierPermission("perm_reservations_creer");
@@ -23,6 +24,23 @@ export async function creerReservation(formData: FormData) {
   const aujourdhuiCH = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Zurich" });
   if (date_debut && date_debut < aujourdhuiCH) {
     throw new Error("La date de début ne peut pas être dans le passé.");
+  }
+
+  // Adhésion obligatoire pour réserver (sauf essai ou client exempté).
+  if (type_reservation !== "essai" && client_id) {
+    const { data: clientRow } = await supabaseAdmin
+      .from("clients")
+      .select("cotisation_exemptee")
+      .eq("id", client_id)
+      .maybeSingle();
+    const estMembre = await estMembreActif(supabaseAdmin, client_id, date_debut);
+    if (!reservationAutorisee({
+      estMembre,
+      estExempte: !!clientRow?.cotisation_exemptee,
+      typeReservation: type_reservation,
+    })) {
+      throw new Error(MESSAGE_ADHESION_REQUISE);
+    }
   }
 
   // Créer la réservation

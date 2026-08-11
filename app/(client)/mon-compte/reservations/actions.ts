@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { revalidatePath } from "next/cache";
 import { envoyerEmailConfirmationDemande } from "@/src/lib/email";
 import { consommerAbonnementResa } from "@/src/lib/consommationAbonnement";
+import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "@/src/lib/membre";
 
 // ---------------------------------------------------------------------------
 // Types publics (consommés par le futur tunnel)
@@ -45,7 +46,7 @@ export async function creerDemandeReservation(
   // 2. Fiche client liée à la session — client_id JAMAIS fourni par le formulaire
   const { data: fiche, error: ficheErr } = await supabaseServer
     .from("clients")
-    .select("id, email, prenom")
+    .select("id, email, prenom, cotisation_exemptee")
     .eq("auth_user_id", user.id)
     .maybeSingle();
   if (ficheErr) return { ok: false, erreur: ficheErr.message };
@@ -128,6 +129,21 @@ export async function creerDemandeReservation(
           `${pluriel ? "leur" : "sa"} journée d'essai avant de pouvoir réserver ` +
           `une journée ou un séjour.`,
       };
+    }
+  }
+
+  // 5bis. Adhésion obligatoire pour réserver (sauf essai ou client exempté).
+  //       Contrôle SERVEUR autoritatif : le statut membre est recalculé ici,
+  //       à la première date de prestation, via le client service-role.
+  if (input.type_reservation !== "essai") {
+    const dateRef = [...input.occurrences.map((o) => o.date_debut)].sort()[0];
+    const estMembre = await estMembreActif(supabaseAdmin, fiche.id, dateRef);
+    if (!reservationAutorisee({
+      estMembre,
+      estExempte: !!(fiche as { cotisation_exemptee?: boolean }).cotisation_exemptee,
+      typeReservation: input.type_reservation,
+    })) {
+      return { ok: false, erreur: MESSAGE_ADHESION_REQUISE };
     }
   }
 

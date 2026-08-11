@@ -6,7 +6,7 @@ import { formatDateFR } from "@/src/lib/dates";
 import SelectHeure from "@/app/components/SelectHeure";
 import BadgeMembre from "@/app/components/BadgeMembre";
 
-type Client = { id: string; prenom: string; nom: string; membre: boolean; aJour: boolean };
+type Client = { id: string; prenom: string; nom: string; membre: boolean; aJour: boolean; cotisation_exemptee?: boolean };
 type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string; journee_essai_effectuee: boolean; journee_essai_invalide: boolean };
 type Box = { id: string; numero: number; nom?: string | null };
 
@@ -118,6 +118,11 @@ export default function FormReservation({
   const tousValidesSel = chiensSelectionnesInfos.length > 0 && !reservationBloquee && chiensNonValidesSel.length === 0;
 
   const clientSelectionne = clients.find(c => c.id === clientId) ?? null;
+  // Adhésion obligatoire pour réserver (sauf essai ou client exempté).
+  const typeEffectif = seulEssaiAutorise ? "essai" : type;
+  const adhesionRequiseAdmin =
+    !!clientSelectionne && !clientSelectionne.aJour && !clientSelectionne.cotisation_exemptee &&
+    typeEffectif !== "essai" && !reservationBloquee;
   const clientsFiltres = clientSearch
     ? clients.filter(c => `${c.prenom} ${c.nom}`.toLowerCase().includes(clientSearch.toLowerCase()))
     : clients;
@@ -263,6 +268,11 @@ export default function FormReservation({
 
     if (!boxId) {
       alert("❌ Veuillez sélectionner un box.");
+      return;
+    }
+
+    if (adhesionRequiseAdmin) {
+      alert("⭐ Adhésion requise : la cotisation annuelle (200.-) de ce client doit être réglée avant de pouvoir réserver (hors journée d'essai).");
       return;
     }
 
@@ -796,9 +806,17 @@ export default function FormReservation({
               className="w-full border rounded-xl p-3" />
           </div>
 
+          {/* Adhésion requise */}
+          {adhesionRequiseAdmin && (
+            <div className="rounded-xl px-4 py-3 text-sm" style={{ backgroundColor: "#FBF3DC", border: "1px solid #C9A84C", color: "#6E5410" }}>
+              ⭐ <strong>Adhésion requise.</strong> La cotisation annuelle (200.-) de {clientSelectionne?.prenom} {clientSelectionne?.nom} doit être réglée avant de pouvoir réserver (hors journée d&apos;essai).{" "}
+              <a href={`/clients/${clientId}`} className="underline font-semibold">Gérer l&apos;adhésion →</a>
+            </div>
+          )}
+
           {/* Boutons */}
           <div className="flex gap-3 pt-4 border-t">
-            <button type="submit" disabled={loading || reservationBloquee}
+            <button type="submit" disabled={loading || reservationBloquee || adhesionRequiseAdmin}
               className="px-6 py-3 rounded-xl font-semibold text-white disabled:opacity-50"
               style={{ backgroundColor: "#4AAEA0" }}>
               {loading ? "Enregistrement..." : estRecurrente ? `🔁 Créer ${apercu.length} réservation(s)` : "💾 Enregistrer"}

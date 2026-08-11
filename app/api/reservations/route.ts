@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
+import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "@/src/lib/membre";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -57,6 +58,24 @@ export async function POST(req: NextRequest) {
           error: `${nom} doit d'abord valider sa journée d'essai avant de pouvoir réserver une journée ou un séjour. Vous pouvez réserver une journée d'essai.`,
         }, { status: 400 });
       }
+    }
+  }
+
+  // Adhésion obligatoire pour réserver (sauf essai ou client exempté).
+  // Contrôle serveur autoritatif, également valable côté admin.
+  if (type_reservation !== "essai" && client_id) {
+    const { data: clientRow } = await supabaseAdmin
+      .from("clients")
+      .select("cotisation_exemptee")
+      .eq("id", client_id)
+      .maybeSingle();
+    const estMembre = await estMembreActif(supabaseAdmin, client_id, date_debut);
+    if (!reservationAutorisee({
+      estMembre,
+      estExempte: !!clientRow?.cotisation_exemptee,
+      typeReservation: type_reservation,
+    })) {
+      return NextResponse.json({ error: MESSAGE_ADHESION_REQUISE }, { status: 400 });
     }
   }
 

@@ -14,35 +14,37 @@ const TARIFS = [
 ];
 
 describe("resoudrePrixUnitaire", () => {
-  it("séjour, 1 chien, non-membre → séjour_partage_1 non-membre", () => {
+  // Depuis le passage « tarif membre uniquement », est_membre n'influence plus le prix.
+  it("séjour, 1 chien → tarif membre (30) quel que soit est_membre", () => {
     expect(resoudrePrixUnitaire({
       tarifs: TARIFS, type_reservation: "sejour", nb_chiens: 1,
       est_membre: false, est_urgence: false, est_privatif: false,
-    })).toBe(35);
-  });
-
-  it("séjour, 1 chien, membre → séjour_partage_1 membre", () => {
+    })).toBe(30);
     expect(resoudrePrixUnitaire({
       tarifs: TARIFS, type_reservation: "sejour", nb_chiens: 1,
       est_membre: true, est_urgence: false, est_privatif: false,
     })).toBe(30);
   });
 
-  it("séjour, 2 chiens, non-membre → séjour_partage_2", () => {
+  it("un non-membre paie le tarif membre (séjour 2 chiens → 48)", () => {
     expect(resoudrePrixUnitaire({
       tarifs: TARIFS, type_reservation: "sejour", nb_chiens: 2,
       est_membre: false, est_urgence: false, est_privatif: false,
-    })).toBe(55);
+    })).toBe(48); // tarif membre, plus le tarif non-membre (55)
   });
 
-  it("privatif → sejour_privatif", () => {
+  it("privatif → sejour_privatif (tarif membre)", () => {
     expect(resoudrePrixUnitaire({
       tarifs: TARIFS, type_reservation: "sejour", nb_chiens: 1,
       est_membre: false, est_urgence: false, est_privatif: true,
     })).toBe(80);
   });
 
-  it("urgence + membre → urgence_partage_1", () => {
+  it("urgence → urgence_partage_1, indépendamment de est_membre", () => {
+    expect(resoudrePrixUnitaire({
+      tarifs: TARIFS, type_reservation: "sejour", nb_chiens: 1,
+      est_membre: false, est_urgence: true, est_privatif: false,
+    })).toBe(45);
     expect(resoudrePrixUnitaire({
       tarifs: TARIFS, type_reservation: "sejour", nb_chiens: 1,
       est_membre: true, est_urgence: true, est_privatif: false,
@@ -93,26 +95,26 @@ describe("compterSejour", () => {
 describe("calculerMontant", () => {
   const base = { tarifs: TARIFS, nb_chiens: 1, est_membre: false, est_urgence: false, est_privatif: false };
 
-  it("séjour 2 nuits sans supplement = 2 × prix unitaire", () => {
+  it("séjour 2 nuits sans supplement = 2 × prix membre", () => {
     expect(calculerMontant({
       ...base, type_reservation: "sejour",
       date_debut: "2025-01-01", date_fin: "2025-01-03",
-    })).toBe(70); // 2 × 35
+    })).toBe(60); // 2 × 30 (tarif membre, même pour un non-membre)
   });
 
-  it("séjour 2 nuits + supplement journée = 2 × nuit + 1 × journée", () => {
+  it("séjour 2 nuits + supplement journée = 2 × nuit + 1 × journée (tarif membre)", () => {
     expect(calculerMontant({
       ...base, type_reservation: "sejour",
       date_debut: "2025-01-01", date_fin: "2025-01-03",
       heure_arrivee: "09:00", heure_depart: "17:00",
-    })).toBe(90); // 2×35 + 1×20
+    })).toBe(78); // 2×30 + 1×18
   });
 
-  it("journée → prix unitaire seul (indépendant de la durée)", () => {
+  it("journée → prix membre seul (indépendant de la durée)", () => {
     expect(calculerMontant({
       ...base, type_reservation: "journee",
       date_debut: "2025-01-01", date_fin: "2025-01-03",
-    })).toBe(20);
+    })).toBe(18); // journée membre
   });
 
   it("essai → tarif journée membre quel que soit est_membre", () => {
@@ -122,10 +124,16 @@ describe("calculerMontant", () => {
     })).toBe(18); // journée membre
   });
 
-  it("membre réduit le prix séjour", () => {
-    expect(calculerMontant({
+  it("membre ou non-membre : même prix séjour (tarif membre)", () => {
+    const nonMembre = calculerMontant({
+      ...base, est_membre: false, type_reservation: "sejour",
+      date_debut: "2025-01-01", date_fin: "2025-01-02",
+    });
+    const membre = calculerMontant({
       ...base, est_membre: true, type_reservation: "sejour",
       date_debut: "2025-01-01", date_fin: "2025-01-02",
-    })).toBe(30); // 1 × 30 (tarif membre)
+    });
+    expect(nonMembre).toBe(30); // 1 × 30
+    expect(membre).toBe(nonMembre);
   });
 });

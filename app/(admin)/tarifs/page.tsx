@@ -45,7 +45,7 @@ export default async function TarifsPage({
 
   const val = (cle: string, def = "") => parametres?.find(p => p.cle === cle)?.valeur ?? def;
 
-  const cotisationMontant = parseFloat(val("cotisation_montant", "180"));
+  const cotisationMontant = parseFloat(val("cotisation_montant", "200"));
   const iban = val("iban");
   const titulaire = val("titulaire");
   const adresseRue = val("adresse_rue");

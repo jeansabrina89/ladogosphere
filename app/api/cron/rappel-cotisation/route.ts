@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     .in("cle", ["cotisation_montant"]);
 
   const montant = parseFloat(
-    parametres?.find(p => p.cle === "cotisation_montant")?.valeur ?? "180"
+    parametres?.find(p => p.cle === "cotisation_montant")?.valeur ?? "200"
   );
   const coords = await getCoordonneesPaiement(supabaseAdmin);
 

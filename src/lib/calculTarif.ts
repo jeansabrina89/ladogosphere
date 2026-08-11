@@ -6,15 +6,17 @@ type Tarif = {
 
 /**
  * Résout le prix unitaire (CHF) pour une catégorie de tarif donnée
- * (type_reservation "sejour" ou "journee", urgence/membre/privatif/nb_chiens).
- * Mêmes règles de résolution de catégorie que précédemment : urgence+membre
- * prime sur tout, sinon privatif ou partagé (palier 1/2/3 chiens).
+ * (type_reservation "sejour" ou "journee", urgence/privatif/nb_chiens).
+ *
+ * IMPORTANT : `est_membre` n'influence PLUS le prix. Toute réservation est
+ * facturée au TARIF MEMBRE (les tarifs non-membres sont désactivés en base).
+ * L'adhésion reste requise pour réserver (cf. src/lib/membre.ts), mais elle
+ * est découplée du prix. Le paramètre est conservé pour compatibilité d'appel.
  */
 export function resoudrePrixUnitaire({
   tarifs,
   type_reservation,
   nb_chiens,
-  est_membre,
   est_urgence,
   est_privatif,
 }: {
@@ -27,7 +29,7 @@ export function resoudrePrixUnitaire({
 }): number {
   let cle = "";
 
-  if (est_urgence && est_membre) {
+  if (est_urgence) {
     cle = est_privatif
       ? "urgence_privatif"
       : `urgence_partage_${Math.min(nb_chiens, 3)}`;
@@ -37,8 +39,10 @@ export function resoudrePrixUnitaire({
     cle = `${type_reservation}_partage_${Math.min(nb_chiens, 3)}`;
   }
 
+  // Toujours le tarif membre ; repli sur n'importe quel tarif de la catégorie
+  // si le tarif membre venait à manquer.
   const tarif = tarifs.find(
-    (t) => t.categorie === cle && t.membre === est_membre
+    (t) => t.categorie === cle && t.membre === true
   ) || tarifs.find(
     (t) => t.categorie === cle
   );

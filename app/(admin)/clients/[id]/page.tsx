@@ -59,7 +59,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
     .eq("cle", "cotisation_montant")
     .single();
 
-  const montantCotisation = parseFloat(parametre?.valeur ?? "180");
+  const montantCotisation = parseFloat(parametre?.valeur ?? "200");
   const cotisationAnneeActuelle = cotisations?.find((c) => c.annee === anneeActuelle);
   const membre_a_jour = client.id ? await estMembreActif(supabaseAdmin, client.id) : false;
 
