@@ -13,6 +13,7 @@ import Bouton from "@/app/components/ui/Bouton";
 import Carte from "@/app/components/ui/Carte";
 import BadgeStatut from "@/app/components/ui/BadgeStatut";
 import EtatVide from "@/app/components/ui/EtatVide";
+import InstallerAppButton from "@/app/InstallerAppButton";
 
 export default async function MonComptePage() {
   const supabase = await createClient();
@@ -107,6 +108,8 @@ export default async function MonComptePage() {
             </Bouton>
           }
         />
+
+        <InstallerAppButton label="Installez l'application pour un accès rapide" />
 
         {!aDemandeEnAttente && (
           <div style={{ marginBottom: 24 }}>

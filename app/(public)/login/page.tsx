@@ -1,4 +1,5 @@
 import LoginForm from "./LoginForm";
+import InstallerAppButton from "@/app/InstallerAppButton";
 
 export default function LoginPage() {
   return (
@@ -20,6 +21,8 @@ export default function LoginPage() {
             Créer mon espace client
           </a>
         </p>
+
+        <InstallerAppButton label="Installez l'application pour un accès rapide" />
       </div>
     </main>
   );
