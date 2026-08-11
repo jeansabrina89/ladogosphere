@@ -43,10 +43,19 @@ export async function synchroniserComptaResa(reservationId: string, dateOperatio
       .eq("ecritures.piece_id", reservationId)
       .eq("ecritures.piece_type", "reservation");
 
+    // Adhesion embarquee sur cette reservation : ventilee en 3005 (cf. logique).
+    const { data: cotis } = await supabaseAdmin
+      .from("cotisations_membres")
+      .select("montant")
+      .eq("reservation_id", reservationId)
+      .maybeSingle();
+    const montantAdhesion = cotis ? Number(cotis.montant) || 0 : 0;
+
     const lignesEcriture = calculerLignesEcriture(
       resa,
       (mouvements ?? []) as { mode: string; montant: number }[],
       (lignes ?? []) as { compte_numero: string; debit: number; credit: number }[],
+      montantAdhesion,
     );
 
     if (lignesEcriture.length === 0) {

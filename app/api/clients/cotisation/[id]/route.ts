@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
+import { synchroniserComptaCotisation } from "@/src/lib/comptaCotisation";
 
 // Confirmer le paiement d'une adhésion : passe en "payee"
 export async function POST(
@@ -55,6 +56,9 @@ export async function POST(
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+    // Comptabiliser l'encaissement (3005) — sans effet si liée à une réservation.
+    await synchroniserComptaCotisation(id);
+
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
@@ -78,6 +82,9 @@ export async function PATCH(
       .eq("id", id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    // Contre-passer automatiquement l'écriture d'adhésion (delta → statut non payé).
+    await synchroniserComptaCotisation(id);
 
     return NextResponse.json({ ok: true });
   } catch {

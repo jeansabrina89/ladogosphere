@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { calculerLignesEcriture } from "@/src/lib/comptaResaLogique";
 import { calculerLignesAbonnement } from "@/src/lib/comptaAbonnementLogique";
+import { calculerLignesCotisation } from "@/src/lib/comptaCotisationLogique";
 import { construireRapport } from "@/src/lib/rapportsCompta";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -34,7 +35,7 @@ const COMPTES = [
   { numero: "2970", libelle: "Bénéfice reporté", type: "passif" },
   { numero: "2979", libelle: "Résultat de l'exercice", type: "passif" },
   { numero: "3000", libelle: "Produits prestations", type: "produit" },
-  { numero: "3005", libelle: "Produits divers", type: "produit" },
+  { numero: "3005", libelle: "Produits adhésions", type: "produit" },
   { numero: "5000", libelle: "Charges de personnel", type: "charge" },
   { numero: "6000", libelle: "Loyer", type: "charge" },
   { numero: "6300", libelle: "Assurances", type: "charge" },
@@ -65,12 +66,13 @@ function versLignes(delta: { compte: string; debit: number; credit: number }[]):
 function posterResa(
   base: { type_reservation: string; montant_final: number },
   events: { statut: string; mouvement?: { mode: string; montant: number }; libelle: string }[],
+  montantAdhesion = 0,
 ) {
   const mouvements: { mode: string; montant: number }[] = [];
   const deja: { compte_numero: string; debit: number; credit: number }[] = [];
   for (const ev of events) {
     if (ev.mouvement) mouvements.push(ev.mouvement);
-    const delta = calculerLignesEcriture({ ...base, statut: ev.statut }, mouvements, deja);
+    const delta = calculerLignesEcriture({ ...base, statut: ev.statut }, mouvements, deja, montantAdhesion);
     if (delta.length > 0) {
       pushEcriture(ev.libelle, "reservation", versLignes(delta));
       for (const l of delta) deja.push({ compte_numero: l.compte, debit: l.debit, credit: l.credit });
@@ -126,6 +128,24 @@ pushEcriture("Provision avoirs clients", "manuel", [
   { compte_numero: "2035", debit: 0, credit: sommeAvoirUtilise },
 ]);
 
+// Réservation portant une adhésion EMBARQUÉE (280 = 80 séjour + 200 adhésion),
+// payée cash au check-out → ventilée 3000 (80) / 3005 (200).
+const M_ADH = 280;
+const ADHESION_EMBARQUEE = 200;
+posterResa(
+  { type_reservation: "sejour", montant_final: M_ADH },
+  [{ statut: "terminee", mouvement: { mode: "cash", montant: M_ADH }, libelle: "Pension + adhésion embarquée" }],
+  ADHESION_EMBARQUEE,
+);
+
+// Adhésion payée DIRECTEMENT (sans réservation), virement → 3005.
+const ADHESION_DIRECTE = 200;
+pushEcriture(
+  "Adhésion payée directement",
+  "cotisation",
+  versLignes(calculerLignesCotisation({ statut: "payee", mode_paiement: "virement", montant: ADHESION_DIRECTE }, [])),
+);
+
 // Abonnement prépayé (carte 11 journées, 4 consommées).
 const ligAbo = calculerLignesAbonnement(
   { paye: true, mode_paiement: "virement", prix_paye: 110, jours_total: 11, jours_termines: 4, expire: false },
@@ -152,7 +172,7 @@ pushEcriture("Assurance", "manuel", [
 ]);
 pushEcriture("Produit divers", "manuel", [
   { compte_numero: "1020", debit: 250, credit: 0 },
-  { compte_numero: "3005", debit: 0, credit: 250 },
+  { compte_numero: "3000", debit: 0, credit: 250 },
 ]);
 
 // ── Écriture de clôture : solde P&L → 2979 ───────────────────────────────────
@@ -267,5 +287,19 @@ describe("Exercice comptable complet — équilibre des livres via le vrai moteu
     expect(proche(rapportAn2.resultat, 0)).toBe(true);
     // Le résultat de l'an 1 est reporté (2979 en ouverture au passif).
     expect(proche(montantPassif(rapportAn2, "2979"), rapportApres.resultat)).toBe(true);
+  });
+
+  it("12. ventilation adhésion : la réservation porteuse crédite 3000 (séjour) + 3005 (adhésion)", () => {
+    const ecr = ecritures.find((e) => e.libelle === "Pension + adhésion embarquée");
+    expect(ecr).toBeTruthy();
+    const m = Object.fromEntries(ecr!.ecritures_lignes.map((l) => [l.compte_numero, l]));
+    expect(m["3000"].credit).toBe(r2(M_ADH - ADHESION_EMBARQUEE)); // 80 séjour
+    expect(m["3005"].credit).toBe(ADHESION_EMBARQUEE); // 200 adhésion
+    expect(m["1000"].debit).toBe(M_ADH);
+  });
+
+  it("13. total 3005 = adhésion embarquée + adhésion directe", () => {
+    const net3005 = r2((bal["3005"]?.credit ?? 0) - (bal["3005"]?.debit ?? 0));
+    expect(proche(net3005, r2(ADHESION_EMBARQUEE + ADHESION_DIRECTE))).toBe(true);
   });
 });

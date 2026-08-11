@@ -33,15 +33,23 @@ export type LigneEcriture = {
   credit: number;
 };
 
+const COMPTE_ADHESION = "3005";
+
 /**
  * Calcule les lignes d'ecriture (delta) a poster pour amener la comptabilite
  * de la reservation a l'etat cible, compte tenu de ce qui est deja poste.
  * Fonction pure, sans effet de bord, idempotente.
+ *
+ * `montantAdhesion` : part du produit reconnu (P) correspondant a une adhesion
+ * embarquee sur cette reservation. Ventilee en 3005 (adhesion) au lieu du 3000
+ * (prestation) ; bornee a P. N'affecte NI les liquidites, NI 1100, NI 2030 :
+ * l'equilibre debit/credit reste strictement preserve.
  */
 export function calculerLignesEcriture(
   resa: ResaForCompta,
   mouvements: MouvementForCompta[],
   dejaLignes: LigneExistante[],
+  montantAdhesion = 0,
 ): LigneEcriture[] {
   const cible: Record<string, number> = {};
   const add = (compte: string, montant: number) => {
@@ -63,7 +71,10 @@ export function calculerLignesEcriture(
   const CP = COMPTE_PRODUIT[resa.type_reservation] ?? "3000";
 
   if (P > 0) {
-    add(CP, -P);
+    // Ventilation du produit reconnu : prestation (CP=3000) + adhesion (3005).
+    const adhesion = Math.max(0, Math.min(r2(Number(montantAdhesion) || 0), P));
+    add(CP, -r2(P - adhesion));
+    if (adhesion > 0) add(COMPTE_ADHESION, -adhesion);
     add("1100", r2(P - liquideTotal));
   } else {
     add("2030", -liquideTotal);

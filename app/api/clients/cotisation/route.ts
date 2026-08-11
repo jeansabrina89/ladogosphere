@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
+import { synchroniserComptaCotisation } from "@/src/lib/comptaCotisation";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -42,6 +43,15 @@ export async function POST(req: NextRequest) {
   if (errClient) {
     return NextResponse.json({ error: errClient.message }, { status: 500 });
   }
+
+  // Comptabiliser si payée cash/virement (3005) ; sans effet sinon.
+  const { data: cotisRow } = await supabaseAdmin
+    .from("cotisations_membres")
+    .select("id")
+    .eq("client_id", client_id)
+    .eq("annee", annee)
+    .maybeSingle();
+  if (cotisRow?.id) await synchroniserComptaCotisation(cotisRow.id);
 
   return NextResponse.json({ ok: true });
 }
