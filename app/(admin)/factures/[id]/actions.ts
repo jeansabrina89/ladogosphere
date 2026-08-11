@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { montantDuReservation } from "@/src/lib/montants";
-import { calculerStatut } from "@/src/lib/factures";
+import { enregistrerPaiement } from "../../reservations/[id]/actions";
 
 export async function marquerFactureReglee(
   factureId: string,
@@ -20,7 +20,7 @@ export async function marquerFactureReglee(
       id, statut, montant_total,
       facture_reservations (
         reservation_id,
-        reservations (id, montant_final, montant_calcule, ajustement_manuel)
+        reservations (id, client_id, montant_final, montant_calcule, ajustement_manuel)
       )
     `)
     .eq("id", factureId)
@@ -37,27 +37,26 @@ export async function marquerFactureReglee(
   for (const ligne of lignes) {
     const r = ligne.reservations;
     if (!r) continue;
-    const montantDu = montantDuReservation(r);
-    if (montantDu <= 0) {
+    if (montantDuReservation(r) <= 0) {
       return { error: "Montant à régler invalide (0 CHF) sur une réservation — vérifie le tarif." };
     }
   }
 
-  // 3. Payer chaque réservation en cascade
+  // 3. Régler CHAQUE réservation via le vrai chemin comptable (enregistrerPaiement) :
+  //    ligne paiements_resa + synchroniserComptaResa. Idempotent par facture+réservation
+  //    (cle_idempotence) pour ne jamais double-poster si l'action est rejouée.
+  //    Si une réservation échoue, on s'arrête et on NE marque PAS la facture acquittée.
   for (const ligne of lignes) {
     const r = ligne.reservations;
     if (!r) continue;
-    const montantDu = montantDuReservation(r);
-    const { error: updErr } = await supabaseAdmin
-      .from("reservations")
-      .update({
-        montant_paye: montantDu,
-        statut_paiement: calculerStatut(montantDu, montantDu),
-        date_paiement: today,
-        mode_paiement: mode,
-      })
-      .eq("id", ligne.reservation_id);
-    if (updErr) return { error: updErr.message };
+    const fd = new FormData();
+    fd.set("reservation_id", ligne.reservation_id);
+    fd.set("client_id", r.client_id ?? "");
+    fd.set("montant_paye", String(montantDuReservation(r)));
+    fd.set("date_paiement", today);
+    fd.set("mode_paiement", mode);
+    const res = await enregistrerPaiement(fd, `facture:${factureId}:resa:${ligne.reservation_id}`);
+    if (res.error) return { error: res.error };
   }
 
   // 4. Acquitter la facture
@@ -67,18 +66,6 @@ export async function marquerFactureReglee(
     .update({ statut: "acquittee", montant_paye: montantTotal, montant_restant: 0 })
     .eq("id", factureId);
   if (facUpdateErr) return { error: facUpdateErr.message };
-
-  // 4. Tracer le paiement dans la table paiements
-  const { error: paiErr } = await supabaseAdmin
-    .from("paiements")
-    .insert({
-      facture_id: factureId,
-      date_paiement: today,
-      mode_paiement: mode,
-      montant: montantTotal,
-      commentaire: "Règlement facture groupée",
-    });
-  if (paiErr) return { error: paiErr.message };
 
   revalidatePath(`/factures/${factureId}`);
   revalidatePath("/reservations");
