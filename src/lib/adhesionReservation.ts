@@ -12,7 +12,7 @@
  * (= cotisation de l'année en 'payee' OU 'en_attente') : une fois l'adhésion
  * créée en_attente, estMembreAJour devient vrai → plus de re-bundling.
  */
-export type RaisonPension = "ok" | "essai_non_termine";
+export type RaisonPension = "ok" | "essai_non_termine" | "adhesion_a_regler";
 
 export type ResultatPension = {
   autorise: boolean;
@@ -23,18 +23,24 @@ export type ResultatPension = {
 export const MESSAGE_ESSAI_REQUIS =
   "Vous devez d'abord effectuer votre journée d'essai avant de réserver une pension.";
 
+export const MESSAGE_ADHESION_A_REGLER =
+  "Votre demande d'adhésion est en attente de paiement. Réglez-la pour pouvoir réserver une pension.";
+
 export function peutReserverPension({
   estMembreAJour,
   estExempte,
   essaiTermine,
   typeReservation,
   estAdmin,
+  adhesionEnAttenteARegler = false,
 }: {
   estMembreAJour: boolean;
   estExempte: boolean;
   essaiTermine: boolean;
   typeReservation: string;
   estAdmin: boolean;
+  /** Une demande d'adhésion 'en_attente' non réglée (virement/cash) existe. */
+  adhesionEnAttenteARegler?: boolean;
 }): ResultatPension {
   // L'essai lui-même : toujours réservable, sans bundling.
   if (typeReservation === "essai") {
@@ -52,6 +58,11 @@ export function peutReserverPension({
   if (estMembreAJour || estExempte) {
     return { autorise: true, bundlerAdhesion: false, raison: "ok" };
   }
-  // Essai terminé, non-membre, non-exempté : autorisé + l'adhésion est embarquée.
+  // Adhésion déjà DEMANDÉE mais non réglée (virement/cash) : bloqué → à régler.
+  // (On ne bundle pas une 2e adhésion ; le client doit encaisser la sienne.)
+  if (adhesionEnAttenteARegler) {
+    return { autorise: false, bundlerAdhesion: false, raison: "adhesion_a_regler" };
+  }
+  // Essai terminé, aucune adhésion : autorisé + l'adhésion est embarquée.
   return { autorise: true, bundlerAdhesion: true, raison: "ok" };
 }

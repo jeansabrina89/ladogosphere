@@ -57,27 +57,57 @@ export async function estMembreActif(
 }
 
 /**
+ * Une cotisation donne-t-elle le DROIT de réserver une pension ?
+ * « À jour » = 'payee', OU 'en_attente' AVEC mode 'prochaine_resa'
+ * (adhésion groupée à une réservation / activation admin immédiate — en cours
+ * d'encaissement légitime). Une demande 'en_attente' par 'virement' ou 'cash'
+ * NON encaissée ne donne PAS accès.
+ */
+export function cotisationDonneAccesReservation(
+  c: { statut?: string | null; mode_paiement?: string | null }
+): boolean {
+  if (c.statut === "payee") return true;
+  return c.statut === "en_attente" && c.mode_paiement === "prochaine_resa";
+}
+
+/**
+ * État d'adhésion pour le DROIT à réserver une pension, à une date donnée.
+ * - aJour : au moins une cotisation de l'année donne accès (cf. règle ci-dessus).
+ * - enAttenteARegler : pas à jour, MAIS une demande 'en_attente' non réglée
+ *   existe (virement/cash) → à régler pour pouvoir réserver.
+ * DIFFÉRENT de estMembreActif (payee seul) : ne PAS utiliser pour l'achat
+ * d'abonnement / la tarification.
+ */
+export async function etatAdhesionReservation(
+  supabase: SupabaseClient,
+  client_id: string | null | undefined,
+  dateRefISO?: string
+): Promise<{ aJour: boolean; enAttenteARegler: boolean }> {
+  if (!client_id) return { aJour: false, enAttenteARegler: false };
+  const annees = anneesPertinentes(dateRefISO);
+  if (annees.length === 0) return { aJour: false, enAttenteARegler: false };
+  const { data } = await supabase
+    .from("cotisations_membres")
+    .select("statut, mode_paiement")
+    .eq("client_id", client_id)
+    .in("annee", annees);
+  const rows = (data ?? []) as { statut?: string | null; mode_paiement?: string | null }[];
+  const aJour = rows.some(cotisationDonneAccesReservation);
+  const enAttenteARegler =
+    !aJour && rows.some((r) => r.statut === "en_attente" && r.mode_paiement !== "prochaine_resa");
+  return { aJour, enAttenteARegler };
+}
+
+/**
  * Statut « membre à jour » pour le DROIT à réserver une pension.
- * DIFFÉRENT de estMembreActif : ici une cotisation 'en_attente' compte AUSSI
- * (une adhésion demandée mais pas encore encaissée donne accès).
- * Ne PAS utiliser pour l'achat d'abonnement / la tarification (garder estMembreActif).
+ * S'appuie sur cotisationDonneAccesReservation (payee, ou en_attente+prochaine_resa).
  */
 export async function estMembreAJourReservation(
   supabase: SupabaseClient,
   client_id: string | null | undefined,
   dateRefISO?: string
 ): Promise<boolean> {
-  if (!client_id) return false;
-  const annees = anneesPertinentes(dateRefISO);
-  if (annees.length === 0) return false;
-  const { data } = await supabase
-    .from("cotisations_membres")
-    .select("annee")
-    .eq("client_id", client_id)
-    .in("statut", ["payee", "en_attente"])
-    .in("annee", annees)
-    .limit(1);
-  return !!(data && data.length > 0);
+  return (await etatAdhesionReservation(supabase, client_id, dateRefISO)).aJour;
 }
 
 /**

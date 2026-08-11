@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { peutReserverPension, MESSAGE_ESSAI_REQUIS } from "../src/lib/adhesionReservation";
+import { peutReserverPension, MESSAGE_ESSAI_REQUIS, MESSAGE_ADHESION_A_REGLER } from "../src/lib/adhesionReservation";
 
 const base = {
   estMembreAJour: false,
@@ -20,6 +20,22 @@ describe("peutReserverPension", () => {
     expect(peutReserverPension({ ...base })).toEqual({
       autorise: true, bundlerAdhesion: true, raison: "ok",
     });
+  });
+
+  it("client essai terminé, adhésion en attente NON réglée (virement) → bloqué, pas de bundling", () => {
+    expect(peutReserverPension({ ...base, adhesionEnAttenteARegler: true })).toEqual({
+      autorise: false, bundlerAdhesion: false, raison: "adhesion_a_regler",
+    });
+  });
+
+  it("membre à jour prime sur une éventuelle demande en attente (autorisé, pas de bundling)", () => {
+    expect(peutReserverPension({ ...base, estMembreAJour: true, adhesionEnAttenteARegler: true })).toEqual({
+      autorise: true, bundlerAdhesion: false, raison: "ok",
+    });
+  });
+
+  it("le message d'adhésion à régler évoque le paiement de l'adhésion", () => {
+    expect(MESSAGE_ADHESION_A_REGLER.toLowerCase()).toContain("adhésion");
   });
 
   it("client exempté → autorisé sans bundling", () => {

@@ -139,12 +139,15 @@ export default async function TarifsClientPage() {
   const { data: cotisationAnnee } = client
     ? await supabaseAdmin
         .from("cotisations_membres")
-        .select("statut")
+        .select("statut, mode_paiement")
         .eq("client_id", client.id)
         .eq("annee", annee)
         .maybeSingle()
     : { data: null };
   const aDemandeEnAttente = cotisationAnnee?.statut === "en_attente";
+  // Demande en attente NON réglée (virement/cash) : ne donne pas accès à la
+  // réservation ('prochaine_resa' = groupée/activée, elle donne accès).
+  const aReglerPourReserver = aDemandeEnAttente && cotisationAnnee?.mode_paiement !== "prochaine_resa";
   const peutDemander = !!client && !estMembre && !cotisationAnnee;
 
   const tarifsVides = tarifs.length === 0;
@@ -178,11 +181,20 @@ export default async function TarifsClientPage() {
             </div>
           )}
 
-          {!estMembre && aDemandeEnAttente && (
+          {!estMembre && aDemandeEnAttente && aReglerPourReserver && (
+            <div style={{ backgroundColor: "#FBE2DE", border: "1px solid #E8847A", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 20 }}>⭐</span>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#A8453A" }}>
+                Ta demande d&apos;adhésion est en attente de paiement — règle-la pour pouvoir réserver une pension.
+              </p>
+            </div>
+          )}
+
+          {!estMembre && aDemandeEnAttente && !aReglerPourReserver && (
             <div style={{ backgroundColor: "#F4EAC9", border: "1px solid #C9A84C", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 20 }}>⏳</span>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#6E5410" }}>
-                Ta demande d'adhésion est en cours de traitement par notre équipe.
+                Ta demande d&apos;adhésion est en cours de traitement par notre équipe.
               </p>
             </div>
           )}

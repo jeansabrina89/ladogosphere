@@ -44,7 +44,13 @@ export async function demanderAdhesion(mode: "virement" | "prochaine_resa") {
   });
   if (error) return { error: error.message };
 
-  await supabaseAdmin.from("clients").update({ membre: true }).eq("id", client.id);
+  // Flag « membre » activé seulement si l'adhésion donne déjà accès à la
+  // réservation (mode 'prochaine_resa' = groupée/activée). Une demande par
+  // virement non encaissée ne bascule pas le flag (cohérent avec le droit à
+  // réserver, cf. etatAdhesionReservation).
+  if (mode === "prochaine_resa") {
+    await supabaseAdmin.from("clients").update({ membre: true }).eq("id", client.id);
+  }
 
   revalidatePath("/mon-compte");
   revalidatePath("/mon-compte/tarifs");

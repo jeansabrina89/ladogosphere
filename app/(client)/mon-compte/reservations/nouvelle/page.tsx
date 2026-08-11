@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 import TunnelReservation from "./TunnelReservation";
-import { estMembreAJourReservation } from "@/src/lib/membre";
+import { etatAdhesionReservation } from "@/src/lib/membre";
 
 export default async function NouvelleDemandeReservationPage() {
   const supabase = await createClient();
@@ -86,7 +86,8 @@ export default async function NouvelleDemandeReservationPage() {
     .select("categorie, membre, prix, annee")
     .eq("actif", true);
 
-  const estMembreAJour = await estMembreAJourReservation(supabaseAdmin, client.id);
+  const { aJour: estMembreAJour, enAttenteARegler: adhesionEnAttenteARegler } =
+    await etatAdhesionReservation(supabaseAdmin, client.id);
   const estExempte = !!(client as { cotisation_exemptee?: boolean }).cotisation_exemptee;
 
   // Le client a-t-il au moins une journée d'essai TERMINÉE ?
@@ -127,6 +128,7 @@ export default async function NouvelleDemandeReservationPage() {
           estMembreAJour={estMembreAJour}
           estExempte={estExempte}
           essaiTermine={essaiTermine}
+          adhesionEnAttenteARegler={adhesionEnAttenteARegler}
           montantCotisation={montantCotisation}
         />
       </div>

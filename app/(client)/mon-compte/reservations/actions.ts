@@ -5,8 +5,8 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { revalidatePath } from "next/cache";
 import { envoyerEmailConfirmationDemande } from "@/src/lib/email";
 import { consommerAbonnementResa } from "@/src/lib/consommationAbonnement";
-import { estMembreAJourReservation } from "@/src/lib/membre";
-import { peutReserverPension, MESSAGE_ESSAI_REQUIS } from "@/src/lib/adhesionReservation";
+import { etatAdhesionReservation } from "@/src/lib/membre";
+import { peutReserverPension, MESSAGE_ESSAI_REQUIS, MESSAGE_ADHESION_A_REGLER } from "@/src/lib/adhesionReservation";
 
 // ---------------------------------------------------------------------------
 // Types publics (consommés par le futur tunnel)
@@ -140,8 +140,8 @@ export async function creerDemandeReservation(
   const dateRef = [...input.occurrences.map((o) => o.date_debut)].sort()[0];
   let bundlerAdhesion = false;
   if (input.type_reservation !== "essai") {
-    const [estMembreAJour, essaiTermine] = await Promise.all([
-      estMembreAJourReservation(supabaseAdmin, fiche.id, dateRef),
+    const [etatAdh, essaiTermine] = await Promise.all([
+      etatAdhesionReservation(supabaseAdmin, fiche.id, dateRef),
       supabaseAdmin
         .from("reservations")
         .select("id")
@@ -152,14 +152,18 @@ export async function creerDemandeReservation(
         .then(({ data }) => !!(data && data.length > 0)),
     ]);
     const decision = peutReserverPension({
-      estMembreAJour,
+      estMembreAJour: etatAdh.aJour,
       estExempte: !!(fiche as { cotisation_exemptee?: boolean }).cotisation_exemptee,
       essaiTermine,
       typeReservation: input.type_reservation,
       estAdmin: false,
+      adhesionEnAttenteARegler: etatAdh.enAttenteARegler,
     });
     if (!decision.autorise) {
-      return { ok: false, erreur: MESSAGE_ESSAI_REQUIS };
+      return {
+        ok: false,
+        erreur: decision.raison === "adhesion_a_regler" ? MESSAGE_ADHESION_A_REGLER : MESSAGE_ESSAI_REQUIS,
+      };
     }
     bundlerAdhesion = decision.bundlerAdhesion;
   }

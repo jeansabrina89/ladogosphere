@@ -7,6 +7,7 @@ import {
   type Occurrence,
 } from "@/app/(client)/mon-compte/reservations/actions";
 import { calculerMontant } from "@/src/lib/calculTarif";
+import { MESSAGE_ADHESION_A_REGLER } from "@/src/lib/adhesionReservation";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 
@@ -334,6 +335,7 @@ export default function TunnelReservation({
   estMembreAJour,
   estExempte,
   essaiTermine,
+  adhesionEnAttenteARegler,
   montantCotisation,
 }: {
   chiens: ChienTunnel[];
@@ -341,6 +343,7 @@ export default function TunnelReservation({
   estMembreAJour: boolean;
   estExempte: boolean;
   essaiTermine: boolean;
+  adhesionEnAttenteARegler: boolean;
   montantCotisation: number;
 }) {
 
@@ -422,10 +425,13 @@ export default function TunnelReservation({
   const chiensValidesSelectionnes = chiensSelectionnes.filter(c => c.journee_essai_effectuee && !c.journee_essai_invalide);
   const estMixte = chiensNonValidesSelectionnes.length > 0 && chiensValidesSelectionnes.length > 0;
 
-  // 1ère pension d'un client non-membre non-exempté (essai terminé) : l'adhésion
-  // est EMBARQUÉE dans la réservation (aucun blocage). La journée d'essai reste
-  // toujours réservable librement.
-  const bundleAdhesion = branche === "complete" && !estMembreAJour && !estExempte && essaiTermine;
+  const besoinAdhesion = branche === "complete" && !estMembreAJour && !estExempte;
+  // Adhésion déjà demandée mais non réglée (virement/cash) : pension bloquée,
+  // le client doit régler son adhésion.
+  const bloquerAdhesion = besoinAdhesion && adhesionEnAttenteARegler;
+  // 1ère pension sans aucune adhésion (essai terminé) : l'adhésion est EMBARQUÉE
+  // dans la réservation (aucun blocage). L'essai reste réservable librement.
+  const bundleAdhesion = besoinAdhesion && essaiTermine && !adhesionEnAttenteARegler;
 
   const etapes: EtapeId[] = branche === "essai"
     ? (estMixte
@@ -588,6 +594,10 @@ export default function TunnelReservation({
 
   async function soumettre() {
     setErreur("");
+    if (bloquerAdhesion) {
+      setErreur(MESSAGE_ADHESION_A_REGLER);
+      return;
+    }
     setChargement(true);
 
     let input: Parameters<typeof creerDemandeReservation>[0];
@@ -1173,20 +1183,40 @@ export default function TunnelReservation({
           />
         </div>
 
-        {bundleAdhesion && (
+        {bloquerAdhesion ? (
           <div style={{
-            backgroundColor: "#FBF3DC", border: "1px solid #C9A84C",
-            borderRadius: 12, padding: "14px 16px", marginBottom: 12,
+            backgroundColor: "#FBE2DE", border: "1px solid #E8847A",
+            borderRadius: 12, padding: "16px 18px",
           }}>
-            <p style={{ margin: 0, fontWeight: 700, color: "#6E5410", fontSize: 14.5 }}>
-              ⭐ Adhésion {montantCotisation.toFixed(0)}.- ajoutée à cette réservation
+            <p style={{ margin: "0 0 6px", fontWeight: 700, color: "#A8453A", fontSize: 15 }}>
+              ⭐ Adhésion à régler
             </p>
-            <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "#6E5410", lineHeight: 1.5 }}>
-              Votre première réservation de pension inclut l&apos;adhésion annuelle. Vous devenez membre immédiatement ; le montant est réglé avec cette réservation.
+            <p style={{ margin: "0 0 12px", fontSize: 13, color: "#A8453A", lineHeight: 1.5 }}>
+              {MESSAGE_ADHESION_A_REGLER} La journée d&apos;essai reste possible sans adhésion.
             </p>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <Bouton variante="principal" href="/mon-compte/tarifs">★ Régler mon adhésion</Bouton>
+              <Bouton variante="discret" onClick={allerPrecedent} type="button">← Précédent</Bouton>
+            </div>
           </div>
+        ) : (
+          <>
+            {bundleAdhesion && (
+              <div style={{
+                backgroundColor: "#FBF3DC", border: "1px solid #C9A84C",
+                borderRadius: 12, padding: "14px 16px", marginBottom: 12,
+              }}>
+                <p style={{ margin: 0, fontWeight: 700, color: "#6E5410", fontSize: 14.5 }}>
+                  ⭐ Adhésion {montantCotisation.toFixed(0)}.- ajoutée à cette réservation
+                </p>
+                <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "#6E5410", lineHeight: 1.5 }}>
+                  Votre première réservation de pension inclut l&apos;adhésion annuelle. Vous devenez membre immédiatement ; le montant est réglé avec cette réservation.
+                </p>
+              </div>
+            )}
+            {renderNavFooter(soumettre, sendLabel, chargement)}
+          </>
         )}
-        {renderNavFooter(soumettre, sendLabel, chargement)}
       </>
     );
   }
