@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ajusterJoursAbonnement, supprimerAbonnement } from "./actions";
+import { ajusterJoursAbonnement, supprimerAbonnement, cloturerAbonnement } from "./actions";
 
 export default function GestionAbonnement({
   abonnementId,
@@ -22,6 +22,7 @@ export default function GestionAbonnement({
   const [ok, setOk] = useState(false);
 
   const ajustable = ["actif", "epuise", "expire"].includes(statut);
+  const cloturable = ["actif", "epuise"].includes(statut);
 
   async function enregistrer() {
     setErreur(null);
@@ -39,6 +40,24 @@ export default function GestionAbonnement({
       return;
     }
     setOk(true);
+    router.refresh();
+  }
+
+  async function cloturer() {
+    if (
+      !confirm(
+        "Clôturer cet abonnement sans remboursement ? Les jours restants seront mis à 0 et le montant non utilisé sera compté comme revenu (le client ne récupère pas son argent). La carte ne pourra plus être utilisée.",
+      )
+    )
+      return;
+    setErreur(null);
+    setLoading(true);
+    const res = await cloturerAbonnement(abonnementId);
+    setLoading(false);
+    if (res?.error) {
+      setErreur(res.error);
+      return;
+    }
     router.refresh();
   }
 
@@ -93,7 +112,17 @@ export default function GestionAbonnement({
           {ok && <span style={{ fontSize: 12, color: "#1F6E5B" }}>✓ Enregistré</span>}
         </div>
       )}
-      <div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {cloturable && (
+          <button
+            onClick={cloturer}
+            disabled={loading}
+            className="px-2 py-1 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
+            style={{ backgroundColor: "#C77E23" }}
+          >
+            Clôturer (sans remboursement)
+          </button>
+        )}
         <button
           onClick={supprimer}
           disabled={loading}

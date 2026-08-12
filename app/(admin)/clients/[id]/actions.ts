@@ -328,3 +328,52 @@ export async function supprimerAbonnement(
   revalidatePath(`/clients/${abo.client_id}`);
   return { ok: true };
 }
+
+// Clôture un abonnement SANS remboursement : la carte passe en 'expire' (inutilisable),
+// les jours restants sont ramenés à 0 (mouvement 'expiration'), et la compta est
+// resynchronisée -> le montant prépayé non consommé est reconnu comme produit
+// (le client ne récupère pas son argent : c'est un gain pour l'entreprise).
+export async function cloturerAbonnement(
+  abonnementId: string,
+): Promise<{ ok?: boolean; error?: string }> {
+  const verif = await verifierPermission("perm_encaissements");
+  if (verif.error) return verif;
+
+  const { data: abo } = await supabaseAdmin
+    .from("abonnements")
+    .select("id, client_id, statut, abonnements_mouvements(delta)")
+    .eq("id", abonnementId)
+    .maybeSingle();
+  if (!abo) return { error: "Abonnement introuvable." };
+  if (!["actif", "epuise"].includes(abo.statut)) {
+    return { error: "Seule une carte confirmée et non clôturée peut être clôturée." };
+  }
+
+  // Ramène le solde de jours à 0 (mouvement d'expiration) pour un affichage cohérent.
+  const solde = ((abo.abonnements_mouvements ?? []) as { delta: number | string }[]).reduce(
+    (s, m) => s + Number(m.delta),
+    0,
+  );
+  if (solde !== 0) {
+    const { error: mvErr } = await supabaseAdmin.from("abonnements_mouvements").insert({
+      abonnement_id: abonnementId,
+      client_id: abo.client_id,
+      delta: -solde,
+      type: "expiration",
+      motif: "Clôture sans remboursement (jours restants annulés)",
+    });
+    if (mvErr) return { error: mvErr.message };
+  }
+
+  const { error: upErr } = await supabaseAdmin
+    .from("abonnements")
+    .update({ statut: "expire" })
+    .eq("id", abonnementId);
+  if (upErr) return { error: upErr.message };
+
+  // Reconnaissance du montant non consommé en produit (statut 'expire' => rec = prix).
+  await synchroniserComptaAbonnement(abonnementId);
+
+  revalidatePath(`/clients/${abo.client_id}`);
+  return { ok: true };
+}
