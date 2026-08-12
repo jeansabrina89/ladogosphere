@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { createClient } from "@/src/utils/supabase/server";
 
 function getJoursFeries(annee: number): string[] {
   const feries: string[] = [];
@@ -50,6 +51,9 @@ function getJoursFeries(annee: number): string[] {
 }
 
 export async function GET(req: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
   const { searchParams } = new URL(req.url);
   const annee = parseInt(searchParams.get("annee") || String(new Date().getFullYear()));
   const nb_boxes = 12;
