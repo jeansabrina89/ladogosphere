@@ -233,3 +233,98 @@ export async function supprimerClient(formData: FormData) {
   if (error) throw new Error(error.message);
   redirect("/clients");
 }
+
+// Ajuste manuellement le solde de jours d'un abonnement confirmé (admin).
+// Écrit un mouvement d'ajustement (delta), sans altérer l'historique (append-only).
+// Neutre comptablement : la reconnaissance du produit dépend de jours_total et des
+// réservations terminées, pas du solde de jours.
+export async function ajusterJoursAbonnement(
+  abonnementId: string,
+  nouveauSolde: number,
+): Promise<{ ok?: boolean; error?: string }> {
+  const verif = await verifierPermission("perm_encaissements");
+  if (verif.error) return verif;
+
+  if (!Number.isInteger(nouveauSolde) || nouveauSolde < 0) {
+    return { error: "Le nombre de jours doit être un entier positif ou nul." };
+  }
+
+  const { data: abo } = await supabaseAdmin
+    .from("abonnements")
+    .select("id, client_id, statut, jours_total, abonnements_mouvements(delta)")
+    .eq("id", abonnementId)
+    .maybeSingle();
+  if (!abo) return { error: "Abonnement introuvable." };
+  if (!["actif", "epuise", "expire"].includes(abo.statut)) {
+    return { error: "Seule une carte confirmée peut être ajustée." };
+  }
+  if (nouveauSolde > (abo.jours_total ?? 0)) {
+    return { error: `Le solde ne peut pas dépasser le total de la carte (${abo.jours_total} jours).` };
+  }
+
+  const soldeActuel = ((abo.abonnements_mouvements ?? []) as { delta: number | string }[]).reduce(
+    (s, m) => s + Number(m.delta),
+    0,
+  );
+  const delta = Math.round((nouveauSolde - soldeActuel) * 100) / 100;
+  if (delta === 0) return { ok: true };
+
+  const { error: mvErr } = await supabaseAdmin.from("abonnements_mouvements").insert({
+    abonnement_id: abonnementId,
+    client_id: abo.client_id,
+    delta,
+    type: "ajustement",
+    motif: "Ajustement manuel du solde (admin)",
+  });
+  if (mvErr) return { error: mvErr.message };
+
+  // Cohérence du statut (on ne touche pas à 'expire')
+  if (nouveauSolde <= 0 && abo.statut === "actif") {
+    await supabaseAdmin.from("abonnements").update({ statut: "epuise" }).eq("id", abonnementId);
+  } else if (nouveauSolde >= 1 && abo.statut === "epuise") {
+    await supabaseAdmin.from("abonnements").update({ statut: "actif" }).eq("id", abonnementId);
+  }
+
+  revalidatePath(`/clients/${abo.client_id}`);
+  return { ok: true };
+}
+
+// Supprime un abonnement (annulation sûre) : statut -> 'annule' (masqué partout),
+// puis contre-passe la comptabilité liée. Bloque si la carte a déjà réglé des
+// réservations, pour ne pas fausser des paiements passés.
+export async function supprimerAbonnement(
+  abonnementId: string,
+): Promise<{ ok?: boolean; error?: string }> {
+  const verif = await verifierPermission("perm_encaissements");
+  if (verif.error) return verif;
+
+  const { data: abo } = await supabaseAdmin
+    .from("abonnements")
+    .select("id, client_id, statut")
+    .eq("id", abonnementId)
+    .maybeSingle();
+  if (!abo) return { error: "Abonnement introuvable." };
+  if (abo.statut === "annule") return { ok: true };
+
+  const { count: nbResa } = await supabaseAdmin
+    .from("reservations")
+    .select("id", { count: "exact", head: true })
+    .eq("abonnement_id", abonnementId);
+  if ((nbResa ?? 0) > 0) {
+    return {
+      error: `Impossible : cette carte a déjà réglé ${nbResa} réservation(s). Annulez d'abord le paiement par carte sur ces réservations, puis réessayez.`,
+    };
+  }
+
+  const { error: upErr } = await supabaseAdmin
+    .from("abonnements")
+    .update({ statut: "annule" })
+    .eq("id", abonnementId);
+  if (upErr) return { error: upErr.message };
+
+  // Contre-passe la compta si la carte avait été payée (idempotent, ne throw pas).
+  await synchroniserComptaAbonnement(abonnementId);
+
+  revalidatePath(`/clients/${abo.client_id}`);
+  return { ok: true };
+}

@@ -10,6 +10,7 @@ import BoutonSupprimerClient from "./BoutonSupprimerClient";
 import BoutonCotisation from "./BoutonCotisation";
 import BoutonConfirmerCotisation from "./BoutonConfirmerCotisation";
 import BoutonConfirmerAbonnement from "./BoutonConfirmerAbonnement";
+import GestionAbonnement from "./GestionAbonnement";
 import GestionAvoir from "./GestionAvoir";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { estMembreActif } from "@/src/lib/membre";
@@ -277,6 +278,14 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                       )}
                       {abo.statut === "en_attente_paiement" && perms.perm_encaissements && (
                         <BoutonConfirmerAbonnement abonnementId={abo.id} />
+                      )}
+                      {perms.perm_encaissements && abo.statut !== "annule" && (
+                        <GestionAbonnement
+                          abonnementId={abo.id}
+                          joursRestants={abo.jours_restants}
+                          joursTotal={abo.jours_total}
+                          statut={abo.statut}
+                        />
                       )}
                     </div>
                     <BadgeStatut statut={abo.statut} />
