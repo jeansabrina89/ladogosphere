@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { sauvegarderPlanning } from "./actions";
 import { joursTravaillesSemaine, reequilibrerCfc, equilibrerPlanningMois } from "@/src/lib/planningUtils";
 import { couleurEmploye } from "@/src/lib/couleursEmployes";
+import { getJoursFeries } from "@/src/lib/joursFeries";
 
 type Employe = {
   id: string;
@@ -41,20 +42,8 @@ const STATUTS = [
 ];
 
 
-const JOURS_FERIES_2026 = [
-  "2026-01-01", "2026-03-19", "2026-05-14", "2026-06-04",
-  "2026-08-01", "2026-08-15", "2026-11-01", "2026-12-08", "2026-12-25"
-];
-const JOURS_FERIES_2027 = [
-  "2027-01-01", "2027-03-19", "2027-05-06", "2027-05-27",
-  "2027-08-01", "2027-08-15", "2027-11-01", "2027-12-08", "2027-12-25"
-];
-
-function getJoursFeries(annee: number): string[] {
-  if (annee === 2026) return JOURS_FERIES_2026;
-  if (annee === 2027) return JOURS_FERIES_2027;
-  return [];
-}
+// Jours fériés valaisans : fonction générique partagée (src/lib/joursFeries.ts),
+// calculée pour toute année — plus de valeurs codées en dur (correct au-delà de 2027).
 
 const NOMS_MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
