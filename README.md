@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# La Dogosphere
 
-## Getting Started
+Application de gestion de La Dogosphere, pension canine située à Sion (Valais, Suisse).
 
-First, run the development server:
+Elle couvre l'ensemble de l'activité :
+
+- réservations et suivi des séjours,
+- check-in / check-out des chiens,
+- facturation avec QR-facture suisse,
+- comptabilité en partie double,
+- gestion RH : planning, timbrage, vacances, fiches de salaire.
+
+L'application expose trois espaces distincts : client, employé et administrateur.
+
+## Stack
+
+- **Next.js 16** (App Router, Turbopack) et **React 19**
+- **Tailwind CSS v4**
+- **Supabase** : Postgres, Auth et RLS
+- **Resend** pour les emails transactionnels
+- **swissqrbill** pour la génération des QR-factures
+- **Vitest** pour les tests
+- Déploiement sur **Vercel**
+
+## Démarrage
+
+Prérequis : Node 20.9 ou plus récent (contrainte de Next 16).
 
 ```bash
+npm install
+cp .env.example .env.local   # puis renseigner les variables
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Les variables attendues sont listées et commentées dans [.env.example](.env.example).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Script | Description |
+| --- | --- |
+| `npm run dev` | Démarre le serveur de développement. |
+| `npm run build` | Compile l'application pour la production. |
+| `npm run start` | Démarre le serveur à partir du build de production. |
+| `npm run lint` | Lance ESLint sur le dépôt. |
+| `npm run test` | Exécute la suite de tests Vitest. |
+| `npm run backup:data` | Exporte les données via `scripts/sauvegarde-donnees.mjs`. |
 
-## Learn More
+## Architecture
 
-To learn more about Next.js, take a look at the following resources:
+| Dossier | Rôle |
+| --- | --- |
+| [app/(admin)/](app/(admin)/) | Espace administrateur et employé. |
+| [app/(client)/](app/(client)/) | Espace client. |
+| [app/(public)/](app/(public)/) | Pages publiques. |
+| [app/api/](app/api/) | Route handlers (API, webhooks, tâches cron). |
+| [app/components/ui/](app/components/ui/) | Kit UI partagé. |
+| [src/lib/](src/lib/) | Logique métier : tarification, facturation, comptabilité, planning. |
+| [supabase/migrations/](supabase/migrations/) | Migrations SQL versionnées. |
+| [tests/](tests/) | Tests unitaires et d'intégration. |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Base de données
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Toute modification de schéma passe par une migration versionnée dans
+[supabase/migrations/](supabase/migrations/), jamais par une modification manuelle
+en console. Le dossier fait foi sur l'état du schéma.
 
-## Deploy on Vercel
+## Tests
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run test
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Outre les tests unitaires, [tests/exerciceComptableComplet.test.ts](tests/exerciceComptableComplet.test.ts)
+est un test d'intégration qui simule un exercice comptable complet à travers le
+code de comptabilité réel et vérifie l'équilibre des livres.
