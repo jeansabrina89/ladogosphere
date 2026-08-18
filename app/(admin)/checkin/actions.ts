@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
+import { appliquerCheckin, appliquerCheckout } from "@/src/lib/checkinCheckout";
 
 export async function fairerCheckin(formData: FormData) {
   const verif = await verifierPermission("perm_checkin");
@@ -10,15 +10,9 @@ export async function fairerCheckin(formData: FormData) {
 
   const checkin_id = formData.get("checkin_id") as string;
 
-  const { error } = await supabaseAdmin
-    .from("checkin_checkout")
-    .update({
-      date_arrivee_reelle: new Date().toISOString(),
-      statut: "arrive",
-    })
-    .eq("id", checkin_id);
+  const { error } = await appliquerCheckin(checkin_id);
+  if (error) throw new Error(error);
 
-  if (error) throw new Error(error.message);
   revalidatePath("/checkin");
 }
 
@@ -28,14 +22,8 @@ export async function fairerCheckout(formData: FormData) {
 
   const checkin_id = formData.get("checkin_id") as string;
 
-  const { error } = await supabaseAdmin
-    .from("checkin_checkout")
-    .update({
-      date_depart_reel: new Date().toISOString(),
-      statut: "parti",
-    })
-    .eq("id", checkin_id);
+  const { error } = await appliquerCheckout(checkin_id);
+  if (error) throw new Error(error);
 
-  if (error) throw new Error(error.message);
   revalidatePath("/checkin");
 }
