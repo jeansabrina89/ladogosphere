@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 
 export async function POST(
   _req: NextRequest,
@@ -36,6 +37,10 @@ export async function POST(
     p_client_id: fiche.id,
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // 5. Comptabilité : la ligne paiements_resa est désormais posée par la RPC,
+  // la synchro impute la contrepartie avoir (compte 2035). Ne lève jamais.
+  await synchroniserComptaResa(id, new Date().toISOString().split("T")[0]);
 
   return NextResponse.json({ ok: true, nouveauSolde });
 }
