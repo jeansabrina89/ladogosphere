@@ -6,6 +6,12 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM = "La Dogosphère <noreply@ladogosphere.ch>";
 
+// Base des URL absolues utilisees dans les emails (les images doivent etre
+// accessibles publiquement depuis le client de messagerie). Repli sur le
+// domaine qui repond aujourd'hui en HTTPS avec un certificat valide.
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://reservation.ladogosphere.ch";
+
 // Template de base commun à tous les emails
 const emailTemplate = (contenu: string) => `
 <!DOCTYPE html>
@@ -23,7 +29,7 @@ const emailTemplate = (contenu: string) => `
           <!-- Header -->
           <tr>
             <td style="background-color:#1B2B5E; padding:30px 40px; text-align:center;">
-              <img src="https://ladogosphere.ch/Logo.png" alt="La Dogosphère" style="height:70px; margin-bottom:10px;" />
+              <img src="${SITE_URL}/Logo.png" alt="La Dogosphère" style="height:70px; margin-bottom:10px;" />
               <p style="color:#9CA3AF; margin:0; font-size:13px; letter-spacing:1px; text-transform:uppercase;">Pension Canine — Sion, Valais</p>
             </td>
           </tr>
@@ -52,7 +58,7 @@ const emailTemplate = (contenu: string) => `
                     </p>
                   </td>
                   <td style="text-align:right; vertical-align:top;">
-                    <img src="https://ladogosphere.ch/Logo.png" alt="Logo" style="height:50px; opacity:0.3;" />
+                    <img src="${SITE_URL}/Logo.png" alt="Logo" style="height:50px; opacity:0.3;" />
                   </td>
                 </tr>
               </table>
