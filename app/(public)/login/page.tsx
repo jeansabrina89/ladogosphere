@@ -7,7 +7,7 @@ export default function LoginPage() {
       style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-md w-full bg-white rounded-xl p-8 shadow-lg">
         <div className="text-center mb-8">
-          <img src="/logo-compact.png" alt="La Dogosphère"
+          <img src="/logo-compact.webp" alt="La Dogosphère"
             className="h-24 w-24 rounded-full object-cover mx-auto mb-4" />
           <h1 className="text-3xl font-bold" style={{ color: "#1B2B5E" }}>
             La Dogosphère

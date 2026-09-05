@@ -28,7 +28,7 @@ export default function NavBarClient() {
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-center justify-between h-16">
           <a href="/mon-compte" className="flex items-center gap-3">
-            <img src="/logo-compact.png" alt="La Dogosphère"
+            <img src="/logo-compact.webp" alt="La Dogosphère"
               className="h-12 w-12 rounded-full object-cover" />
             <span className="font-bold text-xl" style={{ color: "#1B2B5E" }}>
               La Dogosphère

@@ -57,7 +57,7 @@ export default function SidebarStaff({ sections }: { sections: SectionNav[] }) {
   const sidebarDesktop = (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <a href="/" style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 14px 12px", textDecoration: "none" }}>
-        <img src="/logo-compact.png" alt="La Dogosphère" style={{ height: 40, width: 40, borderRadius: "50%", objectFit: "cover" }} />
+        <img src="/logo-compact.webp" alt="La Dogosphère" style={{ height: 40, width: 40, borderRadius: "50%", objectFit: "cover" }} />
         <span style={{ fontFamily: "Georgia, serif", fontWeight: 700, fontSize: 18, color: "#1B2B5E" }}>La Dogosphère</span>
       </a>
       <nav style={{ flex: 1, overflowY: "auto", padding: "0 8px" }}>
@@ -105,7 +105,7 @@ export default function SidebarStaff({ sections }: { sections: SectionNav[] }) {
         style={{ position: "sticky", top: 0, zIndex: 40, padding: "12px 16px",
           background: "#FFFFFF", borderBottom: "1px solid rgba(27,43,94,.10)" }}>
         <a href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-          <img src="/logo-compact.png" alt="La Dogosphère" style={{ height: 32, width: 32, borderRadius: "50%", objectFit: "cover" }} />
+          <img src="/logo-compact.webp" alt="La Dogosphère" style={{ height: 32, width: 32, borderRadius: "50%", objectFit: "cover" }} />
           <span style={{ fontFamily: "Georgia, serif", fontWeight: 700, fontSize: 16, color: "#1B2B5E" }}>La Dogosphère</span>
         </a>
       </header>
