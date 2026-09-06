@@ -79,8 +79,10 @@ export default async function MonComptePage() {
   const joursRestants = cotisationEnCours ? joursEntre(aujourd_hui, cotisationEnCours.date_fin) : null;
   const dansFenetreRenouvellement =
     joursRestants !== null && joursRestants <= JOURS_FENETRE_RENOUVELLEMENT;
+  // Une fiche du personnel ne cotise pas : rien à proposer ni à afficher.
+  const estInterne = !!client?.interne;
   const peutDemander =
-    !!client && !aDemandeEnAttente && (!cotisationEnCours || dansFenetreRenouvellement);
+    !!client && !estInterne && !aDemandeEnAttente && (!cotisationEnCours || dansFenetreRenouvellement);
   const estRenouvellement = !!cotisationEnCours;
   const { data: paramCotis } = await supabaseAdmin
     .from("parametres")
@@ -122,7 +124,7 @@ export default async function MonComptePage() {
 
         <InstallerAppButton label="Installez l'application pour un accès rapide" />
 
-        {!aDemandeEnAttente && (
+        {!aDemandeEnAttente && !estInterne && (
           <div style={{ marginBottom: 24, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <BadgeMembre membre={!!client?.membre} aJour={estMembre} montrerStandard />
             {cotisationEnCours && (

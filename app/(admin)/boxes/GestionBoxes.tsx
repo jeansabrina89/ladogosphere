@@ -22,13 +22,18 @@ type Box = {
   capacite_petits_chiens: number | null;
   notes: string | null;
   actif: boolean;
+  interne: boolean;
+  proprietaire_client_id: string | null;
 };
 
+type FicheInterne = { id: string; prenom: string; nom: string };
+
 export default function GestionBoxes({
-  boxes, indisponibilites,
+  boxes, indisponibilites, fichesInternes,
 }: {
   boxes: Box[];
   indisponibilites: Indisponibilite[];
+  fichesInternes: FicheInterne[];
 }) {
   const router = useRouter();
   const [boxOuvert, setBoxOuvert] = useState<string | null>(null);
@@ -165,6 +170,14 @@ export default function GestionBoxes({
                   {box.notes && <p className="text-sm text-gray-400 mt-1">📝 {box.notes}</p>}
                 </div>
                 <div className="flex items-center gap-2">
+                  {box.interne && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                      ⭐ Interne
+                      {box.proprietaire_client_id
+                        ? ` · ${fichesInternes.find(f => f.id === box.proprietaire_client_id)?.prenom ?? "personnel"}`
+                        : " · pension"}
+                    </span>
+                  )}
                   <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                     box.actif ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                   }`}>
@@ -216,6 +229,36 @@ export default function GestionBoxes({
                       <textarea name="notes" rows={2} defaultValue={box.notes ?? ""}
                         className="w-full border rounded-xl p-2" />
                     </div>
+
+                    {/* Box interne : réservé au personnel et à la pension */}
+                    <div className="rounded-xl p-4" style={{ backgroundColor: "#F5F0E8", border: "1px solid #C9A84C" }}>
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input type="checkbox" name="interne" defaultChecked={box.interne} className="mt-1" />
+                        <span className="text-sm font-semibold" style={{ color: "#6E5410" }}>
+                          Box interne (personnel / pension)
+                        </span>
+                      </label>
+                      <p className="text-xs mt-1 mb-3" style={{ color: "rgba(110,84,16,0.8)" }}>
+                        Exclu des suggestions et de la capacité offerte aux clients. Un chien de
+                        client ne peut jamais y être placé.
+                      </p>
+                      <label className="block text-sm font-semibold mb-1" style={{ color: "#6E5410" }}>
+                        Propriétaire
+                      </label>
+                      <select name="proprietaire_client_id"
+                        defaultValue={box.proprietaire_client_id ?? ""}
+                        className="w-full border rounded-xl p-2 text-sm">
+                        <option value="">🏠 La pension (jamais attribué automatiquement)</option>
+                        {fichesInternes.map(f => (
+                          <option key={f.id} value={f.id}>{f.prenom} {f.nom}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs mt-1" style={{ color: "rgba(110,84,16,0.8)" }}>
+                        Les chiens du propriétaire y vont toujours. Sans propriétaire, le box n&apos;est
+                        utilisé qu&apos;à la main.
+                      </p>
+                    </div>
+
                     <p className="text-xs text-gray-400">
                       Le numéro de box (N° {box.numero}) est fixé à la création et ne peut pas être modifié.
                     </p>

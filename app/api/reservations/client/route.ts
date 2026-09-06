@@ -4,6 +4,8 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { envoyerEmailConfirmationDemande } from "@/src/lib/email";
 import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "@/src/lib/membre";
 import { verifierSelectionChiens } from "@/src/lib/journeeEssai";
+import { typeAutorisePourPersonnel } from "@/src/lib/personnel";
+import { creerReservationsPersonnel } from "@/src/lib/reservationPersonnel";
 
 export async function POST(req: NextRequest) {
   const supabaseServer = await createSupabaseServerClient();
@@ -16,7 +18,7 @@ export async function POST(req: NextRequest) {
   // Récupérer la fiche client liée à la session (RLS : uniquement la sienne)
   const { data: fiche, error: ficheErr } = await supabaseServer
     .from("clients")
-    .select("id, email, prenom, cotisation_exemptee")
+    .select("id, email, prenom, cotisation_exemptee, interne")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
@@ -51,6 +53,28 @@ export async function POST(req: NextRequest) {
   if (chiensErr) return NextResponse.json({ error: chiensErr.message }, { status: 500 });
   if (!chiensOwned || chiensOwned.length !== chien_ids.length) {
     return NextResponse.json({ error: "Chien(s) invalide(s)." }, { status: 403 });
+  }
+
+  // Fiche INTERNE (personnel) : réservation gratuite, validée d'office, box
+  // attribué tout de suite, sans facture ni adhésion ni e-mail.
+  if ((fiche as { interne?: boolean }).interne) {
+    if (!typeAutorisePourPersonnel(type_reservation)) {
+      return NextResponse.json(
+        { error: "Le personnel réserve une journée ou un séjour, pas une journée d'essai." },
+        { status: 400 }
+      );
+    }
+    const res = await creerReservationsPersonnel({
+      client_id: fiche.id,
+      chien_ids,
+      type_reservation,
+      occurrences: [{ date_debut, date_fin }],
+      heure_arrivee,
+      heure_depart,
+      commentaire_client,
+    });
+    if (!res.ok) return NextResponse.json({ error: res.erreur }, { status: 400 });
+    return NextResponse.json({ id: res.ids[0], ids: res.ids });
   }
 
   // Règle de la journée d'essai, CHIEN PAR CHIEN (cf. src/lib/journeeEssai.ts).

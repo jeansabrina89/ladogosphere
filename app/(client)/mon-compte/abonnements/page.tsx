@@ -21,10 +21,12 @@ export default async function AbonnementsPage() {
 
   const { data: client } = await supabaseAdmin
     .from("clients")
-    .select("id, prenom")
+    .select("id, prenom, interne")
     .eq("auth_user_id", user.id)
     .maybeSingle();
   if (!client) redirect("/mon-compte");
+  // Une fiche du personnel ne prend pas d abonnement : tout lui est gratuit.
+  if (client.interne) redirect("/mon-compte");
 
   const estMembre = await estMembreActif(supabaseAdmin, client.id);
 

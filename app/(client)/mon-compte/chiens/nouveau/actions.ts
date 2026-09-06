@@ -16,7 +16,7 @@ export async function creerChienClient(client_id: string, formData: FormData) {
   // La session courante a-t-elle le droit de lire cette fiche ? (RLS)
   const { data: fiche, error: verifErr } = await supabaseServer
     .from("clients")
-    .select("id")
+    .select("id, interne")
     .eq("id", client_id)
     .maybeSingle();
 
@@ -66,6 +66,9 @@ export async function creerChienClient(client_id: string, formData: FormData) {
       allergies: formData.get("allergies") as string || null,
       traitements: formData.get("traitements") as string || null,
       remarques: formData.get("remarques") as string || null,
+      // Chien du personnel : validé d'office, aucune journée d'essai n'est
+      // proposée ni exigée (le trigger dérive les colonnes historiques).
+      ...(fiche.interne ? { statut_essai: "valide" } : {}),
     });
 
   if (error) throw new Error(error.message);

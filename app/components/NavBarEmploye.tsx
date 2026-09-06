@@ -1,6 +1,7 @@
 import SidebarStaff, { type SectionNav } from "./SidebarStaff";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { compterReservationsPersonnelAVoir } from "@/src/lib/reservationsPersonnelAdmin";
 
 export default async function NavBarEmploye() {
   const perms = await getProfilePerms();
@@ -17,6 +18,8 @@ export default async function NavBarEmploye() {
     .eq("statut", "en_attente_paiement");
   const nbAbonnements = cAbo ?? 0;
 
+  const nbResaPersonnel = await compterReservationsPersonnelAVoir();
+
   const SECTIONS_EMPLOYE: SectionNav[] = [
     { titre: null, liens: [{ href: "/", label: "📋 Tableau de bord" }] },
     { titre: "Opérationnel", liens: [
@@ -30,10 +33,14 @@ export default async function NavBarEmploye() {
       { href: "/chiens", label: "🐶 Chiens" },
       { href: "/clients", label: "👤 Clients" },
       { href: "/reservations", label: "📅 Réservations" },
+      { href: "/reservations?personnel=1", label: "⭐ Personnel", badge: nbResaPersonnel || undefined },
       ...(perms.perm_encaissements ? [
         { href: "/adhesions", label: "🎫 Adhésions", badge: nbAdhesions || undefined },
         { href: "/abonnements", label: "🎟️ Abonnements", badge: nbAbonnements || undefined },
       ] : []),
+    ]},
+    { titre: "Mon espace", liens: [
+      { href: "/mon-compte", label: "🐾 Mes chiens" },
     ]},
     { titre: "RH", liens: [
       { href: "/employes/mon-espace", label: "👤 Mon espace RH" },

@@ -41,10 +41,20 @@ export async function creerChien(formData: FormData) {
   const remarques = formData.get("remarques") as string;
   const categorie_poids = calculerCategorie(poids);
 
+  // Chien du personnel : validé d'office, aucune journée d'essai n'est
+  // proposée ni exigée.
+  const { data: ficheProprietaire } = await supabaseAdmin
+    .from("clients")
+    .select("interne")
+    .eq("id", client_id)
+    .maybeSingle();
+  const statutEssaiInitial = ficheProprietaire?.interne ? { statut_essai: "valide" } : {};
+
   const { error } = await supabaseAdmin
     .from("chiens")
     .insert({
       client_id,
+      ...statutEssaiInitial,
       nom,
       race,
       couleur,

@@ -134,6 +134,14 @@ export default async function PlanningPage({
                       backgroundColor: idx % 2 === 0 ? "white" : "#f8fafc"
                     }}>
                     {formatBoxLabel(box)}
+                    {box.interne && (
+                      <span
+                        title="Box interne : personnel et pension uniquement"
+                        style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: "#6E5410" }}
+                      >
+                        ⭐
+                      </span>
+                    )}
                   </td>
                   {jours.map((jour) => {
                     const occs = index[box.id]?.[jour] ?? [];

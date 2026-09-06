@@ -21,11 +21,17 @@ export async function POST(req: NextRequest) {
 
   if (!chiensAplacer) return NextResponse.json({ suggestions: [] });
 
-  const { data: boxesActifs } = await supabase
-    .from("boxes")
-    .select("*")
-    .eq("actif", true)
-    .order("numero");
+  // Les box INTERNES ne sont proposés que pour les chiens d'une fiche interne :
+  // un client ne doit jamais s'en voir attribuer un.
+  const clientIdsChiens = [...new Set((chiensAplacer ?? []).map((c: any) => c.client_id).filter(Boolean))];
+  const { data: fichesInternes } = clientIdsChiens.length
+    ? await supabaseAdmin.from("clients").select("id").eq("interne", true).in("id", clientIdsChiens)
+    : { data: [] };
+  const placementInterne = (fichesInternes ?? []).length > 0;
+
+  let requeteBoxes = supabase.from("boxes").select("*").eq("actif", true);
+  if (!placementInterne) requeteBoxes = requeteBoxes.eq("interne", false);
+  const { data: boxesActifs } = await requeteBoxes.order("numero");
 
   // Exclure les box indisponibles sur la période demandée (lecture admin : RLS admin-only)
   let boxesIndisponibles = new Set<string>();

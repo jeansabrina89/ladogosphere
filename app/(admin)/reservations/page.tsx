@@ -8,11 +8,13 @@ import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { clientsMembresAJour } from "@/src/lib/membre";
 import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
+import BandeauReservationsPersonnel from "./BandeauReservationsPersonnel";
+import { idsFichesInternes } from "@/src/lib/reservationsPersonnelAdmin";
 
 export default async function ReservationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ paiement?: string; recherche?: string; periode?: string }>;
+  searchParams: Promise<{ paiement?: string; recherche?: string; periode?: string; personnel?: string }>;
 }) {
   await exigerPersonnelPage();
   const perms = await getProfilePerms();
@@ -20,6 +22,8 @@ export default async function ReservationsPage({
   const params = await searchParams;
   const paiement = params.paiement || "tous";
   const recherche = params.recherche || "";
+  const filtrePersonnel = params.personnel === "1";
+  const idsInternes = await idsFichesInternes();
   const periodeSet = new Set((params.periode ?? "").split(",").filter(Boolean));
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Zurich" });
 
@@ -33,6 +37,13 @@ export default async function ReservationsPage({
         chiens (id, nom, race, categorie_poids)
       )
     `);
+
+  // Filtre « Personnel » : uniquement les réservations des fiches internes.
+  if (filtrePersonnel) {
+    query = idsInternes.length > 0
+      ? query.in("client_id", idsInternes)
+      : query.eq("client_id", "00000000-0000-0000-0000-000000000000");
+  }
 
   if (recherche) {
     const numero = parseInt(recherche);
@@ -85,8 +96,15 @@ export default async function ReservationsPage({
         {!recherche && <FiltrePeriodeReservations />}
         {!recherche && <FiltresReservations />}
 
+        {filtrePersonnel && (
+          <BandeauReservationsPersonnel
+            nbAVoir={(reservations ?? []).filter((r: any) => !r.vue_admin_le).length}
+          />
+        )}
+
         <p style={{ color: "rgba(27,43,94,0.6)", fontSize: 14, margin: "0 0 16px", fontWeight: 600 }}>
           {reservations?.length ?? 0} réservation(s)
+          {filtrePersonnel && " du personnel"}
         </p>
 
         <SelectionFactureGroupee

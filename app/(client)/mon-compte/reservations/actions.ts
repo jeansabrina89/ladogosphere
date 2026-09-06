@@ -8,6 +8,8 @@ import { consommerAbonnementResa } from "@/src/lib/consommationAbonnement";
 import { etatAdhesionReservation } from "@/src/lib/membre";
 import { cotisationEnAttente } from "@/src/lib/cotisation";
 import { verifierSelectionChiens } from "@/src/lib/journeeEssai";
+import { typeAutorisePourPersonnel } from "@/src/lib/personnel";
+import { creerReservationsPersonnel, annulerReservationPersonnel } from "@/src/lib/reservationPersonnel";
 import { calculerPeriodeCotisation, formatPeriodeCotisation } from "@/src/lib/cotisationPeriode";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { peutReserverPension, MESSAGE_ESSAI_REQUIS, MESSAGE_ADHESION_A_REGLER } from "@/src/lib/adhesionReservation";
@@ -63,11 +65,12 @@ export async function creerDemandeReservation(
   // 2. Fiche client liée à la session — client_id JAMAIS fourni par le formulaire
   const { data: fiche, error: ficheErr } = await supabaseServer
     .from("clients")
-    .select("id, email, prenom, cotisation_exemptee")
+    .select("id, email, prenom, cotisation_exemptee, interne")
     .eq("auth_user_id", user.id)
     .maybeSingle();
   if (ficheErr) return { ok: false, erreur: ficheErr.message };
   if (!fiche) return { ok: false, erreur: "Profil client introuvable." };
+  const estInterne = !!(fiche as { interne?: boolean }).interne;
 
   // 3. Validation des inputs de base
   const TYPES_VALIDES = ["sejour", "journee", "essai"] as const;
@@ -100,6 +103,29 @@ export async function creerDemandeReservation(
   if (chiensErr) return { ok: false, erreur: chiensErr.message };
   if (!chiensOwned || chiensOwned.length !== input.chien_ids.length) {
     return { ok: false, erreur: "Chien(s) invalide(s)." };
+  }
+
+  // 4bis. FICHE INTERNE (personnel) : chemin court et distinct — réservation
+  //       gratuite, validée d'office, box attribué tout de suite, sans facture,
+  //       sans adhésion, sans e-mail. Aucune journée d'essai n'est exigée : les
+  //       chiens du personnel sont validés à leur création.
+  if (estInterne) {
+    if (!typeAutorisePourPersonnel(input.type_reservation)) {
+      return { ok: false, erreur: "Le personnel réserve une journée ou un séjour, pas une journée d'essai." };
+    }
+    const res = await creerReservationsPersonnel({
+      client_id: fiche.id,
+      chien_ids: input.chien_ids,
+      type_reservation: input.type_reservation,
+      occurrences: input.occurrences,
+      heure_arrivee: input.heure_arrivee,
+      heure_depart: input.heure_depart,
+      commentaire_client: input.commentaire_client,
+    });
+    if (!res.ok) return res;
+    revalidatePath("/mon-compte");
+    revalidatePath("/mon-compte/reservations");
+    return { ok: true, ids: res.ids };
   }
 
   // 5. Gate essai, CHIEN PAR CHIEN (cf. src/lib/journeeEssai.ts) :
@@ -265,6 +291,32 @@ export async function creerDemandeReservation(
   }
 
   return { ok: true, ids: reservationIds };
+}
+
+/**
+ * Annulation par une fiche interne (personnel) de sa propre réservation,
+ * jusqu'à la veille. Libère le box et le check-in ; il n'y a aucun frais.
+ */
+export async function annulerMaReservationInterne(
+  reservationId: string
+): Promise<{ ok?: boolean; error?: string }> {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Non connecté." };
+
+  const { data: fiche } = await supabaseAdmin
+    .from("clients")
+    .select("id, interne")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  if (!fiche?.interne) return { error: "Réservé aux fiches du personnel." };
+
+  const res = await annulerReservationPersonnel(reservationId, fiche.id);
+  if (res.error) return res;
+
+  revalidatePath("/mon-compte");
+  revalidatePath("/mon-compte/reservations");
+  return { ok: true };
 }
 
 export async function reglerReservationAvecAbonnement(

@@ -1,5 +1,6 @@
 import SidebarStaff, { type SectionNav } from "./SidebarStaff";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { compterReservationsPersonnelAVoir } from "@/src/lib/reservationsPersonnelAdmin";
 
 export default async function NavBarAdmin() {
   const { count } = await supabaseAdmin
@@ -14,6 +15,8 @@ export default async function NavBarAdmin() {
     .eq("statut", "en_attente_paiement");
   const nbAbonnements = cAbo ?? 0;
 
+  const nbResaPersonnel = await compterReservationsPersonnelAVoir();
+
   const SECTIONS_ADMIN: SectionNav[] = [
     { titre: null, liens: [{ href: "/", label: "📋 Tableau de bord" }] },
     { titre: "Opérationnel", liens: [
@@ -27,6 +30,7 @@ export default async function NavBarAdmin() {
       { href: "/chiens", label: "🐶 Chiens" },
       { href: "/clients", label: "👤 Clients" },
       { href: "/reservations", label: "📅 Réservations" },
+      { href: "/reservations?personnel=1", label: "⭐ Personnel", badge: nbResaPersonnel || undefined },
       { href: "/adhesions", label: "🎫 Adhésions", badge: nbAdhesions || undefined },
       { href: "/abonnements", label: "🎟️ Abonnements", badge: nbAbonnements || undefined },
     ]},
@@ -37,6 +41,9 @@ export default async function NavBarAdmin() {
       { href: "/factures", label: "🧾 Factures" },
       { href: "/comptabilite", label: "📈 Compta" },
       { href: "/emails", label: "✉️ Emails" },
+    ]},
+    { titre: "Mon espace", liens: [
+      { href: "/mon-compte", label: "🐾 Mes chiens" },
     ]},
     { titre: "RH", liens: [
       { href: "/employes", label: "👥 Équipe" },

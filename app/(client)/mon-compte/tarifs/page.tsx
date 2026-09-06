@@ -133,9 +133,11 @@ export default async function TarifsClientPage() {
   // Statut membre du client connecté
   const { data: client } = await supabaseAdmin
     .from("clients")
-    .select("id")
+    .select("id, interne")
     .eq("auth_user_id", user.id)
     .maybeSingle();
+  // Les tarifs et la cotisation ne concernent pas une fiche du personnel.
+  if (client?.interne) redirect("/mon-compte");
 
   const aujourdhui = aujourdhuiISO();
   const estMembre = client ? await estMembreActif(supabaseAdmin, client.id) : false;

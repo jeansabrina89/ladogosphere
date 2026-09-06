@@ -1,14 +1,15 @@
 "use client";
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/src/lib/supabase-browser";
-const liens = [
+const liens: { href: string; label: string; exact: boolean; clientSeul?: boolean }[] = [
   { href: "/mon-compte", label: "🏠 Mon compte", exact: true },
   { href: "/mon-compte/chiens", label: "🐶 Mes chiens", exact: false },
   { href: "/mon-compte/reservations", label: "📅 Mes réservations", exact: false },
-  { href: "/mon-compte/abonnements", label: "🎟️ Mes abonnements", exact: false },
+  // Les abonnements n'ont pas de sens pour une fiche du personnel (gratuite).
+  { href: "/mon-compte/abonnements", label: "🎟️ Mes abonnements", exact: false, clientSeul: true },
   { href: "/mon-compte/profil", label: "👤 Mon profil", exact: false },
 ];
-export default function NavBarClient() {
+export default function NavBarClient({ interne = false }: { interne?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   if (pathname === "/login" || pathname === "/inscription") return null;
@@ -41,7 +42,7 @@ export default function NavBarClient() {
           </button>
         </div>
         <div className="flex flex-wrap gap-1 pb-3">
-          {liens.map(({ href, label, exact }) => (
+          {liens.filter(l => !(interne && l.clientSeul)).map(({ href, label, exact }) => (
             <a key={href} href={href}
               className="px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap"
               style={{

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
+import { placementBoxAutorise } from "@/src/lib/personnel";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -18,6 +19,19 @@ export async function POST(req: NextRequest) {
 
   if (!occupation) {
     return NextResponse.json({ error: "Occupation introuvable" }, { status: 404 });
+  }
+
+  // Un box interne n'accueille jamais le chien d'un client, même déposé à la main.
+  const [{ data: boxCible }, { data: chien }] = await Promise.all([
+    supabaseAdmin.from("boxes").select("interne").eq("id", nouveau_box_id).maybeSingle(),
+    supabaseAdmin.from("chiens").select("clients (interne)").eq("id", occupation.chien_id).maybeSingle(),
+  ]);
+  const placement = placementBoxAutorise({
+    boxInterne: !!boxCible?.interne,
+    ficheInterne: !!(chien as { clients?: { interne?: boolean } } | null)?.clients?.interne,
+  });
+  if (!placement.autorise) {
+    return NextResponse.json({ error: placement.message }, { status: 400 });
   }
 
   if (mode === "tout") {

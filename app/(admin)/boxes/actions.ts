@@ -53,6 +53,23 @@ export async function modifierBox(id: string, formData: FormData): Promise<{ err
   const notes = (formData.get("notes") as string)?.trim() || null;
   const actif = formData.get("actif") === "on";
 
+  // Box interne : réservé au personnel / à la pension. Le propriétaire doit être
+  // une fiche INTERNE ; sans propriétaire, c'est le box de la pension.
+  const interne = formData.get("interne") === "on";
+  const proprietaireBrut = (formData.get("proprietaire_client_id") as string)?.trim() || null;
+  let proprietaire_client_id: string | null = null;
+  if (interne && proprietaireBrut) {
+    const { data: fiche } = await supabaseAdmin
+      .from("clients")
+      .select("id, interne")
+      .eq("id", proprietaireBrut)
+      .maybeSingle();
+    if (!fiche?.interne) {
+      return { error: "Le propriétaire d'un box interne doit être une fiche du personnel." };
+    }
+    proprietaire_client_id = fiche.id;
+  }
+
   const { error } = await supabaseAdmin.from("boxes")
     .update({
       nom,
@@ -60,6 +77,8 @@ export async function modifierBox(id: string, formData: FormData): Promise<{ err
       capacite_petits_chiens: capacitePetitsRaw ? parseInt(capacitePetitsRaw) : null,
       notes,
       actif,
+      interne,
+      proprietaire_client_id,
     })
     .eq("id", id);
   if (error) return { error: error.message };

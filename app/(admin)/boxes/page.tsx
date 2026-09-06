@@ -15,6 +15,13 @@ export default async function BoxesPage() {
     .select("*")
     .order("date_debut");
 
+  // Fiches du personnel : propriétaires possibles d'un box interne.
+  const { data: fichesInternes } = await supabaseAdmin
+    .from("clients")
+    .select("id, prenom, nom")
+    .eq("interne", true)
+    .order("prenom");
+
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-5xl mx-auto">
@@ -23,7 +30,7 @@ export default async function BoxesPage() {
           Renommer, configurer les capacités et gérer les indisponibilités des box.
         </p>
 
-        <GestionBoxes boxes={boxes ?? []} indisponibilites={indisponibilites ?? []} />
+        <GestionBoxes boxes={boxes ?? []} indisponibilites={indisponibilites ?? []} fichesInternes={fichesInternes ?? []} />
       </div>
     </main>
   );

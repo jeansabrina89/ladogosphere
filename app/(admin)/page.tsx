@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
+import { compterReservationsPersonnelAVoir } from "@/src/lib/reservationsPersonnelAdmin";
 import { aujourdhuiISO, formatHeure } from "@/src/lib/dates";
 import CarteReservationAttente from "@/app/components/CarteReservationAttente";
 import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
@@ -27,6 +28,7 @@ export default async function Home() {
 
   const perms = await getProfilePerms();
   const aujourd_hui = aujourdhuiISO();
+  const nbResaPersonnel = await compterReservationsPersonnelAVoir();
 
   const [
     { count: totalChiens },
@@ -124,6 +126,21 @@ export default async function Home() {
           titre="Tableau de bord"
           sousTitre={new Date().toLocaleDateString("fr-CH", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
         />
+
+        {/* Réservations du personnel à voir (validées d'office, pour information) */}
+        {nbResaPersonnel > 0 && (
+          <Link
+            href="/reservations?personnel=1"
+            style={{
+              display: "block", textDecoration: "none",
+              backgroundColor: "#F4EAC9", border: "1px solid #C9A84C", borderRadius: 14,
+              padding: "12px 16px", marginBottom: 20,
+              fontSize: 14, fontWeight: 600, color: "#6E5410",
+            }}
+          >
+            ⭐ {nbResaPersonnel} réservation{nbResaPersonnel > 1 ? "s" : ""} du personnel à voir ›
+          </Link>
+        )}
 
         {/* Réservations en attente */}
         <div style={{ marginBottom: 32 }}>

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { formatDateFR, aujourdhuiISO } from "@/src/lib/dates";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import BoutonPaiementClient from "./BoutonPaiementClient";
+import BoutonAnnulerReservationInterne from "./BoutonAnnulerReservationInterne";
 import FiltresPeriode from "./FiltresPeriode";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { getSoldeAvoir } from "@/src/lib/avoirs";
@@ -66,11 +67,14 @@ export default async function MesReservationsPage({
 
   const { data: client } = await supabase
     .from("clients")
-    .select("id")
+    .select("id, interne")
     .eq("auth_user_id", user.id)
     .single();
 
   if (!client) return <div style={{ padding: 24 }}>Profil introuvable</div>;
+
+  const estInterne = !!(client as { interne?: boolean }).interne;
+  const aujourdhuiCH = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Zurich" });
 
   const { data: reservationsData } = await supabase
     .from("reservations")
@@ -191,6 +195,10 @@ export default async function MesReservationsPage({
                   ) : null}
                   <div style={sBas}>
                     <Link href={`/mon-compte/reservations/${res.id}`} style={sLienDetail}>Voir le détail →</Link>
+                    {/* Fiche du personnel : annulation libre jusqu'à la veille (aucun frais). */}
+                    {estInterne && res.statut !== "annulee" && res.date_debut > aujourdhuiCH ? (
+                      <BoutonAnnulerReservationInterne reservation_id={res.id} numero={res.numero} />
+                    ) : null}
                     {montrerPayer ? (
                       <BoutonPaiementClient
                         reservation_id={res.id}
