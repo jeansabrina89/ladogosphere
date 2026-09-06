@@ -241,7 +241,13 @@ export default async function ReservationPage({
                   </div>
                   <div className="flex gap-2 flex-wrap">
                     <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type="arrivee" />
-                    <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type="depart" />
+                    <BoutonsCheckinDashboard
+                      checkin_id={cc.id}
+                      statut={cc.statut}
+                      type="depart"
+                      est_essai={res.type_reservation === "essai"}
+                      nom_chien={cc.chiens?.nom ?? "ce chien"}
+                    />
                   </div>
                 </div>
               ))}

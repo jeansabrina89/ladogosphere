@@ -103,7 +103,13 @@ export default async function Home() {
         </div>
         {perms.perm_checkin && (
           <div style={{ flexShrink: 0 }}>
-            <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type={type} />
+            <BoutonsCheckinDashboard
+              checkin_id={cc.id}
+              statut={cc.statut}
+              type={type}
+              est_essai={cc.reservations?.type_reservation === "essai"}
+              nom_chien={chiens.map((c: any) => c.nom).join(", ") || "ce chien"}
+            />
           </div>
         )}
       </div>

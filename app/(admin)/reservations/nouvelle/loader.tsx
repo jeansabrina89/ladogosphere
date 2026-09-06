@@ -18,7 +18,7 @@ export default async function NouvelleReservationLoader() {
 
   const { data: chiens } = await supabase
     .from("chiens")
-    .select("id, nom, race, categorie_poids, poids, client_id, journee_essai_effectuee, journee_essai_invalide")
+    .select("id, nom, race, categorie_poids, poids, client_id, statut_essai")
     .eq("actif", true)
     .order("nom");
 

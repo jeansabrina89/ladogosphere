@@ -8,6 +8,7 @@ import {
 } from "@/app/(client)/mon-compte/reservations/actions";
 import { calculerMontant } from "@/src/lib/calculTarif";
 import { MESSAGE_ADHESION_A_REGLER } from "@/src/lib/adhesionReservation";
+import { statutEssaiDe, chienReservablePour, messageRefusChien } from "@/src/lib/journeeEssai";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 
@@ -19,8 +20,7 @@ export type ChienTunnel = {
   race: string | null;
   poids: number | null;
   categorie_poids: string | null;
-  journee_essai_effectuee: boolean;
-  journee_essai_invalide: boolean;
+  statut_essai: string | null;
 };
 
 export type TarifLite = {
@@ -418,11 +418,17 @@ export default function TunnelReservation({
     return false;
   }, [joursFeries, datesPleine, datesFermees]);
 
-  const chiensDisponibles = chiens.filter(c => !(c.journee_essai_effectuee && c.journee_essai_invalide));
-  const chiensRefuses = chiens.filter(c => c.journee_essai_effectuee && c.journee_essai_invalide);
+  // Statut d'essai par chien : c'est lui qui décide de ce qui est réservable.
+  const statutDe = (c: ChienTunnel) => statutEssaiDe(c);
+  // Un chien est proposé s'il ouvre AU MOINS une branche (essai ou prestation).
+  const chiensDisponibles = chiens.filter(
+    c => chienReservablePour(statutDe(c), "essai").autorise ||
+         chienReservablePour(statutDe(c), "journee").autorise
+  );
+  const chiensIndisponibles = chiens.filter(c => !chiensDisponibles.includes(c));
   const chiensSelectionnes = chiensDisponibles.filter(c => chienIdsSelectionnes.includes(c.id));
-  const chiensNonValidesSelectionnes = chiensSelectionnes.filter(c => !c.journee_essai_effectuee);
-  const chiensValidesSelectionnes = chiensSelectionnes.filter(c => c.journee_essai_effectuee && !c.journee_essai_invalide);
+  const chiensNonValidesSelectionnes = chiensSelectionnes.filter(c => statutDe(c) !== "valide");
+  const chiensValidesSelectionnes = chiensSelectionnes.filter(c => statutDe(c) === "valide");
   const estMixte = chiensNonValidesSelectionnes.length > 0 && chiensValidesSelectionnes.length > 0;
 
   const besoinAdhesion = branche === "complete" && !estMembreAJour && !estExempte;
@@ -528,7 +534,7 @@ export default function TunnelReservation({
         setErreur("Sélectionne au moins un chien.");
         return;
       }
-      const hasNonValide = chiensSelectionnes.some(c => !c.journee_essai_effectuee);
+      const hasNonValide = chiensSelectionnes.some(c => statutDe(c) !== "valide");
       if (hasNonValide) {
         setBranche("essai");
         setChienIdsEssai(chienIdsSelectionnes);
@@ -708,19 +714,27 @@ export default function TunnelReservation({
         {renderErreur()}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {chiensRefuses.map(c => (
-            <div key={c.id} style={{ ...cardSelectStyle(false, "rose"), opacity: 0.45, cursor: "not-allowed" }}>
-              <span style={{ fontSize: 22, flexShrink: 0 }}>❌</span>
-              <div>
-                <p style={{ margin: 0, fontWeight: 600, color: "#1B2B5E", fontSize: 15 }}>{c.nom}</p>
-                <p style={{ margin: 0, fontSize: 12, color: "rgba(27,43,94,0.5)" }}>Non admis après l'essai</p>
+          {/* Chiens non proposables : grisés, avec la raison. */}
+          {chiensIndisponibles.map(c => {
+            const s = statutDe(c);
+            const raison = chienReservablePour(s, "journee").raison;
+            return (
+              <div key={c.id} style={{ ...cardSelectStyle(false, "rose"), opacity: 0.45, cursor: "not-allowed" }}>
+                <span style={{ fontSize: 22, flexShrink: 0 }}>{s === "refuse" ? "❌" : "⏳"}</span>
+                <div>
+                  <p style={{ margin: 0, fontWeight: 600, color: "#1B2B5E", fontSize: 15 }}>{c.nom}</p>
+                  <p style={{ margin: 0, fontSize: 12, color: "rgba(27,43,94,0.5)" }}>
+                    {messageRefusChien(c.nom, raison)}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {chiensDisponibles.map(c => {
             const selected = chienIdsSelectionnes.includes(c.id);
-            const needsEssai = !c.journee_essai_effectuee;
+            const statut = statutDe(c);
+            const needsEssai = statut !== "valide";
             return (
               <button
                 key={c.id}
@@ -734,7 +748,13 @@ export default function TunnelReservation({
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ margin: 0, fontWeight: 600, color: "#1B2B5E", fontSize: 15 }}>{c.nom}</p>
                   <p style={{ margin: 0, fontSize: 12, color: "rgba(27,43,94,0.5)" }}>
-                    {[c.race, c.poids ? `${c.poids} kg` : null, needsEssai ? "🧪 Essai requis" : "✓ Validé"].filter(Boolean).join(" • ")}
+                    {[
+                      c.race,
+                      c.poids ? `${c.poids} kg` : null,
+                      statut === "valide" ? "✓ Validé"
+                        : statut === "seconde_journee" ? "🔁 Seconde journée d'essai"
+                        : "🧪 Essai requis",
+                    ].filter(Boolean).join(" • ")}
                   </p>
                 </div>
                 <div style={{
@@ -758,7 +778,7 @@ export default function TunnelReservation({
   // ─── Étape essai : périmètre (mixte) ──────────────────────────────────────────
 
   function renderPerimetreEssai() {
-    const nonValides = chiensSelectionnes.filter(c => !c.journee_essai_effectuee);
+    const nonValides = chiensSelectionnes.filter(c => statutDe(c) !== "valide");
     return (
       <>
         <p style={S.titre}>Qui participe à l'essai ?</p>

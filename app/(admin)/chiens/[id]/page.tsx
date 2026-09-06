@@ -12,6 +12,8 @@ import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 import ContactTelephone from "@/app/components/ContactTelephone";
 import BadgePhotos from "@/app/components/BadgePhotos";
+import { statutEssaiDe, type StatutEssai } from "@/src/lib/journeeEssai";
+import { formatDateFR } from "@/src/lib/dates";
 
 export default async function ChienPage({
   params,
@@ -25,7 +27,7 @@ export default async function ChienPage({
 
   const { data: chien } = await supabase
     .from("chiens")
-    .select(`*, clients (id, prenom, nom, photos_ok, photos_ok_modifie_le)`)
+    .select(`*, clients (id, prenom, nom, photos_ok, photos_ok_modifie_le), profil_resultat:profiles!chiens_journee_essai_resultat_par_fkey (prenom, nom)`)
     .eq("id", id)
     .single();
 
@@ -78,6 +80,17 @@ export default async function ChienPage({
     </div>
   );
 
+  const statutEssai = statutEssaiDe(chien);
+  const BADGE_ESSAI: Record<StatutEssai, { label: string; style: React.CSSProperties }> = {
+    non_programme:   { label: "⏳ À réserver",            style: pill("#EDE8DF", "rgba(27,43,94,0.6)") },
+    programme:       { label: "📅 Journée d'essai réservée", style: pill("#E4E7F1", "#2A3B6B") },
+    seconde_journee: { label: "🔁 Seconde journée à prévoir", style: pill("#F4EAC9", "#6E5410") },
+    valide:          { label: "✅ Validé",                 style: pill("#DBEFEA", "#1F6E5B") },
+    refuse:          { label: "❌ Refusé",                 style: pill("#FBE2DE", "#A8453A") },
+  };
+  const saisiPar = [chien.profil_resultat?.prenom, chien.profil_resultat?.nom]
+    .filter(Boolean).join(" ") || null;
+
   const sterilisationTxt =
     chien.sterilisation === "oui" ? "Stérilisé" :
     chien.sterilisation === "chimique" ? "Castré chimiquement" : "Non stérilisé";
@@ -106,9 +119,9 @@ export default async function ChienPage({
           </div>
         )}
 
-        {chien.journee_essai_invalide && (
+        {statutEssai === "refuse" && (
           <div style={{ backgroundColor: "#FBE2DE", color: "#A8453A", padding: "12px 16px", borderRadius: 14, marginBottom: 16, fontWeight: 600 }}>
-            ❌ Journée d'essai invalide — ce chien ne peut pas être réservé
+            ❌ Journée d'essai non concluante — ce chien ne peut pas être réservé
             {chien.journee_essai_note && (
               <p style={{ fontWeight: 400, fontSize: 14, margin: "4px 0 0" }}>{chien.journee_essai_note}</p>
             )}
@@ -138,13 +151,7 @@ export default async function ChienPage({
                   ) : (
                     <span style={pill("#FBE2DE", "#A8453A")}>Entier</span>
                   )}
-                  {!chien.journee_essai_effectuee ? (
-                    <span style={pill("#E4E7F1", "#2A3B6B")}>⏳ Essai à faire</span>
-                  ) : chien.journee_essai_invalide ? (
-                    <span style={pill("#FBE2DE", "#A8453A")}>❌ Essai non validé</span>
-                  ) : (
-                    <span style={pill("#DBEFEA", "#1F6E5B")}>✅ Essai validé</span>
-                  )}
+                  <span style={BADGE_ESSAI[statutEssai].style}>{BADGE_ESSAI[statutEssai].label}</span>
                 </div>
                 {ligne("Propriétaire", chien.clients?.id ? (
                   <Link href={`/clients/${chien.clients.id}`} style={{ color: "#1F6E5B", textDecoration: "underline" }}>
@@ -201,18 +208,20 @@ export default async function ChienPage({
           <Carte>
             <h2 style={titreSection}>🧪 Journée d'essai</h2>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
-              <span style={chien.journee_essai_effectuee ? pill("#DBEFEA", "#1F6E5B") : pill("#EDE8DF", "rgba(27,43,94,0.6)")}>
-                {chien.journee_essai_effectuee ? "✅ Effectuée" : "⏳ Non effectuée"}
-              </span>
-              {chien.journee_essai_invalide && <span style={pill("#FBE2DE", "#A8453A")}>❌ Invalide</span>}
+              <span style={BADGE_ESSAI[statutEssai].style}>{BADGE_ESSAI[statutEssai].label}</span>
             </div>
+            {chien.journee_essai_resultat_le && (
+              <p style={{ ...muted, marginBottom: 8 }}>
+                Résultat saisi le {formatDateFR(chien.journee_essai_resultat_le)}
+                {saisiPar ? ` par ${saisiPar}` : ""}
+              </p>
+            )}
             {chien.journee_essai_note && (
               <p style={{ ...muted, marginBottom: 16 }}><strong style={{ color: "#1B2B5E" }}>Note :</strong> {chien.journee_essai_note}</p>
             )}
             <BoutonsJourneeEssai
               chien_id={chien.id}
-              journee_essai_effectuee={chien.journee_essai_effectuee}
-              journee_essai_invalide={chien.journee_essai_invalide}
+              statut_essai={chien.statut_essai}
               journee_essai_note={chien.journee_essai_note}
               perm_journee_essai={perms.perm_journee_essai}
             />

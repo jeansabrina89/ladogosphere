@@ -4,6 +4,8 @@ import Link from "next/link";
 import { formatDateFR, formatDateLong, aujourdhuiISO } from "@/src/lib/dates";
 import { cotisationActive, cotisationEnAttente } from "@/src/lib/cotisation";
 import { joursEntre, JOURS_FENETRE_RENOUVELLEMENT } from "@/src/lib/cotisationPeriode";
+import { etatClientChien, statutEssaiDe } from "@/src/lib/journeeEssai";
+import { datesEssaiParChien } from "@/src/lib/essaiReservation";
 import { getSoldeAvoir } from "@/src/lib/avoirs";
 import { montantDuReservation, resteAPayer } from "@/src/lib/montants";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
@@ -26,7 +28,7 @@ export default async function MonComptePage() {
   // Ownership via auth_user_id — jamais de client_id venant de l'URL
   const { data: client } = await supabase
     .from("clients")
-    .select(`*, chiens (id, nom)`)
+    .select(`*, chiens (id, nom, statut_essai)`)
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
@@ -59,6 +61,13 @@ export default async function MonComptePage() {
   const totalARegler = resImpayees.reduce((sum: number, r: any) => sum + resteAPayer(r), 0);
 
   const nbChiens = client?.chiens?.length ?? 0;
+
+  // Résumé des journées d'essai : uniquement les chiens qui ne sont pas validés.
+  const chiensClient = (client?.chiens ?? []) as { id: string; nom: string; statut_essai: string | null }[];
+  const chiensNonValides = chiensClient.filter((c) => statutEssaiDe(c) !== "valide");
+  const datesEssai = chiensNonValides.length > 0
+    ? await datesEssaiParChien(chiensNonValides.map((c) => c.id))
+    : new Map<string, string>();
   const soldeAvoir = client ? await getSoldeAvoir(supabase, client.id) : 0;
 
   const estMembre = client ? await estMembreActif(supabaseAdmin, client.id) : false;
@@ -173,6 +182,39 @@ export default async function MonComptePage() {
             </Link>
           )}
         </div>
+
+        {/* Journées d'essai en attente d'un résultat ou à réserver */}
+        {chiensNonValides.length > 0 && (
+          <div style={{ marginBottom: "32px" }}>
+            <Carte>
+              <p style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 18, fontWeight: 700, color: "#1B2B5E", margin: "0 0 10px" }}>
+                🧪 Journée d&apos;essai
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {chiensNonValides.map((c) => {
+                  const etat = etatClientChien(statutEssaiDe(c), c.nom, datesEssai.get(c.id) ?? null);
+                  const couleur = etat.ton === "refus" ? "#A8453A"
+                    : etat.ton === "attention" ? "#6E5410" : "#2A3B6B";
+                  return (
+                    <div key={c.id} style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 700, color: "#1B2B5E", fontSize: 14 }}>{c.nom}</span>
+                      <span style={{ fontSize: 13.5, color: couleur }}>
+                        {etat.ton === "refus" ? etat.texte : `— ${etat.texte}`}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {chiensNonValides.some((c) => etatClientChien(statutEssaiDe(c), c.nom).reservable) && (
+                <div style={{ marginTop: 12 }}>
+                  <Bouton variante="principal" href="/mon-compte/reservations/nouvelle">
+                    Réserver une journée d&apos;essai
+                  </Bouton>
+                </div>
+              )}
+            </Carte>
+          </div>
+        )}
 
         {peutDemander && (
           <div style={{ marginBottom: "32px" }}>

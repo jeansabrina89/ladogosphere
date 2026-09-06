@@ -7,6 +7,7 @@ import Bouton from "@/app/components/ui/Bouton";
 import Carte from "@/app/components/ui/Carte";
 import EtatVide from "@/app/components/ui/EtatVide";
 import BadgePhotos from "@/app/components/BadgePhotos";
+import { statutEssaiDe } from "@/src/lib/journeeEssai";
 
 export default async function ChiensPage() {
   await exigerPersonnelPage();
@@ -84,13 +85,14 @@ export default async function ChiensPage() {
                               <span style={pill("#FBE2DE", "#A8453A")}>Entier</span>
                             )}
 
-                            {!chien.journee_essai_effectuee ? (
-                              <span style={pill("#E4E7F1", "#2A3B6B")}>⏳ Essai à faire</span>
-                            ) : chien.journee_essai_invalide ? (
-                              <span style={pill("#FBE2DE", "#A8453A")}>❌ Essai non validé</span>
-                            ) : (
-                              <span style={pill("#DBEFEA", "#1F6E5B")}>✅ Essai validé</span>
-                            )}
+                            {(() => {
+                              const s = statutEssaiDe(chien);
+                              if (s === "valide") return <span style={pill("#DBEFEA", "#1F6E5B")}>✅ Essai validé</span>;
+                              if (s === "refuse") return <span style={pill("#FBE2DE", "#A8453A")}>❌ Essai non validé</span>;
+                              if (s === "seconde_journee") return <span style={pill("#F4EAC9", "#6E5410")}>🔁 Seconde journée</span>;
+                              if (s === "programme") return <span style={pill("#E4E7F1", "#2A3B6B")}>📅 Essai réservé</span>;
+                              return <span style={pill("#EDE8DF", "rgba(27,43,94,0.6)")}>⏳ Essai à faire</span>;
+                            })()}
                           </div>
                         </div>
                       </div>

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "@/src/lib/membre";
+import { verifierChiensPourReservation, marquerChiensEssaiProgramme } from "@/src/lib/essaiReservation";
 
 export async function creerReservation(formData: FormData) {
   const verif = await verifierPermission("perm_reservations_creer");
@@ -24,6 +25,18 @@ export async function creerReservation(formData: FormData) {
   const aujourdhuiCH = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Zurich" });
   if (date_debut && date_debut < aujourdhuiCH) {
     throw new Error("La date de début ne peut pas être dans le passé.");
+  }
+
+  // Règle de la journée d'essai, chien par chien. Le personnel peut passer
+  // outre avec « forcer » + une raison, journalisée dans la réservation.
+  const forcer = formData.get("forcer") === "on";
+  const forcer_raison = (formData.get("forcer_raison") as string) || null;
+  if (forcer && !forcer_raison?.trim()) {
+    throw new Error("Indiquez la raison du passage outre de la journée d'essai.");
+  }
+  if (chien_ids.length > 0 && !forcer) {
+    const refus = await verifierChiensPourReservation(chien_ids, type_reservation);
+    if (refus) throw new Error(refus);
   }
 
   // Adhésion obligatoire pour réserver (sauf essai ou client exempté).
@@ -57,6 +70,8 @@ export async function creerReservation(formData: FormData) {
       urgence,
       statut,
       commentaire_admin,
+      essai_force: forcer,
+      essai_force_raison: forcer ? forcer_raison!.trim() : null,
     })
     .select()
     .single();
@@ -88,6 +103,11 @@ export async function creerReservation(formData: FormData) {
         }))
       );
     if (errorOccupations) throw new Error(errorOccupations.message);
+
+    // Essai créé directement validé : les chiens passent à 'programme'.
+    if (statut === "validee") {
+      await marquerChiensEssaiProgramme(reservation.id);
+    }
   }
 
   redirect(`/reservations/${reservation.id}`);

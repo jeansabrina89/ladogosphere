@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
+import { verifierChiensPourReservation, marquerChiensEssaiProgramme } from "@/src/lib/essaiReservation";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -27,21 +28,19 @@ export async function POST(req: NextRequest) {
     if (urgGarde) return urgGarde;
   }
 
-  // Sécurité : un chien NON accepté après essai ne peut jamais être réservé.
-  // (Admin : aucun blocage essai/adhésion — cf. règle métier — ce seul refus reste.)
-  if (chien_ids.length > 0) {
-    const { data: chiensData } = await supabaseAdmin
-      .from("chiens")
-      .select("id, nom, journee_essai_effectuee, journee_essai_invalide")
-      .in("id", chien_ids);
-
-    const chiensRefuses = (chiensData ?? []).filter((c: any) => c.journee_essai_effectuee && c.journee_essai_invalide);
-    if (chiensRefuses.length > 0) {
-      const nom = chiensRefuses[0].nom;
-      return NextResponse.json({
-        error: `${nom} n'a pas été accepté à l'issue de sa journée d'essai et ne peut donc pas faire l'objet d'une réservation. N'hésitez pas à nous contacter pour plus d'informations ou pour envisager une nouvelle journée d'essai.`,
-      }, { status: 400 });
-    }
+  // Règle de la journée d'essai, chien par chien. Le personnel peut passer
+  // outre avec « forcer » + une raison, qui est journalisée dans la réservation.
+  const forcer = formData.get("forcer") === "on";
+  const forcer_raison = (formData.get("forcer_raison") as string) || null;
+  if (chien_ids.length > 0 && !forcer) {
+    const refus = await verifierChiensPourReservation(chien_ids, type_reservation);
+    if (refus) return NextResponse.json({ error: refus }, { status: 400 });
+  }
+  if (forcer && !forcer_raison?.trim()) {
+    return NextResponse.json(
+      { error: "Indiquez la raison du passage outre de la journée d'essai." },
+      { status: 400 }
+    );
   }
 
   // Créer la réservation
@@ -58,6 +57,8 @@ export async function POST(req: NextRequest) {
       urgence,
       statut,
       commentaire_admin,
+      essai_force: forcer,
+      essai_force_raison: forcer ? forcer_raison!.trim() : null,
     })
     .select()
     .single();
@@ -94,6 +95,11 @@ export async function POST(req: NextRequest) {
         statut: "attendu",
       }))
     );
+
+    // Essai créé directement validé : les chiens passent à 'programme'.
+    if (statut === "validee") {
+      await marquerChiensEssaiProgramme(reservation.id);
+    }
   }
 
   return NextResponse.json({ id: reservation.id });

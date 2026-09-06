@@ -5,6 +5,7 @@ import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 import TunnelReservation from "./TunnelReservation";
 import { etatAdhesionReservation } from "@/src/lib/membre";
+import { statutEssaiDe } from "@/src/lib/journeeEssai";
 
 export default async function NouvelleDemandeReservationPage() {
   const supabase = await createClient();
@@ -14,7 +15,7 @@ export default async function NouvelleDemandeReservationPage() {
 
   const { data: client } = await supabase
     .from("clients")
-    .select("id, prenom, cotisation_exemptee, chiens (id, nom, race, poids, categorie_poids, journee_essai_effectuee, journee_essai_invalide)")
+    .select("id, prenom, cotisation_exemptee, chiens (id, nom, race, poids, categorie_poids, statut_essai)")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
@@ -42,13 +43,11 @@ export default async function NouvelleDemandeReservationPage() {
     race: string | null;
     poids: number | null;
     categorie_poids: string | null;
-    journee_essai_effectuee: boolean;
-    journee_essai_invalide: boolean;
+    statut_essai: string | null;
   }[];
 
-  const chiensDisponibles = chiens.filter(
-    c => !(c.journee_essai_effectuee && c.journee_essai_invalide)
-  );
+  // Un chien refusé n'ouvre plus aucune branche de réservation.
+  const chiensDisponibles = chiens.filter(c => statutEssaiDe(c) !== "refuse");
 
   if (chiensDisponibles.length === 0) {
     return (
@@ -90,15 +89,8 @@ export default async function NouvelleDemandeReservationPage() {
     await etatAdhesionReservation(supabaseAdmin, client.id);
   const estExempte = !!(client as { cotisation_exemptee?: boolean }).cotisation_exemptee;
 
-  // Le client a-t-il au moins une journée d'essai TERMINÉE ?
-  const { data: essaisTermines } = await supabaseAdmin
-    .from("reservations")
-    .select("id")
-    .eq("client_id", client.id)
-    .eq("type_reservation", "essai")
-    .eq("statut", "terminee")
-    .limit(1);
-  const essaiTermine = !!(essaisTermines && essaisTermines.length > 0);
+  // L'adhésion s'embarque dès qu'au moins un chien du client est validé.
+  const auMoinsUnChienValide = chiens.some((c) => statutEssaiDe(c) === "valide");
 
   const { data: paramCotis } = await supabaseAdmin
     .from("parametres")
@@ -127,7 +119,7 @@ export default async function NouvelleDemandeReservationPage() {
           tarifs={tarifs}
           estMembreAJour={estMembreAJour}
           estExempte={estExempte}
-          essaiTermine={essaiTermine}
+          essaiTermine={auMoinsUnChienValide}
           adhesionEnAttenteARegler={adhesionEnAttenteARegler}
           montantCotisation={montantCotisation}
         />

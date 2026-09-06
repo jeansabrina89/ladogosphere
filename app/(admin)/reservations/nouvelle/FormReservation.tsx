@@ -5,9 +5,10 @@ import { formatBoxLabel } from "@/src/lib/boxes";
 import { formatDateFR } from "@/src/lib/dates";
 import SelectHeure from "@/app/components/SelectHeure";
 import BadgeMembre from "@/app/components/BadgeMembre";
+import { statutEssaiDe, chienReservablePour, messageRefusChien } from "@/src/lib/journeeEssai";
 
 type Client = { id: string; prenom: string; nom: string; membre: boolean; aJour: boolean; cotisation_exemptee?: boolean };
-type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string; journee_essai_effectuee: boolean; journee_essai_invalide: boolean };
+type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string; statut_essai: string | null };
 type Box = { id: string; numero: number; nom?: string | null };
 
 const JOURS_SEMAINE = [
@@ -37,6 +38,8 @@ export default function FormReservation({
   const [heureArrivee, setHeureArrivee] = useState("");
   const [heureDepart, setHeureDepart] = useState("");
   const [loading, setLoading] = useState(false);
+  const [forcer, setForcer] = useState(false);
+  const [forcerRaison, setForcerRaison] = useState("");
   const [chiensSelectionnes, setChiensSelectionnes] = useState<string[]>([]);
   const [boxId, setBoxId] = useState("");
   const [suggestionBox, setSuggestionBox] = useState<{ message: string; raison: string } | null>(null);
@@ -109,13 +112,16 @@ export default function FormReservation({
   };
 
   const chiensSelectionnesInfos = chiens.filter(c => chiensSelectionnes.includes(c.id));
-  const chiensRefusesSel = chiensSelectionnesInfos.filter(
-    c => c.journee_essai_effectuee && c.journee_essai_invalide
+  const statutDe = (c: Chien) => statutEssaiDe(c);
+  const chiensRefusesSel = chiensSelectionnesInfos.filter(c => statutDe(c) === "refuse");
+  const chiensNonValidesSel = chiensSelectionnesInfos.filter(c => statutDe(c) !== "valide");
+  // Chiens qui bloquent le type choisi (hors passage outre).
+  const chiensBloquantsSel = chiensSelectionnesInfos.filter(
+    c => !chienReservablePour(statutDe(c), type).autorise
   );
-  const chiensNonValidesSel = chiensSelectionnesInfos.filter(c => !c.journee_essai_effectuee);
-  const reservationBloquee = chiensRefusesSel.length > 0;
-  const seulEssaiAutorise = !reservationBloquee && chiensNonValidesSel.length > 0;
-  const tousValidesSel = chiensSelectionnesInfos.length > 0 && !reservationBloquee && chiensNonValidesSel.length === 0;
+  const reservationBloquee = chiensBloquantsSel.length > 0 && !forcer;
+  const seulEssaiAutorise = chiensNonValidesSel.length > 0 && chiensRefusesSel.length === 0;
+  const tousValidesSel = chiensSelectionnesInfos.length > 0 && chiensNonValidesSel.length === 0;
 
   const clientSelectionne = clients.find(c => c.id === clientId) ?? null;
   const clientsFiltres = clientSearch
@@ -303,6 +309,10 @@ export default function FormReservation({
         fd.set("heure_depart", heureDepart || "");
         fd.set("urgence", "");
         fd.set("commentaire_admin", commentaire_admin || "");
+        if (forcer) {
+          fd.set("forcer", "on");
+          fd.set("forcer_raison", forcerRaison);
+        }
         chiensSelectionnes.forEach(id => fd.append("chien_ids", id));
 
         if (type === "journee") {
@@ -777,6 +787,38 @@ export default function FormReservation({
               <label htmlFor="urgence" className="font-semibold">
                 🚨 Réservation urgence (membres uniquement)
               </label>
+            </div>
+          )}
+
+          {/* Journée d'essai : blocage par chien, avec passage outre possible */}
+          {chiensBloquantsSel.length > 0 && (
+            <div className="rounded-xl p-4" style={{ backgroundColor: "#FFF8E1", border: "1px solid #C9A84C" }}>
+              <p className="font-semibold text-sm mb-2" style={{ color: "#7A5C00" }}>
+                🧪 Journée d&apos;essai — cette réservation ne respecte pas la règle :
+              </p>
+              <ul className="text-sm mb-3" style={{ color: "#7A5C00", paddingLeft: 18, listStyle: "disc" }}>
+                {chiensBloquantsSel.map(c => (
+                  <li key={c.id}>
+                    {messageRefusChien(c.nom, chienReservablePour(statutDe(c), type).raison)}
+                  </li>
+                ))}
+              </ul>
+              <label className="flex items-center gap-2 font-semibold text-sm" style={{ color: "#7A5C00" }}>
+                <input type="checkbox" name="forcer" checked={forcer}
+                  onChange={e => setForcer(e.target.checked)} />
+                Forcer la réservation malgré tout
+              </label>
+              {forcer && (
+                <div className="mt-2">
+                  <label className="block text-sm font-semibold mb-1" style={{ color: "#7A5C00" }}>
+                    Raison (obligatoire, enregistrée avec la réservation)
+                  </label>
+                  <input type="text" name="forcer_raison" value={forcerRaison}
+                    onChange={e => setForcerRaison(e.target.value)}
+                    placeholder="Ex. : chien connu de la pension, accord de la responsable"
+                    className="w-full border rounded-xl p-2 text-sm" />
+                </div>
+              )}
             </div>
           )}
 

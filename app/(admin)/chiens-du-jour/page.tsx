@@ -166,7 +166,7 @@ export default async function ChiensDuJourPage({
                         </p>
                       </div>
                       {peutPointer && (
-                        <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type="depart" />
+                        <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type="depart" est_essai={cc.reservations?.type_reservation === "essai"} nom_chien={cc.chiens?.nom ?? "ce chien"} />
                       )}
                     </div>
                   );
@@ -204,7 +204,7 @@ export default async function ChiensDuJourPage({
                         </p>
                       </div>
                       {peutPointer && (
-                        <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type="depart" />
+                        <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type="depart" est_essai={cc.reservations?.type_reservation === "essai"} nom_chien={cc.chiens?.nom ?? "ce chien"} />
                       )}
                     </div>
                   );

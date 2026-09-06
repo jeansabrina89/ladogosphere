@@ -139,7 +139,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: Prom
           <Colonne titre="🏁 Départs prévus" compteur={departsAttendus.length} cat={CATS.depart} vide="Aucun départ prévu">
             {departsAttendus.map(c => (
               <CarteCheckin key={c.id} checkin={c} accent={CATS.depart.accent}
-                action={perms.perm_checkin ? <BoutonCheckout checkin_id={c.id} /> : undefined} />
+                action={perms.perm_checkin ? <BoutonCheckout checkin_id={c.id} est_essai={c.reservations?.type_reservation === "essai"} nom_chien={c.chiens?.nom ?? "ce chien"} /> : undefined} />
             ))}
           </Colonne>
 

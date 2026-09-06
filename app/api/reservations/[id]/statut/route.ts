@@ -9,6 +9,7 @@ import { recalculerMontantSejour, enregistrerMontantCalcule } from "@/app/(admin
 import { estMembreActif } from "@/src/lib/membre";
 import { creerOuMajFactureBrouillon, annulerFactureResa } from "@/src/lib/factureResa";
 import { recrediterAbonnementResa } from "@/src/lib/consommationAbonnement";
+import { marquerChiensEssaiProgramme } from "@/src/lib/essaiReservation";
 
 export async function POST(
   req: NextRequest,
@@ -30,6 +31,16 @@ export async function POST(
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Validation d'une journée d'essai : les chiens concernés passent à 'programme'
+  // (le résultat sera saisi à leur départ).
+  if (statut === "validee") {
+    try {
+      await marquerChiensEssaiProgramme(id);
+    } catch (e) {
+      console.error("Erreur passage des chiens en essai programmé:", e);
+    }
+  }
 
   // Calcul automatique du montant à la validation (seulement si pas déjà calculé)
   if (statut === "validee") {

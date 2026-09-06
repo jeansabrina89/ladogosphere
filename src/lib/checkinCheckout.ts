@@ -2,13 +2,20 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { figerFactureResa, defigerFactureResa } from "@/src/lib/factureResa";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 import { synchroniserComptaAbonnement } from "@/src/lib/comptaAbonnement";
+import { estResultatEssai, type ResultatEssai } from "@/src/lib/journeeEssai";
+import { envoyerEmailResultatEssai } from "@/src/lib/email";
 
 type Resultat = { error?: string };
 
-// Forme de la reservation lue en jointure lors du check-in (bonus journee d'essai).
-type ReservationEssai = {
-  type_reservation: string | null;
-  reservation_chiens: { chien_id: string }[] | null;
+export const MESSAGE_RESULTAT_ESSAI_REQUIS =
+  "Journée d'essai : indiquez le résultat (validé, seconde journée ou refusé) avant d'enregistrer le départ.";
+
+/** Options du check-out : résultat de la journée d'essai, le cas échéant. */
+export type OptionsCheckout = {
+  resultat?: string | null;
+  note?: string | null;
+  /** Profil du membre du personnel qui rend le chien. */
+  profilId?: string | null;
 };
 
 // Met a jour la ligne checkin_checkout. Retourne le message d'erreur Supabase le cas echeant.
@@ -36,29 +43,77 @@ async function lireReservationId(checkinId: string): Promise<string | null> {
   return data?.reservation_id ?? null;
 }
 
-// Check-in : la ligne passe a "arrive" et l'essai eventuel est marque comme consomme.
+// Check-in : la ligne passe a "arrive".
+// Le statut d'essai du chien n'est PLUS touche ici : il reste 'programme' jusqu'a
+// la saisie du resultat au depart (cf. appliquerCheckout). Les colonnes
+// historiques journee_essai_effectuee / _invalide sont derivees par trigger SQL.
 export async function appliquerCheckin(checkinId: string): Promise<Resultat> {
-  const res = await majCheckinCheckout(checkinId, {
+  return majCheckinCheckout(checkinId, {
     statut: "arrive",
     date_arrivee_reelle: new Date().toISOString(),
   });
-  if (res.error) return res;
+}
 
-  // Bonus essai : si check-in effectue sur une journee d'essai -> marquer journee_essai_effectuee
-  const { data: cc } = await supabaseAdmin
+/** Ligne de check-in avec ce qu'il faut pour traiter une journee d'essai. */
+type LigneEssai = {
+  chien_id: string | null;
+  reservation_id: string | null;
+  chiens: { id: string; nom: string } | null;
+  reservations: {
+    type_reservation: string | null;
+    clients: { email: string | null; prenom: string | null } | null;
+  } | null;
+};
+
+async function lireLigneEssai(checkinId: string): Promise<LigneEssai | null> {
+  const { data } = await supabaseAdmin
     .from("checkin_checkout")
-    .select(`reservation_id, reservations!inner (type_reservation, reservation_chiens (chien_id))`)
+    .select(`
+      chien_id, reservation_id,
+      chiens (id, nom),
+      reservations (type_reservation, clients (email, prenom))
+    `)
     .eq("id", checkinId)
-    .single();
+    .maybeSingle();
+  return (data ?? null) as unknown as LigneEssai | null;
+}
 
-  const reservation = cc?.reservations as unknown as ReservationEssai | null | undefined;
-  if (reservation?.type_reservation === "essai") {
-    const chienIds = reservation.reservation_chiens?.map((rc) => rc.chien_id) ?? [];
-    if (chienIds.length > 0) {
-      await supabaseAdmin
-        .from("chiens")
-        .update({ journee_essai_effectuee: true })
-        .in("id", chienIds);
+/**
+ * Enregistre le resultat de la journee d'essai du chien de cette ligne, puis
+ * previent le client (sauf refus, explique de vive voix).
+ */
+async function enregistrerResultatEssai(
+  ligne: LigneEssai,
+  resultat: ResultatEssai,
+  note: string | null,
+  profilId: string | null,
+): Promise<Resultat> {
+  const chienId = ligne.chien_id ?? ligne.chiens?.id ?? null;
+  if (!chienId) return { error: "Chien introuvable pour cette journée d'essai." };
+
+  const { error } = await supabaseAdmin
+    .from("chiens")
+    .update({
+      statut_essai: resultat,
+      journee_essai_resultat_le: new Date().toISOString(),
+      journee_essai_resultat_par: profilId,
+      journee_essai_note: note,
+    })
+    .eq("id", chienId);
+  if (error) return { error: error.message };
+
+  // La note interne n'est JAMAIS envoyee au client.
+  const email = ligne.reservations?.clients?.email;
+  if (email && resultat !== "refuse") {
+    try {
+      await envoyerEmailResultatEssai({
+        email,
+        prenom: ligne.reservations?.clients?.prenom || "Client",
+        nom_chien: ligne.chiens?.nom || "votre chien",
+        resultat,
+      });
+    } catch (e) {
+      console.error("Erreur envoi email résultat essai:", e);
     }
   }
 
@@ -67,12 +122,34 @@ export async function appliquerCheckin(checkinId: string): Promise<Resultat> {
 
 // Check-out : la ligne passe a "parti", la reservation est cloturee, la facture figee
 // et les ecritures comptables synchronisees.
-export async function appliquerCheckout(checkinId: string): Promise<Resultat> {
+// Pour une journee d'essai, le resultat (valide / seconde_journee / refuse) est
+// OBLIGATOIRE : sans lui, le depart est refuse.
+export async function appliquerCheckout(
+  checkinId: string,
+  options: OptionsCheckout = {},
+): Promise<Resultat> {
+  const ligne = await lireLigneEssai(checkinId);
+  const estEssai = ligne?.reservations?.type_reservation === "essai";
+
+  if (estEssai && !estResultatEssai(options.resultat)) {
+    return { error: MESSAGE_RESULTAT_ESSAI_REQUIS };
+  }
+
   const res = await majCheckinCheckout(checkinId, {
     statut: "parti",
     date_depart_reel: new Date().toISOString(),
   });
   if (res.error) return res;
+
+  if (estEssai && ligne && estResultatEssai(options.resultat)) {
+    const majEssai = await enregistrerResultatEssai(
+      ligne,
+      options.resultat,
+      (options.note ?? "").trim() || null,
+      options.profilId ?? null,
+    );
+    if (majEssai.error) return majEssai;
+  }
 
   const reservationId = await lireReservationId(checkinId);
   if (reservationId) {

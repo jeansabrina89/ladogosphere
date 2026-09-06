@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { envoyerEmailConfirmationDemande } from "@/src/lib/email";
 import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "@/src/lib/membre";
+import { verifierSelectionChiens } from "@/src/lib/journeeEssai";
 
 export async function POST(req: NextRequest) {
   const supabaseServer = await createSupabaseServerClient();
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
   // Vérifier que les chiens appartiennent bien à la fiche client connectée
   const { data: chiensOwned, error: chiensErr } = await supabaseServer
     .from("chiens")
-    .select("id, nom, journee_essai_effectuee, journee_essai_invalide")
+    .select("id, nom, statut_essai")
     .eq("client_id", fiche.id)
     .in("id", chien_ids);
 
@@ -52,33 +53,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Chien(s) invalide(s)." }, { status: 403 });
   }
 
-  // Chien refusé → blocage systématique
-  const chiensRefuses = chiensOwned.filter((c: any) => c.journee_essai_effectuee && c.journee_essai_invalide);
-  if (chiensRefuses.length > 0) {
-    const nom = chiensRefuses[0].nom;
-    return NextResponse.json({
-      error: `${nom} n'a pas été accepté à l'issue de sa journée d'essai et ne peut donc pas faire l'objet d'une réservation. N'hésitez pas à nous contacter pour plus d'informations ou pour envisager une nouvelle journée d'essai.`,
-    }, { status: 400 });
-  }
-
-  if (type_reservation === 'essai') {
-    // Essai inutile si tous les chiens sont déjà validés
-    const tousValides = chiensOwned.every((c: any) => c.journee_essai_effectuee && !c.journee_essai_invalide);
-    if (tousValides) {
-      return NextResponse.json({
-        error: "Tous vos chiens ont déjà validé leur journée d'essai. Veuillez choisir 'Journée' ou 'Séjour'.",
-      }, { status: 400 });
-    }
-  } else {
-    // Journée ou séjour : tous les chiens doivent avoir validé leur essai
-    const chiensNonValides = chiensOwned.filter((c: any) => !c.journee_essai_effectuee);
-    if (chiensNonValides.length > 0) {
-      const noms = chiensNonValides.map((c: any) => c.nom).join(", ");
-      return NextResponse.json({
-        error: `${noms} ${chiensNonValides.length > 1 ? "doivent" : "doit"} d'abord valider ${chiensNonValides.length > 1 ? "leur" : "sa"} journée d'essai avant de pouvoir réserver une journée ou un séjour.`,
-      }, { status: 400 });
-    }
-  }
+  // Règle de la journée d'essai, CHIEN PAR CHIEN (cf. src/lib/journeeEssai.ts).
+  const verdict = verifierSelectionChiens(
+    chiensOwned as { nom: string; statut_essai: string | null }[],
+    type_reservation
+  );
+  if (!verdict.ok) return NextResponse.json({ error: verdict.message }, { status: 400 });
 
   // Adhésion obligatoire pour réserver (sauf essai ou client exempté).
   if (type_reservation !== "essai") {

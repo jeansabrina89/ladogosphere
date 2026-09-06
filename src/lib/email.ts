@@ -149,6 +149,18 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
     intro: "Nous espérons que <strong>{nom_chien}</strong> est bien rentré à la maison ! Toute l'équipe a été ravie de l'avoir avec nous.",
     message_final: "À très bientôt pour un prochain séjour ! 🐾",
   },
+  essai_valide: {
+    sujet: "Tout s'est bien passé pour {nom_chien}",
+    titre: "Bonjour {prenom} ! 🐶",
+    intro: "La journée d'essai s'est bien passée : <strong>{nom_chien}</strong> est accepté à la pension.",
+    message_final: "Toute l'équipe s'est réjouie de le rencontrer, et se réjouit déjà de le revoir ! 🐾",
+  },
+  essai_seconde_journee: {
+    sujet: "Une seconde journée d'essai pour {nom_chien}",
+    titre: "Bonjour {prenom} ! 🐶",
+    intro: "<strong>{nom_chien}</strong> a besoin d'un peu plus de temps pour se sentir à l'aise chez nous. Nous vous proposons une seconde journée d'essai.",
+    message_final: "N'hésitez pas à nous appeler si vous avez la moindre question — nous en discutons volontiers. 🐾",
+  },
   rappel_veille: {
     sujet: "📅 Rappel — votre chien arrive demain !",
     titre: "Bonjour {prenom} ! 🐶",
@@ -189,6 +201,8 @@ export const MODELES_META: { type: string; label: string; variables: string[] }[
   { type: "reservation_refusee", label: "Réservation refusée", variables: ["prenom", "date_debut", "date_fin"] },
   { type: "paiement", label: "Paiement / règlement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
   { type: "satisfaction_essai", label: "Satisfaction après essai", variables: ["prenom", "nom_chien"] },
+  { type: "essai_valide", label: "Journée d'essai — validée", variables: ["prenom", "nom_chien", "montant"] },
+  { type: "essai_seconde_journee", label: "Journée d'essai — seconde journée", variables: ["prenom", "nom_chien"] },
   { type: "rappel_veille", label: "Rappel la veille", variables: ["prenom", "nom_chien", "date_debut"] },
   { type: "rappel_cotisation", label: "Rappel cotisation", variables: ["prenom", "nom", "date_fin", "montant"] },
   { type: "relance_paiement", label: "Relance paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
@@ -637,6 +651,87 @@ export async function envoyerEmailSatisfactionEssai({
       </div>
 
       <p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">
+        ${m.message_final}
+      </p>
+    `),
+  });
+}
+
+/**
+ * Résultat de la journée d'essai, envoyé automatiquement au départ du chien.
+ * Aucun e-mail en cas de refus : le résultat est expliqué de vive voix au
+ * propriétaire. La note interne saisie au départ n'est jamais reprise ici.
+ */
+export async function envoyerEmailResultatEssai({
+  email, prenom, nom_chien, resultat,
+}: {
+  email: string; prenom: string; nom_chien: string;
+  resultat: "valide" | "seconde_journee";
+}) {
+  if (resultat !== "valide" && resultat !== "seconde_journee") return;
+
+  // Le montant de la cotisation vient TOUJOURS du paramètre.
+  let montant = 200;
+  try {
+    const { data } = await supabaseAdmin
+      .from("parametres")
+      .select("valeur")
+      .eq("cle", "cotisation_montant")
+      .maybeSingle();
+    montant = parseFloat(data?.valeur ?? "200") || 200;
+  } catch { /* valeur de repli */ }
+
+  const type = resultat === "valide" ? "essai_valide" : "essai_seconde_journee";
+  const m = await modeleEmail(type, { prenom, nom_chien, montant: montant.toFixed(2) });
+
+  const lienReserver = `${SITE_URL}/mon-compte/reservations/nouvelle`;
+  const libelleBouton = resultat === "valide" ? "Réserver" : "Réserver la seconde journée";
+
+  const bloc = resultat === "valide"
+    ? `
+      <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">
+        <p style="margin:0 0 8px 0; color:#1B5E4F; font-size:14px;">
+          Vous pouvez dès maintenant réserver ses journées et ses séjours depuis votre espace client.
+        </p>
+        <p style="margin:0; color:#1B5E4F; font-size:14px;">
+          La cotisation annuelle de <strong>CHF ${montant.toFixed(2)}</strong> se règle avant ou avec la
+          première réservation — elle est ajoutée automatiquement à votre première réservation.
+        </p>
+      </div>`
+    : `
+      <div style="background-color:#FFF8E1; border-left:4px solid #C9A84C; border-radius:8px; padding:16px; margin:0 0 24px 0;">
+        <p style="margin:0 0 8px 0; color:#7A5C00; font-size:14px;">
+          Cette seconde journée se réserve depuis votre espace client, au tarif d'une journée de garderie.
+        </p>
+        <p style="margin:0; color:#7A5C00; font-size:14px;">
+          La cotisation n'est pas due tant que la journée d'essai n'est pas concluante.
+        </p>
+      </div>`;
+
+  await envoyerEmail({
+    destinataire: email,
+    type,
+    sujet: m.sujet,
+    html: emailTemplate(`
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">
+        ${m.intro}
+      </p>
+
+      ${bloc}
+
+      <table cellpadding="0" cellspacing="0" style="margin:0 0 24px 0;">
+        <tr>
+          <td style="background-color:#4AAEA0; border-radius:12px;">
+            <a href="${lienReserver}"
+              style="display:inline-block; padding:14px 28px; color:#ffffff; font-size:15px; font-weight:bold; text-decoration:none;">
+              ${libelleBouton}
+            </a>
+          </td>
+        </tr>
+      </table>
+
+      <p style="color:#6B7280; font-size:14px; margin:0;">
         ${m.message_final}
       </p>
     `),

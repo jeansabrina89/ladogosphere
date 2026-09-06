@@ -7,6 +7,7 @@ import { envoyerEmailConfirmationDemande } from "@/src/lib/email";
 import { consommerAbonnementResa } from "@/src/lib/consommationAbonnement";
 import { etatAdhesionReservation } from "@/src/lib/membre";
 import { cotisationEnAttente } from "@/src/lib/cotisation";
+import { verifierSelectionChiens } from "@/src/lib/journeeEssai";
 import { calculerPeriodeCotisation, formatPeriodeCotisation } from "@/src/lib/cotisationPeriode";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { peutReserverPension, MESSAGE_ESSAI_REQUIS, MESSAGE_ADHESION_A_REGLER } from "@/src/lib/adhesionReservation";
@@ -93,7 +94,7 @@ export async function creerDemandeReservation(
   //    Le résultat ne contient QUE les chiens appartenant au client connecté.
   const { data: chiensOwned, error: chiensErr } = await supabaseServer
     .from("chiens")
-    .select("id, nom, journee_essai_effectuee, journee_essai_invalide")
+    .select("id, nom, statut_essai")
     .eq("client_id", fiche.id)
     .in("id", input.chien_ids);
   if (chiensErr) return { ok: false, erreur: chiensErr.message };
@@ -101,52 +102,15 @@ export async function creerDemandeReservation(
     return { ok: false, erreur: "Chien(s) invalide(s)." };
   }
 
-  // 5. Gate essai — réutilise exactement la définition de /api/reservations/client
-  //    Règle 1 : chien refusé → blocage systématique (toutes réservations)
-  const chiensRefuses = chiensOwned.filter(
-    (c: any) => c.journee_essai_effectuee && c.journee_essai_invalide
+  // 5. Gate essai, CHIEN PAR CHIEN (cf. src/lib/journeeEssai.ts) :
+  //    - journée / séjour : chaque chien doit être 'valide' ;
+  //    - essai : seulement les chiens 'non_programme' ou 'seconde_journee'.
+  //    Le message nomme le chien qui bloque.
+  const verdict = verifierSelectionChiens(
+    chiensOwned as { nom: string; statut_essai: string | null }[],
+    input.type_reservation
   );
-  if (chiensRefuses.length > 0) {
-    const nom = chiensRefuses[0].nom;
-    return {
-      ok: false,
-      erreur:
-        `${nom} n'a pas été accepté à l'issue de sa journée d'essai et ne peut donc ` +
-        `pas faire l'objet d'une réservation. N'hésitez pas à nous contacter pour ` +
-        `plus d'informations ou pour envisager une nouvelle journée d'essai.`,
-    };
-  }
-
-  if (input.type_reservation === "essai") {
-    // Règle 2 : essai inutile si tous les chiens sont déjà validés
-    const tousValides = chiensOwned.every(
-      (c: any) => c.journee_essai_effectuee && !c.journee_essai_invalide
-    );
-    if (tousValides) {
-      return {
-        ok: false,
-        erreur:
-          "Tous vos chiens ont déjà validé leur journée d'essai. " +
-          "Veuillez choisir 'Journée' ou 'Séjour'.",
-      };
-    }
-  } else {
-    // Règle 3 : journée/séjour exige que TOUS les chiens sélectionnés aient validé l'essai
-    const chiensNonValides = chiensOwned.filter(
-      (c: any) => !c.journee_essai_effectuee
-    );
-    if (chiensNonValides.length > 0) {
-      const noms = chiensNonValides.map((c: any) => c.nom).join(", ");
-      const pluriel = chiensNonValides.length > 1;
-      return {
-        ok: false,
-        erreur:
-          `${noms} ${pluriel ? "doivent" : "doit"} d'abord valider ` +
-          `${pluriel ? "leur" : "sa"} journée d'essai avant de pouvoir réserver ` +
-          `une journée ou un séjour.`,
-      };
-    }
-  }
+  if (!verdict.ok) return { ok: false, erreur: verdict.message };
 
   // 5bis. Porte d'accès pension + décision de bundling de l'adhésion.
   //       Contrôle SERVEUR autoritatif (le gate de sécurité par-chien ci-dessus
@@ -155,14 +119,16 @@ export async function creerDemandeReservation(
   const dateRef = [...input.occurrences.map((o) => o.date_debut)].sort()[0];
   let bundlerAdhesion = false;
   if (input.type_reservation !== "essai") {
+    // L'adhésion s'embarque dès qu'au moins UN chien du client est validé —
+    // c'est ce qui ouvre l'accès à la pension, plus une réservation d'essai
+    // terminée quelque part dans l'historique.
     const [etatAdh, essaiTermine] = await Promise.all([
       etatAdhesionReservation(supabaseAdmin, fiche.id, dateRef),
       supabaseAdmin
-        .from("reservations")
+        .from("chiens")
         .select("id")
         .eq("client_id", fiche.id)
-        .eq("type_reservation", "essai")
-        .eq("statut", "terminee")
+        .eq("statut_essai", "valide")
         .limit(1)
         .then(({ data }) => !!(data && data.length > 0)),
     ]);
