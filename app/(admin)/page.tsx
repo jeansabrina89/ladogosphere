@@ -100,6 +100,8 @@ export default async function Home() {
           </div>
           <p style={{ color: "rgba(27,43,94,0.6)", fontSize: 13, margin: "2px 0 0" }}>
             {cc.reservations?.clients?.prenom} {cc.reservations?.clients?.nom}
+            {/* L'heure d'arrivée d'un essai (10:00 ou créneau forcé) doit se voir. */}
+            {cc.reservations?.type_reservation === "essai" && " · 🧪 Essai"}
             {heure && ` · ${formatHeure(heure)}`}
           </p>
         </div>

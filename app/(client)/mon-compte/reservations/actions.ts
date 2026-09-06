@@ -9,6 +9,7 @@ import { etatAdhesionReservation } from "@/src/lib/membre";
 import { cotisationEnAttente } from "@/src/lib/cotisation";
 import { verifierSelectionChiens } from "@/src/lib/journeeEssai";
 import { typeAutorisePourPersonnel } from "@/src/lib/personnel";
+import { verifierDateEssaiLibre } from "@/src/lib/essaiReservation";
 import { creerReservationsPersonnel, annulerReservationPersonnel } from "@/src/lib/reservationPersonnel";
 import { calculerPeriodeCotisation, formatPeriodeCotisation } from "@/src/lib/cotisationPeriode";
 import { aujourdhuiISO } from "@/src/lib/dates";
@@ -137,6 +138,13 @@ export async function creerDemandeReservation(
     input.type_reservation
   );
   if (!verdict.ok) return { ok: false, erreur: verdict.message };
+
+  // 5ter. Une seule journée d'essai par jour. Contrôle SERVEUR : le calendrier
+  //       grise déjà les dates prises, mais la demande peut arriver autrement.
+  if (input.type_reservation === "essai") {
+    const datePrise = await verifierDateEssaiLibre(input.occurrences);
+    if (datePrise) return { ok: false, erreur: datePrise };
+  }
 
   // 5bis. Porte d'accès pension + décision de bundling de l'adhésion.
   //       Contrôle SERVEUR autoritatif (le gate de sécurité par-chien ci-dessus

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { createClient } from "@/src/utils/supabase/server";
+import { dateEssaiDisponible, STATUTS_ESSAI_OCCUPANT } from "@/src/lib/journeeEssai";
 
 function getJoursFeries(annee: number): string[] {
   const feries: string[] = [];
@@ -56,28 +57,29 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
   const { searchParams } = new URL(req.url);
   const annee = parseInt(searchParams.get("annee") || String(new Date().getFullYear()));
-  const nb_boxes = 12;
 
   const debut = `${annee}-01-01`;
   const fin = `${annee + 1}-12-31`;
 
-  // Réservations d'essai (toutes) pour compter les jours complets.
+  // La pension n'accueille qu'UNE journée d'essai par jour : une date est pleine
+  // dès qu'un essai y est prévu. Seules les réservations en attente ou validées
+  // occupent la date (une annulation ou un refus la libère).
   const { data: reservations } = await supabaseAdmin
     .from("reservations")
     .select("date_debut")
-    .neq("statut", "annulee")
+    .in("statut", STATUTS_ESSAI_OCCUPANT as unknown as string[])
     .gte("date_debut", debut)
     .lte("date_debut", fin)
     .eq("type_reservation", "essai");
 
-  const boxesParJour: Record<string, number> = {};
+  const essaisParJour: Record<string, number> = {};
   reservations?.forEach((res) => {
     const date = res.date_debut as string;
-    boxesParJour[date] = (boxesParJour[date] || 0) + 1;
+    essaisParJour[date] = (essaisParJour[date] || 0) + 1;
   });
 
-  const datesPleine = Object.entries(boxesParJour)
-    .filter(([, count]) => count >= nb_boxes)
+  const datesPleine = Object.entries(essaisParJour)
+    .filter(([, nb]) => !dateEssaiDisponible(nb))
     .map(([date]) => date);
 
   // Fermetures unitaires éventuelles (calendrier_essais).

@@ -48,6 +48,60 @@ export function statutEssaiDe(chien: { statut_essai?: string | null } | null | u
   return estStatutEssai(chien?.statut_essai) ? chien!.statut_essai as StatutEssai : "non_programme";
 }
 
+// ---------------------------------------------------------------------------
+// Une seule journée d'essai par jour
+// ---------------------------------------------------------------------------
+
+/**
+ * Statuts de réservation qui « occupent » la journée d'essai du jour.
+ * Une réservation annulée, refusée ou terminée ne bloque plus la date.
+ */
+export const STATUTS_ESSAI_OCCUPANT = ["en_attente", "validee"] as const;
+
+export const MESSAGE_DATE_ESSAI_PRISE =
+  "Cette date est déjà prise pour une journée d'essai, choisissez-en une autre.";
+
+/** Heure d'arrivée de la journée d'essai ordinaire (le tunnel client la fixe). */
+export const HEURE_ESSAI_STANDARD = "10:00";
+
+/**
+ * Créneaux ouverts à une SECONDE journée d'essai forcée par l'admin :
+ * toutes les demi-heures de 9 h 30 à 11 h, sauf 10:00 (déjà l'heure standard).
+ */
+export const CRENEAUX_ESSAI_FORCE = ["09:30", "10:30", "11:00"] as const;
+
+/**
+ * Règle métier (pure) : la pension n'accueille qu'UNE journée d'essai par jour.
+ * Plusieurs chiens du même propriétaire sur la même réservation ne comptent que
+ * pour une journée — c'est bien le nombre de RÉSERVATIONS d'essai qui compte.
+ */
+export function dateEssaiDisponible(nbEssaisDejaPrevus: number): boolean {
+  return nbEssaisDejaPrevus === 0;
+}
+
+/** Cette réservation occupe-t-elle la journée d'essai de sa date ? */
+export function reservationEssaiOccupeLaDate(
+  r: { type_reservation?: string | null; statut?: string | null } | null | undefined
+): boolean {
+  if (r?.type_reservation !== "essai") return false;
+  return (STATUTS_ESSAI_OCCUPANT as readonly string[]).includes(r?.statut ?? "");
+}
+
+/** Normalise une heure ("10:00:00" → "10:00"). */
+export function heureCourte(heure?: string | null): string | null {
+  if (!heure) return null;
+  return heure.slice(0, 5);
+}
+
+/**
+ * Créneaux encore libres pour forcer une seconde journée d'essai, compte tenu
+ * des heures déjà occupées par les essais du jour.
+ */
+export function creneauxEssaiDisponibles(heuresOccupees: (string | null | undefined)[]): string[] {
+  const prises = new Set(heuresOccupees.map(heureCourte).filter(Boolean) as string[]);
+  return CRENEAUX_ESSAI_FORCE.filter((c) => !prises.has(c));
+}
+
 export type DecisionReservation = {
   autorise: boolean;
   /** Raison du refus, sans le nom du chien (null si autorisé). */

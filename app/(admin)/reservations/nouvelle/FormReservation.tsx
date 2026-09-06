@@ -7,6 +7,7 @@ import SelectHeure from "@/app/components/SelectHeure";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import { statutEssaiDe, chienReservablePour, messageRefusChien } from "@/src/lib/journeeEssai";
 
+type EtatJourneeEssai = { disponible: boolean; heuresPrises: string[]; creneauxLibres: string[] };
 type Client = { id: string; prenom: string; nom: string; membre: boolean; aJour: boolean; cotisation_exemptee?: boolean };
 type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string; statut_essai: string | null };
 type Box = { id: string; numero: number; nom?: string | null };
@@ -26,11 +27,14 @@ export default function FormReservation({
   chiens,
   boxes,
   peutUrgence,
+  estAdmin = false,
 }: {
   clients: Client[];
   chiens: Chien[];
   boxes: Box[];
   peutUrgence: boolean;
+  /** Seul l'admin peut forcer une seconde journée d'essai le même jour. */
+  estAdmin?: boolean;
 }) {
   const [type, setType] = useState("journee");
   const [dateDebut, setDateDebut] = useState("");
@@ -40,6 +44,10 @@ export default function FormReservation({
   const [loading, setLoading] = useState(false);
   const [forcer, setForcer] = useState(false);
   const [forcerRaison, setForcerRaison] = useState("");
+  // Journée d'essai : une seule par jour, forçage admin sur un créneau libre.
+  const [etatEssai, setEtatEssai] = useState<EtatJourneeEssai | null>(null);
+  const [forcerEssai, setForcerEssai] = useState(false);
+  const [creneauForce, setCreneauForce] = useState("");
   const [chiensSelectionnes, setChiensSelectionnes] = useState<string[]>([]);
   const [boxId, setBoxId] = useState("");
   const [suggestionBox, setSuggestionBox] = useState<{ message: string; raison: string } | null>(null);
@@ -140,6 +148,34 @@ export default function FormReservation({
     if (tousValidesSel && type === "essai") handleTypeChange("journee");
     else if (seulEssaiAutorise && type !== "essai") handleTypeChange("essai");
   }, [tousValidesSel, seulEssaiAutorise]);
+
+  // Une seule journée d'essai par jour : on interroge la date choisie.
+  // Tout passe par un état unique, posé de façon asynchrone : rien n'est
+  // remis à zéro de manière synchrone dans l'effet.
+  useEffect(() => {
+    let annule = false;
+    (async () => {
+      if (type !== "essai" || !dateDebut) {
+        if (!annule) setEtatEssai(null);
+        return;
+      }
+      const r = await fetch(`/api/reservations/essai-du-jour?date=${dateDebut}`);
+      if (annule) return;
+      if (!r.ok) { setEtatEssai(null); return; }
+      const etat: EtatJourneeEssai = await r.json();
+      if (!annule) setEtatEssai(etat);
+    })();
+    return () => { annule = true; };
+  }, [type, dateDebut]);
+
+  // Journée d'essai à une date déjà prise : bloquée, sauf forçage admin valide.
+  const essaiDatePrise = type === "essai" && etatEssai !== null && !etatEssai.disponible;
+  const creneauxLibres = etatEssai?.creneauxLibres ?? [];
+  // Le créneau retenu est dérivé de l'état courant : pas de state à resynchroniser.
+  const creneauRetenu =
+    creneauForce && creneauxLibres.includes(creneauForce) ? creneauForce : creneauxLibres[0] ?? "";
+  const forcageEssaiActif = essaiDatePrise && estAdmin && forcerEssai && creneauRetenu !== "";
+  const essaiBloque = essaiDatePrise && !forcageEssaiActif;
 
   // Générer l'aperçu des dates récurrentes
   const genererDates = (): string[] => {
@@ -356,6 +392,13 @@ export default function FormReservation({
 
     if (type === "journee" || type === "essai") {
       formData.set("date_fin", dateDebut);
+    }
+
+    // Seconde journée d'essai forcée par l'admin : créneau transmis au serveur,
+    // qui revérifie tout (rôle, date prise, créneau réellement libre).
+    if (forcageEssaiActif) {
+      formData.set("forcer_essai", "on");
+      formData.set("forcer_essai_heure", creneauRetenu);
     }
 
     const response = await fetch("/api/reservations", {
@@ -790,6 +833,53 @@ export default function FormReservation({
             </div>
           )}
 
+          {/* Journée d'essai : une seule par jour */}
+          {essaiDatePrise && (
+            <div className="rounded-xl p-4" style={{ backgroundColor: "#FFF8E1", border: "1px solid #C9A84C" }}>
+              <p className="font-semibold text-sm mb-1" style={{ color: "#7A5C00" }}>
+                🧪 Une journée d&apos;essai est déjà prévue à {etatEssai!.heuresPrises.join(", ")}
+              </p>
+              <p className="text-xs mb-3" style={{ color: "rgba(122,92,0,0.85)" }}>
+                La pension n&apos;accueille qu&apos;une journée d&apos;essai par jour.
+              </p>
+
+              {!estAdmin ? (
+                <p className="text-sm font-semibold" style={{ color: "#A8453A" }}>
+                  Choisissez une autre date : seule l&apos;administratrice peut en ajouter une seconde.
+                </p>
+              ) : creneauxLibres.length === 0 ? (
+                <p className="text-sm font-semibold" style={{ color: "#A8453A" }}>
+                  Plus aucun créneau disponible ce jour-là (9h30, 10h30 et 11h00 sont pris).
+                </p>
+              ) : (
+                <>
+                  <label className="flex items-center gap-2 font-semibold text-sm" style={{ color: "#7A5C00" }}>
+                    <input type="checkbox" checked={forcerEssai}
+                      onChange={e => setForcerEssai(e.target.checked)} />
+                    Forcer une seconde journée d&apos;essai
+                  </label>
+                  {forcerEssai && (
+                    <div className="mt-2">
+                      <label className="block text-sm font-semibold mb-1" style={{ color: "#7A5C00" }}>
+                        Heure d&apos;arrivée
+                      </label>
+                      <select value={creneauRetenu}
+                        onChange={e => setCreneauForce(e.target.value)}
+                        className="w-full border rounded-xl p-2 text-sm">
+                        {creneauxLibres.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs mt-1" style={{ color: "rgba(122,92,0,0.85)" }}>
+                        Créneaux de 30 minutes entre 9h30 et 11h00, hors 10h00 et hors créneaux déjà pris.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {/* Journée d'essai : blocage par chien, avec passage outre possible */}
           {chiensBloquantsSel.length > 0 && (
             <div className="rounded-xl p-4" style={{ backgroundColor: "#FFF8E1", border: "1px solid #C9A84C" }}>
@@ -840,7 +930,7 @@ export default function FormReservation({
 
           {/* Boutons */}
           <div className="flex gap-3 pt-4 border-t">
-            <button type="submit" disabled={loading || reservationBloquee}
+            <button type="submit" disabled={loading || reservationBloquee || essaiBloque}
               className="px-6 py-3 rounded-xl font-semibold text-white disabled:opacity-50"
               style={{ backgroundColor: "#4AAEA0" }}>
               {loading ? "Enregistrement..." : estRecurrente ? `🔁 Créer ${apercu.length} réservation(s)` : "💾 Enregistrer"}

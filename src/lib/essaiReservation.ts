@@ -1,5 +1,72 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { chienReservablePour, messageRefusChien, statutEssaiDe } from "@/src/lib/journeeEssai";
+import {
+  chienReservablePour,
+  messageRefusChien,
+  statutEssaiDe,
+  dateEssaiDisponible,
+  creneauxEssaiDisponibles,
+  heureCourte,
+  STATUTS_ESSAI_OCCUPANT,
+  HEURE_ESSAI_STANDARD,
+  MESSAGE_DATE_ESSAI_PRISE,
+} from "@/src/lib/journeeEssai";
+
+export type EtatJourneeEssai = {
+  /** La date accepte-t-elle encore une journée d'essai ordinaire ? */
+  disponible: boolean;
+  /** Heures d'arrivée des essais déjà prévus ce jour-là, triées. */
+  heuresPrises: string[];
+  /** Créneaux encore ouverts à un forçage admin. */
+  creneauxLibres: string[];
+};
+
+/**
+ * État de la journée d'essai à une date : la pension n'en accueille qu'UNE par
+ * jour. Seules les réservations en attente ou validées occupent la date ; une
+ * réservation à plusieurs chiens du même propriétaire ne compte que pour une.
+ *
+ * `exclureReservationId` sert aux modifications : on ignore la réservation
+ * qu'on est en train de déplacer.
+ */
+export async function etatJourneeEssai(
+  dateISO: string,
+  exclureReservationId?: string | null
+): Promise<EtatJourneeEssai> {
+  let requete = supabaseAdmin
+    .from("reservations")
+    .select("id, heure_arrivee")
+    .eq("type_reservation", "essai")
+    .eq("date_debut", dateISO)
+    .in("statut", STATUTS_ESSAI_OCCUPANT as unknown as string[]);
+  if (exclureReservationId) requete = requete.neq("id", exclureReservationId);
+
+  const { data } = await requete;
+  const essais = (data ?? []) as { id: string; heure_arrivee: string | null }[];
+
+  const heuresPrises = essais
+    .map((e) => heureCourte(e.heure_arrivee) ?? HEURE_ESSAI_STANDARD)
+    .sort();
+
+  return {
+    disponible: dateEssaiDisponible(essais.length),
+    heuresPrises,
+    creneauxLibres: creneauxEssaiDisponibles(heuresPrises),
+  };
+}
+
+/**
+ * Contrôle serveur pour une demande d'essai : refuse si la date est déjà prise.
+ * Renvoie le message à afficher, ou null si la date est libre.
+ */
+export async function verifierDateEssaiLibre(
+  occurrences: { date_debut: string }[]
+): Promise<string | null> {
+  for (const occ of occurrences) {
+    const etat = await etatJourneeEssai(occ.date_debut);
+    if (!etat.disponible) return MESSAGE_DATE_ESSAI_PRISE;
+  }
+  return null;
+}
 
 /**
  * Une journée d'essai vient d'être validée : les chiens concernés passent de

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
-import { verifierChiensPourReservation, marquerChiensEssaiProgramme } from "@/src/lib/essaiReservation";
+import { verifierChiensPourReservation, marquerChiensEssaiProgramme, etatJourneeEssai } from "@/src/lib/essaiReservation";
+import { heureCourte, MESSAGE_DATE_ESSAI_PRISE } from "@/src/lib/journeeEssai";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -43,6 +44,41 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Une seule journée d'essai par jour. Seul l'ADMIN peut en forcer une seconde,
+  // sur un créneau libre (09:30, 10:30 ou 11:00) — jamais un employé, même avec
+  // perm_reservations_creer.
+  let essai_force_heure: string | null = null;
+  if (type_reservation === "essai") {
+    const etat = await etatJourneeEssai(date_debut);
+    if (!etat.disponible) {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: profil } = await supabaseAdmin
+        .from("profiles").select("role").eq("id", user?.id ?? "").maybeSingle();
+      const estAdmin = profil?.role === "admin";
+
+      const forcerEssai = formData.get("forcer_essai") === "on";
+      const heureForcee = heureCourte(formData.get("forcer_essai_heure") as string);
+
+      if (!estAdmin) {
+        return NextResponse.json({ error: MESSAGE_DATE_ESSAI_PRISE }, { status: 400 });
+      }
+      if (!forcerEssai) {
+        return NextResponse.json({ error: MESSAGE_DATE_ESSAI_PRISE }, { status: 400 });
+      }
+      if (!heureForcee || !etat.creneauxLibres.includes(heureForcee)) {
+        return NextResponse.json(
+          {
+            error: etat.creneauxLibres.length
+              ? `Choisissez un créneau libre : ${etat.creneauxLibres.join(", ")}.`
+              : "Plus aucun créneau disponible ce jour-là pour une journée d'essai.",
+          },
+          { status: 400 }
+        );
+      }
+      essai_force_heure = heureForcee;
+    }
+  }
+
   // Créer la réservation
   const { data: reservation, error } = await supabaseAdmin
     .from("reservations")
@@ -52,13 +88,14 @@ export async function POST(req: NextRequest) {
       type_reservation,
       date_debut,
       date_fin,
-      heure_arrivee,
+      heure_arrivee: essai_force_heure ?? heure_arrivee,
       heure_depart,
       urgence,
       statut,
       commentaire_admin,
-      essai_force: forcer,
-      essai_force_raison: forcer ? forcer_raison!.trim() : null,
+      essai_force: forcer || !!essai_force_heure,
+      essai_force_raison: forcer ? forcer_raison!.trim() : (essai_force_heure ? "Seconde journée d'essai forcée" : null),
+      essai_force_heure,
     })
     .select()
     .single();
@@ -83,7 +120,7 @@ export async function POST(req: NextRequest) {
     );
 
     // Créer les entrées checkin_checkout
-    const heureArriveeStr = heure_arrivee || "09:00";
+    const heureArriveeStr = essai_force_heure ?? heure_arrivee ?? "09:00";
     const heureDepartStr = heure_depart || "17:00";
 
     await supabaseAdmin.from("checkin_checkout").insert(

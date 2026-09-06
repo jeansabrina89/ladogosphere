@@ -5,6 +5,7 @@ import { envoyerEmailConfirmationDemande } from "@/src/lib/email";
 import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "@/src/lib/membre";
 import { verifierSelectionChiens } from "@/src/lib/journeeEssai";
 import { typeAutorisePourPersonnel } from "@/src/lib/personnel";
+import { verifierDateEssaiLibre } from "@/src/lib/essaiReservation";
 import { creerReservationsPersonnel } from "@/src/lib/reservationPersonnel";
 
 export async function POST(req: NextRequest) {
@@ -83,6 +84,12 @@ export async function POST(req: NextRequest) {
     type_reservation
   );
   if (!verdict.ok) return NextResponse.json({ error: verdict.message }, { status: 400 });
+
+  // Une seule journée d'essai par jour — contrôle serveur.
+  if (type_reservation === "essai") {
+    const datePrise = await verifierDateEssaiLibre([{ date_debut }]);
+    if (datePrise) return NextResponse.json({ error: datePrise }, { status: 400 });
+  }
 
   // Adhésion obligatoire pour réserver (sauf essai ou client exempté).
   if (type_reservation !== "essai") {

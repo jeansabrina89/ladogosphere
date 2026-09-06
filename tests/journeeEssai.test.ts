@@ -12,6 +12,13 @@ import {
   STATUTS_ESSAI,
   RESULTATS_ESSAI,
   TELEPHONE_PENSION,
+  dateEssaiDisponible,
+  reservationEssaiOccupeLaDate,
+  creneauxEssaiDisponibles,
+  heureCourte,
+  MESSAGE_DATE_ESSAI_PRISE,
+  HEURE_ESSAI_STANDARD,
+  CRENEAUX_ESSAI_FORCE,
   type StatutEssai,
 } from "../src/lib/journeeEssai";
 
@@ -184,5 +191,164 @@ describe("divers", () => {
     expect(estResultatEssai("non_programme")).toBe(false);
     expect(estResultatEssai(undefined)).toBe(false);
     expect(estResultatEssai("")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Une seule journée d'essai par jour
+// ---------------------------------------------------------------------------
+
+describe("dateEssaiDisponible", () => {
+  it("une date sans essai prévu est libre", () => {
+    expect(dateEssaiDisponible(0)).toBe(true);
+  });
+  it("dès un essai prévu, la date est prise", () => {
+    expect(dateEssaiDisponible(1)).toBe(false);
+  });
+  it("et le reste au-delà", () => {
+    for (const n of [2, 3, 12, 50]) expect(dateEssaiDisponible(n)).toBe(false);
+  });
+  it("le message de refus nomme le motif", () => {
+    expect(MESSAGE_DATE_ESSAI_PRISE).toContain("déjà prise pour une journée d'essai");
+  });
+});
+
+describe("reservationEssaiOccupeLaDate", () => {
+  const essai = (statut: string) => ({ type_reservation: "essai", statut });
+
+  it("en attente et validée occupent la date", () => {
+    expect(reservationEssaiOccupeLaDate(essai("en_attente"))).toBe(true);
+    expect(reservationEssaiOccupeLaDate(essai("validee"))).toBe(true);
+  });
+  it("annulée, refusée et terminée libèrent la date", () => {
+    expect(reservationEssaiOccupeLaDate(essai("annulee"))).toBe(false);
+    expect(reservationEssaiOccupeLaDate(essai("refusee"))).toBe(false);
+    expect(reservationEssaiOccupeLaDate(essai("terminee"))).toBe(false);
+  });
+  it("une journée ou un séjour n'occupe jamais la date d'essai", () => {
+    expect(reservationEssaiOccupeLaDate({ type_reservation: "journee", statut: "validee" })).toBe(false);
+    expect(reservationEssaiOccupeLaDate({ type_reservation: "sejour", statut: "en_attente" })).toBe(false);
+  });
+  it("tolère null et les champs manquants", () => {
+    expect(reservationEssaiOccupeLaDate(null)).toBe(false);
+    expect(reservationEssaiOccupeLaDate(undefined)).toBe(false);
+    expect(reservationEssaiOccupeLaDate({})).toBe(false);
+  });
+  it("plusieurs chiens sur UNE réservation = une seule journée d'essai", () => {
+    // La règle compte les réservations, jamais les chiens : deux chiens du même
+    // propriétaire sur la même demande ne prennent qu'un créneau.
+    const reservationsDuJour = [essai("validee")];
+    const nb = reservationsDuJour.filter(reservationEssaiOccupeLaDate).length;
+    expect(nb).toBe(1);
+    expect(dateEssaiDisponible(nb)).toBe(false);
+  });
+  it("deux réservations distinctes le même jour comptent double", () => {
+    const nb = [essai("validee"), essai("en_attente")].filter(reservationEssaiOccupeLaDate).length;
+    expect(nb).toBe(2);
+  });
+});
+
+describe("creneauxEssaiDisponibles", () => {
+  it("sans essai forcé : les trois créneaux, jamais 10:00", () => {
+    expect(creneauxEssaiDisponibles([])).toEqual(["09:30", "10:30", "11:00"]);
+    expect(creneauxEssaiDisponibles([])).not.toContain(HEURE_ESSAI_STANDARD);
+  });
+  it("l'essai standard de 10:00 ne retire aucun créneau", () => {
+    expect(creneauxEssaiDisponibles(["10:00"])).toEqual(["09:30", "10:30", "11:00"]);
+  });
+  it("un créneau déjà forcé disparaît", () => {
+    expect(creneauxEssaiDisponibles(["10:00", "10:30"])).toEqual(["09:30", "11:00"]);
+  });
+  it("deux créneaux forcés disparaissent", () => {
+    expect(creneauxEssaiDisponibles(["10:00", "09:30", "10:30"])).toEqual(["11:00"]);
+  });
+  it("tout occupé : aucun créneau", () => {
+    expect(creneauxEssaiDisponibles(["09:30", "10:00", "10:30", "11:00"])).toEqual([]);
+  });
+  it("les heures avec secondes sont normalisées", () => {
+    expect(creneauxEssaiDisponibles(["10:30:00"])).toEqual(["09:30", "11:00"]);
+  });
+  it("null et undefined sont ignorés", () => {
+    expect(creneauxEssaiDisponibles([null, undefined, "10:30"])).toEqual(["09:30", "11:00"]);
+  });
+});
+
+describe("heureCourte", () => {
+  it("tronque les secondes", () => {
+    expect(heureCourte("10:30:00")).toBe("10:30");
+    expect(heureCourte("09:30")).toBe("09:30");
+  });
+  it("tolère null", () => {
+    expect(heureCourte(null)).toBeNull();
+    expect(heureCourte(undefined)).toBeNull();
+  });
+});
+
+describe("refus serveur — simulation du contrôle de date", () => {
+  // Reproduit exactement ce que fait etatJourneeEssai() puis le refus :
+  // on compte les réservations d'essai OCCUPANTES du jour, et on décide.
+  const refuserSiDatePrise = (reservationsDuJour: { type_reservation: string; statut: string }[]) => {
+    const nb = reservationsDuJour.filter(reservationEssaiOccupeLaDate).length;
+    return dateEssaiDisponible(nb) ? null : MESSAGE_DATE_ESSAI_PRISE;
+  };
+
+  it("date libre : la demande passe", () => {
+    expect(refuserSiDatePrise([])).toBeNull();
+  });
+
+  it("date avec un essai validé : refus avec le message attendu", () => {
+    expect(refuserSiDatePrise([{ type_reservation: "essai", statut: "validee" }]))
+      .toBe(MESSAGE_DATE_ESSAI_PRISE);
+  });
+
+  it("date avec un essai en attente : refus aussi", () => {
+    expect(refuserSiDatePrise([{ type_reservation: "essai", statut: "en_attente" }]))
+      .toBe(MESSAGE_DATE_ESSAI_PRISE);
+  });
+
+  it("un essai annulé ce jour-là ne bloque pas", () => {
+    expect(refuserSiDatePrise([{ type_reservation: "essai", statut: "annulee" }])).toBeNull();
+  });
+
+  it("un essai refusé ou terminé ne bloque pas non plus", () => {
+    expect(refuserSiDatePrise([
+      { type_reservation: "essai", statut: "refusee" },
+      { type_reservation: "essai", statut: "terminee" },
+    ])).toBeNull();
+  });
+
+  it("des garderies et séjours le même jour ne bloquent rien", () => {
+    expect(refuserSiDatePrise([
+      { type_reservation: "journee", statut: "validee" },
+      { type_reservation: "sejour", statut: "en_attente" },
+    ])).toBeNull();
+  });
+
+  it("un essai actif au milieu d'autres réservations bloque quand même", () => {
+    expect(refuserSiDatePrise([
+      { type_reservation: "journee", statut: "validee" },
+      { type_reservation: "essai", statut: "en_attente" },
+      { type_reservation: "sejour", statut: "validee" },
+    ])).toBe(MESSAGE_DATE_ESSAI_PRISE);
+  });
+});
+
+describe("forçage admin — enchaînement des créneaux", () => {
+  it("1er essai à 10:00, l'admin force 10:30, puis il reste 09:30 et 11:00", () => {
+    let heures = ["10:00"];
+    expect(creneauxEssaiDisponibles(heures)).toEqual(["09:30", "10:30", "11:00"]);
+
+    heures = [...heures, "10:30"];
+    expect(creneauxEssaiDisponibles(heures)).toEqual(["09:30", "11:00"]);
+    expect(creneauxEssaiDisponibles(heures)).not.toContain("10:30");
+
+    heures = [...heures, "09:30", "11:00"];
+    expect(creneauxEssaiDisponibles(heures)).toEqual([]);
+  });
+
+  it("un créneau forcé n'est jamais reproposé", () => {
+    for (const c of CRENEAUX_ESSAI_FORCE) {
+      expect(creneauxEssaiDisponibles(["10:00", c])).not.toContain(c);
+    }
   });
 });

@@ -34,6 +34,7 @@ export default async function NouvelleReservationLoader() {
       chiens={chiens ?? []}
       boxes={boxes ?? []}
       peutUrgence={perms.perm_tarifs_urgence}
+      estAdmin={perms.isAdmin}
     />
   );
 }
