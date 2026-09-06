@@ -7,6 +7,8 @@ import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { calculerMontant } from "@/src/lib/calculTarif";
 import { recalculerMontantSejour, enregistrerMontantCalcule } from "@/app/(admin)/reservations/[id]/actions";
 import { estMembreActif } from "@/src/lib/membre";
+import { estPrivatifPourSelection } from "@/src/lib/cohabitation";
+import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { creerOuMajFactureBrouillon, annulerFactureResa } from "@/src/lib/factureResa";
 import { recrediterAbonnementResa } from "@/src/lib/consommationAbonnement";
 import { marquerChiensEssaiProgramme } from "@/src/lib/essaiReservation";
@@ -75,7 +77,7 @@ export async function POST(
               nb_chiens: chiens.length,
               est_membre: (resa as any).client_id ? await estMembreActif(supabaseAdmin, (resa as any).client_id, resa.date_debut) : false,
               est_urgence: !!resa.urgence,
-              est_privatif: chiens.some((c: any) => c.doit_etre_isole),
+              est_privatif: estPrivatifPourSelection(await lireCohabitationChiens(chiens.map((c: any) => c.id))),
               date_debut: resa.date_debut,
               date_fin: resa.date_fin,
               heure_arrivee: resa.heure_arrivee,

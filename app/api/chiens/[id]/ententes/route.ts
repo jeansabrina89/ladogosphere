@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/server";
 import { exigerPersonnel } from "@/src/lib/apiAuth";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 
 export async function GET(
   req: NextRequest,
@@ -61,6 +62,8 @@ export async function POST(
         type: "famille_uniquement",
       });
     }
+    // Décision de la PENSION : elle prime et verrouille le choix du client.
+    await supabaseAdmin.from("chiens").update({ cohabitation_source: "pension" }).eq("id", id);
     return NextResponse.json({ ok: true });
   }
 

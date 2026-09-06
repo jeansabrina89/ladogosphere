@@ -10,6 +10,8 @@ import type { EcartType } from "@/src/lib/facturation";
 import { calculerMontant } from "@/src/lib/calculTarif";
 import { calculerStatut } from "@/src/lib/factures";
 import { estMembreActif } from "@/src/lib/membre";
+import { estPrivatifPourSelection } from "@/src/lib/cohabitation";
+import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { rafraichirFactureBrouillon } from "@/src/lib/factureResa";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
@@ -266,7 +268,9 @@ export async function recalculerMontantSejour(reservationId: string): Promise<Re
 
   const chiens = (reservation.reservation_chiens ?? []).map((rc: any) => rc.chiens).filter(Boolean);
   const nb_chiens = chiens.length;
-  const chien_isole = chiens.some((c: any) => c.doit_etre_isole);
+  const chien_isole = estPrivatifPourSelection(
+    await lireCohabitationChiens(chiens.map((c: any) => c.id))
+  );
   const est_membre = (reservation as any).client_id ? await estMembreActif(supabaseAdmin, (reservation as any).client_id, reservation.date_debut) : false;
 
   const montant = calculerMontant({

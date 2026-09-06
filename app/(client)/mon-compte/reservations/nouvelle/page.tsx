@@ -6,6 +6,7 @@ import EtatVide from "@/app/components/ui/EtatVide";
 import TunnelReservation from "./TunnelReservation";
 import { etatAdhesionReservation } from "@/src/lib/membre";
 import { statutEssaiDe } from "@/src/lib/journeeEssai";
+import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 
 export default async function NouvelleDemandeReservationPage() {
   const supabase = await createClient();
@@ -15,7 +16,7 @@ export default async function NouvelleDemandeReservationPage() {
 
   const { data: client } = await supabase
     .from("clients")
-    .select("id, prenom, cotisation_exemptee, chiens (id, nom, race, poids, categorie_poids, statut_essai)")
+    .select("id, prenom, cotisation_exemptee, interne, chiens (id, nom, race, poids, categorie_poids, statut_essai, client_id, doit_etre_isole, hebergement_autorise, cohabitation_source)")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
@@ -44,10 +45,22 @@ export default async function NouvelleDemandeReservationPage() {
     poids: number | null;
     categorie_poids: string | null;
     statut_essai: string | null;
+    client_id: string | null;
+    doit_etre_isole: boolean | null;
+    hebergement_autorise: string | null;
+    cohabitation_source: string | null;
   }[];
 
   // Un chien refusé n'ouvre plus aucune branche de réservation.
   const chiensDisponibles = chiens.filter(c => statutEssaiDe(c) !== "refuse");
+
+  // Ententes « famille uniquement » : elles vivent dans ententes_chiens.
+  const cohabitations = await lireCohabitationChiens(chiens.map(c => c.id));
+  const familleParChien = new Map(cohabitations.map(c => [c.id as string, !!c.famille_uniquement]));
+  const chiensAvecCohabitation = chiens.map(c => ({
+    ...c,
+    famille_uniquement: familleParChien.get(c.id) ?? false,
+  }));
 
   if (chiensDisponibles.length === 0) {
     return (
@@ -115,13 +128,14 @@ export default async function NouvelleDemandeReservationPage() {
           </Bouton>
         </div>
         <TunnelReservation
-          chiens={chiens}
+          chiens={chiensAvecCohabitation}
           tarifs={tarifs}
           estMembreAJour={estMembreAJour}
           estExempte={estExempte}
           essaiTermine={auMoinsUnChienValide}
           adhesionEnAttenteARegler={adhesionEnAttenteARegler}
           montantCotisation={montantCotisation}
+          estInterne={!!(client as { interne?: boolean }).interne}
         />
       </div>
     </main>

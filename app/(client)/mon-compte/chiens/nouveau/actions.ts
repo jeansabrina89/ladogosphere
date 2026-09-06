@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { appliquerCohabitationClient } from "@/src/lib/cohabitationDb";
 
 function calculerCategorie(poids: number): string {
   if (poids < 15) return "moins_15kg";
@@ -49,7 +50,7 @@ export async function creerChienClient(client_id: string, formData: FormData) {
     redirect("/mon-compte");
   }
 
-  const { error } = await supabaseAdmin
+  const { data: chienCree, error } = await supabaseAdmin
     .from("chiens")
     .insert({
       client_id: fiche.id,
@@ -69,8 +70,16 @@ export async function creerChienClient(client_id: string, formData: FormData) {
       // Chien du personnel : validé d'office, aucune journée d'essai n'est
       // proposée ni exigée (le trigger dérive les colonnes historiques).
       ...(fiche.interne ? { statut_essai: "valide" } : {}),
-    });
+    })
+    .select("id")
+    .single();
 
   if (error) throw new Error(error.message);
+
+  // Cohabitation en box déclarée à la création (le chien vient d'être créé :
+  // aucune décision de la pension ne peut encore le verrouiller).
+  if (chienCree?.id) {
+    await appliquerCohabitationClient(chienCree.id, formData.get("cohabitation"));
+  }
   redirect("/mon-compte");
 }

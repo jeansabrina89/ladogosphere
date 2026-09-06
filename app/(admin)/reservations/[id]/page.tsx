@@ -13,6 +13,8 @@ import { formatDateFR, formatHeure } from "@/src/lib/dates";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { estMembreActif } from "@/src/lib/membre";
+import { estPrivatifPourSelection } from "@/src/lib/cohabitation";
+import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import BoutonOffrir from "./BoutonOffrir";
 import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
@@ -76,7 +78,11 @@ export default async function ReservationPage({
   if (!res) return <div>Réservation introuvable</div>;
 
   const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens).filter(Boolean) ?? [];
-  const chien_isole = chiens.some((c: any) => c.doit_etre_isole);
+  // « Privatif » = un chien isolé, OU un chien « famille uniquement » réservé
+  // sans compagnon du foyer : dans les deux cas il occupe le box entier.
+  const chien_isole = estPrivatifPourSelection(
+    await lireCohabitationChiens(chiens.map((c: any) => c.id))
+  );
   const est_membre = res.clients?.id ? await estMembreActif(supabaseAdmin, res.clients.id, res.date_debut) : false;
   const client_id = res.clients?.id;
 

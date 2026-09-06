@@ -6,6 +6,7 @@ import {
   memeFamille,
   capaciteMaxFamille,
 } from "@/src/lib/disponibilite-box";
+import { tousPetitsGabarits } from "@/src/lib/cohabitation";
 
 export type EntreeSuggestion = {
   chien_ids: string[];
@@ -42,6 +43,7 @@ type BoxCandidat = {
   numero: number;
   nom: string | null;
   capacite_standard: number | null;
+  capacite_petits_chiens: number | null;
 };
 
 export type ResultatSuggestion = {
@@ -90,15 +92,24 @@ export async function suggererBox(entree: EntreeSuggestion): Promise<ResultatSug
       : null;
 
   const capaciteBox = (box: BoxCandidat, occupantsBox: LigneOccupation[]): number => {
+    const gabarits = [
+      ...chiensAPlacer.map((c) => c.categorie_poids),
+      ...occupantsBox.map((o) => o.chiens?.categorie_poids),
+    ];
+
     const occupantsAutreFamille = occupantsBox.filter(
       (o) => !memeFamille(clientIdFamille, o.chiens?.client_id)
     );
     if (clientIdFamille && occupantsAutreFamille.length === 0) {
-      return capaciteMaxFamille([
-        ...chiensAPlacer.map((c) => c.categorie_poids),
-        ...occupantsBox.map((o) => o.chiens?.categorie_poids),
-      ]);
+      return capaciteMaxFamille(gabarits);
     }
+
+    // Box « petits chiens » : quand TOUS les chiens concernés font moins de
+    // 15 kg, c'est la capacité petits gabarits du box qui s'applique.
+    if (tousPetitsGabarits(gabarits) && box.capacite_petits_chiens) {
+      return box.capacite_petits_chiens;
+    }
+
     return box.capacite_standard || 2;
   };
 
@@ -136,7 +147,7 @@ export async function suggererBox(entree: EntreeSuggestion): Promise<ResultatSug
   // 3. Box actifs — les box internes sont écartés sauf demande explicite.
   let requeteBoxes = supabaseAdmin
     .from("boxes")
-    .select("id, numero, nom, capacite_standard, interne, proprietaire_client_id")
+    .select("id, numero, nom, capacite_standard, capacite_petits_chiens, interne, proprietaire_client_id")
     .eq("actif", true);
   if (!inclureInternes) requeteBoxes = requeteBoxes.eq("interne", false);
   const { data: boxesActifs } = await requeteBoxes.order("numero");
@@ -292,4 +303,167 @@ export async function fichesInternesQuiTravaillent(dateISO: string): Promise<Set
 
   for (const f of fiches ?? []) presents.add(f.id as string);
   return presents;
+}
+
+// ---------------------------------------------------------------------------
+// Vérification de place à la création d'une réservation client
+// ---------------------------------------------------------------------------
+
+/** Toutes les dates d'une période, bornes comprises. */
+export function joursDeLaPeriode(date_debut: string, date_fin: string): string[] {
+  const jours: string[] = [];
+  const d = new Date(date_debut + "T12:00:00");
+  const f = new Date(date_fin + "T12:00:00");
+  while (d <= f) {
+    jours.push(
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+    );
+    d.setDate(d.getDate() + 1);
+  }
+  return jours;
+}
+
+export function messageComplet(date: string, chienSeul: boolean): string {
+  const [a, m, j] = date.split("-");
+  const jolie = j && m ? `${j}.${m}.${a}` : date;
+  return chienSeul
+    ? `Complet le ${jolie} pour un chien seul en box`
+    : `Complet le ${jolie} pour un chien de cette taille`;
+}
+
+/**
+ * Y a-t-il de la place pour ces chiens sur cette période ?
+ *
+ * On raisonne en CAPACITÉ, jour par jour : un box convient s'il n'est pas
+ * fermé, s'il respecte l'exclusivité d'un chien isolé, et s'il reste de la
+ * place compte tenu du gabarit (capacité petits chiens quand tout le monde
+ * fait moins de 15 kg). C'est volontairement plus large que `suggererBox`,
+ * qui ne regroupe deux familles que si une entente existe : ici on répond
+ * « la pension peut-elle physiquement l'accueillir ? », l'attribution du box
+ * restant à la validation admin.
+ *
+ * Le calendrier du tunnel utilise exactement la même règle, donc ce que le
+ * client voit grisé correspond à ce que le serveur refuse.
+ *
+ * Les box internes sont exclus (règle APP 04) : ils ne comptent pas dans la
+ * capacité offerte aux clients.
+ */
+export async function verifierPlaceDisponible(entree: {
+  chien_ids: string[];
+  date_debut: string;
+  date_fin: string;
+  heure_arrivee?: string | null;
+  heure_depart?: string | null;
+  type_reservation?: string | null;
+  /** La sélection occupe-t-elle un box entier ? (message adapté) */
+  chienSeul?: boolean;
+}): Promise<{ ok: true } | { ok: false; date: string; message: string }> {
+  const { chien_ids, date_debut, date_fin, type_reservation, chienSeul = false } = entree;
+  if (chien_ids.length === 0) return { ok: true };
+
+  const completes = await datesCompletesPourChiens({
+    chien_ids,
+    debut: date_debut,
+    fin: date_fin,
+    type_reservation,
+  });
+
+  if (completes.length === 0) return { ok: true };
+  const premiere = completes.sort()[0];
+  return { ok: false, date: premiere, message: messageComplet(premiere, chienSeul) };
+}
+
+/**
+ * Dates complètes pour CES chiens sur une fenêtre donnée — sert à griser le
+ * calendrier du tunnel. Tout est calculé en mémoire à partir de trois lectures,
+ * plutôt qu'une suggestion par jour.
+ */
+export async function datesCompletesPourChiens(entree: {
+  chien_ids: string[];
+  debut: string;
+  fin: string;
+  type_reservation?: string | null;
+}): Promise<string[]> {
+  const { chien_ids, debut, fin, type_reservation } = entree;
+  if (chien_ids.length === 0) return [];
+
+  const { data: chiensInfo } = await supabaseAdmin
+    .from("chiens")
+    .select("id, doit_etre_isole, client_id, categorie_poids")
+    .in("id", chien_ids);
+  const chiensAPlacer = (chiensInfo ?? []) as ChienAPlacer[];
+  if (chiensAPlacer.length === 0) return [];
+
+  const placementIsole = chiensAPlacer.some((c) => c.doit_etre_isole);
+  const clientIdFamille =
+    chiensAPlacer.every((c) => c.client_id === chiensAPlacer[0].client_id)
+      ? chiensAPlacer[0].client_id
+      : null;
+
+  const { data: boxesActifs } = await supabaseAdmin
+    .from("boxes")
+    .select("id, numero, nom, capacite_standard, capacite_petits_chiens")
+    .eq("actif", true)
+    .eq("interne", false)
+    .order("numero");
+  const boxes = (boxesActifs ?? []) as BoxCandidat[];
+  if (boxes.length === 0) return joursDeLaPeriode(debut, fin);
+
+  const { data: occupations } = await supabaseAdmin
+    .from("occupation_boxes")
+    .select("box_id, chien_id, date_debut, date_fin, chiens (doit_etre_isole, client_id, categorie_poids)")
+    .lte("date_debut", fin)
+    .gte("date_fin", debut);
+  const lignes = (occupations ?? []) as unknown as LigneOccupation[];
+
+  const { data: indispo } = await supabaseAdmin
+    .from("box_indisponibilites")
+    .select("box_id, date_debut, date_fin")
+    .lte("date_debut", fin)
+    .gte("date_fin", debut);
+  const fermetures = (indispo ?? []) as { box_id: string; date_debut: string; date_fin: string }[];
+
+  const completes: string[] = [];
+
+  for (const jour of joursDeLaPeriode(debut, fin)) {
+    const indisponibles = new Set(
+      fermetures.filter((f) => f.date_debut <= jour && f.date_fin >= jour).map((f) => f.box_id)
+    );
+
+    const placeTrouvee = boxes.some((box) => {
+      if (indisponibles.has(box.id)) return false;
+
+      const occupants = lignes.filter(
+        (o) => o.box_id === box.id && o.date_debut <= jour && o.date_fin >= jour
+      );
+      const occupantIsole = occupants.some((o) => o.chiens?.doit_etre_isole);
+      if (!boxCompatibleAvecIsolement(occupantIsole, occupants.length, placementIsole)) return false;
+
+      const gabarits = [
+        ...chiensAPlacer.map((c) => c.categorie_poids),
+        ...occupants.map((o) => o.chiens?.categorie_poids),
+      ];
+      const occupantsAutreFamille = occupants.filter(
+        (o) => !memeFamille(clientIdFamille, o.chiens?.client_id)
+      );
+
+      let capacite: number;
+      if (clientIdFamille && occupantsAutreFamille.length === 0) {
+        capacite = capaciteMaxFamille(gabarits);
+      } else if (tousPetitsGabarits(gabarits) && box.capacite_petits_chiens) {
+        capacite = box.capacite_petits_chiens;
+      } else {
+        capacite = box.capacite_standard || 2;
+      }
+
+      return occupants.length + chiensAPlacer.length <= capacite;
+    });
+
+    if (!placeTrouvee) completes.push(jour);
+  }
+
+  // `type_reservation` n'entre pas dans le calcul par jour : les transitions
+  // départ/arrivée d'un même jour se jouent à l'attribution du box, pas ici.
+  void type_reservation;
+  return completes;
 }

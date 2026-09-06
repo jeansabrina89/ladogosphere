@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { createClient } from "@/src/utils/supabase/server";
 import { dateEssaiDisponible, STATUTS_ESSAI_OCCUPANT } from "@/src/lib/journeeEssai";
+import { datesCompletesPourChiens } from "@/src/lib/suggestionBox";
 
 function getJoursFeries(annee: number): string[] {
   const feries: string[] = [];
@@ -78,9 +79,31 @@ export async function GET(req: NextRequest) {
     essaisParJour[date] = (essaisParJour[date] || 0) + 1;
   });
 
-  const datesPleine = Object.entries(essaisParJour)
+  const datesPleineEssai = Object.entries(essaisParJour)
     .filter(([, nb]) => !dateEssaiDisponible(nb))
     .map(([date]) => date);
+
+  // Chiens choisis à l'étape précédente : on grise en plus les jours où AUCUN
+  // box compatible n'est libre pour eux (gabarit et besoin d'isolement).
+  // La fenêtre est bornée à un an : au-delà, le calendrier n'est pas ouvert.
+  const chienIds = (searchParams.get("chien_ids") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  let datesSansBox: string[] = [];
+  if (chienIds.length > 0) {
+    const aujourdhui = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Zurich" });
+    const debutFenetre = aujourdhui > debut ? aujourdhui : debut;
+    const finFenetre = `${annee + 1}-12-31`;
+    datesSansBox = await datesCompletesPourChiens({
+      chien_ids: chienIds,
+      debut: debutFenetre,
+      fin: finFenetre,
+    });
+  }
+
+  const datesPleine = Array.from(new Set([...datesPleineEssai, ...datesSansBox]));
 
   // Fermetures unitaires éventuelles (calendrier_essais).
   const { data: fermees } = await supabaseAdmin

@@ -3,7 +3,8 @@ import NavBarClient from "@/app/components/NavBarClient";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import CreerProfilPersonnel from "@/app/components/CreerProfilPersonnel";
-import { BANDEAU_PERSONNEL } from "@/src/lib/personnel";
+import { BANDEAU_PERSONNEL, ficheDoitDevenirInterne } from "@/src/lib/personnel";
+import { basculerFicheEnInterne } from "@/app/(client)/mon-compte/actionsPersonnel";
 
 /**
  * Deux publics dans cet espace :
@@ -45,6 +46,14 @@ export default async function ClientLayout({ children }: { children: React.React
     if (!estPersonnel && !fiche) redirect("/mon-compte/completer-profil");
 
     ficheInterne = !!fiche?.interne;
+
+    // Correctif : un compte du personnel qui avait déjà une fiche ORDINAIRE
+    // voyait l'adhésion et la journée d'essai. On la bascule en interne, une
+    // fois pour toutes. Jamais l'inverse (cf. ficheDoitDevenirInterne).
+    if (fiche && ficheDoitDevenirInterne({ role: profil?.role, ficheInterne: !!fiche.interne })) {
+      await basculerFicheEnInterne(fiche.id);
+      ficheInterne = true;
+    }
   }
 
   return (

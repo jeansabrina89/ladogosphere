@@ -6,6 +6,9 @@ import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "
 import { verifierSelectionChiens } from "@/src/lib/journeeEssai";
 import { typeAutorisePourPersonnel } from "@/src/lib/personnel";
 import { verifierDateEssaiLibre } from "@/src/lib/essaiReservation";
+import { verifierPlaceDisponible } from "@/src/lib/suggestionBox";
+import { selectionMixteRefusee, estPrivatifPourSelection } from "@/src/lib/cohabitation";
+import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { creerReservationsPersonnel } from "@/src/lib/reservationPersonnel";
 
 export async function POST(req: NextRequest) {
@@ -90,6 +93,18 @@ export async function POST(req: NextRequest) {
     const datePrise = await verifierDateEssaiLibre([{ date_debut }]);
     if (datePrise) return NextResponse.json({ error: datePrise }, { status: 400 });
   }
+
+  // Un chien « seul » ne partage pas son box : sélection mixte refusée.
+  const cohabitation = await lireCohabitationChiens(chien_ids);
+  const mixte = selectionMixteRefusee(cohabitation);
+  if (!mixte.ok) return NextResponse.json({ error: mixte.message }, { status: 400 });
+
+  // Y a-t-il un box libre ? (la réservation reste en_attente sans box)
+  const place = await verifierPlaceDisponible({
+    chien_ids, date_debut, date_fin, heure_arrivee, heure_depart, type_reservation,
+    chienSeul: estPrivatifPourSelection(cohabitation),
+  });
+  if (!place.ok) return NextResponse.json({ error: place.message }, { status: 400 });
 
   // Adhésion obligatoire pour réserver (sauf essai ou client exempté).
   if (type_reservation !== "essai") {

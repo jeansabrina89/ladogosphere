@@ -5,6 +5,9 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
+import ChoixCohabitationChamp from "@/app/components/ChoixCohabitation";
+import { choixCohabitationDe, cohabitationVerrouillee } from "@/src/lib/cohabitation";
+import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 
 export default async function ModifierChienClientPage({
   params,
@@ -38,6 +41,11 @@ export default async function ModifierChienClientPage({
       </main>
     );
   }
+
+  // Mode de cohabitation actuel : colonnes du chien + entente famille_uniquement.
+  const [cohabitation] = await lireCohabitationChiens([chien.id]);
+  const choixActuel = choixCohabitationDe(cohabitation);
+  const verrouille = cohabitationVerrouillee(cohabitation);
 
   const action = modifierChienClient.bind(null, chien.id);
 
@@ -103,6 +111,12 @@ export default async function ModifierChienClientPage({
                   <input name="numero_puce" type="text" defaultValue={chien.numero_puce ?? ""} style={champStyle} />
                 </div>
               </div>
+            </Carte>
+
+            {/* Cohabitation en box */}
+            <Carte>
+              <h2 style={titreSection}>🏠 Cohabitation en box</h2>
+              <ChoixCohabitationChamp valeur={choixActuel} verrouille={verrouille} />
             </Carte>
 
             {/* Santé */}

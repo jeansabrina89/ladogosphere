@@ -9,6 +9,12 @@ import {
 import { calculerMontant } from "@/src/lib/calculTarif";
 import { MESSAGE_ADHESION_A_REGLER } from "@/src/lib/adhesionReservation";
 import { statutEssaiDe, chienReservablePour, messageRefusChien } from "@/src/lib/journeeEssai";
+import {
+  estPrivatifPourSelection,
+  chiensSeulsDansLeBox,
+  selectionMixteRefusee,
+  avertissementChienSeul,
+} from "@/src/lib/cohabitation";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 
@@ -21,6 +27,11 @@ export type ChienTunnel = {
   poids: number | null;
   categorie_poids: string | null;
   statut_essai: string | null;
+  client_id?: string | null;
+  doit_etre_isole?: boolean | null;
+  hebergement_autorise?: string | null;
+  cohabitation_source?: string | null;
+  famille_uniquement?: boolean | null;
 };
 
 export type TarifLite = {
@@ -337,6 +348,7 @@ export default function TunnelReservation({
   essaiTermine,
   adhesionEnAttenteARegler,
   montantCotisation,
+  estInterne = false,
 }: {
   chiens: ChienTunnel[];
   tarifs: TarifLite[];
@@ -345,6 +357,8 @@ export default function TunnelReservation({
   essaiTermine: boolean;
   adhesionEnAttenteARegler: boolean;
   montantCotisation: number;
+  /** Fiche du personnel : tout est gratuit, pas d'horaires pour la garderie. */
+  estInterne?: boolean;
 }) {
 
   // Navigation
@@ -386,16 +400,24 @@ export default function TunnelReservation({
   const [datesPleine, setDatesPleine] = useState<string[]>([]);
   const [datesFermees, setDatesFermees] = useState<string[]>([]);
 
+  // Le calendrier tient compte des chiens choisis : un jour est grisé quand
+  // aucun box compatible n'est libre pour EUX (gabarit, isolement).
+  const chienIdsPourCalendrier = chienIdsSelectionnes.join(",");
   useEffect(() => {
-    fetch(`/api/dates-indisponibles?annee=${new Date().getFullYear()}`)
+    const params = new URLSearchParams({ annee: String(new Date().getFullYear()) });
+    if (chienIdsPourCalendrier) params.set("chien_ids", chienIdsPourCalendrier);
+    let annule = false;
+    fetch(`/api/dates-indisponibles?${params.toString()}`)
       .then(r => r.json())
       .then(d => {
+        if (annule) return;
         setJoursFeries(d.jours_feries ?? []);
         setDatesPleine(d.dates_pleines ?? []);
         setDatesFermees(d.dates_fermees ?? []);
       })
       .catch(() => {});
-  }, []);
+    return () => { annule = true; };
+  }, [chienIdsPourCalendrier]);
 
   // ─── Valeurs dérivées ───────────────────────────────────────────────────────
 
@@ -477,6 +499,39 @@ export default function TunnelReservation({
 
   const anneeDe = (ds: string) => new Date(ds + "T12:00:00").getFullYear();
 
+  // Un chien « seul », ou « famille » réservé sans compagnon du foyer, occupe le
+  // box entier : c'est le tarif privatif qui s'applique (calculTarif le gère,
+  // y compris pour l'essai).
+  const chiensEssaiSelectionnes = chiens.filter(c => chienIdsEssai.includes(c.id));
+  const selectionPourPrix = branche === "essai" ? chiensEssaiSelectionnes : chiensSelectionnes;
+  const estPrivatif = estPrivatifPourSelection(selectionPourPrix);
+
+  // Fiche du personnel, garderie à la journée : le chien vient et repart avec
+  // l'employée, il n'y a pas d'horaire à saisir. Les séjours gardent les leurs.
+  const heuresMasquees = estInterne && formule === "journee";
+  const HEURE_ARRIVEE_PERSONNEL = "07:35";
+  const HEURE_DEPART_PERSONNEL = "18:00";
+  const heureArriveeEnvoyee = heuresMasquees ? HEURE_ARRIVEE_PERSONNEL : (heureArrivee || null);
+  const heureDepartEnvoyee = heuresMasquees ? HEURE_DEPART_PERSONNEL : (heureDepart || null);
+
+  // Avertissement de l'étape « chiens » : basé sur la sélection en cours.
+  const chiensSeulsSelection = chiensSeulsDansLeBox(chiensSelectionnes);
+  // Tarif « chien seul » indicatif : une journée privative, tarifs de l'année.
+  const prixChienSeulFormate = (() => {
+    if (tarifs.length === 0) return "tarif chien seul";
+    const montant = calculerMontant({
+      tarifs: tarifsPourAnnee(new Date().getFullYear()),
+      type_reservation: "journee",
+      nb_chiens: 1,
+      est_membre: true,
+      est_urgence: false,
+      est_privatif: true,
+      date_debut: "2000-01-01",
+      date_fin: "2000-01-01",
+    });
+    return montant > 0 ? `${montant.toFixed(2)} CHF` : "tarif chien seul";
+  })();
+
   let estimation: number | null = null;
   if (tarifs.length > 0) {
     if (branche === "essai" && dateEssai && chienIdsEssai.length > 0) {
@@ -486,7 +541,7 @@ export default function TunnelReservation({
         nb_chiens: chienIdsEssai.length,
         est_membre: true,
         est_urgence: false,
-        est_privatif: false,
+        est_privatif: estPrivatif,
         date_debut: dateEssai,
         date_fin: dateEssai,
         heure_arrivee: "10:00",
@@ -504,7 +559,7 @@ export default function TunnelReservation({
           nb_chiens: chiensSelectionnes.length,
           est_membre: true,
           est_urgence: false,
-          est_privatif: false,
+          est_privatif: estPrivatif,
           date_debut: o.date_debut,
           date_fin: o.date_fin || o.date_debut,
           heure_arrivee: heureArrivee || null,
@@ -532,6 +587,13 @@ export default function TunnelReservation({
     if (etape === "chiens") {
       if (chienIdsSelectionnes.length === 0) {
         setErreur("Sélectionne au moins un chien.");
+        return;
+      }
+      // Un chien qui doit être seul ne partage pas son box : la réservation
+      // mixte demanderait deux box, la pension la compose à la main.
+      const mixte = selectionMixteRefusee(chiensSelectionnes);
+      if (!mixte.ok) {
+        setErreur(mixte.message);
         return;
       }
       const hasNonValide = chiensSelectionnes.some(c => statutDe(c) !== "valide");
@@ -580,8 +642,10 @@ export default function TunnelReservation({
         if (!dateFin) { setErreur("Choisis une date de départ."); return; }
         if (dateFin <= dateArrivee) { setErreur("La date de départ doit être après l'arrivée."); return; }
       }
-      if (!heureArrivee) { setErreur("Choisis une heure d'arrivée."); return; }
-      if (!heureDepart) { setErreur("Choisis une heure de départ."); return; }
+      if (!heuresMasquees) {
+        if (!heureArrivee) { setErreur("Choisis une heure d'arrivée."); return; }
+        if (!heureDepart) { setErreur("Choisis une heure de départ."); return; }
+      }
       setEtape("frequence");
       return;
     }
@@ -627,8 +691,8 @@ export default function TunnelReservation({
         chien_ids: chienIdsSelectionnes,
         type_reservation: formule!,
         occurrences,
-        heure_arrivee: heureArrivee,
-        heure_depart: heureDepart,
+        heure_arrivee: heureArriveeEnvoyee,
+        heure_depart: heureDepartEnvoyee,
         commentaire_client: commentaire || null,
       };
     }
@@ -769,6 +833,17 @@ export default function TunnelReservation({
             );
           })}
         </div>
+
+        {/* Chien qui occupe un box entier : le prix double, on le dit avant. */}
+        {!estInterne && chiensSeulsSelection.length > 0 && (
+          <div style={{ backgroundColor: "#FFF8E1", border: "1px solid #C9A84C", borderRadius: 12, padding: "12px 16px", marginTop: 16 }}>
+            {chiensSeulsSelection.map(c => (
+              <p key={c.id} style={{ margin: 0, fontSize: 13.5, color: "#7A5C00", fontWeight: 600 }}>
+                ⚠️ {avertissementChienSeul(c.nom ?? "Ce chien", prixChienSeulFormate)}
+              </p>
+            ))}
+          </div>
+        )}
 
         {renderNavFooter()}
       </>
@@ -937,6 +1012,11 @@ export default function TunnelReservation({
             )}
           </div>
 
+          {heuresMasquees ? (
+            <div style={S.info}>
+              🐾 Votre chien vient et repart avec vous : pas d&apos;horaire à indiquer.
+            </div>
+          ) : (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={S.label}>
@@ -965,6 +1045,7 @@ export default function TunnelReservation({
               </select>
             </div>
           </div>
+          )}
         </div>
 
         {renderNavFooter()}
@@ -1133,7 +1214,7 @@ export default function TunnelReservation({
     } else {
       datesLabel = formatDateFR(dateArrivee);
       if (formule === "sejour" && dateFin) datesLabel += ` → ${formatDateFR(dateFin)}`;
-      datesLabel += ` • ${heureArrivee} – ${heureDepart}`;
+      if (!heuresMasquees) datesLabel += ` • ${heureArrivee} – ${heureDepart}`;
     }
 
     const sendLabel = chargement
@@ -1170,7 +1251,17 @@ export default function TunnelReservation({
             <p style={{ margin: 0, fontWeight: 600, color: "#1B2B5E", fontSize: 15 }}>{datesLabel}</p>
           </div>
 
-          {estimation !== null ? (
+          {estInterne ? (
+            // Fiche du personnel : tout est gratuit, aucun tarif n'est montré.
+            <div style={{ backgroundColor: "#DBEFEA", borderRadius: 12, padding: "14px 16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                <span style={{ fontSize: 13, color: "#1F6E5B", fontWeight: 600 }}>Tarif</span>
+                <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 20, fontWeight: 700, color: "#1F6E5B", whiteSpace: "nowrap" as const }}>
+                  Gratuit (personnel)
+                </span>
+              </div>
+            </div>
+          ) : estimation !== null ? (
             <div style={{ backgroundColor: "#F4EAC9", borderRadius: 12, padding: "14px 16px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
                 <span style={{ fontSize: 13, color: "#6E5410", fontWeight: 600 }}>

@@ -76,3 +76,27 @@ export async function creerFicheInterne(): Promise<ResultatFicheInterne> {
   revalidatePath("/mon-compte");
   return { ok: true, client_id: creee.id };
 }
+
+/**
+ * Bascule une fiche `clients` existante en fiche INTERNE (personnel) et valide
+ * ses chiens. Appelée par le layout client quand un compte admin/employé avait
+ * encore une fiche ordinaire. Le sens inverse n'existe pas.
+ */
+export async function basculerFicheEnInterne(client_id: string): Promise<void> {
+  await supabaseAdmin
+    .from("clients")
+    .update({
+      interne: true,
+      cotisation_exemptee: true,
+      cotisation_exemptee_raison: "Personnel de la pension",
+      membre: true,
+    })
+    .eq("id", client_id);
+
+  // Aucune journée d'essai n'est jamais exigée pour les chiens du personnel.
+  await supabaseAdmin
+    .from("chiens")
+    .update({ statut_essai: "valide" })
+    .eq("client_id", client_id)
+    .neq("statut_essai", "valide");
+}

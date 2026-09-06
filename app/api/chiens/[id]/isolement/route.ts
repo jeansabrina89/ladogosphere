@@ -25,7 +25,8 @@ export async function POST(
 
   const { error } = await supabaseAdmin
     .from("chiens")
-    .update({ doit_etre_isole: !!doit_etre_isole })
+    // Décision de la PENSION : elle prime et verrouille le choix du client.
+    .update({ doit_etre_isole: !!doit_etre_isole, cohabitation_source: "pension" })
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

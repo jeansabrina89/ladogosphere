@@ -5,6 +5,7 @@ import {
   reservationPersonnelSansFacturation,
   typeAutorisePourPersonnel,
   MESSAGE_AUCUN_BOX,
+  ficheDoitDevenirInterne,
   type BoxInterne,
 } from "../src/lib/personnel";
 
@@ -171,5 +172,31 @@ describe("règle « fiche interne ⇒ validee, montant 0, pas de facture »", ()
     expect(typeAutorisePourPersonnel("journee")).toBe(true);
     expect(typeAutorisePourPersonnel("sejour")).toBe(true);
     expect(typeAutorisePourPersonnel("essai")).toBe(false);
+  });
+});
+
+describe("ficheDoitDevenirInterne — correctif des comptes du personnel", () => {
+  it("employé avec une fiche ordinaire : à basculer", () => {
+    expect(ficheDoitDevenirInterne({ role: "employe", ficheInterne: false })).toBe(true);
+  });
+  it("admin avec une fiche ordinaire : à basculer", () => {
+    expect(ficheDoitDevenirInterne({ role: "admin", ficheInterne: false })).toBe(true);
+  });
+  it("personnel déjà interne : rien à faire", () => {
+    expect(ficheDoitDevenirInterne({ role: "employe", ficheInterne: true })).toBe(false);
+    expect(ficheDoitDevenirInterne({ role: "admin", ficheInterne: true })).toBe(false);
+  });
+  it("JAMAIS l'inverse : un client ordinaire ne devient pas interne", () => {
+    expect(ficheDoitDevenirInterne({ role: "client", ficheInterne: false })).toBe(false);
+    expect(ficheDoitDevenirInterne({ role: "client", ficheInterne: true })).toBe(false);
+  });
+  it("rôle inconnu, absent ou nul : on ne touche à rien", () => {
+    expect(ficheDoitDevenirInterne({ role: null, ficheInterne: false })).toBe(false);
+    expect(ficheDoitDevenirInterne({ role: undefined, ficheInterne: false })).toBe(false);
+    expect(ficheDoitDevenirInterne({ role: "serveur", ficheInterne: false })).toBe(false);
+  });
+  it("aucune fiche liée : rien à corriger (la création s'en charge)", () => {
+    expect(ficheDoitDevenirInterne({ role: "admin", ficheInterne: null })).toBe(false);
+    expect(ficheDoitDevenirInterne({ role: "client", ficheInterne: null })).toBe(false);
   });
 });

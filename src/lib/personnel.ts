@@ -85,6 +85,28 @@ export function boxPourPersonnel({
   return { box_id: null, origine: null, message: MESSAGE_AUCUN_BOX };
 }
 
+/**
+ * Une fiche `clients` doit-elle être basculée en interne ?
+ *
+ * Les comptes du personnel qui avaient déjà une fiche ordinaire (créée avant
+ * APP 04) n'étaient pas reconnus comme internes et voyaient l'adhésion et la
+ * journée d'essai. On corrige à la volée, dans un seul sens : un compte
+ * `admin`/`employe` dont la fiche n'est pas interne le devient. JAMAIS
+ * l'inverse — un client ordinaire ne devient jamais interne.
+ */
+export function ficheDoitDevenirInterne({
+  role,
+  ficheInterne,
+}: {
+  role: string | null | undefined;
+  /** `interne` de la fiche liée, ou null s'il n'y a pas de fiche. */
+  ficheInterne: boolean | null;
+}): boolean {
+  if (ficheInterne === null) return false; // pas de fiche : rien à corriger ici
+  if (ficheInterne) return false; // déjà interne
+  return role === "admin" || role === "employe";
+}
+
 export const MESSAGE_BOX_INTERNE_REFUSE =
   "Ce box est réservé au personnel et à la pension : il ne peut pas accueillir le chien d'un client.";
 

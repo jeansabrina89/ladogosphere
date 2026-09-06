@@ -82,6 +82,8 @@ export async function creerChien(formData: FormData) {
       compatible_15_30kg: formData.get("compatible_15_30kg") === "on",
       compatible_30_40kg: formData.get("compatible_30_40kg") === "on",
       doit_etre_isole: formData.get("doit_etre_isole") === "on",
+      // Décision de la PENSION dès qu'elle isole le chien.
+      cohabitation_source: formData.get("doit_etre_isole") === "on" ? "pension" : null,
     });
 
   if (error) throw new Error(error.message);

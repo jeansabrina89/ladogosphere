@@ -10,6 +10,9 @@ import { cotisationEnAttente } from "@/src/lib/cotisation";
 import { verifierSelectionChiens } from "@/src/lib/journeeEssai";
 import { typeAutorisePourPersonnel } from "@/src/lib/personnel";
 import { verifierDateEssaiLibre } from "@/src/lib/essaiReservation";
+import { verifierPlaceDisponible } from "@/src/lib/suggestionBox";
+import { selectionMixteRefusee, estPrivatifPourSelection } from "@/src/lib/cohabitation";
+import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { creerReservationsPersonnel, annulerReservationPersonnel } from "@/src/lib/reservationPersonnel";
 import { calculerPeriodeCotisation, formatPeriodeCotisation } from "@/src/lib/cotisationPeriode";
 import { aujourdhuiISO } from "@/src/lib/dates";
@@ -144,6 +147,30 @@ export async function creerDemandeReservation(
   if (input.type_reservation === "essai") {
     const datePrise = await verifierDateEssaiLibre(input.occurrences);
     if (datePrise) return { ok: false, erreur: datePrise };
+  }
+
+  // 5quater. Un chien « seul » ne partage pas son box : la sélection mixte
+  //          demanderait deux box et deux lignes de prix — la pension la
+  //          compose à la main.
+  const cohabitation = await lireCohabitationChiens(input.chien_ids);
+  const mixte = selectionMixteRefusee(cohabitation);
+  if (!mixte.ok) return { ok: false, erreur: mixte.message };
+
+  // 5quinquies. Y a-t-il réellement un box libre ? La réservation reste
+  //             en_attente sans box (l'attribution se fait à la validation),
+  //             mais on ne promet pas une place qui n'existe pas.
+  const chienSeul = estPrivatifPourSelection(cohabitation);
+  for (const occ of input.occurrences) {
+    const place = await verifierPlaceDisponible({
+      chien_ids: input.chien_ids,
+      date_debut: occ.date_debut,
+      date_fin: occ.date_fin,
+      heure_arrivee: input.heure_arrivee,
+      heure_depart: input.heure_depart,
+      type_reservation: input.type_reservation,
+      chienSeul,
+    });
+    if (!place.ok) return { ok: false, erreur: place.message };
   }
 
   // 5bis. Porte d'accès pension + décision de bundling de l'adhésion.

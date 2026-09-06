@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { creerChienClient } from "./actions";
 import BoutonEnregistrer from "./BoutonEnregistrer";
 import Carte from "@/app/components/ui/Carte";
+import ChoixCohabitationChamp from "@/app/components/ChoixCohabitation";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 
@@ -134,10 +135,22 @@ export default async function NouveauChienClientPage() {
               </div>
             </Carte>
 
-            {/* SECTION 2 — SANTÉ */}
+            {/* SECTION 2 — COHABITATION EN BOX */}
             <Carte>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
                 <div style={sSecNum}>2</div>
+                <div>
+                  <p style={sSecTitre}>Cohabitation en box</p>
+                  <p style={sSecSous}>Avec qui votre chien peut-il partager son box ?</p>
+                </div>
+              </div>
+              <ChoixCohabitationChamp valeur="partage" />
+            </Carte>
+
+            {/* SECTION 3 — SANTÉ */}
+            <Carte>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                <div style={sSecNum}>3</div>
                 <div>
                   <p style={sSecTitre}>Santé</p>
                   <p style={sSecSous}>Suivi médical et remarques.</p>

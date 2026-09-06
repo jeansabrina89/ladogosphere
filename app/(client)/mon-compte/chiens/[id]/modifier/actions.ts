@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { appliquerCohabitationClient } from "@/src/lib/cohabitationDb";
 
 function calculerCategorie(poids: number): string {
   if (poids < 15) return "moins_15kg";
@@ -57,5 +58,10 @@ export async function modifierChienClient(chien_id: string, formData: FormData) 
     .eq("id", chien.id);
 
   if (error) throw new Error(error.message);
+
+  // Cohabitation en box, déclarée par le propriétaire. Sans effet si la pension
+  // a tranché : sa décision prime (cf. appliquerCohabitationClient).
+  await appliquerCohabitationClient(chien.id, formData.get("cohabitation"));
+
   redirect(`/mon-compte/chiens/${chien.id}`);
 }
