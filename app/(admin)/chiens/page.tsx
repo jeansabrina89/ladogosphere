@@ -6,6 +6,7 @@ import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
 import Carte from "@/app/components/ui/Carte";
 import EtatVide from "@/app/components/ui/EtatVide";
+import BadgePhotos from "@/app/components/BadgePhotos";
 
 export default async function ChiensPage() {
   await exigerPersonnelPage();
@@ -14,7 +15,7 @@ export default async function ChiensPage() {
 
   const { data: chiens } = await supabase
     .from("chiens")
-    .select(`*, clients (prenom, nom)`)
+    .select(`*, clients (prenom, nom, photos_ok)`)
     .order("nom");
 
   const muted: React.CSSProperties = { color: "rgba(27,43,94,0.6)", fontSize: 14, margin: 0 };
@@ -70,6 +71,9 @@ export default async function ChiensPage() {
                           </p>
                           <p style={muted}>{chien.race || "—"}</p>
                           <p style={muted}>👤 {chien.clients?.prenom} {chien.clients?.nom}</p>
+                          <p style={{ marginTop: 4 }}>
+                            <BadgePhotos photos_ok={chien.clients?.photos_ok} taille="petite" />
+                          </p>
 
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
                             {chien.sterilisation === "oui" ? (

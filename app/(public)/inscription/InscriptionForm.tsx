@@ -4,19 +4,31 @@ import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/src/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
+import { creerOuLierFicheClient } from "./actions";
+import { LIBELLE_ACCORD_PHOTOS } from "@/src/lib/accordPhotos";
 
 export default function InscriptionForm() {
+  const [prenom, setPrenom] = useState("");
+  const [nom, setNom] = useState("");
+  const [telephone, setTelephone] = useState("");
+  const [photosOk, setPhotosOk] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [voirMdp, setVoirMdp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [verifierEmail, setVerifierEmail] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (!prenom.trim() || !nom.trim()) {
+      setError("Le prénom et le nom sont obligatoires.");
+      return;
+    }
 
     if (password !== confirm) {
       setError("Les mots de passe ne correspondent pas.");
@@ -42,25 +54,47 @@ export default function InscriptionForm() {
       return;
     }
 
-    // Lier au profil client existant si l'email correspond
-    if (data.user) {
-      await supabase
-        .from("clients")
-        .update({ auth_user_id: data.user.id })
-        .eq("email", email);
+    // Fiche client + profil : côté serveur uniquement (la RLS interdit ces
+    // écritures au navigateur — c'est ce qui laissait des comptes sans fiche).
+    const res = await creerOuLierFicheClient({
+      userId: data.user?.id ?? null,
+      email,
+      prenom,
+      nom,
+      telephone,
+      photos_ok: photosOk,
+    });
 
-      // Créer un profil dans profiles
-      await supabase.from("profiles").upsert({
-        id: data.user.id,
-        email,
-        role: "client",
-        actif: true,
-      });
+    if (!res.ok) {
+      setError(res.error);
+      setLoading(false);
+      return;
+    }
+
+    // Pas de session : le projet exige la confirmation de l'e-mail.
+    if (!data.session) {
+      setVerifierEmail(true);
+      setLoading(false);
+      return;
     }
 
     router.push("/mon-compte");
     router.refresh();
   };
+
+  if (verifierEmail) {
+    return (
+      <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-4 rounded-xl text-sm space-y-2">
+        <p className="font-semibold">📬 Vérifiez votre boîte mail</p>
+        <p>
+          Votre compte est créé. Cliquez sur le lien de confirmation que nous venons
+          d&apos;envoyer à <strong>{email}</strong>, puis connectez-vous.
+        </p>
+      </div>
+    );
+  }
+
+  const labelClass = "block font-semibold mb-1";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -70,8 +104,50 @@ export default function InscriptionForm() {
         </div>
       )}
 
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass} style={{ color: "#1B2B5E" }}>
+            Prénom *
+          </label>
+          <input type="text" required value={prenom}
+            onChange={e => setPrenom(e.target.value)}
+            className="w-full border rounded-xl p-3"
+            placeholder="Camille" />
+        </div>
+        <div>
+          <label className={labelClass} style={{ color: "#1B2B5E" }}>
+            Nom *
+          </label>
+          <input type="text" required value={nom}
+            onChange={e => setNom(e.target.value)}
+            className="w-full border rounded-xl p-3"
+            placeholder="Rochat" />
+        </div>
+      </div>
+
       <div>
-        <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+        <label className={labelClass} style={{ color: "#1B2B5E" }}>
+          Téléphone
+        </label>
+        <input type="tel" value={telephone}
+          onChange={e => setTelephone(e.target.value)}
+          className="w-full border rounded-xl p-3"
+          placeholder="+41 79 123 45 67" />
+      </div>
+
+      <div className="rounded-xl p-4" style={{ backgroundColor: "#F5F0E8", border: "1px solid #C9A84C" }}>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" checked={photosOk}
+            onChange={e => setPhotosOk(e.target.checked)}
+            className="mt-0.5 h-5 w-5 flex-shrink-0 accent-[#4AAEA0]" />
+          <span className="text-sm" style={{ color: "#1B2B5E" }}>
+            {LIBELLE_ACCORD_PHOTOS}
+          </span>
+        </label>
+      </div>
+
+      <div>
+        <label className={labelClass} style={{ color: "#1B2B5E" }}>
           Email *
         </label>
         <input type="email" required value={email}
@@ -81,7 +157,7 @@ export default function InscriptionForm() {
       </div>
 
       <div>
-        <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+        <label className={labelClass} style={{ color: "#1B2B5E" }}>
           Mot de passe *
         </label>
         <div className="relative">
@@ -99,7 +175,7 @@ export default function InscriptionForm() {
       </div>
 
       <div>
-        <label className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+        <label className={labelClass} style={{ color: "#1B2B5E" }}>
           Confirmer le mot de passe *
         </label>
         <div className="relative">

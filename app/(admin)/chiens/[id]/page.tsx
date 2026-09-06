@@ -11,6 +11,7 @@ import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 import ContactTelephone from "@/app/components/ContactTelephone";
+import BadgePhotos from "@/app/components/BadgePhotos";
 
 export default async function ChienPage({
   params,
@@ -24,7 +25,7 @@ export default async function ChienPage({
 
   const { data: chien } = await supabase
     .from("chiens")
-    .select(`*, clients (id, prenom, nom)`)
+    .select(`*, clients (id, prenom, nom, photos_ok, photos_ok_modifie_le)`)
     .eq("id", id)
     .single();
 
@@ -152,6 +153,12 @@ export default async function ChienPage({
                 ) : chien.clients ? (
                   <>{chien.clients.prenom} {chien.clients.nom}</>
                 ) : "—")}
+                {ligne("Photos", (
+                  <BadgePhotos
+                    photos_ok={chien.clients?.photos_ok}
+                    modifie_le={chien.clients?.photos_ok_modifie_le}
+                  />
+                ))}
                 {ligne("Sexe", chien.sexe === "M" ? "♂️ Mâle" : "♀️ Femelle")}
                 {ligne("Âge", `${calculerAge(chien.date_naissance)} an(s)`)}
                 {ligne("Couleur", chien.couleur || "—")}

@@ -2,6 +2,7 @@ import { modifierClient } from "./actions";
 import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
+import { LIBELLE_ACCORD_PHOTOS } from "@/src/lib/accordPhotos";
 
 export default async function ModifierClientPage({
   params,
@@ -67,6 +68,15 @@ export default async function ModifierClientPage({
             <textarea name="adresse" rows={3}
               defaultValue={client.adresse || ""}
               className="w-full border rounded-xl p-3" />
+          </div>
+
+          <div className="border-t pt-4">
+            <label htmlFor="photos_ok" className="flex items-start gap-2">
+              <input type="checkbox" name="photos_ok" id="photos_ok"
+                defaultChecked={client.photos_ok !== false}
+                className="mt-1 h-4 w-4 flex-shrink-0" />
+              <span className="text-sm">📸 {LIBELLE_ACCORD_PHOTOS}</span>
+            </label>
           </div>
 
           <div className="flex items-center gap-2">

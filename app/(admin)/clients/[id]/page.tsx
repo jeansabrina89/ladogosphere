@@ -17,6 +17,7 @@ import { estMembreActif } from "@/src/lib/membre";
 import { etatAdhesion, cotisationActive, cotisationEnAttente } from "@/src/lib/cotisation";
 import { formatPeriodeCotisation, cotisationEstActive } from "@/src/lib/cotisationPeriode";
 import BadgeMembre from "@/app/components/BadgeMembre";
+import BadgePhotos from "@/app/components/BadgePhotos";
 import ContactEmail from "@/app/components/ContactEmail";
 import ContactTelephone from "@/app/components/ContactTelephone";
 import SelectionFactureGroupee from "../../reservations/SelectionFactureGroupee";
@@ -141,6 +142,10 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
               {ligne("Téléphone", <ContactTelephone numero={client.telephone} />)}
               {ligne("Adresse", client.adresse || "—")}
               {ligne("Client depuis", formatDateFR(new Date(client.created_at)))}
+              {ligne(
+                "Photos",
+                <BadgePhotos photos_ok={client.photos_ok} modifie_le={client.photos_ok_modifie_le} />
+              )}
             </div>
           </Carte>
         </section>

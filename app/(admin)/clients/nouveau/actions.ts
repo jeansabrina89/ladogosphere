@@ -31,6 +31,8 @@ export async function creerClient(formData: FormData) {
       membre: formData.get("membre") === "on",
       actif: true,
       auth_user_id,
+      photos_ok: formData.get("photos_ok") === "on",
+      photos_ok_modifie_le: new Date().toISOString(),
     })
     .select()
     .single();

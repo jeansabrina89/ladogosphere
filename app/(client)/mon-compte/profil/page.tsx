@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { createClient } from "@/src/utils/supabase/server";
 import { modifierProfil } from "./actions";
+import { LIBELLE_ACCORD_PHOTOS, PRECISION_RETRAIT_ACCORD_PHOTOS } from "@/src/lib/accordPhotos";
+import { formatDateFR } from "@/src/lib/dates";
 import Link from "next/link";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
@@ -70,6 +72,28 @@ export default async function MonProfilPage() {
                   <textarea name="adresse" rows={3} defaultValue={client.adresse || ""} style={champStyle} />
                 </div>
               </div>
+            </Carte>
+
+            {/* Photos */}
+            <Carte>
+              <h2 style={titreSection}>📸 Photos</h2>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  name="photos_ok"
+                  defaultChecked={client.photos_ok !== false}
+                  style={{ marginTop: 3, width: 20, height: 20, flexShrink: 0, accentColor: "#4AAEA0" }}
+                />
+                <span style={{ fontSize: 14, color: "#1B2B5E", lineHeight: 1.5 }}>
+                  {LIBELLE_ACCORD_PHOTOS}
+                </span>
+              </label>
+              <p style={{ ...muted, marginTop: 10 }}>{PRECISION_RETRAIT_ACCORD_PHOTOS}</p>
+              {client.photos_ok_modifie_le && (
+                <p style={{ ...muted, marginTop: 4 }}>
+                  Dernière modification : {formatDateFR(client.photos_ok_modifie_le)}
+                </p>
+              )}
             </Carte>
 
             {/* Contact d'urgence */}

@@ -6,6 +6,7 @@ import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
 import NavDatesChiensDuJour from "./NavDatesChiensDuJour";
 import NomClientLien from "@/app/components/NomClientLien";
 import NomChienLien from "@/app/components/NomChienLien";
+import BadgePhotos from "@/app/components/BadgePhotos";
 
 const TYPE_LABELS: Record<string, string> = {
   journee: "Journée",
@@ -15,7 +16,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 const SELECT = `
   id, statut, date_arrivee_prevue, date_depart_prevu, date_arrivee_reelle,
-  reservations ( type_reservation, heure_arrivee, heure_depart, clients (id, prenom, nom) ),
+  reservations ( type_reservation, heure_arrivee, heure_depart, clients (id, prenom, nom, photos_ok) ),
   chiens ( id, nom )
 ` as const;
 
@@ -112,6 +113,7 @@ export default async function ChiensDuJourPage({
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-bold" style={{ color: "#1B2B5E" }}><NomChienLien id={cc.chiens?.id} nom={cc.chiens?.nom} /></p>
                           {badge(cc.statut)}
+                          <BadgePhotos photos_ok={cc.reservations?.clients?.photos_ok} taille="petite" />
                         </div>
                         <p className="text-sm text-gray-500 truncate">
                           <NomClientLien id={cc.reservations?.clients?.id} prenom={cc.reservations?.clients?.prenom} nom={cc.reservations?.clients?.nom} />
@@ -151,6 +153,7 @@ export default async function ChiensDuJourPage({
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-bold" style={{ color: "#1B2B5E" }}><NomChienLien id={cc.chiens?.id} nom={cc.chiens?.nom} /></p>
                           {badge(cc.statut)}
+                          <BadgePhotos photos_ok={cc.reservations?.clients?.photos_ok} taille="petite" />
                         </div>
                         <p className="text-sm text-gray-500 truncate">
                           <NomClientLien id={cc.reservations?.clients?.id} prenom={cc.reservations?.clients?.prenom} nom={cc.reservations?.clients?.nom} />
@@ -192,6 +195,7 @@ export default async function ChiensDuJourPage({
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-bold" style={{ color: "#1B2B5E" }}><NomChienLien id={cc.chiens?.id} nom={cc.chiens?.nom} /></p>
                           {badge(cc.statut)}
+                          <BadgePhotos photos_ok={cc.reservations?.clients?.photos_ok} taille="petite" />
                         </div>
                         <p className="text-sm text-gray-500 truncate">
                           <NomClientLien id={cc.reservations?.clients?.id} prenom={cc.reservations?.clients?.prenom} nom={cc.reservations?.clients?.nom} />

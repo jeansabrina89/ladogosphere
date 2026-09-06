@@ -12,24 +12,33 @@ export async function modifierProfil(_id: string, formData: FormData) {
   // Source de vérité = ta session : on récupère TA fiche client (RLS)
   const { data: monClient } = await supabase
     .from("clients")
-    .select("id")
+    .select("id, photos_ok")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
   if (!monClient) throw new Error("Profil client introuvable.");
 
   // Mise à jour via supabaseAdmin — UNIQUEMENT les champs de contact (liste blanche)
+  const photosOk = formData.get("photos_ok") === "on";
+  const champs: Record<string, unknown> = {
+    prenom: formData.get("prenom") as string,
+    nom: formData.get("nom") as string,
+    telephone: formData.get("telephone") as string || null,
+    adresse: formData.get("adresse") as string || null,
+    contact_urgence_prenom: formData.get("contact_urgence_prenom") as string || null,
+    contact_urgence_nom: formData.get("contact_urgence_nom") as string || null,
+    contact_urgence_telephone: formData.get("contact_urgence_telephone") as string || null,
+    photos_ok: photosOk,
+  };
+  // Horodaté seulement quand l'accord CHANGE réellement, pour garder une trace
+  // fiable de la date du choix.
+  if (photosOk !== monClient.photos_ok) {
+    champs.photos_ok_modifie_le = new Date().toISOString();
+  }
+
   const { error } = await supabaseAdmin
     .from("clients")
-    .update({
-      prenom: formData.get("prenom") as string,
-      nom: formData.get("nom") as string,
-      telephone: formData.get("telephone") as string || null,
-      adresse: formData.get("adresse") as string || null,
-      contact_urgence_prenom: formData.get("contact_urgence_prenom") as string || null,
-      contact_urgence_nom: formData.get("contact_urgence_nom") as string || null,
-      contact_urgence_telephone: formData.get("contact_urgence_telephone") as string || null,
-    })
+    .update(champs)
     .eq("id", monClient.id);
 
   if (error) throw new Error(error.message);

@@ -1,5 +1,6 @@
 import { creerClient } from "./actions";
 import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { LIBELLE_ACCORD_PHOTOS } from "@/src/lib/accordPhotos";
 
 export default async function NouveauClientPage() {
   await exigerPersonnelPage();
@@ -37,6 +38,13 @@ export default async function NouveauClientPage() {
           <div>
             <label className="block font-semibold mb-1">Adresse</label>
             <textarea name="adresse" rows={3} className="w-full border rounded-xl p-3" />
+          </div>
+
+          <div className="border-t pt-4">
+            <label className="flex items-start gap-2">
+              <input type="checkbox" name="photos_ok" defaultChecked className="mt-1 h-4 w-4 flex-shrink-0" />
+              <span className="text-sm">📸 {LIBELLE_ACCORD_PHOTOS}</span>
+            </label>
           </div>
 
           <div className="border-t pt-4">
