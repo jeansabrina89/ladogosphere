@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { calculerPeriodeCotisation } from "@/src/lib/cotisationPeriode";
+import { formatDateLong } from "@/src/lib/dates";
 
 export default function BoutonCotisation({
-  client_id, client_nom, est_membre, cotisation_payee, cotisation_en_attente = false, montant, annee,
-  est_exempte = false, raison_exemption,
+  client_id, client_nom, est_membre, cotisation_payee, cotisation_en_attente = false, montant,
+  fin_precedente = null, est_exempte = false, raison_exemption,
 }: {
   client_id: string;
   client_nom: string;
@@ -13,7 +15,8 @@ export default function BoutonCotisation({
   cotisation_payee: boolean;
   cotisation_en_attente?: boolean;
   montant: number;
-  annee: number;
+  /** date_fin de la cotisation en cours du client (renouvellement anticipé). */
+  fin_precedente?: string | null;
   est_exempte?: boolean;
   raison_exemption?: string | null;
 }) {
@@ -23,6 +26,11 @@ export default function BoutonCotisation({
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  // Aperçu de la période AVANT validation (mêmes règles que le serveur).
+  const periode = datePaiement
+    ? calculerPeriodeCotisation(datePaiement, fin_precedente)
+    : null;
+
   const handleSauvegarder = async () => {
     setLoading(true);
     const res = await fetch("/api/clients/cotisation", {
@@ -30,8 +38,6 @@ export default function BoutonCotisation({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         client_id,
-        annee,
-        montant,
         mode_paiement: mode,
         statut: mode === "prochaine_resa" ? "en_attente" : "payee",
         date_paiement: mode === "prochaine_resa" ? null : datePaiement,
@@ -60,23 +66,23 @@ export default function BoutonCotisation({
   if (cotisation_payee) {
     return (
       <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-700 font-semibold">
-        ✅ Adhésion {annee} payée
+        ✅ Adhésion payée — valable jusqu'au {formatDateLong(fin_precedente)}
       </div>
     );
   }
 
   const libelleBouton = cotisation_en_attente
-    ? `💳 Encaisser l'adhésion ${annee} (en attente)`
-    : est_membre ? `🔄 Renouveler adhésion ${annee}` : `⭐ Enregistrer comme membre ${annee}`;
+    ? "💳 Encaisser l'adhésion (en attente)"
+    : est_membre ? "🔄 Renouveler l'adhésion" : "⭐ Enregistrer comme membre";
   const libelleTitre = cotisation_en_attente
-    ? `💳 Encaissement adhésion ${annee}`
-    : est_membre ? `🔄 Renouvellement adhésion ${annee}` : `⭐ Inscription membre ${annee}`;
+    ? "💳 Encaissement de l'adhésion"
+    : est_membre ? "🔄 Renouvellement de l'adhésion" : "⭐ Inscription membre";
 
   return (
     <div>
       {cotisation_en_attente && !ouvert && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-sm text-yellow-800 mb-3">
-          ⏳ Adhésion {annee} en attente de paiement. Encaisse-la (le montant sera fixé à la valeur courante) ou corrige-la.
+          ⏳ Adhésion en attente de paiement. Encaisse-la (le montant sera fixé à la valeur courante) ou corrige-la.
         </div>
       )}
       {!ouvert ? (
@@ -127,12 +133,18 @@ export default function BoutonCotisation({
               <input type="date" value={datePaiement}
                 onChange={e => setDatePaiement(e.target.value)}
                 className="border rounded-xl p-2 text-sm" />
+              {periode && (
+                <p className="text-sm mt-2 font-semibold" style={{ color: "#1F6E5B" }}>
+                  ⭐ Valable du {formatDateLong(periode.date_debut)} au {formatDateLong(periode.date_fin)}
+                </p>
+              )}
             </div>
           )}
 
           {mode === "prochaine_resa" && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-sm text-yellow-700">
-              ℹ️ L'adhésion sera ajoutée à la prochaine facture du client. Le statut membre est activé immédiatement.
+              ℹ️ L'adhésion sera ajoutée à la prochaine facture du client. Le statut membre est activé
+              immédiatement ; la période de validité définitive sera calculée à l&apos;encaissement.
             </div>
           )}
 

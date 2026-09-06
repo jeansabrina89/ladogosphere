@@ -1,7 +1,9 @@
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { createClient } from "@/src/utils/supabase/server";
 import Link from "next/link";
-import { formatDateFR, aujourdhuiISO } from "@/src/lib/dates";
+import { formatDateFR, formatDateLong, aujourdhuiISO } from "@/src/lib/dates";
+import { cotisationActive, cotisationEnAttente } from "@/src/lib/cotisation";
+import { joursEntre, JOURS_FENETRE_RENOUVELLEMENT } from "@/src/lib/cotisationPeriode";
 import { getSoldeAvoir } from "@/src/lib/avoirs";
 import { montantDuReservation, resteAPayer } from "@/src/lib/montants";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
@@ -59,18 +61,18 @@ export default async function MonComptePage() {
   const nbChiens = client?.chiens?.length ?? 0;
   const soldeAvoir = client ? await getSoldeAvoir(supabase, client.id) : 0;
 
-  const anneeAdhesion = new Date().getFullYear();
   const estMembre = client ? await estMembreActif(supabaseAdmin, client.id) : false;
-  const { data: cotisationAnnee } = client
-    ? await supabaseAdmin
-        .from("cotisations_membres")
-        .select("statut")
-        .eq("client_id", client.id)
-        .eq("annee", anneeAdhesion)
-        .maybeSingle()
-    : { data: null };
-  const aDemandeEnAttente = cotisationAnnee?.statut === "en_attente";
-  const peutDemander = !!client && !estMembre && !cotisationAnnee;
+  const cotisationEnCours = client ? await cotisationActive(supabaseAdmin, client.id, aujourd_hui) : null;
+  const demandeEnAttente = client ? await cotisationEnAttente(supabaseAdmin, client.id) : null;
+  const aDemandeEnAttente = !!demandeEnAttente;
+  // Adhésion demandable : aucune demande en cours, et soit pas de cotisation
+  // active, soit une cotisation qui s'achève dans les 60 jours (renouvellement).
+  const joursRestants = cotisationEnCours ? joursEntre(aujourd_hui, cotisationEnCours.date_fin) : null;
+  const dansFenetreRenouvellement =
+    joursRestants !== null && joursRestants <= JOURS_FENETRE_RENOUVELLEMENT;
+  const peutDemander =
+    !!client && !aDemandeEnAttente && (!cotisationEnCours || dansFenetreRenouvellement);
+  const estRenouvellement = !!cotisationEnCours;
   const { data: paramCotis } = await supabaseAdmin
     .from("parametres")
     .select("valeur")
@@ -112,8 +114,13 @@ export default async function MonComptePage() {
         <InstallerAppButton label="Installez l'application pour un accès rapide" />
 
         {!aDemandeEnAttente && (
-          <div style={{ marginBottom: 24 }}>
+          <div style={{ marginBottom: 24, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <BadgeMembre membre={!!client?.membre} aJour={estMembre} montrerStandard />
+            {cotisationEnCours && (
+              <span style={{ fontSize: 13, color: "rgba(27,43,94,0.6)" }}>
+                Membre jusqu'au <strong style={{ color: "#1B2B5E" }}>{formatDateLong(cotisationEnCours.date_fin)}</strong>
+              </span>
+            )}
           </div>
         )}
 
@@ -170,11 +177,15 @@ export default async function MonComptePage() {
         {peutDemander && (
           <div style={{ marginBottom: "32px" }}>
             <Carte>
-              <p style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 18, fontWeight: 700, color: "#1B2B5E", margin: "0 0 4px" }}>★ Devenir membre</p>
-              <p style={{ fontSize: 13, color: "rgba(27,43,94,0.6)", margin: "0 0 4px" }}>
-                La cotisation annuelle de {montantCotisation} CHF te donne accès aux tarifs membres sur toutes tes réservations.
+              <p style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 18, fontWeight: 700, color: "#1B2B5E", margin: "0 0 4px" }}>
+                {estRenouvellement ? "★ Renouveler ma cotisation" : "★ Devenir membre"}
               </p>
-              <BoutonDemanderAdhesion montant={montantCotisation} />
+              <p style={{ fontSize: 13, color: "rgba(27,43,94,0.6)", margin: "0 0 4px" }}>
+                {estRenouvellement
+                  ? `Ta cotisation prend fin le ${formatDateLong(cotisationEnCours!.date_fin)}. La cotisation annuelle de ${montantCotisation} CHF te donne accès aux tarifs membres sur toutes tes réservations.`
+                  : `La cotisation annuelle de ${montantCotisation} CHF te donne accès aux tarifs membres sur toutes tes réservations.`}
+              </p>
+              <BoutonDemanderAdhesion montant={montantCotisation} renouvellement={estRenouvellement} />
             </Carte>
           </div>
         )}

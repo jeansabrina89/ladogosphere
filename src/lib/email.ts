@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { ajouterJoursISO } from "@/src/lib/cotisationPeriode";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -155,9 +156,9 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
     message_final: "En cas d'imprévu, contactez-nous au plus vite. À demain ! 🐾",
   },
   rappel_cotisation: {
-    sujet: "⭐ Renouvellement de votre adhésion membre {annee}",
+    sujet: "⭐ Renouvellement de votre cotisation membre",
     titre: "Bonjour {prenom} ! ⭐",
-    intro: "Votre adhésion membre La Dogosphère arrive à échéance le <strong>31 décembre {annee}</strong>.",
+    intro: "Votre cotisation membre La Dogosphère est échue depuis le <strong>{date_fin}</strong>.",
     message_final: "Merci pour votre fidélité ! Nous espérons vous accueillir encore longtemps. 🐶",
   },
   relance_paiement: {
@@ -189,7 +190,7 @@ export const MODELES_META: { type: string; label: string; variables: string[] }[
   { type: "paiement", label: "Paiement / règlement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
   { type: "satisfaction_essai", label: "Satisfaction après essai", variables: ["prenom", "nom_chien"] },
   { type: "rappel_veille", label: "Rappel la veille", variables: ["prenom", "nom_chien", "date_debut"] },
-  { type: "rappel_cotisation", label: "Rappel cotisation", variables: ["prenom", "nom", "annee", "montant"] },
+  { type: "rappel_cotisation", label: "Rappel cotisation", variables: ["prenom", "nom", "date_fin", "montant"] },
   { type: "relance_paiement", label: "Relance paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
   { type: "rappel_paiement_1", label: "1er rappel paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
   { type: "rappel_paiement_2", label: "2ème rappel paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
@@ -700,23 +701,58 @@ export async function envoyerEmailRappelVeille({
   });
 }
 
+/**
+ * Rappel de cotisation échue. Deux variantes, un seul modèle `rappel_cotisation` :
+ * - "echue"  : envoyé le lendemain de la date de fin ;
+ * - "rappel" : envoyé 30 jours après la date de fin.
+ * Seuls le titre et la première phrase changent.
+ */
+const VARIANTES_RAPPEL_COTISATION = {
+  echue: {
+    titre: "Bonjour {prenom} ! ⭐",
+    intro:
+      "Votre cotisation membre La Dogosphère est arrivée à échéance le <strong>{date_fin}</strong>. " +
+      "Renouvelez-la pour continuer à profiter des tarifs membres.",
+  },
+  rappel: {
+    titre: "Bonjour {prenom}, petit rappel ⭐",
+    intro:
+      "Votre cotisation membre La Dogosphère est échue depuis un mois (échéance le <strong>{date_fin}</strong>). " +
+      "Sans renouvellement, les tarifs membres ne s'appliquent plus à vos réservations.",
+  },
+} as const;
+
+export type VarianteRappelCotisation = keyof typeof VARIANTES_RAPPEL_COTISATION;
+
 export async function envoyerEmailRappelCotisation({
-  email, prenom, nom, annee, montant, iban, titulaire,
+  email, prenom, nom, date_fin, montant, iban, titulaire, variante = "echue",
 }: {
-  email: string; prenom: string; nom: string; annee: number; montant: number; iban: string; titulaire: string;
+  email: string; prenom: string; nom: string;
+  /** date_fin de la cotisation échue, au format ISO "YYYY-MM-DD". */
+  date_fin: string;
+  montant: number; iban: string; titulaire: string;
+  variante?: VarianteRappelCotisation;
 }) {
-  const anneeProchaine = annee + 1;
-  const m = await modeleEmail("rappel_cotisation", {
-    prenom, nom, annee, montant: montant.toFixed(2),
-  });
+  const finLisible = formatDate(date_fin);
+  const vars = { prenom, nom, date_fin: finLisible, montant: montant.toFixed(2) };
+  const m = await modeleEmail("rappel_cotisation", vars);
+  const v = VARIANTES_RAPPEL_COTISATION[variante];
+  // Titre + première phrase : pilotés par la variante (échue / rappel).
+  const titre = interpoler(v.titre, vars);
+  const intro = interpoler(v.intro, vars);
+  // Référence de paiement : mois de début de la NOUVELLE période (lendemain de
+  // l'échéance), pour que le virement soit rattachable sans ambiguïté.
+  const debutNouvellePeriode = ajouterJoursISO(date_fin, 1);
+  const [anneeRef, moisRef] = debutNouvellePeriode.split("-");
+  const referencePaiement = `${prenom} ${nom} Cotisation ${moisRef}.${anneeRef}`;
   await envoyerEmail({
     destinataire: email,
     type: "rappel_cotisation",
     sujet: m.sujet,
     html: emailTemplate(`
-      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">
-        ${m.intro}
+        ${intro}
       </p>
 
       <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
@@ -724,14 +760,14 @@ export async function envoyerEmailRappelCotisation({
         <table cellpadding="0" cellspacing="0" style="width:100%;">
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Statut actuel</td>
-            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">⭐ Membre actif</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">⏳ Cotisation échue</td>
           </tr>
           <tr>
-            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Valable jusqu'au</td>
-            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">31 décembre ${annee}</td>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Échue le</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${finLisible}</td>
           </tr>
           <tr>
-            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Adhésion ${anneeProchaine}</td>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Renouvellement de la cotisation</td>
             <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">CHF ${montant.toFixed(2)}</td>
           </tr>
         </table>
@@ -770,7 +806,7 @@ export async function envoyerEmailRappelCotisation({
           </tr>
           <tr>
             <td style="padding:4px 0; color:#7A5C00; font-size:13px;">Référence</td>
-            <td style="padding:4px 0; color:#7A5C00; font-weight:bold; font-size:13px;">${prenom} ${nom} Adhésion ${anneeProchaine}</td>
+            <td style="padding:4px 0; color:#7A5C00; font-weight:bold; font-size:13px;">${referencePaiement}</td>
           </tr>
         </table>
       </div>

@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/rappel-cotisation",
-      "schedule": "0 9 1 12 *"
+      "schedule": "0 7 * * *"
     }
   ]
 }

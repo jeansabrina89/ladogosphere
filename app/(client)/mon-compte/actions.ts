@@ -5,6 +5,9 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { revalidatePath } from "next/cache";
 import { JOURS_PAR_CARTE, JOURS_PAYES, TYPES_ABONNEMENT, cartesEligibles, type ChienSociabilite } from "@/src/lib/abonnementsTypes";
 import { estMembreActif } from "@/src/lib/membre";
+import { cotisationActive, cotisationEnAttente } from "@/src/lib/cotisation";
+import { calculerPeriodeCotisation, joursEntre, JOURS_FENETRE_RENOUVELLEMENT } from "@/src/lib/cotisationPeriode";
+import { aujourdhuiISO, formatDateLong } from "@/src/lib/dates";
 
 export async function demanderAdhesion(mode: "virement" | "prochaine_resa") {
   const supabase = await createSupabaseServerClient();
@@ -18,15 +21,20 @@ export async function demanderAdhesion(mode: "virement" | "prochaine_resa") {
     .maybeSingle();
   if (!client) return { error: "Fiche client introuvable." };
 
-  const annee = new Date().getFullYear();
+  const aujourdhui = aujourdhuiISO();
 
-  const { data: existante } = await supabaseAdmin
-    .from("cotisations_membres")
-    .select("id")
-    .eq("client_id", client.id)
-    .eq("annee", annee)
-    .maybeSingle();
-  if (existante) return { error: "Une demande existe déjà pour cette année." };
+  // Une seule demande en attente à la fois (garanti aussi par la base).
+  const enAttente = await cotisationEnAttente(supabaseAdmin, client.id);
+  if (enAttente) return { error: "Une demande d'adhésion est déjà en cours de traitement." };
+
+  // Renouvellement autorisé dans les 60 derniers jours de validité, ou après
+  // expiration. Au-delà, la cotisation en cours couvre encore largement.
+  const active = await cotisationActive(supabaseAdmin, client.id, aujourdhui);
+  if (active && joursEntre(aujourdhui, active.date_fin) > JOURS_FENETRE_RENOUVELLEMENT) {
+    return {
+      error: `Votre cotisation est valable jusqu'au ${formatDateLong(active.date_fin)}. Le renouvellement sera possible dans les ${JOURS_FENETRE_RENOUVELLEMENT} derniers jours.`,
+    };
+  }
 
   const { data: param } = await supabaseAdmin
     .from("parametres")
@@ -35,12 +43,17 @@ export async function demanderAdhesion(mode: "virement" | "prochaine_resa") {
     .maybeSingle();
   const montant = parseFloat(param?.valeur ?? "200") || 200;
 
+  // Période PROVISOIRE (démarrant aujourd'hui) : recalculée à l'encaissement,
+  // où la règle du renouvellement anticipé s'appliquera.
+  const periode = calculerPeriodeCotisation(aujourdhui);
+
   const { error } = await supabaseAdmin.from("cotisations_membres").insert({
     client_id: client.id,
-    annee,
     montant,
     mode_paiement: mode,
     statut: "en_attente",
+    date_debut: periode.date_debut,
+    date_fin: periode.date_fin,
   });
   if (error) return { error: error.message };
 

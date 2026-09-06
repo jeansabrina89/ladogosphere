@@ -7,6 +7,9 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import EtatVide from "@/app/components/ui/EtatVide";
 import { estMembreActif } from "@/src/lib/membre";
+import { cotisationActive, cotisationEnAttente } from "@/src/lib/cotisation";
+import { joursEntre, JOURS_FENETRE_RENOUVELLEMENT } from "@/src/lib/cotisationPeriode";
+import { aujourdhuiISO, formatDateLong } from "@/src/lib/dates";
 import BoutonDemanderAdhesion from "@/app/components/BoutonDemanderAdhesion";
 
 const MARINE = "#1B2B5E";
@@ -134,21 +137,23 @@ export default async function TarifsClientPage() {
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
+  const aujourdhui = aujourdhuiISO();
   const estMembre = client ? await estMembreActif(supabaseAdmin, client.id) : false;
 
-  const { data: cotisationAnnee } = client
-    ? await supabaseAdmin
-        .from("cotisations_membres")
-        .select("statut, mode_paiement")
-        .eq("client_id", client.id)
-        .eq("annee", annee)
-        .maybeSingle()
-    : { data: null };
-  const aDemandeEnAttente = cotisationAnnee?.statut === "en_attente";
+  const cotisationEnCours = client ? await cotisationActive(supabaseAdmin, client.id, aujourdhui) : null;
+  const demandeEnAttente = client ? await cotisationEnAttente(supabaseAdmin, client.id) : null;
+  const aDemandeEnAttente = !!demandeEnAttente;
   // Demande en attente NON réglée (virement/cash) : ne donne pas accès à la
   // réservation ('prochaine_resa' = groupée/activée, elle donne accès).
-  const aReglerPourReserver = aDemandeEnAttente && cotisationAnnee?.mode_paiement !== "prochaine_resa";
-  const peutDemander = !!client && !estMembre && !cotisationAnnee;
+  const aReglerPourReserver = aDemandeEnAttente && demandeEnAttente?.mode_paiement !== "prochaine_resa";
+  // Renouvellement possible dans les 60 derniers jours de validité, ou après
+  // expiration ; première adhésion possible à tout moment.
+  const joursRestants = cotisationEnCours ? joursEntre(aujourdhui, cotisationEnCours.date_fin) : null;
+  const estRenouvellement = !!cotisationEnCours;
+  const peutDemander =
+    !!client &&
+    !aDemandeEnAttente &&
+    (!cotisationEnCours || (joursRestants !== null && joursRestants <= JOURS_FENETRE_RENOUVELLEMENT));
 
   const tarifsVides = tarifs.length === 0;
 
@@ -176,7 +181,9 @@ export default async function TarifsClientPage() {
             <div style={{ backgroundColor: "#DBEFEA", border: "1px solid #4AAEA0", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 20 }}>★</span>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#1F6E5B" }}>
-                Tu es membre — les tarifs membres s'appliquent à tes réservations.
+                {cotisationEnCours
+                  ? `Membre jusqu'au ${formatDateLong(cotisationEnCours.date_fin)} — les tarifs membres s'appliquent à tes réservations.`
+                  : "Tu es membre — les tarifs membres s'appliquent à tes réservations."}
               </p>
             </div>
           )}
@@ -201,9 +208,13 @@ export default async function TarifsClientPage() {
 
           {peutDemander && (
             <Carte>
-              <p style={sSecTitre}>★ Devenir membre</p>
-              <p style={sSecSous}>La cotisation annuelle de {cotisation || 200} CHF est obligatoire pour pouvoir réserver (hors journée d&apos;essai).</p>
-              <BoutonDemanderAdhesion montant={cotisation} />
+              <p style={sSecTitre}>{estRenouvellement ? "★ Renouveler ma cotisation" : "★ Devenir membre"}</p>
+              <p style={sSecSous}>
+                {estRenouvellement
+                  ? `Ta cotisation prend fin le ${formatDateLong(cotisationEnCours!.date_fin)}. La cotisation annuelle de ${cotisation || 200} CHF est obligatoire pour pouvoir réserver (hors journée d'essai).`
+                  : `La cotisation annuelle de ${cotisation || 200} CHF est obligatoire pour pouvoir réserver (hors journée d'essai).`}
+              </p>
+              <BoutonDemanderAdhesion montant={cotisation} renouvellement={estRenouvellement} />
             </Carte>
           )}
 

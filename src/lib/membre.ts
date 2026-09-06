@@ -25,18 +25,18 @@ export function reservationAutorisee({
   return typeReservation === "essai" || estMembre || estExempte;
 }
 
-export function anneesPertinentes(dateRefISO?: string): number[] {
-  const ref = (dateRefISO ?? new Date().toISOString()).slice(0, 10);
-  const [annee, mois] = ref.split("-").map(Number);
-  if (!annee) return [];
-  const dansGrace = mois === 1 || mois === 2;
-  return dansGrace ? [annee, annee - 1] : [annee];
+/**
+ * Date de référence d'une vérification d'adhésion : la date de prestation
+ * fournie, sinon aujourd'hui. Format "YYYY-MM-DD".
+ */
+function dateReference(dateRefISO?: string): string {
+  return (dateRefISO ?? new Date().toISOString()).slice(0, 10);
 }
 
 /**
  * Statut membre "à jour" pour la tarification, à une date de prestation donnée.
- * Cotisation payée pour l'année de la prestation, OU grâce janvier-février
- * avec cotisation payée l'année précédente.
+ * Une cotisation payée couvre la date D si date_debut <= D <= date_fin
+ * (validité 12 mois glissants, cf. src/lib/cotisationPeriode.ts).
  */
 export async function estMembreActif(
   supabase: SupabaseClient,
@@ -44,14 +44,14 @@ export async function estMembreActif(
   dateRefISO?: string
 ): Promise<boolean> {
   if (!client_id) return false;
-  const annees = anneesPertinentes(dateRefISO);
-  if (annees.length === 0) return false;
+  const d = dateReference(dateRefISO);
   const { data } = await supabase
     .from("cotisations_membres")
-    .select("annee")
+    .select("id")
     .eq("client_id", client_id)
     .eq("statut", "payee")
-    .in("annee", annees)
+    .lte("date_debut", d)
+    .gte("date_fin", d)
     .limit(1);
   return !!(data && data.length > 0);
 }
@@ -72,7 +72,7 @@ export function cotisationDonneAccesReservation(
 
 /**
  * État d'adhésion pour le DROIT à réserver une pension, à une date donnée.
- * - aJour : au moins une cotisation de l'année donne accès (cf. règle ci-dessus).
+ * - aJour : au moins une cotisation couvrant la date donne accès (cf. règle ci-dessus).
  * - enAttenteARegler : pas à jour, MAIS une demande 'en_attente' non réglée
  *   existe (virement/cash) → à régler pour pouvoir réserver.
  * DIFFÉRENT de estMembreActif (payee seul) : ne PAS utiliser pour l'achat
@@ -84,13 +84,13 @@ export async function etatAdhesionReservation(
   dateRefISO?: string
 ): Promise<{ aJour: boolean; enAttenteARegler: boolean }> {
   if (!client_id) return { aJour: false, enAttenteARegler: false };
-  const annees = anneesPertinentes(dateRefISO);
-  if (annees.length === 0) return { aJour: false, enAttenteARegler: false };
+  const d = dateReference(dateRefISO);
   const { data } = await supabase
     .from("cotisations_membres")
     .select("statut, mode_paiement")
     .eq("client_id", client_id)
-    .in("annee", annees);
+    .lte("date_debut", d)
+    .gte("date_fin", d);
   const rows = (data ?? []) as { statut?: string | null; mode_paiement?: string | null }[];
   const aJour = rows.some(cotisationDonneAccesReservation);
   const enAttenteARegler =
@@ -112,7 +112,7 @@ export async function estMembreAJourReservation(
 
 /**
  * Version groupée : retourne l'ensemble des client_id qui ont une cotisation
- * à jour, en une seule requête (pour les listes).
+ * à jour à la date de référence, en une seule requête (pour les listes).
  */
 export async function clientsMembresAJour(
   supabase: SupabaseClient,
@@ -121,13 +121,13 @@ export async function clientsMembresAJour(
 ): Promise<Set<string>> {
   const ids = [...new Set(clientIds.filter(Boolean) as string[])];
   if (ids.length === 0) return new Set();
-  const annees = anneesPertinentes(dateRefISO);
-  if (annees.length === 0) return new Set();
+  const d = dateReference(dateRefISO);
   const { data } = await supabase
     .from("cotisations_membres")
     .select("client_id")
     .in("client_id", ids)
     .eq("statut", "payee")
-    .in("annee", annees);
-  return new Set((data ?? []).map((r: any) => r.client_id as string));
+    .lte("date_debut", d)
+    .gte("date_fin", d);
+  return new Set(((data ?? []) as { client_id: string }[]).map((r) => r.client_id));
 }

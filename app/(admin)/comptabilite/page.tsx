@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import FiltresMois from "./FiltresMois";
 import { montantDuReservation } from "@/src/lib/montants";
 import { clientsMembresAJour } from "@/src/lib/membre";
+import { formatPeriodeCotisation } from "@/src/lib/cotisationPeriode";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import NomClientLien from "@/app/components/NomClientLien";
 
@@ -38,12 +39,15 @@ export default async function ComptabilitePage({
 
   const idsAJourCompta = await clientsMembresAJour(supabase, (reservations ?? []).map((r: any) => r.client_id));
 
-  // Cotisations de l'année
+  // Cotisations encaissées pendant l'EXERCICE (année de date_paiement) — la
+  // validité d'une cotisation étant désormais à cheval sur deux années civiles,
+  // c'est la date d'encaissement qui rattache le produit à un exercice.
   const { data: cotisations } = await supabase
     .from("cotisations_membres")
     .select("*, clients(prenom, nom)")
-    .eq("annee", annee)
     .eq("statut", "payee")
+    .gte("date_paiement", `${annee}-01-01`)
+    .lte("date_paiement", `${annee}-12-31`)
     .order("date_paiement", { ascending: false });
 
   // Boxes actives (pour le taux de remplissage réel)
@@ -424,6 +428,7 @@ export default async function ComptabilitePage({
                 <tr style={{ backgroundColor: "#1B2B5E" }}>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-white">Client</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-white">Date paiement</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-white">Validité</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-white">Mode</th>
                   <th className="px-4 py-3 text-right text-sm font-semibold text-white">Montant</th>
                 </tr>
@@ -438,6 +443,9 @@ export default async function ComptabilitePage({
                     </td>
                     <td className="px-4 py-3 text-sm text-[rgba(27,43,94,0.55)]">
                       {c.date_paiement ? formatDateFR(c.date_paiement) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-[rgba(27,43,94,0.55)] whitespace-nowrap">
+                      {formatPeriodeCotisation(c.date_debut, c.date_fin)}
                     </td>
                     <td className="px-4 py-3 text-sm text-[rgba(27,43,94,0.55)] capitalize">
                       {c.mode_paiement === "cash" ? "💵 Cash" :

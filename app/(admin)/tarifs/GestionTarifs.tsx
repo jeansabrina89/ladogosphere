@@ -201,7 +201,7 @@ export default function GestionTarifs({
       {/* Cotisation membre */}
       <div className="bg-white rounded-xl p-6 shadow-sm">
         <h2 className="text-xl font-bold mb-4" style={{ color: "#1B2B5E" }}>
-          ⭐ Adhésion membre {annee}
+          ⭐ Adhésion membre
         </h2>
         <div className="flex items-center gap-4 flex-wrap">
           <label className="font-semibold text-sm" style={{ color: "#1B2B5E" }}>
@@ -211,7 +211,7 @@ export default function GestionTarifs({
             onChange={e => setCotisation(parseFloat(e.target.value))}
             className="border rounded-xl p-3 w-32 text-lg font-bold text-center"
             style={{ color: "#1B2B5E" }} />
-          <span className="text-sm text-gray-500">CHF / an — valable du 01.01 au 31.12.{annee}</span>
+          <span className="text-sm text-gray-500">CHF / an — valable 12 mois à partir du 1er du mois de paiement</span>
         </div>
       </div>
 

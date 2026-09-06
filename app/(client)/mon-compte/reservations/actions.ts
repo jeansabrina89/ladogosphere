@@ -6,7 +6,22 @@ import { revalidatePath } from "next/cache";
 import { envoyerEmailConfirmationDemande } from "@/src/lib/email";
 import { consommerAbonnementResa } from "@/src/lib/consommationAbonnement";
 import { etatAdhesionReservation } from "@/src/lib/membre";
+import { cotisationEnAttente } from "@/src/lib/cotisation";
+import { calculerPeriodeCotisation, formatPeriodeCotisation } from "@/src/lib/cotisationPeriode";
+import { aujourdhuiISO } from "@/src/lib/dates";
 import { peutReserverPension, MESSAGE_ESSAI_REQUIS, MESSAGE_ADHESION_A_REGLER } from "@/src/lib/adhesionReservation";
+
+/**
+ * Libellé de l'extra « adhésion » sur une réservation. La période posée à la
+ * création est provisoire (recalculée à l'encaissement), on l'affiche quand
+ * elle est connue pour que le client sache ce qu'il paie.
+ */
+function libelleExtraAdhesion(date_debut?: string | null, date_fin?: string | null): string {
+  if (date_debut && date_fin) {
+    return `Adhésion membre ${formatPeriodeCotisation(date_debut, date_fin)}`;
+  }
+  return "Adhésion membre";
+}
 
 // ---------------------------------------------------------------------------
 // Types publics (consommés par le futur tunnel)
@@ -219,45 +234,45 @@ export async function creerDemandeReservation(
   }
 
   // 7bis. Bundling adhésion : 1ère pension d'un client non-membre non-exempté
-  //       (essai terminé). Une seule adhésion par client+année (garantie par
-  //       l'unicité cotisation), attachée à UNE seule réservation.
+  //       (essai terminé). Une seule demande en attente par client (garantie
+  //       par l'index unique partiel), attachée à UNE seule réservation.
+  //       La période posée ici est PROVISOIRE : elle est recalculée (12 mois
+  //       glissants) par le trigger SQL au paiement de la réservation.
   if (bundlerAdhesion) {
-    const anneeAdhesion = new Date(dateRef + "T12:00:00").getFullYear();
     const resaPorteuse = reservationIds[0];
+    const aujourdhui = aujourdhuiISO();
 
-    const { data: paramCotis } = await supabaseAdmin
-      .from("parametres")
-      .select("valeur")
-      .eq("cle", "cotisation_montant")
-      .maybeSingle();
-    const montantAdhesion = parseFloat(paramCotis?.valeur ?? "200") || 200;
+    const dejaEnAttente = await cotisationEnAttente(supabaseAdmin, fiche.id);
 
-    // Cotisation en_attente liée à la réservation. onConflict (client_id, annee)
-    // ignoré si une adhésion existe déjà : jamais de doublon.
-    const { error: errCotis } = await supabaseAdmin
-      .from("cotisations_membres")
-      .upsert({
-        client_id: fiche.id,
-        annee: anneeAdhesion,
-        montant: montantAdhesion,
-        mode_paiement: "prochaine_resa", // affiché « Payé sur réservation »
-        statut: "en_attente",
-        reservation_id: resaPorteuse,
-      }, { onConflict: "client_id,annee", ignoreDuplicates: true });
-
-    // La ligne « Adhésion » n'est ajoutée au total QUE si la cotisation vient
-    // d'être posée par CETTE requête (aucune adhésion préexistante pour l'année).
-    if (!errCotis) {
-      const { data: cotisLiee } = await supabaseAdmin
-        .from("cotisations_membres")
-        .select("reservation_id")
-        .eq("client_id", fiche.id)
-        .eq("annee", anneeAdhesion)
+    if (!dejaEnAttente) {
+      const { data: paramCotis } = await supabaseAdmin
+        .from("parametres")
+        .select("valeur")
+        .eq("cle", "cotisation_montant")
         .maybeSingle();
-      if (cotisLiee?.reservation_id === resaPorteuse) {
+      const montantAdhesion = parseFloat(paramCotis?.valeur ?? "200") || 200;
+      const periode = calculerPeriodeCotisation(aujourdhui);
+
+      const { data: cotisCreee } = await supabaseAdmin
+        .from("cotisations_membres")
+        .insert({
+          client_id: fiche.id,
+          montant: montantAdhesion,
+          mode_paiement: "prochaine_resa", // affiché « Payé sur réservation »
+          statut: "en_attente",
+          reservation_id: resaPorteuse,
+          date_debut: periode.date_debut,
+          date_fin: periode.date_fin,
+        })
+        .select("id, date_debut, date_fin")
+        .maybeSingle();
+
+      // La ligne « Adhésion » n'est ajoutée au total QUE si la cotisation vient
+      // d'être posée par CETTE requête (aucune adhésion préexistante).
+      if (cotisCreee?.id) {
         await supabaseAdmin.from("reservation_extras").insert({
           reservation_id: resaPorteuse,
-          libelle: `Adhésion membre ${anneeAdhesion}`,
+          libelle: libelleExtraAdhesion(cotisCreee.date_debut, cotisCreee.date_fin),
           montant: montantAdhesion,
         });
         // Membre à jour immédiatement.

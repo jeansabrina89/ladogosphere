@@ -78,7 +78,6 @@ export default async function ReservationPage({
   const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens).filter(Boolean) ?? [];
   const chien_isole = chiens.some((c: any) => c.doit_etre_isole);
   const est_membre = res.clients?.id ? await estMembreActif(supabaseAdmin, res.clients.id, res.date_debut) : false;
-  const anneeActuelle = new Date().getFullYear();
   const client_id = res.clients?.id;
 
   const authUserIdClient = (res.clients as any)?.auth_user_id;
@@ -99,7 +98,6 @@ export default async function ReservationPage({
     .select("*")
     .eq("client_id", client_id)
     .eq("statut", "en_attente")
-    .eq("annee", anneeActuelle)
     .maybeSingle();
 
   // Solde d'avoir du client + avoir appliqué sur cette réservation
@@ -156,7 +154,7 @@ export default async function ReservationPage({
         {cotisation && (
           <div className="bg-yellow-50 border border-yellow-200 px-4 py-3 rounded-xl mb-6">
             <p className="text-yellow-800 font-semibold text-sm">
-              ⭐ Ce client a une adhésion membre {anneeActuelle} en attente de paiement (CHF {Number(cotisation.montant).toFixed(2)}) — elle peut être incluse dans cette facture.
+              ⭐ Ce client a une adhésion membre en attente de paiement (CHF {Number(cotisation.montant).toFixed(2)}) — elle peut être incluse dans cette facture.
             </p>
           </div>
         )}

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
-import { formatDateFR } from "@/src/lib/dates";
+import { formatDateFR, aujourdhuiISO } from "@/src/lib/dates";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getMouvementsAvoir, calculerSoldeAvoir } from "@/src/lib/avoirs";
 import { getAbonnementsClient } from "@/src/lib/abonnementSolde";
@@ -14,7 +14,8 @@ import GestionAbonnement from "./GestionAbonnement";
 import GestionAvoir from "./GestionAvoir";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { estMembreActif } from "@/src/lib/membre";
-import { etatAdhesion } from "@/src/lib/cotisation";
+import { etatAdhesion, cotisationActive, cotisationEnAttente } from "@/src/lib/cotisation";
+import { formatPeriodeCotisation, cotisationEstActive } from "@/src/lib/cotisationPeriode";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import ContactEmail from "@/app/components/ContactEmail";
 import ContactTelephone from "@/app/components/ContactTelephone";
@@ -47,13 +48,13 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const anneeActuelle = new Date().getFullYear();
+  const aujourdhui = aujourdhuiISO();
 
   const { data: cotisations } = await supabase
     .from("cotisations_membres")
     .select("*")
     .eq("client_id", id)
-    .order("annee", { ascending: false });
+    .order("date_debut", { ascending: false });
 
   const { data: parametre } = await supabase
     .from("parametres")
@@ -62,8 +63,12 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
     .single();
 
   const montantCotisation = parseFloat(parametre?.valeur ?? "200");
-  const cotisationAnneeActuelle = cotisations?.find((c) => c.annee === anneeActuelle);
-  const etatCotisation = etatAdhesion(cotisationAnneeActuelle);
+  // Cotisation qui fait foi aujourd'hui : la payée en cours, sinon la demande
+  // en attente (la validité est portée par [date_debut, date_fin], plus par l'année).
+  const cotisationEnCours = await cotisationActive(supabaseAdmin, client.id, aujourdhui);
+  const demandeEnAttente = await cotisationEnAttente(supabaseAdmin, client.id);
+  const etatCotisation = etatAdhesion(cotisationEnCours ?? demandeEnAttente);
+  const finCotisationEnCours = cotisationEnCours?.date_fin ?? null;
   const membre_a_jour = client.id ? await estMembreActif(supabaseAdmin, client.id) : false;
 
   const mouvementsAvoir = await getMouvementsAvoir(supabaseAdmin, id);
@@ -144,9 +149,9 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         <section style={{ marginBottom: 28 }}>
           <h2 style={h2}>⭐ Adhésion membre</h2>
           <Carte>
-            {client.membre && !cotisationAnneeActuelle && (
+            {client.membre && !cotisationEnCours && !demandeEnAttente && (
               <div style={{ backgroundColor: "#F4EAC9", color: "#6E5410", borderRadius: 12, padding: "10px 14px", fontWeight: 600, fontSize: 14, marginBottom: 12 }}>
-                ⚠️ Aucune adhésion enregistrée pour {anneeActuelle} — renouvellement requis.
+                ⚠️ Aucune cotisation en cours de validité — renouvellement requis.
               </div>
             )}
 
@@ -158,7 +163,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                 cotisation_payee={etatCotisation === "payee"}
                 cotisation_en_attente={etatCotisation === "en_attente"}
                 montant={montantCotisation}
-                annee={anneeActuelle}
+                fin_precedente={finCotisationEnCours}
                 est_exempte={client.cotisation_exemptee}
                 raison_exemption={client.cotisation_exemptee_raison}
               />
@@ -167,10 +172,15 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
             {cotisations && cotisations.length > 0 && (
               <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
                 <p style={{ ...muted, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 12 }}>Historique</p>
-                {cotisations.map((c: any) => (
-                  <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, border: "1px solid rgba(27,43,94,0.12)", borderRadius: 12, padding: "10px 14px" }}>
+                {cotisations.map((c: any) => {
+                  const active = c.statut === "payee" && cotisationEstActive(c, aujourdhui);
+                  return (
+                  <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, border: active ? "1px solid #4AAEA0" : "1px solid rgba(27,43,94,0.12)", backgroundColor: active ? "#E8F5F4" : undefined, borderRadius: 12, padding: "10px 14px" }}>
                     <div>
-                      <p style={{ color: "#1B2B5E", fontWeight: 600, fontSize: 14, margin: 0 }}>Adhésion {c.annee}</p>
+                      <p style={{ color: "#1B2B5E", fontWeight: 600, fontSize: 14, margin: 0 }}>
+                        Adhésion {formatPeriodeCotisation(c.date_debut, c.date_fin)}
+                        {active && <span style={{ ...pill("#4AAEA0", "white"), marginLeft: 8, fontSize: 11 }}>en cours</span>}
+                      </p>
                       <p style={{ ...muted, fontSize: 12, marginTop: 2 }}>
                         {c.mode_paiement === "cash" ? "💵 Cash" :
                          c.mode_paiement === "virement" ? "🏦 Virement IBAN" :
@@ -181,10 +191,16 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                     <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                       <p style={{ color: "#1B2B5E", fontWeight: 700, fontSize: 14, margin: 0 }}>CHF {Number(c.montant).toFixed(2)}</p>
                       <BadgeStatut statut={c.statut} />
-                      <BoutonConfirmerCotisation cotisation_id={c.id} statut={c.statut} perm_encaissements={perms.perm_encaissements} />
+                      <BoutonConfirmerCotisation
+                        cotisation_id={c.id}
+                        statut={c.statut}
+                        perm_encaissements={perms.perm_encaissements}
+                        fin_precedente={finCotisationEnCours}
+                      />
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </Carte>

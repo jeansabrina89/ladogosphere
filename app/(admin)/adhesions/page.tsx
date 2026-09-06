@@ -8,6 +8,8 @@ import Carte from "@/app/components/ui/Carte";
 import EtatVide from "@/app/components/ui/EtatVide";
 import BoutonConfirmerCotisation from "../clients/[id]/BoutonConfirmerCotisation";
 import ContactEmail from "@/app/components/ContactEmail";
+import { formatPeriodeCotisation } from "@/src/lib/cotisationPeriode";
+import { aujourdhuiISO } from "@/src/lib/dates";
 
 const MODE_LABEL: Record<string, string> = {
   virement: "🏦 Virement bancaire",
@@ -22,11 +24,35 @@ export default async function AdhesionsPage() {
 
   const { data: demandes } = await supabaseAdmin
     .from("cotisations_membres")
-    .select("id, annee, montant, mode_paiement, created_at, statut, clients (id, prenom, nom, email)")
+    .select("id, annee, montant, mode_paiement, created_at, statut, date_debut, date_fin, clients (id, prenom, nom, email)")
     .eq("statut", "en_attente")
     .order("created_at", { ascending: true });
 
   const liste = demandes ?? [];
+
+  // Cotisation PAYÉE encore en cours de ces clients : l'encaissement d'un
+  // renouvellement anticipé enchaîne sur elle (aperçu de période correct).
+  const aujourdhui = aujourdhuiISO();
+  const clientIds = [
+    ...new Set(
+      liste
+        .map((d) => (d as { clients?: { id?: string } }).clients?.id)
+        .filter((v): v is string => !!v)
+    ),
+  ];
+  const { data: enCours } = clientIds.length
+    ? await supabaseAdmin
+        .from("cotisations_membres")
+        .select("client_id, date_fin")
+        .in("client_id", clientIds)
+        .eq("statut", "payee")
+        .gte("date_fin", aujourdhui)
+    : { data: [] };
+  const finParClient = new Map<string, string>();
+  for (const c of (enCours ?? []) as { client_id: string; date_fin: string }[]) {
+    const actuel = finParClient.get(c.client_id);
+    if (!actuel || c.date_fin > actuel) finParClient.set(c.client_id, c.date_fin);
+  }
 
   return (
     <main className="min-h-screen p-6 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -50,13 +76,13 @@ export default async function AdhesionsPage() {
                       </Link>
                       <p style={{ fontSize: 13, color: "#8A8275", margin: "2px 0 0" }}><ContactEmail email={c?.email} /></p>
                       <p style={{ fontSize: 13, color: "#1B2B5E", margin: "6px 0 0" }}>
-                        Cotisation {d.annee} — <strong>{Number(d.montant)} CHF</strong>
+                        Cotisation {formatPeriodeCotisation(d.date_debut, d.date_fin)} — <strong>{Number(d.montant)} CHF</strong>
                       </p>
                       <p style={{ fontSize: 12, color: "#8A8275", margin: "2px 0 0" }}>
                         {MODE_LABEL[d.mode_paiement] ?? d.mode_paiement} · demandée le {new Date(d.created_at).toLocaleDateString("fr-CH")}
                       </p>
                     </div>
-                    <BoutonConfirmerCotisation cotisation_id={d.id} statut={d.statut} perm_encaissements={perms.perm_encaissements} />
+                    <BoutonConfirmerCotisation cotisation_id={d.id} statut={d.statut} perm_encaissements={perms.perm_encaissements} fin_precedente={finParClient.get(c?.id) ?? null} />
                   </div>
                 </Carte>
               );
