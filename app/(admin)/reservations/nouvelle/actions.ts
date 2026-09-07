@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "@/src/lib/membre";
 import { verifierChiensPourReservation, marquerChiensEssaiProgramme } from "@/src/lib/essaiReservation";
+import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
 
 export async function creerReservation(formData: FormData) {
   const verif = await verifierPermission("perm_reservations_creer");
@@ -103,6 +104,9 @@ export async function creerReservation(formData: FormData) {
         }))
       );
     if (errorOccupations) throw new Error(errorOccupations.message);
+
+    // Lignes de check-in — couche métier commune à tous les chemins.
+    await assurerLignesCheckin(reservation.id);
 
     // Essai créé directement validé : les chiens passent à 'programme'.
     if (statut === "validee") {

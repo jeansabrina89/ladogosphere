@@ -13,6 +13,7 @@ import { creerOuMajFactureBrouillon, annulerFactureResa } from "@/src/lib/factur
 import { recrediterAbonnementResa } from "@/src/lib/consommationAbonnement";
 import { marquerChiensEssaiProgramme } from "@/src/lib/essaiReservation";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
+import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
 
 export async function POST(
   req: NextRequest,
@@ -34,6 +35,13 @@ export async function POST(
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Lignes de check-in : une réservation validée doit être pointable, quel que
+  // soit le chemin par lequel elle a été créée. Idempotent.
+  if (statut === "validee") {
+    const r = await assurerLignesCheckin(id);
+    if (r.erreur) console.error("Lignes de check-in :", r.erreur);
+  }
 
   // Validation d'une journée d'essai : les chiens concernés passent à 'programme'
   // (le résultat sera saisi à leur départ).

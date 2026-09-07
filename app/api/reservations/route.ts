@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { verifierChiensPourReservation, marquerChiensEssaiProgramme, etatJourneeEssai } from "@/src/lib/essaiReservation";
 import { heureCourte, MESSAGE_DATE_ESSAI_PRISE } from "@/src/lib/journeeEssai";
+import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -119,19 +120,8 @@ export async function POST(req: NextRequest) {
       }))
     );
 
-    // Créer les entrées checkin_checkout
-    const heureArriveeStr = essai_force_heure ?? heure_arrivee ?? "09:00";
-    const heureDepartStr = heure_depart || "17:00";
-
-    await supabaseAdmin.from("checkin_checkout").insert(
-      chien_ids.map(chien_id => ({
-        reservation_id: reservation.id,
-        chien_id,
-        date_arrivee_prevue: `${date_debut}T${heureArriveeStr}:00`,
-        date_depart_prevu: `${date_fin}T${heureDepartStr}:00`,
-        statut: "attendu",
-      }))
-    );
+    // Lignes de check-in — couche métier commune à tous les chemins.
+    await assurerLignesCheckin(reservation.id);
 
     // Essai créé directement validé : les chiens passent à 'programme'.
     if (statut === "validee") {

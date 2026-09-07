@@ -5,6 +5,7 @@ import {
   MESSAGE_AUCUN_BOX,
 } from "@/src/lib/personnel";
 import { suggererBox, boxesInternesLibres, fichesInternesQuiTravaillent } from "@/src/lib/suggestionBox";
+import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
 
 export type OccurrencePersonnel = { date_debut: string; date_fin: string };
 
@@ -111,15 +112,7 @@ export async function creerReservationsPersonnel({
       }))
     );
 
-    await supabaseAdmin.from("checkin_checkout").insert(
-      chien_ids.map((chien_id) => ({
-        reservation_id: resa.id,
-        chien_id,
-        date_arrivee_prevue: `${occ.date_debut}T${(heure_arrivee || "09:00").slice(0, 5)}:00`,
-        date_depart_prevu: `${occ.date_fin}T${(heure_depart || "17:00").slice(0, 5)}:00`,
-        statut: "attendu",
-      }))
-    );
+    await assurerLignesCheckin(resa.id);
   }
 
   return { ok: true, ids: idsCrees };

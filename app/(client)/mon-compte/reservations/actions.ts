@@ -17,6 +17,7 @@ import { creerReservationsPersonnel, annulerReservationPersonnel } from "@/src/l
 import { calculerPeriodeCotisation, formatPeriodeCotisation } from "@/src/lib/cotisationPeriode";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { peutReserverPension, MESSAGE_ESSAI_REQUIS, MESSAGE_ADHESION_A_REGLER } from "@/src/lib/adhesionReservation";
+import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
 
 /**
  * Libellé de l'extra « adhésion » sur une réservation. La période posée à la
@@ -260,7 +261,14 @@ export async function creerDemandeReservation(
     };
   }
 
-  // 7bis. Bundling adhésion : 1ère pension d'un client non-membre non-exempté
+  // 7bis. Lignes de check-in, une par chien et par réservation. Sans elles, la
+  //       demande n’apparaît ni en Check-in ni dans Chiens du jour, donc jamais
+  //       d’arrivée, de départ ni de facture.
+  for (const reservation_id of reservationIds) {
+    await assurerLignesCheckin(reservation_id);
+  }
+
+  // 7ter. Bundling adhésion : 1ère pension d'un client non-membre non-exempté
   //       (essai terminé). Une seule demande en attente par client (garantie
   //       par l'index unique partiel), attachée à UNE seule réservation.
   //       La période posée ici est PROVISOIRE : elle est recalculée (12 mois
