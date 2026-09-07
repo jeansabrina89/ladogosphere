@@ -1,9 +1,9 @@
-import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import GestionBoxes from "./GestionBoxes";
 
 export default async function BoxesPage() {
-  await exigerPersonnelPage();
+  await exigerAccesAdmin();
 
   const { data: boxes } = await supabaseAdmin
     .from("boxes")

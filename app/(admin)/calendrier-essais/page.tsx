@@ -1,11 +1,11 @@
-import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { formatDateFR } from "@/src/lib/dates";
 import { bloquerPeriodeEssai, debloquerPeriodeEssai } from "./actions";
 
 export default async function CalendrierEssaisPage() {
-  await exigerPersonnelPage();
+  await exigerAccesAdmin();
   const perms = await getProfilePerms();
 
   if (!perms.perm_journee_essai) {

@@ -1,9 +1,8 @@
-import { createClient } from "@/src/utils/supabase/server";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getJoursFeries } from "@/src/lib/joursFeries";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { couleurEmploye } from "@/src/lib/couleursEmployes";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import BoutonImprimer from "./BoutonImprimer";
 import EnTete from "@/app/components/ui/EnTete";
@@ -40,13 +39,7 @@ export default async function PlanningEquipePage({
 }: {
   searchParams: Promise<{ mois?: string; annee?: string }>;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (!["admin", "employe"].includes(profile?.role ?? "")) redirect("/");
+  await exigerAccesAdmin();
 
   const params = await searchParams;
   const maintenant = new Date();

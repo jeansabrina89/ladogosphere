@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import BoutonArchiver from "./BoutonArchiver";
@@ -20,7 +20,7 @@ export default async function ChienPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await exigerPersonnelPage();
+  await exigerAccesAdmin();
   const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
   const { id } = await params;

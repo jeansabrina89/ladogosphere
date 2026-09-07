@@ -1,6 +1,4 @@
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
-import { redirect } from "next/navigation";
-import { createClient } from "@/src/utils/supabase/server";
+import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { formatDateFR } from "@/src/lib/dates";
 import { construireRapport } from "@/src/lib/rapportsCompta";
@@ -17,12 +15,7 @@ export default async function RapportsPage({
 }: {
   searchParams: Promise<{ annee?: string }>;
 }) {
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
-  if (!user) redirect("/login");
-  const supabase = await createClient();
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") redirect("/");
+  await exigerAdminPage();
 
   const params = await searchParams;
   const anneesDisponibles = await anneesExercices();

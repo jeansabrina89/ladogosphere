@@ -1,4 +1,4 @@
-import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { clientsMembresAJour } from "@/src/lib/membre";
 import { creerChien } from "./actions";
@@ -7,7 +7,7 @@ import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 
 export default async function NouveauChienPage() {
-  await exigerPersonnelPage();
+  await exigerAccesAdmin();
   const supabase = supabaseAdmin;
   const { data: clients } = await supabase
     .from("clients")

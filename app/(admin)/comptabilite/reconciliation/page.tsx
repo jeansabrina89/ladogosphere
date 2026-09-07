@@ -1,6 +1,4 @@
-import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
-import { createClient } from "@/src/utils/supabase/server";
+import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { formatDateFR } from "@/src/lib/dates";
 import EnTete from "@/app/components/ui/EnTete";
@@ -10,12 +8,7 @@ import EtatVide from "@/app/components/ui/EtatVide";
 import { resynchroniserCompta } from "./actions";
 
 export default async function ReconciliationPage() {
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
-  if (!user) redirect("/login");
-  const supabase = await createClient();
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") redirect("/");
+  await exigerAdminPage();
 
   const { data: reservations } = await supabaseAdmin
     .from("reservations")

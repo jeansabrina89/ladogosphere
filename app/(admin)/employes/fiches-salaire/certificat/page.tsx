@@ -1,5 +1,4 @@
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
-import { redirect } from "next/navigation";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { createClient } from "@/src/utils/supabase/server";
 import CertificatEditeur from "./CertificatEditeur";
 import Link from "next/link";
@@ -12,20 +11,14 @@ export default async function CertificatSalaireAnnuelPage({
 }) {
   const supabase = await createClient();
   const params = await searchParams;
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles").select("role, email").eq("id", user.id).single();
-  if (!["admin", "employe"].includes(profile?.role)) redirect("/");
+  const acces = await exigerAccesAdmin();
 
   const annee = parseInt(params.annee || new Date().getFullYear().toString());
 
   let employe_id = params.employe_id;
-  if (profile?.role === "employe") {
+  if (!acces.isAdmin) {
     const { data: emp } = await supabase
-      .from("employes_rh").select("id").eq("email", profile.email ?? "").single();
+      .from("employes_rh").select("id").eq("email", acces.email ?? "").single();
     employe_id = emp?.id;
   }
 
@@ -96,7 +89,7 @@ export default async function CertificatSalaireAnnuelPage({
       lpp_ordinaire={lpp_ordinaire}
       ijm={ijm}
       remarquesInitiales={remarquesInitiales}
-      isAdmin={profile?.role === "admin"}
+      isAdmin={acces.isAdmin}
     />
   );
 }

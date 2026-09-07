@@ -1,6 +1,5 @@
-import { createClient } from "@/src/utils/supabase/server";
+import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { redirect } from "next/navigation";
 import GenerateurPlanning from "./GenerateurPlanning";
 
 export default async function PlanningAdminPage({
@@ -8,13 +7,7 @@ export default async function PlanningAdminPage({
 }: {
   searchParams: Promise<{ mois?: string; annee?: string }>;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") redirect("/");
+  await exigerAdminPage();
 
   const params = await searchParams;
   const aujourd_hui = new Date();

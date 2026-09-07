@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { formatDateFR } from "@/src/lib/dates";
 import EnTete from "@/app/components/ui/EnTete";
@@ -28,12 +27,7 @@ export default async function FacturesListePage({
 }: {
   searchParams: Promise<{ vues?: string; q?: string; du?: string; au?: string }>;
 }) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-  const { data: profile } = await supabase
-    .from("profiles").select("role, perm_encaissements").eq("id", user.id).single();
-  if (profile?.role !== "admin" && !profile?.perm_encaissements) redirect("/");
+  await exigerAccesAdmin("perm_encaissements");
 
   const params = await searchParams;
   const selection = new Set((params.vues || "").split(",").filter(Boolean));

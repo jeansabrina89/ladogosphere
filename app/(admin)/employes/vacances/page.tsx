@@ -1,5 +1,4 @@
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
-import { redirect } from "next/navigation";
+import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { createClient } from "@/src/utils/supabase/server";
 import BoutonGestionVacances from "./BoutonGestionVacances";
 import BoutonSupprimerVacances from "./BoutonSupprimerVacances";
@@ -13,13 +12,7 @@ import BadgeStatut from "@/app/components/ui/BadgeStatut";
 
 export default async function GestionVacancesPage() {
   const supabase = await createClient();
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") redirect("/");
+  await exigerAdminPage();
 
   const { data: demandes } = await supabase
     .from("demandes_vacances")

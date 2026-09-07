@@ -1,5 +1,4 @@
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
-import { redirect } from "next/navigation";
+import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { createClient } from "@/src/utils/supabase/server";
 import GestionModeles from "./GestionModeles";
 import BoutonSupprimerFiche from "./BoutonSupprimerFiche";
@@ -18,13 +17,7 @@ const titreSection = {
 
 export default async function FichesSalairePage() {
   const supabase = await createClient();
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") redirect("/");
+  await exigerAdminPage();
 
   const { data: modeles } = await supabase
     .from("modeles_deductions")

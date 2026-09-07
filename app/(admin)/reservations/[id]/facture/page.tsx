@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { creerOuMajFactureBrouillon } from "@/src/lib/factureResa";
 
@@ -23,7 +23,7 @@ export default async function FactureReservationPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await exigerPersonnelPage();
+  await exigerAccesAdmin();
   const { id } = await params;
 
   let factureId = await idFactureActive(id);

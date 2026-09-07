@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
@@ -10,17 +9,7 @@ import RelancesClient from "./RelancesClient";
 export const dynamic = "force-dynamic";
 
 export default async function RelancesPage() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, perm_encaissements")
-    .eq("id", user.id)
-    .single();
-  if (profile?.role !== "admin" && !profile?.perm_encaissements) redirect("/");
+  await exigerAccesAdmin("perm_encaissements");
 
   const { data: resasRaw } = await supabaseAdmin
     .from("reservations")

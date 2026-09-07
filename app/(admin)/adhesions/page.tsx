@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import Link from "next/link";
@@ -18,9 +17,8 @@ const MODE_LABEL: Record<string, string> = {
 };
 
 export default async function AdhesionsPage() {
-  await exigerPersonnelPage();
+  await exigerAccesAdmin("perm_encaissements");
   const perms = await getProfilePerms();
-  if (!perms.perm_encaissements) redirect("/");
 
   const { data: demandes } = await supabaseAdmin
     .from("cotisations_membres")

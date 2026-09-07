@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { formatDateFR } from "@/src/lib/dates";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
@@ -28,14 +27,8 @@ export default async function FacturePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles").select("role, perm_encaissements").eq("id", user.id).single();
-  if (profile?.role !== "admin" && !profile?.perm_encaissements) redirect("/");
-  const peutEncaisser = profile?.role === "admin" || !!profile?.perm_encaissements;
+  const acces = await exigerAccesAdmin("perm_encaissements");
+  const peutEncaisser = acces.isAdmin || acces.permissions.perm_encaissements;
 
   const { id } = await params;
 

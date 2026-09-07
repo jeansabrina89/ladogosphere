@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { formatDateFR } from "@/src/lib/dates";
@@ -12,9 +11,8 @@ import ContactEmail from "@/app/components/ContactEmail";
 import BoutonConfirmerAbonnement from "../clients/[id]/BoutonConfirmerAbonnement";
 
 export default async function AbonnementsAdminPage() {
-  await exigerPersonnelPage();
+  await exigerAccesAdmin("perm_encaissements");
   const perms = await getProfilePerms();
-  if (!perms.perm_encaissements) redirect("/");
 
   const { data: demandes } = await supabaseAdmin
     .from("abonnements")

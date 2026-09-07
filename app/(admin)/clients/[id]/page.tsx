@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { formatDateFR, aujourdhuiISO } from "@/src/lib/dates";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getMouvementsAvoir, calculerSoldeAvoir } from "@/src/lib/avoirs";
@@ -29,7 +29,7 @@ import EtatVide from "@/app/components/ui/EtatVide";
 
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  await exigerPersonnelPage();
+  await exigerAccesAdmin();
   const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
 

@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { createClient } from "@/src/utils/supabase/server";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { compterReservationsPersonnelAVoir } from "@/src/lib/reservationsPersonnelAdmin";
@@ -14,17 +13,7 @@ import BadgeStatut from "@/app/components/ui/BadgeStatut";
 import EtatVide from "@/app/components/ui/EtatVide";
 
 export default async function Home() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (!["admin", "employe"].includes(profile?.role ?? "")) redirect("/mon-compte");
+  await exigerAccesAdmin();
 
   const perms = await getProfilePerms();
   const aujourd_hui = aujourdhuiISO();

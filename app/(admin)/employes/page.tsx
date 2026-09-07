@@ -1,5 +1,4 @@
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
-import { redirect } from "next/navigation";
+import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { createClient } from "@/src/utils/supabase/server";
 import type { CSSProperties } from "react";
 import Link from "next/link";
@@ -22,13 +21,7 @@ const lienAction: CSSProperties = {
 
 export default async function EmployesPage() {
   const supabase = await createClient();
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") redirect("/");
+  await exigerAdminPage();
 
   const { data: employesRh } = await supabase
     .from("employes_rh")

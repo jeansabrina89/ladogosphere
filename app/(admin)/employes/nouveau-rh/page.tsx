@@ -1,20 +1,11 @@
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
-import { redirect } from "next/navigation";
-import { createClient } from "@/src/utils/supabase/server";
+import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { creerEmployeRH } from "./actions";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 
 export default async function NouvelEmployeRHPage() {
-  const supabase = await createClient();
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") redirect("/");
+  await exigerAdminPage();
 
   const inputClass = "w-full rounded-xl p-3 border border-[rgba(27,43,94,0.18)]";
 

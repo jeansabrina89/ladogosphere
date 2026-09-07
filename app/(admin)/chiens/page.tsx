@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import EnTete from "@/app/components/ui/EnTete";
@@ -10,7 +10,7 @@ import BadgePhotos from "@/app/components/BadgePhotos";
 import { statutEssaiDe } from "@/src/lib/journeeEssai";
 
 export default async function ChiensPage() {
-  await exigerPersonnelPage();
+  await exigerAccesAdmin();
   const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
 

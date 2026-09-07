@@ -1,7 +1,7 @@
 import NouvelleReservationLoader from "./loader";
-import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 
 export default async function NouvelleReservationPage() {
-  await exigerPersonnelPage();
+  await exigerAccesAdmin();
   return <NouvelleReservationLoader />;
 }

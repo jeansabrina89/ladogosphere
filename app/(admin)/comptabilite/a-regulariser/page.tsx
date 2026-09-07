@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
+import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import type { CSSProperties } from "react";
-import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
@@ -39,17 +38,7 @@ function nomClient(clients: any): string {
 }
 
 export default async function ARegulariserPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (profile?.role !== "admin") redirect("/");
+  await exigerAdminPage();
 
   const { data: resas } = await supabaseAdmin
     .from("reservations")

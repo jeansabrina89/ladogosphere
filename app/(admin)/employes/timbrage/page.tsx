@@ -1,10 +1,8 @@
+import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import EtatVide from "@/app/components/ui/EtatVide";
 import Bouton from "@/app/components/ui/Bouton";
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
-import { redirect } from "next/navigation";
-import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { calculerDecompteHeures } from "@/src/lib/decompteHeures";
 import TimbrageCalendrier from "./TimbrageCalendrier";
@@ -20,14 +18,7 @@ export default async function TimbrageAdminPage({
 }: {
   searchParams: Promise<{ employe?: string; mois?: string }>;
 }) {
-  const supabase = await createClient();
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") redirect("/");
+  await exigerAdminPage();
 
   const { data: employes } = await supabaseAdmin
     .from("employes_rh")

@@ -1,5 +1,4 @@
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
-import { redirect } from "next/navigation";
+import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { createClient } from "@/src/utils/supabase/server";
 import FormFicheSalaire from "./FormFicheSalaire";
 import EnTete from "@/app/components/ui/EnTete";
@@ -11,13 +10,7 @@ export default async function CreerFicheSalairePage({
   searchParams: Promise<{ employe_id?: string }>;
 }) {
   const supabase = await createClient();
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") redirect("/");
+  await exigerAdminPage();
 
   const params = await searchParams;
 

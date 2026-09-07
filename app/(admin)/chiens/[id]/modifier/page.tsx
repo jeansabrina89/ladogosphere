@@ -1,5 +1,5 @@
 import { modifierChien } from "./actions";
-import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
@@ -11,7 +11,7 @@ export default async function ModifierChienPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await exigerPersonnelPage();
+  await exigerAccesAdmin();
   const supabase = supabaseAdmin;
   const { id } = await params;
 

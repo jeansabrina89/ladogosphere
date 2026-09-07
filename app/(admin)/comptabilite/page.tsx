@@ -1,9 +1,8 @@
+import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { createClient } from "@/src/utils/supabase/server";
 import { formatDateFR } from "@/src/lib/dates";
 import ExportCompta from "./ExportCompta";
 import Statistiques from "./Statistiques";
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
-import { redirect } from "next/navigation";
 import FiltresMois from "./FiltresMois";
 import { montantDuReservation } from "@/src/lib/montants";
 import { clientsMembresAJour } from "@/src/lib/membre";
@@ -18,13 +17,7 @@ export default async function ComptabilitePage({
   searchParams: Promise<{ annee?: string; mois?: string }>;
 }) {
   const supabase = await createClient();
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") redirect("/");
+  await exigerAdminPage();
 
   const params = await searchParams;
   // Les années proposées viennent de la table exercices, jamais d'une liste en dur.

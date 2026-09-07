@@ -1,3 +1,4 @@
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { createClient } from "@/src/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { aujourdhuiISO } from "@/src/lib/dates";
@@ -8,14 +9,9 @@ import EnTete from "@/app/components/ui/EnTete";
 
 export default async function IndisponibilitesPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const acces = await exigerAccesAdmin();
 
-  const { data: profile } = await supabase
-    .from("profiles").select("role, email").eq("id", user.id).single();
-  if (!profile || !["admin", "employe"].includes(profile.role)) redirect("/");
-
-  const employe = await getEmployeRhActuel(supabase, user.id, profile?.email);
+  const employe = await getEmployeRhActuel(supabase, acces.userId, acces.email);
   if (!employe) redirect("/employes/mon-espace");
 
   const aujourd_hui = aujourdhuiISO();

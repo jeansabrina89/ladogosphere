@@ -1,4 +1,4 @@
-import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import PlanningNavigation from "./PlanningNavigation";
 import BoutonDeplacerChien from "./BoutonDeplacerChien";
@@ -12,7 +12,7 @@ export default async function PlanningPage({
 }: {
   searchParams: Promise<{ date?: string; vue?: string; masquer?: string }>;
 }) {
-  await exigerPersonnelPage();
+  await exigerAccesAdmin();
   const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
   const params = await searchParams;

@@ -1,4 +1,5 @@
 import { createClient } from "@/src/utils/supabase/server";
+import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { modifierEmploye } from "./actions";
 import BoutonSupprimerEmploye from "./BoutonSupprimerEmploye";
 import EnTete from "@/app/components/ui/EnTete";
@@ -11,6 +12,7 @@ export default async function ModifierEmployePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await exigerAdminPage();
   const supabase = await createClient();
   const { id } = await params;
 

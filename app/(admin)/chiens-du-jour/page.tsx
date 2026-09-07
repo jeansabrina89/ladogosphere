@@ -1,4 +1,4 @@
-import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { aujourdhuiISO, formatDateFR, formatHeure } from "@/src/lib/dates";
@@ -41,7 +41,7 @@ export default async function ChiensDuJourPage({
 }: {
   searchParams: Promise<{ date?: string }>;
 }) {
-  await exigerPersonnelPage();
+  await exigerAccesAdmin();
   const perms = await getProfilePerms();
   const params = await searchParams;
   const aujourd_hui = aujourdhuiISO();

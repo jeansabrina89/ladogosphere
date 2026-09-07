@@ -1,5 +1,5 @@
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { redirect } from "next/navigation";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { createClient } from "@/src/utils/supabase/server";
 import BoutonImprimer from "./BoutonImprimer";
 import Link from "next/link";
@@ -14,13 +14,7 @@ export default async function FicheSalairePage({
 }) {
   const supabase = await createClient();
   const { id } = await params;
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles").select("role, email").eq("id", user.id).single();
-  if (!["admin", "employe"].includes(profile?.role)) redirect("/");
+  const acces = await exigerAccesAdmin();
 
   const { data: fiche } = await supabase
     .from("fiches_salaire")
@@ -31,7 +25,7 @@ export default async function FicheSalairePage({
   if (!fiche) return <div>Fiche introuvable</div>;
 
   // Vérifier que l'employé ne voit que sa propre fiche
-  if (profile?.role === "employe" && fiche.employes_rh?.email !== profile.email) {
+  if (acces.role === "employe" && fiche.employes_rh?.email !== acces.email) {
     redirect("/employes/mon-espace");
   }
 
@@ -56,14 +50,14 @@ export default async function FicheSalairePage({
       {/* Boutons */}
       <div className="no-print p-4 flex gap-3">
         <BoutonImprimer />
-        {profile?.role === "admin" && (
+        {acces.isAdmin && (
           <Link href="/employes/fiches-salaire"
             className="px-4 py-2 rounded-xl font-semibold text-sm"
             style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
             ← Retour
           </Link>
         )}
-        {profile?.role === "employe" && (
+        {!acces.isAdmin && (
           <Link href="/employes/mon-espace/fiches-salaire"
             className="px-4 py-2 rounded-xl font-semibold text-sm"
             style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>

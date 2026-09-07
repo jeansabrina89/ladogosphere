@@ -1,9 +1,9 @@
 import { creerClient } from "./actions";
-import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { LIBELLE_ACCORD_PHOTOS } from "@/src/lib/accordPhotos";
 
 export default async function NouveauClientPage() {
-  await exigerPersonnelPage();
+  await exigerAccesAdmin();
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-3xl mx-auto bg-white rounded-xl p-8 shadow-sm">

@@ -1,4 +1,4 @@
-import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import FiltresReservations from "./FiltresReservations";
 import RechercheReservation from "./RechercheReservation";
@@ -16,7 +16,7 @@ export default async function ReservationsPage({
 }: {
   searchParams: Promise<{ paiement?: string; recherche?: string; periode?: string; personnel?: string }>;
 }) {
-  await exigerPersonnelPage();
+  await exigerAccesAdmin();
   const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
   const params = await searchParams;

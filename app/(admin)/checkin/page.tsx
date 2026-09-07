@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { BoutonCheckin, BoutonCheckout } from "./BoutonsCheckin";
 import { formatBoxLabel } from "@/src/lib/boxes";
@@ -25,7 +25,7 @@ function decalerJour(dateISO: string, delta: number): string {
 }
 
 export default async function CheckinPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
-  await exigerPersonnelPage();
+  await exigerAccesAdmin();
   const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
 
