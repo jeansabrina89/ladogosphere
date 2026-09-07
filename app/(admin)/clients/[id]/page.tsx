@@ -102,10 +102,12 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
     padding: "2px 10px", fontSize: 13, fontWeight: 500, lineHeight: "20px", whiteSpace: "nowrap",
   });
 
+  // L'adresse est saisie sur plusieurs lignes : `pre-line` les garde, sans
+  // rien interpréter — c'est du texte, React l'échappe.
   const ligne = (label: string, valeur: React.ReactNode) => (
     <div style={{ display: "flex", gap: 10, fontSize: 15 }}>
       <span style={{ color: "rgba(27,43,94,0.6)", minWidth: 120, flexShrink: 0 }}>{label}</span>
-      <span style={{ color: "#1B2B5E", fontWeight: 600 }}>{valeur}</span>
+      <span style={{ color: "#1B2B5E", fontWeight: 600, whiteSpace: "pre-line" }}>{valeur}</span>
     </div>
   );
 

@@ -41,10 +41,14 @@ export default async function FicheChienClientPage({
   }
 
   const titreSection: React.CSSProperties = { fontFamily: "Georgia, 'Times New Roman', serif", color: "#1B2B5E", fontSize: 18, fontWeight: 700, margin: "0 0 16px" };
+  // Allergies, traitements, remarques : des textes saisis sur plusieurs lignes.
+  // `pre-line` garde les retours à la ligne sans rien interpréter.
   const ligne = (label: string, valeur: React.ReactNode) => (
     <div style={{ display: "flex", gap: 12, fontSize: 15, lineHeight: 1.6, alignItems: "baseline" }}>
       <span style={{ color: "rgba(27,43,94,0.6)", width: 150, flexShrink: 0 }}>{label}</span>
-      <span style={{ color: "#1B2B5E", fontWeight: 500, minWidth: 0 }}>{valeur ?? "—"}</span>
+      <span style={{ color: "#1B2B5E", fontWeight: 500, minWidth: 0, whiteSpace: "pre-line" }}>
+        {valeur ?? "—"}
+      </span>
     </div>
   );
 

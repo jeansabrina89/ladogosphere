@@ -27,11 +27,38 @@ const marine = "#1B2B5E";
 const sousTexte = "rgba(27,43,94,0.55)";
 const bordure = "1px solid rgba(27,43,94,0.12)";
 
+/**
+ * Ligne d'information : une étiquette à gauche, une valeur courte à droite.
+ * C'est une grille de valeurs — un prix, un taux, un statut — pas un endroit
+ * pour un texte libre, qui se lirait de travers, aligné à droite.
+ */
 function Ligne({ cle, valeur }: { cle: string; valeur: React.ReactNode }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 0", borderTop: bordure }}>
       <span style={{ color: sousTexte, fontSize: 15 }}>{cle}</span>
       <span style={{ color: marine, fontSize: 15, fontWeight: 600, textAlign: "right" }}>{valeur}</span>
+    </div>
+  );
+}
+
+/**
+ * Bloc de texte libre : l'étiquette au-dessus, le texte en dessous, aligné à
+ * gauche comme tout le reste de la page. Les sauts de ligne et les paragraphes
+ * saisis sont conservés (`pre-line`), et le texte reste du texte : React
+ * l'échappe, rien n'est interprété comme du HTML.
+ */
+function BlocTexte({ cle, valeur }: { cle: string; valeur: string }) {
+  return (
+    <div style={{ padding: "10px 0", borderTop: bordure }}>
+      <p style={{ color: sousTexte, fontSize: 15, margin: "0 0 4px" }}>{cle}</p>
+      <p
+        style={{
+          color: marine, fontSize: 15, margin: 0, lineHeight: 1.6,
+          textAlign: "left", whiteSpace: "pre-line", overflowWrap: "anywhere",
+        }}
+      >
+        {valeur}
+      </p>
     </div>
   );
 }
@@ -126,7 +153,7 @@ export default async function ArticlePage({
           />
           <Ligne cle="Code-barres" valeur={article.code_barres ?? "—"} />
           <Ligne cle="Site vitrine" valeur={article.vendable_en_ligne && article.actif ? "Visible" : "Masqué"} />
-          {article.description && <Ligne cle="Description" valeur={article.description} />}
+          {article.description && <BlocTexte cle="Description" valeur={article.description} />}
         </Carte>
 
         <Carte>

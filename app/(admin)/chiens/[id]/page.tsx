@@ -73,10 +73,14 @@ export default async function ChienPage({
     fontFamily: "Georgia, 'Times New Roman', serif",
     color: "#1B2B5E", fontSize: 18, fontWeight: 700, margin: "0 0 16px",
   };
+  // Allergies, traitements, remarques : ce sont des textes saisis sur plusieurs
+  // lignes. `pre-line` garde les retours à la ligne sans rien interpréter.
   const ligne = (label: string, valeur: React.ReactNode) => (
     <div style={{ display: "flex", gap: 12, fontSize: 15, lineHeight: 1.6, alignItems: "baseline" }}>
       <span style={{ color: "rgba(27,43,94,0.6)", width: 150, flexShrink: 0 }}>{label}</span>
-      <span style={{ color: "#1B2B5E", fontWeight: 500, minWidth: 0 }}>{valeur ?? "—"}</span>
+      <span style={{ color: "#1B2B5E", fontWeight: 500, minWidth: 0, whiteSpace: "pre-line" }}>
+        {valeur ?? "—"}
+      </span>
     </div>
   );
 
@@ -192,7 +196,7 @@ export default async function ChienPage({
           {/* Comportement */}
           <Carte>
             <h2 style={titreSection}>🐾 Comportement</h2>
-            <p style={{ color: "#1B2B5E", fontSize: 15, margin: "0 0 12px", lineHeight: 1.6 }}>{chien.comportement || "—"}</p>
+            <p style={{ color: "#1B2B5E", fontSize: 15, margin: "0 0 12px", lineHeight: 1.6, whiteSpace: "pre-line" }}>{chien.comportement || "—"}</p>
             {(chien.protection_ressources || chien.destructeur || chien.craintif) && (
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
                 {chien.protection_ressources && <span style={pill("#FBE2DE", "#A8453A")}>⚠️ Protection de ressources</span>}

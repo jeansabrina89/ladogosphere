@@ -214,7 +214,11 @@ export default async function ReservationPage({
           <p><strong>Heure arrivée :</strong> {formatHeure(res.heure_arrivee) || "—"}</p>
           <p><strong>Heure départ :</strong> {formatHeure(res.heure_depart) || "—"}</p>
           {res.commentaire_admin && (
-            <p><strong>Commentaire :</strong> {res.commentaire_admin}</p>
+            <>
+              <p className="mb-0"><strong>Commentaire :</strong></p>
+              {/* Texte libre : les sauts de ligne saisis sont conservés. */}
+              <p className="whitespace-pre-line">{res.commentaire_admin}</p>
+            </>
           )}
         </div>
 
