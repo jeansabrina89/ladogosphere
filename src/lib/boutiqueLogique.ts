@@ -14,6 +14,7 @@ export const TAUX_NORMAL = 8.1; // tout le reste
 export type CategorieArticle =
   | "alimentation"
   | "friandises"
+  | "mastication"
   | "litiere"
   | "colliers"
   | "laisses"
@@ -45,6 +46,7 @@ export const CATEGORIES_ARTICLE: {
 }[] = [
   { valeur: "alimentation", libelle: "Alimentation", taux: TAUX_REDUIT, perissable: true },
   { valeur: "friandises",   libelle: "Friandises",   taux: TAUX_REDUIT, perissable: true },
+  { valeur: "mastication",  libelle: "Mastication",  taux: TAUX_REDUIT, perissable: true },
   { valeur: "litiere",      libelle: "Litière",      taux: TAUX_REDUIT, perissable: false },
   { valeur: "colliers",     libelle: "Colliers",     taux: TAUX_NORMAL, perissable: false },
   { valeur: "laisses",      libelle: "Laisses",      taux: TAUX_NORMAL, perissable: false },
@@ -66,6 +68,26 @@ export function ordreCategorie(categorie: string | null | undefined): number {
 }
 
 export const MENTION_TAUX = "Taux modifiable, à vérifier pour les produits particuliers.";
+
+/**
+ * Aide affichée sous le choix de catégorie. La limite qui coûte cher est celle
+ * de la mastication : ce qui se MANGE est de l'alimentaire à 2,6 %, ce qui se
+ * mâche sans se manger reste un jouet à 8,1 %. Le taux se corrige article par
+ * article, encore faut-il savoir qu'il y a une décision à prendre.
+ */
+export const AIDE_CATEGORIE: Partial<Record<CategorieArticle, string>> = {
+  mastication:
+    "Ce qui se mange : bois de cerf, oreilles et peaux séchées, bâtonnets, cornes. " +
+    "Un objet à mâcher NON comestible — corde, caoutchouc, plastique — n'est pas de " +
+    "l'alimentation : classez-le dans Jouets, à 8,1 %.",
+  jouets:
+    "Les objets à mâcher non comestibles vont ici, à 8,1 %. Ce qui se mange va dans Mastication.",
+};
+
+export function aideCategorie(categorie: string | null | undefined): string | null {
+  if (!categorie) return null;
+  return AIDE_CATEGORIE[categorie as CategorieArticle] ?? null;
+}
 
 export function libelleCategorieArticle(categorie: string | null | undefined): string {
   if (!categorie) return "—";

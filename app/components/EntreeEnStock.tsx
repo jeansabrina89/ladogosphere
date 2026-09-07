@@ -9,17 +9,27 @@ export type ArticleEntree = {
   reference: string;
   unite: string;
   categorie: string;
+  /** Une fourniture qu'on transforme, par opposition à un article revendu. */
+  composant?: boolean;
 };
+
+/** Ce que la catégorie de dépense rend probable — sans jamais l'imposer. */
+export type Privilegie = "composants" | "vendables";
 
 export type LigneEntree = { quantite: string; peremption: string };
 
 /**
- * « Entrée en stock » d'une dépense de marchandises à revendre.
+ * « Entrée en stock » d'une dépense de matières ou de marchandises.
  *
  * Facultatif : on coche ce qui est arrivé, on donne la quantité, et pour une
  * denrée la date de péremption. Aucune écriture comptable n'en découle —
- * l'achat est déjà passé en charge sur 4200 ; le stock ne compte que des
- * quantités.
+ * l'achat est déjà passé en charge sur 4000 ou 4200 ; le stock ne compte que
+ * des quantités.
+ *
+ * Selon la catégorie de dépense, la liste PRIVILÉGIE les composants ou les
+ * articles revendables : les probables d'abord, les autres à la suite sous un
+ * intertitre. Un filtre, pas une exclusion — une puce NFC achetée sur une
+ * facture de marchandises reste atteignable.
  *
  * Les champs portent les noms attendus par l'action serveur (`article_<id>`,
  * `quantite_<id>`, `peremption_<id>`) : dans un formulaire, ils partent seuls.
@@ -33,10 +43,12 @@ export default function EntreeEnStock({
   articles,
   lignes,
   onChange,
+  privilegie,
 }: {
   articles: ArticleEntree[];
   lignes: Record<string, LigneEntree>;
   onChange: (lignes: Record<string, LigneEntree>) => void;
+  privilegie?: Privilegie;
 }) {
   const [recherche, setRecherche] = useState("");
 
@@ -55,6 +67,15 @@ export default function EntreeEnStock({
       !q ||
       `${a.nom} ${a.reference}`.toLowerCase().includes(q)
   );
+
+  const attendu = (a: ArticleEntree) =>
+    privilegie === "composants" ? a.composant === true
+    : privilegie === "vendables" ? a.composant !== true
+    : true;
+
+  // Une ligne déjà cochée reste où on l'a mise : on ne déplace pas sous la main.
+  const probables = visibles.filter((a) => attendu(a) || lignes[a.id] !== undefined);
+  const autres = visibles.filter((a) => !attendu(a) && lignes[a.id] === undefined);
 
   function basculer(id: string, coche: boolean) {
     const suite = { ...lignes };
@@ -83,10 +104,21 @@ export default function EntreeEnStock({
       />
 
       <div style={{ display: "grid", gap: 10, maxHeight: 420, overflowY: "auto" }}>
-        {visibles.map((a) => {
+        {[...probables, ...autres].map((a, rang) => {
+          // L'intertitre s'intercale devant le premier « autre » : la liste
+          // reste entière, elle est seulement rangée.
+          const separateur = autres.length > 0 && rang === probables.length;
           const ligne = lignes[a.id];
           const coche = ligne !== undefined;
           return (
+            <div key={`bloc-${a.id}`}>
+            {separateur && (
+              <p style={{ color: SOUS, fontSize: 13, margin: "4px 0 10px" }}>
+                {privilegie === "composants"
+                  ? "Autres articles du catalogue — ceux que vous revendez tels quels :"
+                  : "Autres articles du catalogue — les fournitures que vous transformez :"}
+              </p>
+            )}
             <div
               key={a.id}
               style={{
@@ -164,6 +196,7 @@ export default function EntreeEnStock({
                   )}
                 </div>
               )}
+            </div>
             </div>
           );
         })}

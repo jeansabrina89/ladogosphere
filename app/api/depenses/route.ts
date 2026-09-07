@@ -9,7 +9,7 @@ import { entrerStockDepuisDepense, type LigneEntreeStock } from "@/src/lib/bouti
 import {
   COMPTES_DEPENSE,
   MODES_PAIEMENT,
-  COMPTE_MARCHANDISES,
+  ouvreEntreeStock,
   type ModePaiementDepense,
 } from "@/src/lib/depensesLogique";
 
@@ -87,11 +87,12 @@ export async function POST(req: NextRequest) {
   const res = await validerDepense(id, user?.id ?? null);
   if (res.error) return NextResponse.json({ id, error: res.error }, { status: 400 });
 
-  // Entrées en stock d'un achat de marchandises. Aucune écriture comptable de
-  // plus : l'achat vient d'être passé en charge sur 4200. Si une entrée est
-  // refusée, la dépense reste validée — c'est le stock qu'on signale.
+  // Entrées en stock d'un achat de matières ou de marchandises. Aucune écriture
+  // comptable de plus : l'achat vient d'être passé en charge sur 4000 ou 4200.
+  // Si une entrée est refusée, la dépense reste validée — c'est le stock qu'on
+  // signale.
   let stock: { entrees: number; erreurs: string[] } | null = null;
-  if (compte_charge === COMPTE_MARCHANDISES) {
+  if (ouvreEntreeStock(compte_charge)) {
     const lignes = lireEntrees(formData.get("entrees"));
     if (lignes.length > 0) {
       stock = await entrerStockDepuisDepense(id, lignes, user?.id ?? null);

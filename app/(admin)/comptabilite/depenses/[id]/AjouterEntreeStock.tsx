@@ -6,6 +6,7 @@ import AlerteFormulaire from "@/app/components/AlerteFormulaire";
 import EntreeEnStock, {
   type ArticleEntree,
   type LigneEntree,
+  type Privilegie,
 } from "@/app/components/EntreeEnStock";
 import { ETAT_FORMULAIRE_VIDE } from "@/src/lib/etatFormulaire";
 
@@ -16,9 +17,12 @@ import { ETAT_FORMULAIRE_VIDE } from "@/src/lib/etatFormulaire";
 export default function AjouterEntreeStock({
   depenseId,
   articles,
+  privilegie,
 }: {
   depenseId: string;
   articles: ArticleEntree[];
+  /** Ce que la catégorie de la dépense rend probable. */
+  privilegie?: Privilegie;
 }) {
   const [etat, action, enCours] = useActionState<EtatBoutique, FormData>(
     entrerStock.bind(null, depenseId),
@@ -68,7 +72,8 @@ export default function AjouterEntreeStock({
   return (
     <form action={action} style={{ display: "grid", gap: 14 }}>
       <AlerteFormulaire etat={etat} />
-      <EntreeEnStock articles={articles} lignes={lignes} onChange={setLignes} />
+      <EntreeEnStock articles={articles} lignes={lignes} onChange={setLignes}
+        privilegie={privilegie} />
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <button

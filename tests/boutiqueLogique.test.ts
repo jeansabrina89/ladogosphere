@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   CATEGORIES_ARTICLE,
+  aideCategorie,
   TAUX_REDUIT,
   TAUX_NORMAL,
   tauxPropose,
@@ -48,8 +49,8 @@ describe("taux de TVA proposé par la catégorie", () => {
     expect(tauxPropose(null)).toBe(8.1);
   });
 
-  it("les quatorze catégories du modèle sont là, en français accentué", () => {
-    expect(CATEGORIES_ARTICLE).toHaveLength(14);
+  it("les quinze catégories du modèle sont là, en français accentué", () => {
+    expect(CATEGORIES_ARTICLE).toHaveLength(15);
     expect(libelleCategorieArticle("litiere")).toBe("Litière");
     expect(libelleCategorieArticle("colliers")).toBe("Colliers");
     expect(libelleCategorieArticle("laisses")).toBe("Laisses");
@@ -64,7 +65,7 @@ describe("taux de TVA proposé par la catégorie", () => {
 
   it("suit l'ordre du magasin, pas l'alphabet", () => {
     expect(CATEGORIES_ARTICLE.map((c) => c.valeur)).toEqual([
-      "alimentation", "friandises", "litiere",
+      "alimentation", "friandises", "mastication", "litiere",
       "colliers", "laisses", "harnais", "muselieres", "longes",
       "jouets", "peluches", "couchages", "soins", "medaillons_accessoires", "divers",
     ]);
@@ -302,5 +303,36 @@ describe("photo de la vitrine", () => {
     expect(urlPhotoArticle("https://ailleurs/photo.jpg")).toBe("https://ailleurs/photo.jpg");
     expect(urlPhotoArticle(null)).toBeNull();
     expect(urlPhotoArticle("  ")).toBeNull();
+  });
+});
+
+describe("mastication : la limite du comestible", () => {
+  it("est de l'alimentaire, donc au taux réduit", () => {
+    expect(tauxPropose("mastication")).toBe(2.6);
+    expect(libelleCategorieArticle("mastication")).toBe("Mastication");
+  });
+
+  it("se range juste après les friandises, dans l'ordre du magasin", () => {
+    expect(ordreCategorie("mastication")).toBe(ordreCategorie("friandises") + 1);
+    expect(ordreCategorie("mastication")).toBeLessThan(ordreCategorie("litiere"));
+  });
+
+  it("laisse les objets à mâcher non comestibles aux jouets, à 8,1 %", () => {
+    // Une corde ou un caoutchouc se mâche sans se manger : ce n'est pas
+    // de l'alimentation, et le taux le dit.
+    expect(tauxPropose("jouets")).toBe(8.1);
+  });
+
+  it("écrit cette limite sous le choix, des deux côtés", () => {
+    const mastication = aideCategorie("mastication") ?? "";
+    expect(mastication).toContain("bois de cerf");
+    expect(mastication).toContain("NON comestible");
+    expect(mastication).toContain("Jouets");
+    expect(aideCategorie("jouets") ?? "").toContain("Mastication");
+    expect(aideCategorie("divers")).toBeNull();
+  });
+
+  it("propose la date de péremption : une oreille séchée se périme", () => {
+    expect(estPerissable("mastication")).toBe(true);
   });
 });

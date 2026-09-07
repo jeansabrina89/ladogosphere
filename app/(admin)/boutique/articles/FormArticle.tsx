@@ -7,6 +7,7 @@ import AlerteFormulaire, { marqueChamp } from "@/app/components/AlerteFormulaire
 import { ETAT_FORMULAIRE_VIDE, caseCochee, valeurChamp } from "@/src/lib/etatFormulaire";
 import {
   CATEGORIES_ARTICLE,
+  aideCategorie,
   MENTION_TAUX,
   tauxPropose,
   margeArticle,
@@ -136,6 +137,7 @@ export default function FormArticle({
             <option key={c.valeur} value={c.valeur}>{c.libelle}</option>
           ))}
         </select>
+        {aideCategorie(categorie) && <p style={aide}>{aideCategorie(categorie)}</p>}
       </div>
 
       <div>

@@ -3,7 +3,12 @@ import Link from "next/link";
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { formatDateFR, aujourdhuiISO } from "@/src/lib/dates";
-import { libelleCategorie, libelleMode, COMPTE_MARCHANDISES } from "@/src/lib/depensesLogique";
+import {
+  libelleCategorie,
+  libelleMode,
+  ouvreEntreeStock,
+  COMPTE_MATIERES,
+} from "@/src/lib/depensesLogique";
 import { mouvementsDeDepense, listerArticles } from "@/src/lib/boutique";
 import { libelleMouvement, formatQuantite } from "@/src/lib/boutiqueLogique";
 import { listerPieces } from "@/src/lib/pieces";
@@ -70,17 +75,19 @@ export default async function DepensePage({
     .in("piece_type", ["depense", "depense_paiement", "depense_annulation"])
     .order("created_at", { ascending: true });
 
-  // Marchandises à revendre : le stock que cet achat a produit.
-  const estMarchandises = depense.compte_charge === COMPTE_MARCHANDISES;
-  const mouvements = estMarchandises ? await mouvementsDeDepense(id) : [];
-  const catalogue = estMarchandises ? await listerArticles() : [];
+  // Matières ou marchandises : le stock que cet achat a produit.
+  const avecStock = ouvreEntreeStock(depense.compte_charge);
+  const estMatieres = depense.compte_charge === COMPTE_MATIERES;
+  const mouvements = avecStock ? await mouvementsDeDepense(id) : [];
+  const catalogue = avecStock ? await listerArticles() : [];
   const nomArticle = new Map(catalogue.map((a) => [a.id, { nom: a.nom, unite: a.unite }]));
   const articlesEntree =
-    estMarchandises && acces.permissions.perm_boutique && depense.statut !== "annulee"
+    avecStock && acces.permissions.perm_boutique && depense.statut !== "annulee"
       ? catalogue
           .filter((a) => a.actif)
           .map((a) => ({
-            id: a.id, nom: a.nom, reference: a.reference, unite: a.unite, categorie: a.categorie,
+            id: a.id, nom: a.nom, reference: a.reference, unite: a.unite,
+            categorie: a.categorie, composant: a.composant,
           }))
       : [];
 
@@ -152,12 +159,12 @@ export default async function DepensePage({
           )}
         </Carte>
 
-        {estMarchandises && (
+        {avecStock && (
           <Carte>
             <h2 className="font-bold mb-1" style={{ color: marine }}>Entrée en stock</h2>
             <p style={{ color: sousTexte, fontSize: 13, marginTop: 0 }}>
               Le stock ne compte que des quantités : l&apos;achat est déjà passé en charge sur le
-              compte 4200, aucune écriture ne s&apos;y ajoute.
+              compte {estMatieres ? "4000" : "4200"}, aucune écriture ne s&apos;y ajoute.
             </p>
 
             {mouvements.length > 0 && (
@@ -180,7 +187,8 @@ export default async function DepensePage({
             )}
 
             {articlesEntree.length > 0 && !estBrouillon ? (
-              <AjouterEntreeStock depenseId={id} articles={articlesEntree} />
+              <AjouterEntreeStock depenseId={id} articles={articlesEntree}
+                privilegie={estMatieres ? "composants" : "vendables"} />
             ) : (
               mouvements.length === 0 && (
                 <p style={{ color: sousTexte, fontSize: 14, margin: 0 }}>

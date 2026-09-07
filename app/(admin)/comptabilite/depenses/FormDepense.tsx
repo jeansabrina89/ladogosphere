@@ -8,7 +8,9 @@ import {
   CATEGORIES_DEPENSE,
   MODES_PAIEMENT,
   MESSAGE_JUSTIFICATIF_REQUIS,
-  COMPTE_MARCHANDISES,
+  COMPTE_MATIERES,
+  ouvreEntreeStock,
+  aideCategorieDepense,
   refusFichierPiece,
 } from "@/src/lib/depensesLogique";
 
@@ -223,6 +225,9 @@ export default function FormDepense({
           <p style={aide}>
             {categorie ? `Compte ${categorie.compte}` : "Le numéro de compte s'affichera ici."}
           </p>
+          {aideCategorieDepense(compte) && (
+            <p style={aide}>{aideCategorieDepense(compte)}</p>
+          )}
         </div>
 
         <div>
@@ -234,14 +239,19 @@ export default function FormDepense({
           </select>
         </div>
 
-        {compte === COMPTE_MARCHANDISES && (
+        {ouvreEntreeStock(compte) && (
           <div style={{ border: BORDURE, borderRadius: 14, padding: 14, backgroundColor: "#FFFFFF" }}>
             <span style={etiquette}>Entrée en stock (facultatif)</span>
             <p style={{ ...aide, marginTop: 0, marginBottom: 12 }}>
               Cochez ce qui est arrivé. Les entrées seront enregistrées à la validation de la
               dépense. Aucune écriture supplémentaire : l&apos;achat est déjà en charge.
             </p>
-            <EntreeEnStock articles={articles} lignes={entrees} onChange={setEntrees} />
+            <EntreeEnStock
+              articles={articles}
+              lignes={entrees}
+              onChange={setEntrees}
+              privilegie={compte === COMPTE_MATIERES ? "composants" : "vendables"}
+            />
           </div>
         )}
 

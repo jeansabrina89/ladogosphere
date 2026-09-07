@@ -33,14 +33,49 @@ export const CATEGORIES_DEPENSE = [
   { compte: "6510", libelle: "Téléphone et internet" },
   { compte: "6570", libelle: "Logiciels et hébergement" },
   { compte: "6940", libelle: "Frais bancaires et commissions" },
+  { compte: "4000", libelle: "Matières de fabrication" },
   { compte: "4200", libelle: "Marchandises à revendre (boutique)" },
   { compte: "6200", libelle: "Frais de véhicule" },
   { compte: "6700", libelle: "Autre charge" },
 ] as const;
 
-/** Achat de marchandises destinées à la boutique : c'est la seule catégorie
- *  qui ouvre l'entrée en stock. */
+/** Achat de marchandises revendues telles quelles. */
 export const COMPTE_MARCHANDISES = "4200";
+
+/** Achat de ce qu'on transforme : sangle, boucles, rivets, puces, fil. */
+export const COMPTE_MATIERES = "4000";
+
+/**
+ * Les deux catégories qui ouvrent l'entrée en stock. L'une entre des
+ * marchandises revendables, l'autre des composants ; dans les deux cas c'est
+ * du stock, et aucune écriture ne s'ajoute — l'achat est déjà en charge.
+ */
+export const COMPTES_AVEC_STOCK: readonly string[] = [COMPTE_MATIERES, COMPTE_MARCHANDISES];
+
+export function ouvreEntreeStock(compte: string | null | undefined): boolean {
+  return !!compte && COMPTES_AVEC_STOCK.includes(compte);
+}
+
+/**
+ * Aide affichée sous le choix de catégorie.
+ *
+ * Deux catégories voisines qui se ressemblent doivent se distinguer à l'écran,
+ * pas dans la tête de la personne qui saisit : chacune dit ce qu'elle couvre
+ * ET renvoie explicitement vers l'autre.
+ */
+export const AIDE_CATEGORIE_DEPENSE: Record<string, string> = {
+  "4000":
+    "Ce que vous transformez : sangle, boucles, rivets, puces, fil. " +
+    "Pour ce que vous revendez tel quel, choisissez Marchandises à revendre.",
+  "4200":
+    "Ce que vous revendez tel quel : croquettes, jouets, colliers achetés finis. " +
+    "Pour ce que vous transformez, choisissez Matières de fabrication.",
+};
+
+export function aideCategorieDepense(compte: string | null | undefined): string | null {
+  if (!compte) return null;
+  return AIDE_CATEGORIE_DEPENSE[compte] ?? null;
+}
 
 export type CategorieDepense = (typeof CATEGORIES_DEPENSE)[number];
 

@@ -2,6 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   CATEGORIES_DEPENSE,
   COMPTE_BANQUE,
+  COMPTE_MATIERES,
+  COMPTE_MARCHANDISES,
+  COMPTES_AVEC_STOCK,
+  ouvreEntreeStock,
+  aideCategorieDepense,
   COMPTE_CAISSE,
   COMPTE_CREANCIERS,
   MESSAGE_JUSTIFICATIF_REQUIS,
@@ -29,6 +34,7 @@ describe("catégories de dépense", () => {
       "Téléphone et internet → 6510",
       "Logiciels et hébergement → 6570",
       "Frais bancaires et commissions → 6940",
+      "Matières de fabrication → 4000",
       "Marchandises à revendre (boutique) → 4200",
       "Frais de véhicule → 6200",
       "Autre charge → 6700",
@@ -219,5 +225,68 @@ describe("refusFichierPiece", () => {
     expect(extensionPiece("image/jpeg")).toBe("jpg");
     expect(extensionPiece("application/pdf")).toBe("pdf");
     expect(extensionPiece("image/gif")).toBe("bin");
+  });
+});
+
+// ── Matières de fabrication, distinctes des marchandises revendues ──────────
+
+describe("matières de fabrication", () => {
+  it("porte le compte 4000, à côté des marchandises sur 4200", () => {
+    expect(COMPTE_MATIERES).toBe("4000");
+    expect(COMPTE_MARCHANDISES).toBe("4200");
+    expect(libelleCategorie("4000")).toBe("Matières de fabrication");
+  });
+
+  it("se place juste avant « Marchandises à revendre » dans la liste", () => {
+    const comptes = CATEGORIES_DEPENSE.map((c) => c.compte);
+    expect(comptes.indexOf("4000")).toBe(comptes.indexOf("4200") - 1);
+  });
+
+  it("ouvre l'entrée en stock, comme les marchandises et elles seules", () => {
+    expect(ouvreEntreeStock("4000")).toBe(true);
+    expect(ouvreEntreeStock("4200")).toBe(true);
+    expect(ouvreEntreeStock("6100")).toBe(false);
+    expect(ouvreEntreeStock(null)).toBe(false);
+    expect([...COMPTES_AVEC_STOCK].sort()).toEqual(["4000", "4200"]);
+  });
+
+  it("distingue les deux voisines à l'écran, chacune renvoyant vers l'autre", () => {
+    // Deux catégories qui se ressemblent doivent se séparer sur l'écran, pas
+    // dans la tête de la personne qui saisit.
+    expect(aideCategorieDepense("4000")).toContain("Ce que vous transformez");
+    expect(aideCategorieDepense("4000")).toContain("Marchandises à revendre");
+    expect(aideCategorieDepense("4200")).toContain("tel quel");
+    expect(aideCategorieDepense("4200")).toContain("Matières de fabrication");
+    expect(aideCategorieDepense("6100")).toBeNull();
+  });
+
+  it("débite 4000 et crédite la banque pour un achat payé par banque", () => {
+    const lignes = lignesEcritureDepense({
+      compte_charge: COMPTE_MATIERES, montant: 120, mode_paiement: "banque",
+    });
+    expect(lignes).toEqual([
+      { compte: "4000", debit: 120, credit: 0 },
+      { compte: COMPTE_BANQUE, debit: 0, credit: 120 },
+    ]);
+    expect(equilibre(lignes)).toBe(0);
+  });
+
+  it("suit le mode de paiement pour la contrepartie, jamais autre chose", () => {
+    const contreparties = (["banque", "carte", "twint", "caisse", "a_payer"] as const).map(
+      (mode) => lignesEcritureDepense({
+        compte_charge: COMPTE_MATIERES, montant: 80, mode_paiement: mode,
+      })[1].compte
+    );
+    expect(contreparties).toEqual([
+      COMPTE_BANQUE, COMPTE_BANQUE, COMPTE_BANQUE, COMPTE_CAISSE, COMPTE_CREANCIERS,
+    ]);
+  });
+
+  it("ne produit jamais qu'une seule paire de lignes : l'entrée en stock n'ajoute rien", () => {
+    const lignes = lignesEcritureDepense({
+      compte_charge: COMPTE_MATIERES, montant: 120, mode_paiement: "banque",
+    });
+    expect(lignes).toHaveLength(2);
+    expect(equilibre(lignes)).toBe(0);
   });
 });
