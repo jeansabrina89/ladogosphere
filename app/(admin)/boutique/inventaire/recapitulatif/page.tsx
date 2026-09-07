@@ -26,7 +26,9 @@ export default async function RecapitulatifStockPage() {
   await exigerAccesAdmin("perm_boutique");
 
   const articles = (await listerArticles({ actifsSeulement: true })).filter(
-    (a) => Number(a.stock_actuel) !== 0 || Number(a.prix_achat ?? 0) !== 0
+    (a) =>
+      a.type_article !== "personnalisable" &&
+      (Number(a.stock_actuel) !== 0 || Number(a.prix_achat ?? 0) !== 0)
   );
   const total = valeurStock(articles);
   const sansPrixAchat = articles.filter((a) => a.prix_achat === null && Number(a.stock_actuel) > 0);

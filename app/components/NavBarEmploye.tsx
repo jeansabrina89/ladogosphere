@@ -49,6 +49,7 @@ export default async function NavBarEmploye() {
           { href: "/boutique/caisse", label: "💳 Caisse" },
           { href: "/boutique/articles", label: "🛒 Boutique" },
           { href: "/boutique/ventes", label: "🧾 Ventes boutique" },
+          { href: "/boutique/commandes", label: "🎁 Sur mesure" },
         ] : []),
       ],
     }] : []),

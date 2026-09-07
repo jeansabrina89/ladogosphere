@@ -173,6 +173,12 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
     intro: "Voici votre facture <strong>{numero}</strong> du {date}, d'un montant de <strong>CHF {montant}</strong>, payable jusqu'au <strong>{echeance}</strong>.",
     message_final: "Le PDF est joint à ce message ; il est aussi disponible dans votre espace client. Merci de votre confiance ! 🐾",
   },
+  commande_prete: {
+    sujet: "🎁 Votre commande sur mesure est prête",
+    titre: "Bonjour {prenom} ! 🎉",
+    intro: "Votre commande <strong>{article}</strong> est terminée et vous attend à La Dogosphère.",
+    message_final: "Passez la chercher quand vous voulez, aux heures d'ouverture. À très vite ! 🐾",
+  },
   rappel_cotisation: {
     sujet: "⭐ Renouvellement de votre adhésion membre",
     titre: "Bonjour {prenom} ! ⭐",
@@ -212,6 +218,7 @@ export const MODELES_META: { type: string; label: string; variables: string[] }[
   { type: "rappel_veille", label: "Rappel la veille", variables: ["prenom", "nom_chien", "date_debut"] },
   { type: "facture_emise", label: "Facture émise", variables: ["prenom", "numero", "date", "echeance", "montant"] },
   { type: "rappel_cotisation", label: "Rappel adhésion", variables: ["prenom", "nom", "date_fin", "montant"] },
+  { type: "commande_prete", label: "Commande sur mesure prête", variables: ["prenom", "numero", "article", "recapitulatif"] },
   { type: "relance_paiement", label: "Relance paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
   { type: "rappel_paiement_1", label: "1er rappel paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
   { type: "rappel_paiement_2", label: "2ème rappel paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
@@ -1067,4 +1074,68 @@ export async function envoyerEmailTicketBoutique(p: {
       <p style="color:#6B7280; font-size:14px; margin:0;">À bientôt à la Dogosphère.</p>
     `),
   });
+}
+
+/**
+ * « Votre commande sur mesure est prête. » Le récapitulatif des choix est du
+ * TEXTE : il est échappé et ses sauts de ligne sont conservés, jamais
+ * interprété comme du HTML — une gravure peut contenir n'importe quoi.
+ */
+export async function envoyerEmailCommandePrete(p: {
+  email: string;
+  prenom: string;
+  numero: string;
+  article: string;
+  /** Une ligne par choix : « Couleur : Bleu nuit ». */
+  recapitulatif: string[];
+}) {
+  const m = await modeleEmail("commande_prete", {
+    prenom: p.prenom,
+    numero: p.numero,
+    article: p.article,
+    recapitulatif: p.recapitulatif.join(" · "),
+  });
+
+  const lignes = p.recapitulatif
+    .map(
+      (l) =>
+        `<tr><td style="padding:6px 0; color:#1B2B5E; font-size:14px;">${echapper(l)}</td></tr>`
+    )
+    .join("");
+
+  await envoyerEmail({
+    destinataire: p.email,
+    type: "commande_prete",
+    sujet: m.sujet,
+    html: emailTemplate(`
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
+
+      <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
+        <table cellpadding="0" cellspacing="0" style="width:100%;">
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px; width:45%;">Commande</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${echapper(p.numero)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Article</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-size:14px;">${echapper(p.article)}</td>
+          </tr>
+        </table>
+        ${lignes ? `<table cellpadding="0" cellspacing="0" style="width:100%; margin-top:10px; border-top:1px solid rgba(27,43,94,0.12);">${lignes}</table>` : ""}
+      </div>
+
+      <p style="color:#6B7280; font-size:14px; margin:0;">${m.message_final}</p>
+    `),
+  });
+}
+
+/** Le texte du client reste du texte : rien n'est interprété dans l'e-mail. */
+function echapper(texte: string): string {
+  return String(texte ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/\n/g, "<br />");
 }

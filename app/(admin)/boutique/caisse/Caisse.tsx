@@ -1,9 +1,12 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { encaisserVente, chercherClients, type ClientCaisse } from "./actions";
 import {
   MODES_CAISSE,
+  estPersonnalisable,
   ligneDepuisArticle,
   changerQuantite,
   totalPanier,
@@ -49,6 +52,7 @@ export default function Caisse({
   /** « Sur la facture du client » demande en plus perm_encaissements. */
   peutFacturer: boolean;
 }) {
+  const router = useRouter();
   const champRecherche = useRef<HTMLInputElement>(null);
 
   const [recherche, setRecherche] = useState("");
@@ -107,10 +111,19 @@ export default function Caisse({
     // Une douchette termine par Entrée : un code-barres exact entre au panier
     // sans passer par la liste.
     const parCode = articles.find((a) => (a.code_barres ?? "") === saisi);
-    if (parCode) return ajouter(parCode);
+    if (parCode) return ouvrirOuAjouter(parCode);
 
-    if (resultats.length === 1) return ajouter(resultats[0]);
+    if (resultats.length === 1) return ouvrirOuAjouter(resultats[0]);
     setErreur(`Aucun article ne correspond à « ${saisi} ».`);
+  }
+
+  /** Un article sur mesure ne s'ajoute pas : il se configure. */
+  function ouvrirOuAjouter(article: ArticleVendable) {
+    if (estPersonnalisable(article)) {
+      router.push(`/boutique/caisse/sur-mesure/${article.id}`);
+      return;
+    }
+    ajouter(article);
   }
 
   function modifier(articleId: string, delta: number) {
@@ -216,29 +229,46 @@ export default function Caisse({
         {resultats.map((a) => {
           const stock = Number(a.stock_actuel);
           const dansPanier = panier.find((l) => l.article_id === a.id)?.quantite ?? 0;
-          const epuise = stock - dansPanier <= 0;
-          return (
-            <button
-              key={a.id}
-              type="button"
-              onClick={() => (epuise ? setErreur(`Il ne reste plus de « ${a.nom} » en stock.`) : ajouter(a))}
-              style={{
-                display: "flex", alignItems: "center", gap: 12, textAlign: "left",
-                minHeight: 64, padding: "8px 12px", borderRadius: 14,
-                border: BORDURE, backgroundColor: "#FFFFFF", fontFamily: "inherit",
-                cursor: "pointer", opacity: epuise ? 0.5 : 1, width: "100%",
-              }}
-            >
+          const surMesure = estPersonnalisable(a);
+          const epuise = !surMesure && stock - dansPanier <= 0;
+
+          const style: React.CSSProperties = {
+            display: "flex", alignItems: "center", gap: 12, textAlign: "left",
+            minHeight: 64, padding: "8px 12px", borderRadius: 14,
+            border: BORDURE, backgroundColor: "#FFFFFF", fontFamily: "inherit",
+            cursor: "pointer", opacity: epuise ? 0.5 : 1, width: "100%",
+            textDecoration: "none",
+          };
+
+          const contenu = (
+            <>
               <Vignette article={a} />
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ display: "block", color: MARINE, fontSize: 16, fontWeight: 700 }}>{a.nom}</span>
                 <span style={{ display: "block", color: SOUS, fontSize: 13 }}>
-                  {a.reference} · reste {stock - dansPanier} {a.unite}
+                  {a.reference} · {surMesure ? "sur mesure — à configurer" : `reste ${stock - dansPanier} ${a.unite}`}
                 </span>
               </span>
               <span style={{ color: MARINE, fontSize: 17, fontWeight: 700, whiteSpace: "nowrap" }}>
-                {chf(Number(a.prix_vente))}
+                {surMesure ? "dès " : ""}{chf(Number(a.prix_vente))}
               </span>
+            </>
+          );
+
+          // Un article personnalisable n'entre pas au panier : il ouvre son
+          // configurateur, seul endroit où son prix se calcule.
+          return surMesure ? (
+            <Link key={a.id} href={`/boutique/caisse/sur-mesure/${a.id}`} style={style}>
+              {contenu}
+            </Link>
+          ) : (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => (epuise ? setErreur(`Il ne reste plus de « ${a.nom} » en stock.`) : ajouter(a))}
+              style={style}
+            >
+              {contenu}
             </button>
           );
         })}

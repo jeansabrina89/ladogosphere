@@ -35,6 +35,9 @@ export type Article = {
   photo_path: string | null;
   actif: boolean;
   vendable_en_ligne: boolean;
+  type_article: string;
+  delai_fabrication_jours: number | null;
+  composant: boolean;
   created_at: string;
 };
 
@@ -55,7 +58,8 @@ export type MouvementStock = {
 const COLONNES_ARTICLE = `
   id, reference, nom, description, categorie, marque, fournisseur_id, taux_tva,
   prix_vente, prix_achat, stock_actuel, stock_alerte, unite, code_barres,
-  photo_path, actif, vendable_en_ligne, created_at
+  photo_path, actif, vendable_en_ligne, type_article, delai_fabrication_jours,
+  composant, created_at
 `;
 
 const COLONNES_MOUVEMENT = `

@@ -5,6 +5,7 @@ import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { compterReservationsPersonnelAVoir } from "@/src/lib/reservationsPersonnelAdmin";
 import { compterArticlesSousSeuil } from "@/src/lib/boutique";
 import { resumeVentesDuJour } from "@/src/lib/caisse";
+import { compterCommandes } from "@/src/lib/personnalisation";
 import { aujourdhuiISO, formatHeure } from "@/src/lib/dates";
 import CarteReservationAttente from "@/app/components/CarteReservationAttente";
 import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
@@ -22,6 +23,7 @@ export default async function Home() {
   const nbResaPersonnel = await compterReservationsPersonnelAVoir();
   const nbSousSeuil = perms.perm_boutique ? await compterArticlesSousSeuil() : 0;
   const ventesDuJour = perms.perm_boutique ? await resumeVentesDuJour(aujourd_hui) : null;
+  const commandes = perms.perm_boutique ? await compterCommandes() : null;
 
   const [
     { count: totalChiens },
@@ -207,6 +209,19 @@ export default async function Home() {
                 </p>
                 <p style={{ ...statLbl, color: "rgba(31,110,91,0.7)" }}>
                   Boutique — ventes du jour ({ventesDuJour?.nombre ?? 0})
+                </p>
+              </div>
+            </Link>
+          )}
+          {perms.perm_boutique && commandes && (
+            <Link href="/boutique/commandes" style={{ textDecoration: "none" }}>
+              <div style={stat(commandes.enRetard > 0 ? "#F7DFDC" : "#F4EAC9")}>
+                <p style={{ ...statNum, color: commandes.enRetard > 0 ? "#A8453A" : "#6E5410" }}>
+                  {commandes.aFaire}
+                </p>
+                <p style={{ ...statLbl, color: commandes.enRetard > 0 ? "rgba(168,69,58,0.8)" : "rgba(110,84,16,0.7)" }}>
+                  Commandes sur mesure
+                  {commandes.enRetard > 0 && ` · ${commandes.enRetard} en retard`}
                 </p>
               </div>
             </Link>

@@ -12,7 +12,9 @@ export const dynamic = "force-dynamic";
 export default async function InventairePage() {
   await exigerAccesAdmin("perm_boutique");
 
-  const articles = await listerArticles({ actifsSeulement: true });
+  // Un article sur mesure n'a pas de stock de produit fini : rien à compter.
+  const articles = (await listerArticles({ actifsSeulement: true }))
+    .filter((a) => a.type_article !== "personnalisable");
 
   const lignes: LigneComptage[] = articles.map((a) => ({
     id: a.id,

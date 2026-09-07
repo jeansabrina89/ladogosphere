@@ -43,6 +43,7 @@ export default async function NavBarAdmin() {
       { href: "/boutique/caisse", label: "💳 Caisse" },
       { href: "/boutique/articles", label: "🛒 Boutique" },
       { href: "/boutique/ventes", label: "🧾 Ventes boutique" },
+      { href: "/boutique/commandes", label: "🎁 Sur mesure" },
       { href: "/comptabilite", label: "📈 Compta" },
       { href: "/emails", label: "✉️ Emails" },
     ]},

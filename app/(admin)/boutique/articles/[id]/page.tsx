@@ -88,6 +88,7 @@ export default async function ArticlePage({
     : { data: [] };
   const numeroDepense = new Map((depenses ?? []).map((d) => [d.id as string, d.numero as string | null]));
 
+  const surMesure = article.type_article === "personnalisable";
   const stock = Number(article.stock_actuel);
   const marge = margeArticle(Number(article.prix_vente), article.prix_achat === null ? null : Number(article.prix_achat));
   const alerte = sousLeSeuil(article);
@@ -100,6 +101,9 @@ export default async function ArticlePage({
           sousTitre={`${article.reference}${article.marque ? ` · ${article.marque}` : ""}`}
           action={
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {surMesure && (
+                <Bouton href={`/boutique/articles/${id}/options`} variante="principal">🎨 Options</Bouton>
+              )}
               <Bouton href={`/boutique/articles/${id}/modifier`} variante="secondaire">✏️ Modifier</Bouton>
               <Bouton href="/boutique/articles" variante="secondaire">← Boutique</Bouton>
             </div>
@@ -109,7 +113,9 @@ export default async function ArticlePage({
         <Carte accent={alerte ? "or" : "aucun"}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
             <span style={{ color: alerte ? "#A8453A" : marine, fontSize: 30, fontWeight: 700 }}>
-              {formatQuantite(stock)} {article.unite}
+              {surMesure
+                ? `Sur mesure · ${article.delai_fabrication_jours ?? 0} j`
+                : `${formatQuantite(stock)} ${article.unite}`}
             </span>
             <span style={{ color: marine, fontSize: 20, fontWeight: 600 }}>
               {chf(Number(article.prix_vente))} TTC
@@ -123,6 +129,16 @@ export default async function ArticlePage({
           )}
 
           <Ligne cle="Catégorie" valeur={libelleCategorieArticle(article.categorie)} />
+          <Ligne
+            cle="Type"
+            valeur={
+              surMesure
+                ? "Sur mesure — pas de stock de produit fini"
+                : article.composant
+                  ? "Fourniture d'atelier — hors caisse et hors vitrine"
+                  : "Article ordinaire"
+            }
+          />
           <Ligne cle="Taux de TVA" valeur={`${Number(article.taux_tva).toString().replace(".", ",")} %`} />
           <Ligne
             cle="Prix d'achat"
@@ -161,14 +177,27 @@ export default async function ArticlePage({
           <PhotoArticle articleId={id} url={urlPhotoArticle(article.photo_path)} nom={article.nom} />
         </Carte>
 
-        <Carte>
-          <ActionsMouvement
-            articleId={id}
-            stockActuel={stock}
-            unite={article.unite}
-            perissable={estPerissable(article.categorie)}
-          />
-        </Carte>
+        {surMesure ? (
+          <Carte>
+            <h2 className="font-bold" style={{ color: marine, margin: "0 0 8px" }}>Stock</h2>
+            <p style={{ color: sousTexte, fontSize: 15, margin: 0 }}>
+              Un article sur mesure ne tient pas de stock de produit fini : il se fabrique à
+              la commande. Ce sont ses fournitures qui se décomptent, au passage en fabrication.{" "}
+              <Link href={`/boutique/articles/${id}/options`} style={{ color: "#1F6E5B", fontWeight: 600 }}>
+                Voir ses options
+              </Link>.
+            </p>
+          </Carte>
+        ) : (
+          <Carte>
+            <ActionsMouvement
+              articleId={id}
+              stockActuel={stock}
+              unite={article.unite}
+              perissable={estPerissable(article.categorie)}
+            />
+          </Carte>
+        )}
 
         <Carte>
           <h2 className="font-bold" style={{ color: marine, margin: "0 0 4px" }}>Historique du stock</h2>

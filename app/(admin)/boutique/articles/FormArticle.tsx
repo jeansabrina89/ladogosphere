@@ -22,6 +22,9 @@ export type ArticleFormulaire = {
   marque: string | null;
   fournisseur_id: string | null;
   taux_tva: number | string;
+  type_article: string;
+  delai_fabrication_jours: number | null;
+  composant: boolean;
   prix_vente: number | string;
   prix_achat: number | string | null;
   stock_alerte: number | string | null;
@@ -84,6 +87,7 @@ export default function FormArticle({
   const [tauxTouche, setTauxTouche] = useState(false);
   const [prixVente, setPrixVente] = useState(texte("prix_vente", article?.prix_vente));
   const [prixAchat, setPrixAchat] = useState(texte("prix_achat", article?.prix_achat));
+  const [typeArticle, setTypeArticle] = useState(texte("type_article", article?.type_article ?? "standard"));
 
   // Après un refus, les champs pilotés reprennent la saisie renvoyée par
   // l'action : ce qui a été tapé ne se perd pas parce qu'il est contrôlé.
@@ -94,6 +98,7 @@ export default function FormArticle({
     setTaux(texte("taux_tva", article?.taux_tva ?? tauxPropose(article?.categorie)));
     setPrixVente(texte("prix_vente", article?.prix_vente));
     setPrixAchat(texte("prix_achat", article?.prix_achat));
+    setTypeArticle(texte("type_article", article?.type_article ?? "standard"));
   }
 
   function choisirCategorie(valeur: string) {
@@ -263,6 +268,53 @@ export default function FormArticle({
       </div>
 
       <div style={{ display: "grid", gap: 12, borderTop: BORDURE, paddingTop: 16 }}>
+        <div>
+          <label htmlFor="type_article" style={etiquette}>Type d&apos;article</label>
+          <select
+            {...marqueChamp(etat, "type_article", champ)}
+            value={typeArticle}
+            onChange={(e) => setTypeArticle(e.target.value)}
+          >
+            <option value="standard">Article ordinaire (suivi en stock)</option>
+            <option value="personnalisable">Sur mesure (configuré par le client)</option>
+          </select>
+          <p style={aide}>
+            {typeArticle === "personnalisable"
+              ? "Pas de stock de produit fini : ce sont ses fournitures qui se décomptent, à la fabrication."
+              : "Son stock se décompte à chaque vente."}
+          </p>
+        </div>
+
+        {typeArticle === "personnalisable" && (
+          <div>
+            <label htmlFor="delai_fabrication_jours" style={etiquette}>
+              Délai de fabrication (jours ouvrables)
+            </label>
+            <input
+              {...marqueChamp(etat, "delai_fabrication_jours", { ...champ, maxWidth: 160 })}
+              type="text"
+              inputMode="numeric"
+              defaultValue={texte("delai_fabrication_jours", article?.delai_fabrication_jours ?? 10)}
+            />
+            <p style={aide}>Les options choisies peuvent l&apos;allonger.</p>
+          </div>
+        )}
+
+        <label htmlFor="composant" style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 15, color: MARINE }}>
+          <input
+            type="checkbox" name="composant" id="composant"
+            defaultChecked={caseCochee(v, "composant", article?.composant ?? false)}
+            style={{ width: 20, height: 20, marginTop: 2, flexShrink: 0 }}
+          />
+          <span>
+            Fourniture d&apos;atelier
+            <span style={{ display: "block", fontSize: 12, color: SOUS }}>
+              Se stocke mais ne se vend pas seule : sangle, bouclerie, puce NFC.
+              Absente de la caisse et de la vitrine.
+            </span>
+          </span>
+        </label>
+
         <label htmlFor="actif" style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 15, color: MARINE }}>
           <input
             type="checkbox" name="actif" id="actif"

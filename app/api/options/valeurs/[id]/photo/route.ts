@@ -5,21 +5,16 @@ import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { lireCorpsFormulaire } from "@/src/lib/corpsRequete";
 import {
   BUCKET_PHOTOS,
-  FORMAT_ARTICLE,
+  FORMAT_COLORIS,
   cheminImage,
   convertirEnWebp,
   refusFichierImage,
 } from "@/src/lib/imageBoutique";
 
 /**
- * Photo d'un article, déposée dans le bucket PUBLIC de la boutique.
- *
- * Ce que sort le téléphone entre tel quel — JPEG, PNG, HEIC — et ce qui est
- * stocké ressort toujours en WebP redimensionné : personne n'a à convertir
- * quoi que ce soit à la main, et le bucket public ne reçoit jamais autre chose
- * qu'une image (un SVG y serait du script exécuté chez le visiteur).
- *
- * Les justificatifs comptables, eux, restent dans leur bucket privé.
+ * Photo d'un coloris : vignette carrée de 400 px, recadrée au centre. C'est
+ * l'affichage principal d'une valeur de couleur — la pastille hexadécimale
+ * n'est qu'un secours quand aucune photo n'est encore chargée.
  */
 export async function POST(
   req: NextRequest,
@@ -31,12 +26,12 @@ export async function POST(
 
   const { id } = await params;
 
-  const { data: article } = await supabaseAdmin
-    .from("articles")
-    .select("id, photo_path")
+  const { data: valeur } = await supabaseAdmin
+    .from("options_valeurs")
+    .select("id, image_path")
     .eq("id", id)
     .maybeSingle();
-  if (!article) return NextResponse.json({ error: "Article introuvable." }, { status: 404 });
+  if (!valeur) return NextResponse.json({ error: "Option introuvable." }, { status: 404 });
 
   const lecture = await lireCorpsFormulaire(req);
   if (!lecture.ok) return lecture.reponse;
@@ -51,11 +46,11 @@ export async function POST(
 
   const conversion = await convertirEnWebp(
     Buffer.from(await fichier.arrayBuffer()),
-    FORMAT_ARTICLE
+    FORMAT_COLORIS
   );
   if (!conversion.ok) return NextResponse.json({ error: conversion.error }, { status: 400 });
 
-  const chemin = cheminImage("article", id);
+  const chemin = cheminImage("coloris", id);
   const { error: erreurDepot } = await supabaseAdmin.storage
     .from(BUCKET_PHOTOS)
     .upload(chemin, conversion.octets, { contentType: "image/webp", upsert: false });
@@ -64,24 +59,18 @@ export async function POST(
   }
 
   const { error } = await supabaseAdmin
-    .from("articles")
-    .update({ photo_path: chemin })
+    .from("options_valeurs")
+    .update({ image_path: chemin })
     .eq("id", id);
   if (error) {
     await supabaseAdmin.storage.from(BUCKET_PHOTOS).remove([chemin]);
-    return NextResponse.json({ error: "L'enregistrement de la photo a échoué." }, { status: 500 });
+    return NextResponse.json({ error: "L'enregistrement de la vignette a échoué." }, { status: 500 });
   }
 
-  // L'ancienne photo n'a plus de raison d'occuper le bucket.
-  const ancienne = article.photo_path as string | null;
+  const ancienne = valeur.image_path as string | null;
   if (ancienne && ancienne !== chemin) {
     await supabaseAdmin.storage.from(BUCKET_PHOTOS).remove([ancienne]);
   }
 
-  return NextResponse.json({
-    ok: true,
-    photo_path: chemin,
-    largeur: conversion.largeur,
-    hauteur: conversion.hauteur,
-  });
+  return NextResponse.json({ ok: true, image_path: chemin });
 }

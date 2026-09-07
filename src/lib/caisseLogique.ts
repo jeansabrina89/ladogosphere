@@ -59,7 +59,14 @@ export type ArticleVendable = {
   stock_actuel: number | string;
   unite: string;
   photo_path?: string | null;
+  /** 'personnalisable' : pas de stock de produit fini, il se configure. */
+  type_article?: string | null;
 };
+
+/** Un article sur mesure n'a pas de stock : il ouvre le configurateur. */
+export function estPersonnalisable(article: { type_article?: string | null }): boolean {
+  return article.type_article === "personnalisable";
+}
 
 export type LignePanier = {
   article_id: string;
@@ -74,6 +81,8 @@ export type LignePanier = {
   unite: string;
   /** Stock au moment où l'article est entré dans le panier, pour le garde-fou. */
   stock_disponible: number;
+  /** Un article sur mesure se fabrique : il n'a pas de stock à contrôler. */
+  sans_stock?: boolean;
 };
 
 /** Ligne figée à partir d'une fiche article : libellé, prix et taux sont copiés. */
@@ -89,6 +98,7 @@ export function ligneDepuisArticle(article: ArticleVendable, quantite = 1): Lign
     montant: r2(prix * q),
     unite: article.unite,
     stock_disponible: Number(article.stock_actuel),
+    sans_stock: estPersonnalisable(article),
   };
 }
 
@@ -116,6 +126,9 @@ export function refusPanier(lignes: LignePanier[]): string | null {
   if (lignes.length === 0) return "Le panier est vide.";
   for (const l of lignes) {
     if (!(l.quantite > 0)) return `Indiquez une quantité pour « ${l.libelle} ».`;
+    // Un article sur mesure se fabrique : ce sont ses fournitures qui se
+    // décomptent, au passage en fabrication, pas un stock de produit fini.
+    if (l.sans_stock) continue;
     if (l.quantite > l.stock_disponible) {
       return `Stock insuffisant pour « ${l.libelle} » : il en reste ${l.stock_disponible}, vous en vendez ${l.quantite}.`;
     }

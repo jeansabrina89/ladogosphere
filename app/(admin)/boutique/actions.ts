@@ -86,6 +86,15 @@ export async function enregistrerArticle(
     code_barres: normaliserCodeBarres(formData.get("code_barres") as string),
     actif: formData.get("actif") === "on",
     vendable_en_ligne: formData.get("vendable_en_ligne") === "on",
+    // Un article sur mesure ne suit pas de stock de produit fini : ce sont
+    // ses fournitures qui se décomptent, à la fabrication.
+    type_article: formData.get("type_article") === "personnalisable" ? "personnalisable" : "standard",
+    delai_fabrication_jours:
+      formData.get("type_article") === "personnalisable"
+        ? Math.max(Math.round(lireNombre(formData.get("delai_fabrication_jours")) ?? 0), 0)
+        : null,
+    // Une fourniture se stocke mais ne se vend pas seule : ni caisse, ni vitrine.
+    composant: formData.get("composant") === "on",
   };
 
   // Référence laissée vide : la base l'attribue elle-même, sous la forme ART-0001.

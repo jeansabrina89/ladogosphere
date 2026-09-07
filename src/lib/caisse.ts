@@ -106,8 +106,10 @@ export async function listerVentes(filtres?: {
 export async function articlesVendables(): Promise<ArticleVendable[]> {
   const { data } = await supabaseAdmin
     .from("articles")
-    .select("id, nom, reference, code_barres, prix_vente, taux_tva, stock_actuel, unite, photo_path")
+    .select("id, nom, reference, code_barres, prix_vente, taux_tva, stock_actuel, unite, photo_path, type_article")
     .eq("actif", true)
+    // Une fourniture se stocke mais ne se vend pas seule : elle n'entre pas en caisse.
+    .eq("composant", false)
     .order("nom");
   return (data ?? []) as unknown as ArticleVendable[];
 }
@@ -228,9 +230,10 @@ export async function finaliserVente(entree: EntreeVente): Promise<ResultatVente
   const ids = [...new Set(entree.lignes.map((l) => l.article_id))];
   const { data: articles } = await supabaseAdmin
     .from("articles")
-    .select("id, nom, reference, code_barres, prix_vente, taux_tva, stock_actuel, unite, photo_path")
+    .select("id, nom, reference, code_barres, prix_vente, taux_tva, stock_actuel, unite, photo_path, type_article")
     .in("id", ids)
-    .eq("actif", true);
+    .eq("actif", true)
+    .eq("composant", false);
 
   const parId = new Map((articles ?? []).map((a) => [a.id as string, a as unknown as ArticleVendable]));
 
