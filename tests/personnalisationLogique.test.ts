@@ -84,10 +84,11 @@ const complet: ChoixParGroupe = {
 };
 
 describe("catalogue d'options", () => {
-  it("nomme les quatre types de groupe", () => {
-    expect(TYPES_GROUPE).toHaveLength(4);
+  it("nomme les cinq types de groupe", () => {
+    expect(TYPES_GROUPE).toHaveLength(5);
     expect(libelleTypeGroupe("couleur")).toBe("Couleur");
     expect(libelleTypeGroupe("booleen")).toBe("Oui / non");
+    expect(libelleTypeGroupe("mesure")).toBe("Mesure");
     expect(libelleTypeGroupe("autre")).toBe("—");
   });
 
@@ -112,10 +113,11 @@ describe("prix", () => {
   });
 
   it("détaille chaque supplément, dans l'ordre des groupes", () => {
+    // Sans dépendance, le contexte est nul : le prix vient de la valeur.
     expect(detailPrix(groupes, { ...complet, g2: { valeur_id: "rouge" } })).toEqual([
-      { groupe: "Largeur", libelle: "25 mm", supplement: 4 },
-      { groupe: "Couleur de la sangle", libelle: "Rouge brique", supplement: 2 },
-      { groupe: "Avec puce NFC", libelle: "Puce NFC", supplement: 12 },
+      { groupe: "Largeur", libelle: "25 mm", supplement: 4, contexte: null },
+      { groupe: "Couleur de la sangle", libelle: "Rouge brique", supplement: 2, contexte: null },
+      { groupe: "Avec puce NFC", libelle: "Puce NFC", supplement: 12, contexte: null },
     ]);
   });
 

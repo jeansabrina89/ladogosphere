@@ -18,10 +18,13 @@ export type CategorieArticle =
   | "colliers"
   | "laisses"
   | "harnais"
+  | "muselieres"
+  | "longes"
   | "jouets"
   | "peluches"
   | "couchages"
   | "soins"
+  | "medaillons_accessoires"
   | "divers";
 
 /**
@@ -46,10 +49,13 @@ export const CATEGORIES_ARTICLE: {
   { valeur: "colliers",     libelle: "Colliers",     taux: TAUX_NORMAL, perissable: false },
   { valeur: "laisses",      libelle: "Laisses",      taux: TAUX_NORMAL, perissable: false },
   { valeur: "harnais",      libelle: "Harnais",      taux: TAUX_NORMAL, perissable: false },
+  { valeur: "muselieres",   libelle: "Muselières",   taux: TAUX_NORMAL, perissable: false },
+  { valeur: "longes",       libelle: "Longes",       taux: TAUX_NORMAL, perissable: false },
   { valeur: "jouets",       libelle: "Jouets",       taux: TAUX_NORMAL, perissable: false },
   { valeur: "peluches",     libelle: "Peluches",     taux: TAUX_NORMAL, perissable: false },
   { valeur: "couchages",    libelle: "Couchages",    taux: TAUX_NORMAL, perissable: false },
   { valeur: "soins",        libelle: "Soins",        taux: TAUX_NORMAL, perissable: false },
+  { valeur: "medaillons_accessoires", libelle: "Médaillons et accessoires", taux: TAUX_NORMAL, perissable: false },
   { valeur: "divers",       libelle: "Divers",       taux: TAUX_NORMAL, perissable: false },
 ];
 

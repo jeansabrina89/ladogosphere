@@ -23,6 +23,7 @@ export const ENTREES_BOUTIQUE: EntreeBoutique[] = [
   { href: "/boutique/ventes", label: "🧾 Ventes" },
   { href: "/boutique/commandes", label: "🎁 Sur mesure" },
   { href: "/boutique/articles", label: "🛒 Articles" },
+  { href: "/boutique/modeles", label: "🧩 Modèles" },
   { href: "/boutique/inventaire", label: "📦 Inventaire" },
   // Un seul écran, deux chemins d'accès : la fiche fournisseur sert aussi bien
   // aux dépenses qu'à la boutique. Elle n'est ni déplacée ni dupliquée.

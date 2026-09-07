@@ -81,10 +81,12 @@ export async function commanderSurMesure(entree: {
   const refus = refusConfigurationAvecDependances(groupes, entree.choix, dependances);
   if (refus) return { error: refus };
 
-  const prix = prixTotal(article.prix_vente, groupes, entree.choix);
+  // Prix et figement passent par les dépendances : le supplément retenu est
+  // celui de la combinaison choisie, et c'est LUI qui est gravé.
+  const prix = prixTotal(article.prix_vente, groupes, entree.choix, dependances);
   const delai = delaiTotal(article.delai_fabrication_jours, groupes, entree.choix);
   const promise = datePromise(aujourdhuiISO(), delai);
-  const choixFiges = figerChoix(groupes, entree.choix);
+  const choixFiges = figerChoix(groupes, entree.choix, dependances);
 
   const { aRegler, arrondi } = encaissementVente(prix, entree.mode);
 

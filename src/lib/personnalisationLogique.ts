@@ -6,13 +6,14 @@
  * TVA : pas calculée. Le taux est porté par l'article, il servira en APP 13.
  */
 
-export type TypeGroupe = "liste" | "couleur" | "texte" | "booleen";
+export type TypeGroupe = "liste" | "couleur" | "texte" | "booleen" | "mesure";
 
 export const TYPES_GROUPE: { valeur: TypeGroupe; libelle: string; aide: string }[] = [
   { valeur: "liste",   libelle: "Liste",   aide: "Un choix parmi plusieurs, en boutons." },
   { valeur: "couleur", libelle: "Couleur", aide: "Une grille de vignettes photo ou de pastilles." },
   { valeur: "texte",   libelle: "Texte",   aide: "Un texte à graver ou à broder." },
   { valeur: "booleen", libelle: "Oui / non", aide: "Un interrupteur, par exemple « Avec puce NFC »." },
+  { valeur: "mesure", libelle: "Mesure", aide: "Un nombre pris sur le chien : tour de cou, longueur de dos." },
 ];
 
 export function libelleTypeGroupe(type: string | null | undefined): string {
@@ -43,6 +44,23 @@ export type OptionGroupe = {
   max_caracteres: number | null;
   /** Groupe parent : ce groupe ne s'active qu'une fois celui-là choisi. */
   depend_de_groupe_id?: string | null;
+  /** Renseigné quand le groupe vient d'un modèle, et non de l'article. */
+  modele_id?: string | null;
+
+  // ── Groupe de type « mesure » ──
+  unite?: string | null;
+  /** Bornes qui REFUSENT la saisie : l'impossible. */
+  valeur_min?: number | string | null;
+  valeur_max?: number | string | null;
+  pas?: number | string | null;
+  guide_image_path?: string | null;
+  /** Bornes qui AVERTISSENT sans bloquer : l'improbable. */
+  alerte_min?: number | string | null;
+  alerte_max?: number | string | null;
+  /** Au-delà de ce seuil, un supplément s'applique. Un seul palier. */
+  seuil_supplement?: number | string | null;
+  supplement_au_dela?: number | string | null;
+
   valeurs: OptionValeur[];
 };
 
@@ -51,6 +69,10 @@ export type Choix = {
   valeur_id?: string | null;
   texte?: string | null;
   booleen?: boolean;
+  /** Groupe de mesure : le nombre saisi, dans l'unité du groupe. */
+  nombre?: number | null;
+  /** L'alerte de vraisemblance a été levée à la main (« Oui, c'est correct »). */
+  alerte_acceptee?: boolean;
 };
 
 export type ChoixParGroupe = Record<string, Choix>;
@@ -96,20 +118,44 @@ export function choixParDefaut(groupes: OptionGroupe[]): ChoixParGroupe {
 
 // ── Prix et délai ───────────────────────────────────────────────────────────
 
-export type Detail = { groupe: string; libelle: string; supplement: number };
+export type Detail = {
+  groupe: string;
+  libelle: string;
+  supplement: number;
+  /** La combinaison qui donne ce prix : « 25 mm ». Null si c'est le prix de la valeur. */
+  contexte?: string | null;
+};
 
 /**
  * Détail du prix : le prix de base, puis un supplément par choix retenu.
  * C'est ce détail qui s'affiche — un total sans explication ne se vérifie pas.
  */
-export function detailPrix(groupes: OptionGroupe[], choix: ChoixParGroupe): Detail[] {
+export function detailPrix(
+  groupes: OptionGroupe[],
+  choix: ChoixParGroupe,
+  dependances: Dependance[] = []
+): Detail[] {
   const details: Detail[] = [];
   for (const g of [...groupes].sort((a, b) => a.ordre - b.ordre)) {
+    // Une mesure peut coûter au-delà d'un seuil : « au-delà de 60 cm, +8 CHF ».
+    if (g.type === "mesure") {
+      const supplement = supplementMesure(g, choix[g.id]?.nombre ?? null);
+      if (supplement !== 0) {
+        details.push({
+          groupe: g.nom,
+          libelle: formatMesure(choix[g.id]?.nombre, uniteMesure(g)),
+          supplement,
+          contexte: `au-delà de ${formatMesure(g.seuil_supplement, uniteMesure(g))}`,
+        });
+      }
+      continue;
+    }
+
     const v = valeurRetenue(g, choix);
     if (!v) continue;
-    const supplement = r2(Number(v.supplement_prix ?? 0));
-    if (supplement === 0) continue;
-    details.push({ groupe: g.nom, libelle: v.libelle, supplement });
+    const { montant, contexte } = supplementDetaille(v, groupes, choix, dependances);
+    if (montant === 0) continue;
+    details.push({ groupe: g.nom, libelle: v.libelle, supplement: montant, contexte });
   }
   return details;
 }
@@ -117,10 +163,11 @@ export function detailPrix(groupes: OptionGroupe[], choix: ChoixParGroupe): Deta
 export function prixTotal(
   prixBase: number | string | null | undefined,
   groupes: OptionGroupe[],
-  choix: ChoixParGroupe
+  choix: ChoixParGroupe,
+  dependances: Dependance[] = []
 ): number {
   const base = r2(Number(prixBase ?? 0));
-  return r2(detailPrix(groupes, choix).reduce((s, d) => s + d.supplement, base));
+  return r2(detailPrix(groupes, choix, dependances).reduce((s, d) => s + d.supplement, base));
 }
 
 /** Délai annoncé : celui de l'article, allongé par les choix qui le demandent. */
@@ -176,6 +223,11 @@ export function groupesManquants(groupes: OptionGroupe[], choix: ChoixParGroupe)
       if (!String(choix[g.id]?.texte ?? "").trim()) manquants.push(g.nom);
       continue;
     }
+    if (g.type === "mesure") {
+      const n = choix[g.id]?.nombre;
+      if (n === null || n === undefined || !Number.isFinite(Number(n))) manquants.push(g.nom);
+      continue;
+    }
     if (!valeurRetenue(g, choix)) manquants.push(g.nom);
   }
   return manquants;
@@ -193,11 +245,19 @@ export function refusConfiguration(groupes: OptionGroupe[], choix: ChoixParGroup
   if (manquants.length > 0) return messageManquants(manquants);
 
   for (const g of groupes) {
-    if (g.type !== "texte") continue;
-    const texte = String(choix[g.id]?.texte ?? "");
-    const max = g.max_caracteres ?? 0;
-    if (max > 0 && texte.length > max) {
-      return `« ${g.nom} » dépasse ${max} caractères.`;
+    if (g.type === "texte") {
+      const texte = String(choix[g.id]?.texte ?? "");
+      const max = g.max_caracteres ?? 0;
+      if (max > 0 && texte.length > max) {
+        return `« ${g.nom} » dépasse ${max} caractères.`;
+      }
+      continue;
+    }
+    // Les bornes dures d'une mesure refusent ; les bornes de vraisemblance,
+    // elles, se contentent d'avertir et ne passent jamais par ici.
+    if (g.type === "mesure") {
+      const refus = refusMesure(g, choix[g.id]?.nombre ?? null);
+      if (refus) return refus;
     }
   }
   return null;
@@ -231,6 +291,9 @@ export type ChoixFige = {
   ordre: number;
   composant_article_id: string | null;
   composant_quantite: number | null;
+  /** Groupe de mesure : le nombre et son unité, figés eux aussi. */
+  valeur_nombre?: number | null;
+  unite?: string | null;
 };
 
 /**
@@ -239,12 +302,36 @@ export type ChoixFige = {
  * tard ne changera ni le récapitulatif de cette commande, ni son prix, ni ce
  * qu'elle décomptera à la fabrication.
  */
-export function figerChoix(groupes: OptionGroupe[], choix: ChoixParGroupe): ChoixFige[] {
+export function figerChoix(
+  groupes: OptionGroupe[],
+  choix: ChoixParGroupe,
+  dependances: Dependance[] = []
+): ChoixFige[] {
   const figes: ChoixFige[] = [];
   let ordre = 0;
 
   for (const g of [...groupes].sort((a, b) => a.ordre - b.ordre)) {
     ordre += 1;
+
+    if (g.type === "mesure") {
+      const n = choix[g.id]?.nombre;
+      if (n === null || n === undefined || !Number.isFinite(Number(n))) continue;
+      const unite = uniteMesure(g);
+      figes.push({
+        groupe_nom: g.nom,
+        // « Tour de cou : 38 cm » se lit tel quel partout.
+        valeur_libelle: formatMesure(n, unite),
+        valeur_texte: null,
+        code_couleur: null,
+        supplement_prix: supplementMesure(g, n),
+        ordre,
+        composant_article_id: null,
+        composant_quantite: null,
+        valeur_nombre: Math.round(Number(n) * 1000) / 1000,
+        unite,
+      });
+      continue;
+    }
 
     if (g.type === "texte") {
       const texte = bornerTexte(choix[g.id]?.texte, g.max_caracteres).trim();
@@ -270,7 +357,9 @@ export function figerChoix(groupes: OptionGroupe[], choix: ChoixParGroupe): Choi
       valeur_libelle: g.type === "booleen" ? v.libelle || "Oui" : v.libelle,
       valeur_texte: null,
       code_couleur: v.code_couleur,
-      supplement_prix: r2(Number(v.supplement_prix ?? 0)),
+      // Le supplément retenu est celui qui s'applique VRAIMENT, combinaison
+      // comprise : changer un prix demain ne changera pas cette commande.
+      supplement_prix: supplementApplique(v, groupes, choix, dependances),
       ordre,
       composant_article_id: v.composant_article_id,
       composant_quantite:
@@ -373,7 +462,15 @@ export function normaliserCouleur(code: string | null | undefined): string | nul
  * valeurs requises soit choisie — un OU, pas un ET : un coloris peut exister
  * en 19 et en 25 mm.
  */
-export type Dependance = { valeur_id: string; valeur_requise_id: string };
+export type Dependance = {
+  valeur_id: string;
+  valeur_requise_id: string;
+  /**
+   * Supplément propre à cette combinaison. NULL : on retombe sur celui de la
+   * valeur. Un 0 explicite est une valeur, pas une absence.
+   */
+  supplement_prix?: number | string | null;
+};
 
 /** Toutes les valeurs de tous les groupes, par identifiant. */
 export function indexerValeurs(groupes: OptionGroupe[]): Map<string, OptionValeur> {
@@ -569,4 +666,303 @@ export function refusConfigurationAvecDependances(
     }
   }
   return null;
+}
+
+// ── Groupes de mesure ───────────────────────────────────────────────────────
+
+const nb = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(String(v).replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+};
+
+export function uniteMesure(groupe: OptionGroupe): string {
+  return String(groupe.unite ?? "cm").trim() || "cm";
+}
+
+/** « 38 cm », « 38.5 cm ». Le nombre s'écrit comme on le dit. */
+export function formatMesure(
+  nombre: number | string | null | undefined,
+  unite: string | null | undefined
+): string {
+  const n = nb(nombre);
+  if (n === null) return "—";
+  const arrondi = Math.round(n * 1000) / 1000;
+  return `${arrondi} ${String(unite ?? "cm").trim() || "cm"}`;
+}
+
+/**
+ * Refus d'une mesure : l'impossible. Un tour de cou de 3 cm est une faute de
+ * frappe, pas un chien. Ces bornes bloquent.
+ */
+export function refusMesure(groupe: OptionGroupe, nombre: number | null | undefined): string | null {
+  const n = nb(nombre);
+  const unite = uniteMesure(groupe);
+
+  if (n === null) {
+    return groupe.obligatoire ? `Indiquez « ${groupe.nom} ».` : null;
+  }
+  if (n <= 0) return `« ${groupe.nom} » doit être un nombre positif.`;
+
+  const min = nb(groupe.valeur_min);
+  const max = nb(groupe.valeur_max);
+  if (min !== null && n < min) {
+    return `« ${groupe.nom} » : ${formatMesure(n, unite)} est en dessous du minimum de ${formatMesure(min, unite)}.`;
+  }
+  if (max !== null && n > max) {
+    return `« ${groupe.nom} » : ${formatMesure(n, unite)} dépasse le maximum de ${formatMesure(max, unite)}.`;
+  }
+  return null;
+}
+
+/**
+ * Alerte de vraisemblance : l'improbable. Une muselière pour chihuahua existe,
+ * on n'interdit donc pas — on demande confirmation.
+ */
+export function alerteMesure(groupe: OptionGroupe, nombre: number | null | undefined): string | null {
+  const n = nb(nombre);
+  if (n === null) return null;
+  if (refusMesure(groupe, n)) return null; // un refus prime sur une alerte
+
+  const unite = uniteMesure(groupe);
+  const min = nb(groupe.alerte_min);
+  const max = nb(groupe.alerte_max);
+
+  if (min !== null && n < min) {
+    return `${formatMesure(n, unite)}, c'est très petit pour « ${groupe.nom} ». Avez-vous bien mesuré ?`;
+  }
+  if (max !== null && n > max) {
+    return `${formatMesure(n, unite)}, c'est très grand pour « ${groupe.nom} ». Avez-vous bien mesuré ?`;
+  }
+  return null;
+}
+
+/** Supplément lié à la mesure : un seul palier, au-delà d'un seuil. */
+export function supplementMesure(
+  groupe: OptionGroupe,
+  nombre: number | null | undefined
+): number {
+  const n = nb(nombre);
+  const seuil = nb(groupe.seuil_supplement);
+  const supplement = nb(groupe.supplement_au_dela) ?? 0;
+  if (n === null || seuil === null || supplement === 0) return 0;
+  return n > seuil ? r2(supplement) : 0;
+}
+
+// ── Supplément propre à une combinaison ─────────────────────────────────────
+
+/**
+ * Le supplément qui s'applique à une valeur retenue.
+ *
+ * Si la ligne de dépendance qui correspond au choix parent porte un supplément
+ * — même à zéro, un zéro explicite est une valeur, pas une absence — c'est LUI
+ * qui s'applique. Sinon on retombe sur celui de la valeur. Jamais les deux
+ * additionnés.
+ */
+export function supplementApplique(
+  valeur: OptionValeur,
+  groupes: OptionGroupe[],
+  choix: ChoixParGroupe,
+  dependances: Dependance[] = []
+): number {
+  return supplementDetaille(valeur, groupes, choix, dependances).montant;
+}
+
+/** Le même calcul, avec la combinaison qui l'explique — pour le détail affiché. */
+export function supplementDetaille(
+  valeur: OptionValeur,
+  groupes: OptionGroupe[],
+  choix: ChoixParGroupe,
+  dependances: Dependance[] = []
+): { montant: number; contexte: string | null } {
+  const choisies = valeursChoisies(groupes, choix);
+
+  // Les lignes candidates sont classées dans l'ordre des groupes parents :
+  // la règle donne le même résultat à chaque appel.
+  const rang = new Map<string, number>();
+  for (const g of groupes) {
+    for (const v of g.valeurs ?? []) rang.set(v.id, g.ordre * 1000 + v.ordre);
+  }
+
+  const candidates = dependances
+    .filter((d) => d.valeur_id === valeur.id && choisies.has(d.valeur_requise_id))
+    .sort((a, b) => (rang.get(a.valeur_requise_id) ?? 0) - (rang.get(b.valeur_requise_id) ?? 0));
+
+  const libelles = indexerValeurs(groupes);
+
+  for (const d of candidates) {
+    if (d.supplement_prix === null || d.supplement_prix === undefined) continue;
+    const propre = nb(d.supplement_prix);
+    if (propre !== null) {
+      return {
+        montant: r2(propre),
+        contexte: libelles.get(d.valeur_requise_id)?.libelle ?? null,
+      };
+    }
+  }
+  return { montant: r2(Number(valeur.supplement_prix ?? 0)), contexte: null };
+}
+
+// ── Résolution des groupes d'un article ─────────────────────────────────────
+
+/**
+ * Un bloc du plan d'un article : un modèle attaché, ou ses groupes propres.
+ * L'ordre général est défini au niveau de l'article — il ordonne les modèles
+ * et les groupes propres dans une seule liste.
+ */
+export type BlocOptions = {
+  /** Nom affiché de la source, pour expliquer une fusion. */
+  source: string;
+  ordre: number;
+  groupes: OptionGroupe[];
+};
+
+export type Fusion = { nom: string; sources: string[] };
+
+export type Resolution = { groupes: OptionGroupe[]; fusions: Fusion[] };
+
+/** La clé de fusion : même nom (aux espaces et à la casse près) et même type. */
+export function cleFusion(groupe: { nom: string; type: string }): string {
+  return `${groupe.nom.trim().toLocaleLowerCase("fr")}|${groupe.type}`;
+}
+
+/**
+ * Les groupes d'un article, modèles compris, fusionnés et ordonnés.
+ *
+ * RÈGLE DE FUSION — deux groupes n'en font qu'un s'ils portent le même nom et
+ * le même type. Le groupe fusionné prend :
+ *   • la place et l'identifiant de la PREMIÈRE occurrence, dans l'ordre de
+ *     l'article : c'est elle qui décide, et attacher un modèle plus tard ne
+ *     déplace rien ;
+ *   • l'aide de la première occurrence qui en porte une ;
+ *   • « obligatoire » dès qu'UNE des occurrences l'est — le plus strict gagne,
+ *     une question exigée quelque part le reste ;
+ *   • pour une mesure, les bornes de la première occurrence : mélanger deux
+ *     jeux de bornes donnerait un résultat que personne n'a choisi ;
+ *   • le parent de la première occurrence qui en déclare un, résolu vers le
+ *     groupe fusionné correspondant.
+ * Les valeurs se suivent, bloc après bloc, dans l'ordre des sources.
+ */
+export function resoudreGroupes(blocs: BlocOptions[]): Resolution {
+  const plats: { groupe: OptionGroupe; source: string }[] = [];
+  for (const bloc of [...blocs].sort((a, b) => a.ordre - b.ordre)) {
+    for (const g of [...bloc.groupes].sort((a, b) => a.ordre - b.ordre)) {
+      plats.push({ groupe: g, source: bloc.source });
+    }
+  }
+
+  // Chaque groupe d'origine sait vers quelle clé il pointe.
+  const cleParId = new Map<string, string>();
+  for (const { groupe } of plats) cleParId.set(groupe.id, cleFusion(groupe));
+
+  const fusionnes = new Map<
+    string,
+    { groupe: OptionGroupe; sources: string[]; cleParent: string | null }
+  >();
+
+  for (const { groupe, source } of plats) {
+    const cle = cleFusion(groupe);
+    const cleParent = groupe.depend_de_groupe_id
+      ? cleParId.get(groupe.depend_de_groupe_id) ?? null
+      : null;
+    const existant = fusionnes.get(cle);
+
+    if (!existant) {
+      fusionnes.set(cle, {
+        groupe: { ...groupe, valeurs: [...(groupe.valeurs ?? [])] },
+        sources: [source],
+        cleParent,
+      });
+      continue;
+    }
+
+    // Les suivantes n'apportent que leurs valeurs, et la contrainte la plus stricte.
+    const dejaVues = new Set(existant.groupe.valeurs.map((v) => v.id));
+    for (const v of groupe.valeurs ?? []) {
+      if (!dejaVues.has(v.id)) existant.groupe.valeurs.push(v);
+    }
+    existant.groupe.obligatoire = existant.groupe.obligatoire || groupe.obligatoire;
+    if (!existant.groupe.aide && groupe.aide) existant.groupe.aide = groupe.aide;
+    if (!existant.cleParent && cleParent) existant.cleParent = cleParent;
+    if (!existant.sources.includes(source)) existant.sources.push(source);
+  }
+
+  const entrees = [...fusionnes.entries()];
+  const idParCle = new Map(entrees.map(([cle, e]) => [cle, e.groupe.id]));
+
+  const groupes = entrees.map(([, e], i) => ({
+    ...e.groupe,
+    ordre: i + 1,
+    depend_de_groupe_id: e.cleParent ? idParCle.get(e.cleParent) ?? null : null,
+  }));
+
+  const fusions = entrees
+    .filter(([, e]) => e.sources.length > 1)
+    .map(([, e]) => ({ nom: e.groupe.nom, sources: e.sources }));
+
+  return { groupes, fusions };
+}
+
+/**
+ * Refus d'un ordre incohérent : un groupe ne peut être placé avant celui dont
+ * il dépend. On refuse et on explique — on ne réordonne jamais en silence.
+ */
+export function refusOrdreGroupes(groupes: OptionGroupe[]): string | null {
+  const parId = new Map(groupes.map((g) => [g.id, g]));
+  for (const g of [...groupes].sort((a, b) => a.ordre - b.ordre)) {
+    if (!g.depend_de_groupe_id) continue;
+    const parent = parId.get(g.depend_de_groupe_id);
+    if (!parent) {
+      return `« ${g.nom} » dépend d'un groupe qui n'est pas là. Attachez le modèle qui l'apporte, ou retirez la dépendance.`;
+    }
+    if (parent.ordre >= g.ordre) {
+      return `« ${g.nom} » dépend de « ${parent.nom} » : il doit rester après lui.`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Les mesures improbables que personne n'a encore confirmées. Elles ne sont
+ * pas des erreurs : elles attendent seulement un « Oui, c'est correct ». Tant
+ * qu'il manque, la commande ne part pas — sinon l'avertissement ne servirait
+ * à rien.
+ */
+export function mesuresAConfirmer(groupes: OptionGroupe[], choix: ChoixParGroupe): string[] {
+  const noms: string[] = [];
+  for (const g of groupes) {
+    if (g.type !== "mesure") continue;
+    if (choix[g.id]?.alerte_acceptee === true) continue;
+    if (alerteMesure(g, choix[g.id]?.nombre ?? null)) noms.push(g.nom);
+  }
+  return noms;
+}
+
+// ── Qui porte un catalogue d'options ───────────────────────────────────────
+
+/**
+ * Un catalogue d'options appartient soit à un article, soit à un modèle de la
+ * bibliothèque. Les écrans d'édition sont les mêmes des deux côtés : ils ne
+ * connaissent que ce porteur, et n'ont pas à savoir lequel des deux c'est.
+ */
+export type Porteur = `article:${string}` | `modele:${string}`;
+
+export function porteurArticle(id: string): Porteur {
+  return `article:${id}`;
+}
+
+export function porteurModele(id: string): Porteur {
+  return `modele:${id}`;
+}
+
+export function estModele(porteur: Porteur): boolean {
+  return porteur.startsWith("modele:");
+}
+
+/** Le porteur, décomposé : l'un des deux identifiants est renseigné, jamais les deux. */
+export function cible(porteur: Porteur): { article: string | null; modele: string | null } {
+  const separateur = porteur.indexOf(":");
+  const genre = porteur.slice(0, separateur);
+  const id = porteur.slice(separateur + 1);
+  return genre === "modele" ? { article: null, modele: id } : { article: id, modele: null };
 }

@@ -16,10 +16,12 @@ import {
 import {
   TYPES_GROUPE,
   libelleTypeGroupe,
+  uniteMesure,
   type OptionGroupe,
   type OptionValeur,
   type TypeGroupe,
   type Dependance,
+  type Porteur,
 } from "@/src/lib/personnalisationLogique";
 import { urlPhotoArticle } from "@/src/lib/boutiqueLogique";
 import MatriceDependances from "./MatriceDependances";
@@ -66,19 +68,33 @@ const carreOrdre: React.CSSProperties = {
 };
 
 export default function GestionOptions({
-  articleId,
+  porteur,
   groupes,
   dependances,
   fournitures,
   sources,
+  herites = [],
+  portee = null,
 }: {
-  articleId: string;
+  porteur: Porteur;
   groupes: OptionGroupe[];
   dependances: Dependance[];
+  /**
+   * Les groupes apportés par les modèles attachés. Ils ne s'éditent pas ici —
+   * on les modifie dans le modèle — mais une question propre à l'article peut
+   * dépendre de l'une d'elles : « le coloris dépend de la largeur du modèle ».
+   */
+  herites?: OptionGroupe[];
   /** Articles marqués « fourniture », consommables par un choix. */
   fournitures: { id: string; nom: string; unite: string }[];
-  /** Autres articles personnalisables, pour la duplication. */
-  sources: { id: string; nom: string; reference: string; nbGroupes: number }[];
+  /** Autres catalogues — articles ou modèles — dont on peut copier les options. */
+  sources: { porteur: Porteur; nom: string; nbGroupes: number }[];
+  /**
+   * Phrase à faire lire avant toute suppression, quand ce catalogue est
+   * partagé : « Ce modèle sert à 3 articles. » Retirer une option d'un modèle
+   * la retire partout d'un coup — ça se dit avant, pas après.
+   */
+  portee?: string | null;
 }) {
   const router = useRouter();
   const [ouverts, setOuverts] = useState<Record<string, boolean>>(
@@ -89,7 +105,13 @@ export default function GestionOptions({
   const [avis, setAvis] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [glisse, setGlisse] = useState<string | null>(null);
-  const [source, setSource] = useState("");
+  const [source, setSource] = useState<Porteur | "">("");
+
+  /** Demande confirmation quand la suppression porte au-delà de cet écran. */
+  function confirmerRetrait(quoi: string): boolean {
+    if (!portee) return true;
+    return window.confirm(`${portee}\n\nRetirer ${quoi} le retire de tous ces articles à la fois. Les commandes déjà passées ne changent pas. Continuer ?`);
+  }
 
   function suite(res: { error?: string; message?: string }) {
     setErreur(res.error ?? null);
@@ -105,7 +127,7 @@ export default function GestionOptions({
     const vers = ids.indexOf(cibleId);
     ids.splice(vers, 0, ids.splice(de, 1)[0]);
     setGlisse(null);
-    suite(await ordonnerGroupes(articleId, ids));
+    suite(await ordonnerGroupes(porteur, ids));
   }
 
   return (
@@ -147,10 +169,10 @@ export default function GestionOptions({
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <button type="button" aria-label={`Monter ${g.nom}`} disabled={i === 0}
-              onClick={async () => suite(await deplacerGroupe(articleId, g.id, "haut"))}
+              onClick={async () => suite(await deplacerGroupe(porteur, g.id, "haut"))}
               style={{ ...carreOrdre, opacity: i === 0 ? 0.4 : 1 }}>↑</button>
             <button type="button" aria-label={`Descendre ${g.nom}`} disabled={i === groupes.length - 1}
-              onClick={async () => suite(await deplacerGroupe(articleId, g.id, "bas"))}
+              onClick={async () => suite(await deplacerGroupe(porteur, g.id, "bas"))}
               style={{ ...carreOrdre, opacity: i === groupes.length - 1 ? 0.4 : 1 }}>↓</button>
 
             <button
@@ -164,7 +186,10 @@ export default function GestionOptions({
               <span style={{ display: "block", color: SOUS, fontSize: 13, fontWeight: 400 }}>
                 {libelleTypeGroupe(g.type)}
                 {g.obligatoire ? " · obligatoire" : " · facultatif"}
-                {g.type !== "texte" && g.type !== "booleen" ? ` · ${g.valeurs.length} option${g.valeurs.length > 1 ? "s" : ""}` : ""}
+                {g.type !== "texte" && g.type !== "booleen" && g.type !== "mesure"
+                  ? ` · ${g.valeurs.length} option${g.valeurs.length > 1 ? "s" : ""}`
+                  : ""}
+                {g.type === "mesure" ? ` · en ${uniteMesure(g)}${resumeBornes(g)}` : ""}
                 {g.max_caracteres ? ` · ${g.max_caracteres} caractères` : ""}
               </span>
             </button>
@@ -172,12 +197,15 @@ export default function GestionOptions({
             <button type="button" onClick={() => setGroupeModifie(groupeModifie === g.id ? null : g.id)}
               style={bouton}>✏️</button>
             <button type="button" style={{ ...bouton, color: "#A8453A" }}
-              onClick={async () => suite(await supprimerGroupe(articleId, g.id))}>🗑️</button>
+              onClick={async () => {
+                if (!confirmerRetrait(`la question « ${g.nom} »`)) return;
+                suite(await supprimerGroupe(porteur, g.id));
+              }}>🗑️</button>
           </div>
 
           {groupeModifie === g.id && (
             <FormGroupe
-              articleId={articleId}
+              porteur={porteur}
               groupe={g}
               onFini={(res) => { if (suite(res)) setGroupeModifie(null); }}
               onAnnuler={() => setGroupeModifie(null)}
@@ -190,7 +218,20 @@ export default function GestionOptions({
                 <p style={{ color: SOUS, fontSize: 14, margin: "0 0 12px" }}>{g.aide}</p>
               )}
 
-              {g.type === "texte" ? (
+              {g.type === "mesure" ? (
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+                  {g.guide_image_path && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={urlPhotoArticle(g.guide_image_path) ?? ""} alt={`Schéma : ${g.nom}`}
+                      style={{ width: 140, borderRadius: 10, border: BORDURE }} />
+                  )}
+                  <p style={{ color: SOUS, fontSize: 14, margin: 0, flex: "1 1 220px" }}>
+                    Ce groupe est une mesure : le client saisit un nombre en {uniteMesure(g)}, il n&apos;y a
+                    pas d&apos;options à lister. Les bornes se règlent avec le crayon ✏️.
+                    {!g.guide_image_path && " Aucun schéma de mesure n'est encore déposé."}
+                  </p>
+                </div>
+              ) : g.type === "texte" ? (
                 <p style={{ color: SOUS, fontSize: 14, margin: 0 }}>
                   Ce groupe est un champ de texte : il n&apos;a pas d&apos;options à lister.
                   {g.max_caracteres ? ` La saisie est bornée à ${g.max_caracteres} caractères.` : ""}
@@ -198,15 +239,17 @@ export default function GestionOptions({
               ) : (
                 <>
                   <Valeurs
-                    articleId={articleId}
+                    porteur={porteur}
                     groupe={g}
                     fournitures={fournitures}
                     onRetour={suite}
+                    avantRetrait={confirmerRetrait}
                   />
                   <MatriceDependances
-                    articleId={articleId}
+                    porteur={porteur}
                     groupe={g}
                     groupes={groupes}
+                    herites={herites}
                     dependances={dependances}
                     onRetour={suite}
                   />
@@ -223,7 +266,7 @@ export default function GestionOptions({
             Nouveau groupe d&apos;options
           </h3>
           <FormGroupe
-            articleId={articleId}
+            porteur={porteur}
             onFini={(res) => { if (suite(res)) setNouveauGroupe(false); }}
             onAnnuler={() => setNouveauGroupe(false)}
           />
@@ -239,24 +282,24 @@ export default function GestionOptions({
       {sources.length > 0 && (
         <div style={{ border: BORDURE, borderRadius: 16, backgroundColor: "#FBF9F5", padding: 14 }}>
           <h3 style={{ color: MARINE, fontSize: 16, fontWeight: 700, margin: "0 0 4px" }}>
-            Dupliquer les options depuis un autre article
+            Dupliquer les options depuis un autre catalogue
           </h3>
           <p style={{ color: SOUS, fontSize: 14, margin: "0 0 10px" }}>
-            Les groupes et les options sont copiés, pas partagés : chaque article reste
-            indépendant ensuite.
+            Les groupes et les options sont copiés, pas partagés : chaque catalogue reste
+            indépendant ensuite. Pour partager vraiment, attachez un modèle.
           </p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <select value={source} onChange={(e) => setSource(e.target.value)}
-              style={{ ...champ, flex: "1 1 220px", width: "auto" }} aria-label="Article source">
-              <option value="">— Choisir un article —</option>
+            <select value={source} onChange={(e) => setSource(e.target.value as Porteur | "")}
+              style={{ ...champ, flex: "1 1 220px", width: "auto" }} aria-label="Catalogue source">
+              <option value="">— Choisir la source —</option>
               {sources.map((s) => (
-                <option key={s.id} value={s.id}>
+                <option key={s.porteur} value={s.porteur}>
                   {s.nom} ({s.nbGroupes} groupe{s.nbGroupes > 1 ? "s" : ""})
                 </option>
               ))}
             </select>
             <button type="button" disabled={!source} style={{ ...bouton, opacity: source ? 1 : 0.5 }}
-              onClick={async () => { if (suite(await dupliquerDepuis(articleId, source))) setSource(""); }}>
+              onClick={async () => { if (suite(await dupliquerDepuis(porteur, source))) setSource(""); }}>
               Copier ici
             </button>
           </div>
@@ -266,15 +309,25 @@ export default function GestionOptions({
   );
 }
 
+/** « , de 15 à 80 » — ce qui tient sur une ligne de sous-titre. */
+function resumeBornes(g: OptionGroupe): string {
+  const min = g.valeur_min ?? null;
+  const max = g.valeur_max ?? null;
+  if (min !== null && max !== null) return `, de ${min} à ${max}`;
+  if (min !== null) return `, à partir de ${min}`;
+  if (max !== null) return `, jusqu'à ${max}`;
+  return "";
+}
+
 // ── Formulaire d'un groupe ──────────────────────────────────────────────────
 
 function FormGroupe({
-  articleId,
+  porteur,
   groupe,
   onFini,
   onAnnuler,
 }: {
-  articleId: string;
+  porteur: Porteur;
   groupe?: OptionGroupe;
   onFini: (res: { error?: string; message?: string }) => void;
   onAnnuler: () => void;
@@ -285,6 +338,17 @@ function FormGroupe({
   const [aide, setAide] = useState(groupe?.aide ?? "");
   const [max, setMax] = useState(String(groupe?.max_caracteres ?? ""));
   const [enCours, setEnCours] = useState(false);
+
+  // Réglages d'un groupe « mesure ». Le vide veut dire « pas de borne ».
+  const texte = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+  const [unite, setUnite] = useState(groupe?.unite ?? "cm");
+  const [vMin, setVMin] = useState(texte(groupe?.valeur_min));
+  const [vMax, setVMax] = useState(texte(groupe?.valeur_max));
+  const [aMin, setAMin] = useState(texte(groupe?.alerte_min));
+  const [aMax, setAMax] = useState(texte(groupe?.alerte_max));
+  const [pas, setPas] = useState(texte(groupe?.pas));
+  const [seuil, setSeuil] = useState(texte(groupe?.seuil_supplement));
+  const [auDela, setAuDela] = useState(texte(groupe?.supplement_au_dela));
 
   return (
     <div style={{ display: "grid", gap: 12, marginTop: 12, paddingTop: 12, borderTop: BORDURE }}>
@@ -329,6 +393,99 @@ function FormGroupe({
         </div>
       )}
 
+      {type === "mesure" && (
+        <div style={{ border: BORDURE, borderRadius: 14, backgroundColor: "#FBF9F5", padding: 14, display: "grid", gap: 14 }}>
+          <div>
+            <label htmlFor={`unite-${groupe?.id ?? "neuf"}`} style={etiquette}>Unité</label>
+            <input id={`unite-${groupe?.id ?? "neuf"}`} type="text" value={unite ?? ""}
+              onChange={(e) => setUnite(e.target.value)} style={{ ...champ, maxWidth: 120 }}
+              placeholder="cm" />
+            <p style={{ fontSize: 12, color: SOUS, margin: "4px 0 0" }}>
+              Elle s&apos;affiche dans le champ et reste écrite sur la commande : cm, mm, kg.
+            </p>
+          </div>
+
+          <div>
+            <h4 style={{ color: MARINE, fontSize: 15, fontWeight: 700, margin: "0 0 2px" }}>
+              Ce qui est refusé
+            </h4>
+            <p style={{ fontSize: 13, color: SOUS, margin: "0 0 8px" }}>
+              L&apos;impossible : au-delà de ces bornes, la commande ne part pas.
+              Laissez vide pour ne rien borner.
+            </p>
+            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
+              <div>
+                <label htmlFor={`vmin-${groupe?.id ?? "neuf"}`} style={etiquette}>Minimum accepté</label>
+                <input id={`vmin-${groupe?.id ?? "neuf"}`} type="text" inputMode="decimal" value={vMin}
+                  onChange={(e) => setVMin(e.target.value)} style={champ} placeholder="15" />
+              </div>
+              <div>
+                <label htmlFor={`vmax-${groupe?.id ?? "neuf"}`} style={etiquette}>Maximum accepté</label>
+                <input id={`vmax-${groupe?.id ?? "neuf"}`} type="text" inputMode="decimal" value={vMax}
+                  onChange={(e) => setVMax(e.target.value)} style={champ} placeholder="80" />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h4 style={{ color: MARINE, fontSize: 15, fontWeight: 700, margin: "0 0 2px" }}>
+              Ce qui fait poser une question
+            </h4>
+            <p style={{ fontSize: 13, color: SOUS, margin: "0 0 8px" }}>
+              L&apos;improbable : la mesure passe quand même, après un « Oui, c&apos;est correct ».
+              Un chihuahua existe.
+            </p>
+            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
+              <div>
+                <label htmlFor={`amin-${groupe?.id ?? "neuf"}`} style={etiquette}>En dessous de</label>
+                <input id={`amin-${groupe?.id ?? "neuf"}`} type="text" inputMode="decimal" value={aMin}
+                  onChange={(e) => setAMin(e.target.value)} style={champ} placeholder="20" />
+              </div>
+              <div>
+                <label htmlFor={`amax-${groupe?.id ?? "neuf"}`} style={etiquette}>Au-dessus de</label>
+                <input id={`amax-${groupe?.id ?? "neuf"}`} type="text" inputMode="decimal" value={aMax}
+                  onChange={(e) => setAMax(e.target.value)} style={champ} placeholder="65" />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h4 style={{ color: MARINE, fontSize: 15, fontWeight: 700, margin: "0 0 2px" }}>
+              Supplément au-delà d&apos;une taille
+            </h4>
+            <p style={{ fontSize: 13, color: SOUS, margin: "0 0 8px" }}>
+              Un seul palier : au-delà du seuil, le montant s&apos;ajoute une fois.
+            </p>
+            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
+              <div>
+                <label htmlFor={`seuil-${groupe?.id ?? "neuf"}`} style={etiquette}>À partir de</label>
+                <input id={`seuil-${groupe?.id ?? "neuf"}`} type="text" inputMode="decimal" value={seuil}
+                  onChange={(e) => setSeuil(e.target.value)} style={champ} placeholder="60" />
+              </div>
+              <div>
+                <label htmlFor={`audela-${groupe?.id ?? "neuf"}`} style={etiquette}>Supplément (CHF)</label>
+                <input id={`audela-${groupe?.id ?? "neuf"}`} type="text" inputMode="decimal" value={auDela}
+                  onChange={(e) => setAuDela(e.target.value)} style={champ} placeholder="8" />
+              </div>
+              <div>
+                <label htmlFor={`pas-${groupe?.id ?? "neuf"}`} style={etiquette}>Pas de saisie (facultatif)</label>
+                <input id={`pas-${groupe?.id ?? "neuf"}`} type="text" inputMode="decimal" value={pas}
+                  onChange={(e) => setPas(e.target.value)} style={champ} placeholder="0.5" />
+              </div>
+            </div>
+          </div>
+
+          {groupe ? (
+            <SchemaMesure groupe={groupe} onFini={onFini} />
+          ) : (
+            <p style={{ fontSize: 13, color: SOUS, margin: 0 }}>
+              Le schéma de mesure — le dessin qui montre où poser le mètre — se dépose
+              après l&apos;enregistrement du groupe.
+            </p>
+          )}
+        </div>
+      )}
+
       <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 15, color: MARINE }}>
         <input type="checkbox" checked={obligatoire} onChange={(e) => setObligatoire(e.target.checked)}
           style={{ width: 20, height: 20 }} />
@@ -343,8 +500,11 @@ function FormGroupe({
           onClick={async () => {
             setEnCours(true);
             const res = await enregistrerGroupe({
-              article_id: articleId, id: groupe?.id ?? null, nom, type, obligatoire,
+              porteur, id: groupe?.id ?? null, nom, type, obligatoire,
               aide, max_caracteres: max ? Number(max) : null,
+              unite, valeur_min: vMin, valeur_max: vMax,
+              alerte_min: aMin, alerte_max: aMax, pas,
+              seuil_supplement: seuil, supplement_au_dela: auDela,
             });
             setEnCours(false);
             onFini(res);
@@ -358,18 +518,96 @@ function FormGroupe({
   );
 }
 
+/**
+ * Le schéma de mesure : le dessin qui montre où poser le mètre. Il compte plus
+ * qu'une phrase — c'est lui qui évite le tour de cou pris sur le poitrail.
+ */
+function SchemaMesure({
+  groupe,
+  onFini,
+}: {
+  groupe: OptionGroupe;
+  onFini: (res: { error?: string; message?: string }) => void;
+}) {
+  const fichier = useRef<HTMLInputElement>(null);
+  const [chemin, setChemin] = useState(groupe.guide_image_path ?? null);
+  const [enCours, setEnCours] = useState(false);
+
+  async function envoyer(f: File) {
+    setEnCours(true);
+    const corps = new FormData();
+    corps.append("photo", f);
+    const r = await fetch(`/api/options/groupes/${groupe.id}/guide`, { method: "POST", body: corps });
+    const res = await r.json().catch(() => ({}));
+    setEnCours(false);
+    if (!r.ok) return onFini({ error: res.error ?? "Le dépôt du schéma a échoué." });
+    setChemin(res.guide_image_path ?? null);
+    onFini({ message: "Schéma de mesure enregistré." });
+  }
+
+  async function retirer() {
+    setEnCours(true);
+    const r = await fetch(`/api/options/groupes/${groupe.id}/guide`, { method: "DELETE" });
+    setEnCours(false);
+    if (!r.ok) return onFini({ error: "Le retrait a échoué." });
+    setChemin(null);
+    onFini({ message: "Schéma retiré." });
+  }
+
+  return (
+    <div>
+      <h4 style={{ color: MARINE, fontSize: 15, fontWeight: 700, margin: "0 0 2px" }}>
+        Schéma de mesure
+      </h4>
+      <p style={{ fontSize: 13, color: SOUS, margin: "0 0 8px" }}>
+        Il s&apos;affiche AU-DESSUS du champ, avant la saisie : c&apos;est ce qui évite
+        un tour de cou pris sur le poitrail.
+      </p>
+
+      {chemin ? (
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={urlPhotoArticle(chemin) ?? ""} alt={`Schéma : ${groupe.nom}`}
+            style={{ width: 160, borderRadius: 10, border: BORDURE }} />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" style={bouton} disabled={enCours}
+              onClick={() => fichier.current?.click()}>🖼️ Remplacer</button>
+            <button type="button" style={bouton} disabled={enCours}
+              onClick={retirer}>Retirer</button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" style={bouton} disabled={enCours}
+          onClick={() => fichier.current?.click()}>
+          {enCours ? "Envoi…" : "🖼️ Déposer un schéma"}
+        </button>
+      )}
+
+      <input ref={fichier} type="file" accept="image/*" hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = "";
+          if (f) void envoyer(f);
+        }} />
+    </div>
+  );
+}
+
 // ── Valeurs d'un groupe ─────────────────────────────────────────────────────
 
 function Valeurs({
-  articleId,
+  porteur,
   groupe,
   fournitures,
   onRetour,
+  avantRetrait,
 }: {
-  articleId: string;
+  porteur: Porteur;
   groupe: OptionGroupe;
   fournitures: { id: string; nom: string; unite: string }[];
   onRetour: (res: { error?: string; message?: string }) => boolean;
+  /** Confirmation à obtenir avant un retrait qui porte au-delà de cet écran. */
+  avantRetrait: (quoi: string) => boolean;
 }) {
   const router = useRouter();
   const champFichiers = useRef<HTMLInputElement>(null);
@@ -495,24 +733,27 @@ function Valeurs({
             </span>
 
             <button type="button" aria-label={`Monter ${v.libelle}`} disabled={i === 0}
-              onClick={async () => onRetour(await deplacerValeur(articleId, groupe.id, v.id, "haut"))}
+              onClick={async () => onRetour(await deplacerValeur(porteur, groupe.id, v.id, "haut"))}
               style={{ ...carreOrdre, opacity: i === 0 ? 0.4 : 1 }}>↑</button>
             <button type="button" aria-label={`Descendre ${v.libelle}`} disabled={i === valeurs.length - 1}
-              onClick={async () => onRetour(await deplacerValeur(articleId, groupe.id, v.id, "bas"))}
+              onClick={async () => onRetour(await deplacerValeur(porteur, groupe.id, v.id, "bas"))}
               style={{ ...carreOrdre, opacity: i === valeurs.length - 1 ? 0.4 : 1 }}>↓</button>
             <button type="button" onClick={() => setModifiee(modifiee === v.id ? null : v.id)}
               style={bouton}>✏️</button>
             <button type="button" style={bouton}
-              onClick={async () => onRetour(await basculerValeur(articleId, v.id, !v.actif))}>
+              onClick={async () => onRetour(await basculerValeur(porteur, v.id, !v.actif))}>
               {v.actif ? "Désactiver" : "Réactiver"}
             </button>
             <button type="button" style={{ ...bouton, color: "#A8453A" }}
-              onClick={async () => onRetour(await supprimerValeur(articleId, v.id))}>🗑️</button>
+              onClick={async () => {
+                if (!avantRetrait(`l'option « ${v.libelle} »`)) return;
+                onRetour(await supprimerValeur(porteur, v.id));
+              }}>🗑️</button>
           </div>
 
           {modifiee === v.id && (
             <FormValeur
-              articleId={articleId}
+              porteur={porteur}
               groupe={groupe}
               valeur={v}
               fournitures={fournitures}
@@ -568,7 +809,7 @@ function Valeurs({
       {ajout ? (
         <div style={{ border: `1px solid ${VERT}`, borderRadius: 12, padding: 10, backgroundColor: "#F6FBF9" }}>
           <FormValeur
-            articleId={articleId}
+            porteur={porteur}
             groupe={groupe}
             fournitures={fournitures}
             enSerie
@@ -590,7 +831,7 @@ function Valeurs({
 // ── Formulaire d'une valeur ─────────────────────────────────────────────────
 
 function FormValeur({
-  articleId,
+  porteur,
   groupe,
   valeur,
   fournitures,
@@ -598,7 +839,7 @@ function FormValeur({
   onFini,
   onAnnuler,
 }: {
-  articleId: string;
+  porteur: Porteur;
   groupe: OptionGroupe;
   valeur?: OptionValeur;
   fournitures: { id: string; nom: string; unite: string }[];
@@ -637,7 +878,7 @@ function FormValeur({
   async function enregistrer() {
     setEnCours(true);
     const res = await enregistrerValeur({
-      article_id: articleId,
+      porteur,
       groupe_id: groupe.id,
       id: valeur?.id ?? null,
       libelle,

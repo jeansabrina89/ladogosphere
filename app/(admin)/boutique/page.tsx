@@ -160,6 +160,7 @@ export default async function BoutiquePage() {
           <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
             <Raccourci href="/boutique/articles" titre="🛒 Articles" note="Catalogue, prix et stock" />
             <Raccourci href="/boutique/inventaire" titre="📦 Inventaire" note="Comptage et écarts" />
+            <Raccourci href="/boutique/modeles" titre="🧩 Modèles d&apos;options" note="Les questions posées sur plusieurs articles" />
             <Raccourci href="/comptabilite/fournisseurs" titre="🏢 Fournisseurs"
               note={acces.permissions.perm_depenses
                 ? "Carnet partagé avec les dépenses"

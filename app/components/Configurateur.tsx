@@ -13,8 +13,17 @@ import {
   groupesManquants,
   libelleDelai,
   messageManquants,
+  mesuresAConfirmer,
+  refusConfiguration,
+  enumererFr,
   nettoyerChoixInvalides,
   prixTotal,
+  refusMesure,
+  alerteMesure,
+  supplementMesure,
+  supplementApplique,
+  formatMesure,
+  uniteMesure,
   valeurRetenue,
   valeursActives,
   type ChoixParGroupe,
@@ -117,8 +126,8 @@ export default function Configurateur({
   }
 
   const etats = etatDesGroupes(ordonnes, choix, dependances);
-  const prix = prixTotal(article.prix_vente, ordonnes, choix);
-  const detail = detailPrix(ordonnes, choix);
+  const prix = prixTotal(article.prix_vente, ordonnes, choix, dependances);
+  const detail = detailPrix(ordonnes, choix, dependances);
   const delai = delaiTotal(article.delai_fabrication_jours, ordonnes, choix);
 
   // Un groupe encore fermé n'a rien à réclamer : sa question n'est pas posée.
@@ -126,7 +135,12 @@ export default function Configurateur({
     etats.filter((e) => e.actif).map((e) => e.groupe),
     choix
   );
-  const complet = manquants.length === 0;
+  // Une mesure hors bornes dures, ou une mesure improbable pas encore
+  // confirmée, retient la validation — chacune avec sa phrase.
+  const groupesActifs = etats.filter((e) => e.actif).map((e) => e.groupe);
+  const refusMesures = refusConfiguration(groupesActifs, choix);
+  const aConfirmer = mesuresAConfirmer(groupesActifs, choix);
+  const complet = manquants.length === 0 && !refusMesures && aConfirmer.length === 0;
 
   /** Un choix en pose un autre : on rejoue les dépendances à chaque fois. */
   function poser(groupeId: string, valeur: Partial<ChoixParGroupe[string]>) {
@@ -167,10 +181,14 @@ export default function Configurateur({
         </div>
 
         <div className="md:order-1" style={{ display: "grid", gap: 20 }}>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
-            <BoutonMode actuel={mode} valeur="liste" libelle="☰ Liste" onChoisir={changerMode} />
-            <BoutonMode actuel={mode} valeur="grille" libelle="▦ Grille" onChoisir={changerMode} />
-          </div>
+          {/* Le choix liste/grille n'a de sens que s'il y a des vignettes à
+              disposer : un article qui ne demande que des mesures n'affiche rien. */}
+          {etats.some((e) => e.groupe.type === "couleur" || e.groupe.type === "liste") && (
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+              <BoutonMode actuel={mode} valeur="liste" libelle="☰ Liste" onChoisir={changerMode} />
+              <BoutonMode actuel={mode} valeur="grille" libelle="▦ Grille" onChoisir={changerMode} />
+            </div>
+          )}
 
           {etats.map((etat) => {
             const g = etat.groupe;
@@ -309,6 +327,17 @@ export default function Configurateur({
                     onBasculer={(v) => poser(g.id, { booleen: v })}
                   />
                 )}
+
+                {g.type === "mesure" && (
+                  <ChampMesure
+                    groupe={g}
+                    nombre={choix[g.id]?.nombre ?? null}
+                    acceptee={choix[g.id]?.alerte_acceptee === true}
+                    onSaisir={(nombre, alerte_acceptee) =>
+                      poser(g.id, { nombre, alerte_acceptee })
+                    }
+                  />
+                )}
               </fieldset>
             );
           })}
@@ -338,18 +367,32 @@ export default function Configurateur({
                       }}>
                         {!actif
                           ? "En attente"
-                          : g.type === "texte"
-                            ? (texte || (manque ? "À choisir" : "—"))
-                            : g.type === "booleen"
-                              ? (v ? v.libelle : "Non")
-                              : (v?.libelle ?? (manque ? "À choisir" : "—"))}
+                          : g.type === "mesure"
+                            ? (choix[g.id]?.nombre === null || choix[g.id]?.nombre === undefined
+                                ? (manque ? "À indiquer" : "—")
+                                : formatMesure(choix[g.id]?.nombre, uniteMesure(g)))
+                            : g.type === "texte"
+                              ? (texte || (manque ? "À choisir" : "—"))
+                              : g.type === "booleen"
+                                ? (v ? v.libelle : "Non")
+                                : (v?.libelle ?? (manque ? "À choisir" : "—"))}
                       </span>
                     </span>
-                    {v && Number(v.supplement_prix) > 0 && (
-                      <span style={{ color: SOUS, fontSize: 14, whiteSpace: "nowrap" }}>
-                        +{Number(v.supplement_prix).toFixed(2)}
-                      </span>
-                    )}
+                    {(() => {
+                      // Le montant montré est celui qui s'applique VRAIMENT :
+                      // celui de la combinaison quand il y en a un.
+                      const montant =
+                        g.type === "mesure"
+                          ? supplementMesure(g, choix[g.id]?.nombre ?? null)
+                          : v
+                            ? supplementApplique(v, ordonnes, choix, dependances)
+                            : 0;
+                      return montant > 0 ? (
+                        <span style={{ color: SOUS, fontSize: 14, whiteSpace: "nowrap" }}>
+                          +{montant.toFixed(2)}
+                        </span>
+                      ) : null;
+                    })()}
                   </div>
                 );
               })}
@@ -362,7 +405,10 @@ export default function Configurateur({
               </div>
               {detail.map((d, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: SOUS }}>
-                  <span>{d.groupe} — {d.libelle}</span>
+                  <span>
+                    {d.groupe} — {d.libelle}
+                    {d.contexte ? ` (${d.contexte})` : ""}
+                  </span>
                   <span>+{d.supplement.toFixed(2)}</span>
                 </div>
               ))}
@@ -416,7 +462,11 @@ export default function Configurateur({
             </button>
             {!complet && (
               <p style={{ color: GRENAT, fontSize: 13, margin: "6px 0 0", textAlign: "center" }}>
-                {messageManquants(manquants)}
+                {refusMesures
+                  ? refusMesures
+                  : aConfirmer.length > 0
+                    ? `Confirmez la mesure : ${enumererFr(aConfirmer)}.`
+                    : messageManquants(manquants)}
               </p>
             )}
           </div>
@@ -447,7 +497,8 @@ function BoutonMode({
       onClick={() => onChoisir(valeur)}
       aria-pressed={ici}
       style={{
-        minHeight: 36, padding: "0 12px", borderRadius: 999, fontSize: 14,
+        // 44 px : c'est le doigt qui décide, pas la place que ça prend.
+        minHeight: CIBLE, padding: "0 14px", borderRadius: 999, fontSize: 14,
         fontWeight: ici ? 700 : 500, fontFamily: "inherit", cursor: "pointer",
         border: ici ? `1px solid ${VERT}` : BORDURE,
         backgroundColor: ici ? "#F1F8F6" : "#FFFFFF",
@@ -769,6 +820,133 @@ function ChampTexte({
           color: restants <= 3 ? "#A8453A" : SOUS, fontSize: 13, margin: "4px 0 0",
         }}>
           {restants} caractère{restants > 1 ? "s" : ""} restant{restants > 1 ? "s" : ""}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Un champ de mesure.
+ *
+ * Le schéma vient AVANT le champ : on regarde où poser le mètre, puis on
+ * saisit. L'inverse ferait ressaisir. Le clavier est numérique — sur un
+ * téléphone, un clavier de texte pour écrire « 38 » est une petite cruauté.
+ *
+ * Deux sortes de bornes : celles qui refusent (l'impossible) et celles qui
+ * demandent confirmation (l'improbable). La seconde ne bloque jamais : on
+ * coche « Oui, c'est correct » et la commande passe.
+ */
+function ChampMesure({
+  groupe,
+  nombre,
+  acceptee,
+  onSaisir,
+}: {
+  groupe: OptionGroupe;
+  nombre: number | null;
+  acceptee: boolean;
+  onSaisir: (nombre: number | null, alerteAcceptee: boolean) => void;
+}) {
+  const [brut, setBrut] = useState(nombre === null || nombre === undefined ? "" : String(nombre));
+  const unite = uniteMesure(groupe);
+  const guide = urlPhotoArticle(groupe.guide_image_path ?? null);
+
+  const lu = (() => {
+    const t = brut.replace(",", ".").trim();
+    if (!t) return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+  })();
+
+  const refus = brut.trim() ? refusMesure(groupe, lu) : null;
+  const alerte = refus ? null : alerteMesure(groupe, lu);
+  const supplement = supplementMesure(groupe, lu);
+
+  return (
+    <div style={{ display: "grid", gap: 10 }}>
+      {guide && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={guide}
+          alt={`Où mesurer : ${groupe.nom}`}
+          style={{ width: "100%", maxWidth: 320, borderRadius: 12, border: BORDURE }}
+        />
+      )}
+
+      <div style={{ position: "relative", maxWidth: 220 }}>
+        <input
+          id={`mesure-${groupe.id}`}
+          type="text"
+          inputMode="decimal"
+          value={brut}
+          onChange={(e) => {
+            const v = e.target.value;
+            setBrut(v);
+            const t = v.replace(",", ".").trim();
+            const n = t ? Number(t) : NaN;
+            // Changer la mesure remet l'alerte en jeu : une confirmation vaut
+            // pour le nombre confirmé, pas pour tous les suivants.
+            onSaisir(Number.isFinite(n) ? n : null, false);
+          }}
+          aria-label={`${groupe.nom} en ${unite}`}
+          aria-invalid={refus ? true : undefined}
+          style={{
+            width: "100%", minHeight: CIBLE + 6, padding: "10px 52px 10px 14px",
+            border: refus ? `2px solid ${GRENAT}` : BORDURE,
+            borderRadius: 12, fontSize: 18, color: MARINE, backgroundColor: "#FFFFFF",
+            fontFamily: "inherit", boxSizing: "border-box",
+          }}
+        />
+        <span
+          aria-hidden
+          style={{
+            position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
+            color: SOUS, fontSize: 16, pointerEvents: "none",
+          }}
+        >
+          {unite}
+        </span>
+      </div>
+
+      {refus && (
+        <p role="alert" style={{
+          color: GRENAT, backgroundColor: "#FDECEC", border: "1px solid #F0C2C2",
+          borderRadius: 10, padding: "8px 10px", fontSize: 14, fontWeight: 600, margin: 0,
+        }}>
+          {refus}
+        </p>
+      )}
+
+      {alerte && (
+        <div style={{
+          backgroundColor: "#F4EAC9", border: "1px solid #C9A84C",
+          borderRadius: 10, padding: "10px 12px",
+        }}>
+          <p style={{ color: "#6E5410", fontSize: 14, fontWeight: 600, margin: "0 0 8px" }}>
+            {alerte}
+          </p>
+          <button
+            type="button"
+            aria-pressed={acceptee}
+            onClick={() => onSaisir(lu, !acceptee)}
+            style={{
+              minHeight: CIBLE, padding: "8px 14px", borderRadius: 12,
+              border: acceptee ? `2px solid ${VERT}` : BORDURE,
+              backgroundColor: acceptee ? "#F1F8F6" : "#FFFFFF",
+              color: MARINE, fontSize: 15, fontWeight: 600, fontFamily: "inherit",
+              cursor: "pointer",
+            }}
+          >
+            {acceptee ? "✓ Oui, c'est correct" : "Oui, c'est correct"}
+          </button>
+        </div>
+      )}
+
+      {supplement > 0 && !refus && (
+        <p style={{ color: SOUS, fontSize: 14, margin: 0 }}>
+          Au-delà de {formatMesure(groupe.seuil_supplement, unite)}, un supplément de{" "}
+          {supplement.toFixed(2)} CHF s&apos;applique.
         </p>
       )}
     </div>
