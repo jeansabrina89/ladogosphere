@@ -14,6 +14,12 @@ export type ResaForCompta = {
   type_reservation: string;
   montant_final?: number | string | null;
   montant_calcule?: number | string | null;
+  /**
+   * Une facture emise porte le produit et le debiteur (cf. comptaFactureLogique).
+   * Dans ce cas la reservation ne porte plus QUE les acomptes encaisses avant
+   * la facture : sans cela, le meme produit serait reconnu deux fois.
+   */
+  factureEmise?: boolean;
 };
 
 export type MouvementForCompta = {
@@ -67,7 +73,7 @@ export function calculerLignesEcriture(
   liquideTotal = r2(liquideTotal);
 
   const total = r2(Number(resa.montant_final ?? resa.montant_calcule ?? 0));
-  const P = resa.statut === "terminee" ? total : 0;
+  const P = resa.statut === "terminee" && !resa.factureEmise ? total : 0;
   const CP = COMPTE_PRODUIT[resa.type_reservation] ?? "3000";
 
   if (P > 0) {

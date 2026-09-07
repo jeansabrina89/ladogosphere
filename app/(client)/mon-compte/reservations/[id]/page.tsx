@@ -1,3 +1,4 @@
+import { factureEmisePourReservation } from "@/src/lib/factureResa";
 import type { CSSProperties, ReactNode } from "react";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
@@ -116,6 +117,10 @@ export default async function DetailReservationClientPage({
     getSoldeAvoir(supabaseAdmin, res.client_id),
   ]);
 
+  // Référence de paiement unique : le numéro de facture, s'il existe.
+  const factureLiee = await factureEmisePourReservation(id);
+  const numeroFacture = factureLiee?.numero ?? null;
+
   const peutPayer =
     !regleParAbo &&
     (res.statut === "validee" || res.statut === "terminee") &&
@@ -188,7 +193,7 @@ export default async function DetailReservationClientPage({
             <Carte>
               <BoutonPaiementClient
                 reservation_id={res.id}
-                numero={res.numero}
+                numeroFacture={numeroFacture}
                 iban={coords.iban}
                 titulaire={coords.titulaire}
                 montant_final={res.montant_final || 0}

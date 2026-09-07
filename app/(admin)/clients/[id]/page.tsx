@@ -20,7 +20,7 @@ import BadgeMembre from "@/app/components/BadgeMembre";
 import BadgePhotos from "@/app/components/BadgePhotos";
 import ContactEmail from "@/app/components/ContactEmail";
 import ContactTelephone from "@/app/components/ContactTelephone";
-import SelectionFactureGroupee from "../../reservations/SelectionFactureGroupee";
+import ListeReservations from "../../reservations/ListeReservations";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import BadgeStatut from "@/app/components/ui/BadgeStatut";
@@ -347,7 +347,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         {/* 9. Réservations — composant inchangé */}
         <section style={{ marginBottom: 28 }}>
           <h2 style={h2}>📅 Réservations</h2>
-          <SelectionFactureGroupee reservations={reservations ?? []} permEncaissements={perms.perm_encaissements} />
+          <ListeReservations reservations={(reservations ?? []) as never} permEncaissements={perms.perm_encaissements} />
         </section>
 
         {/* Boutons */}

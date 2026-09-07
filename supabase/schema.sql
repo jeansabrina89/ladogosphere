@@ -306,6 +306,29 @@ create table if not exists public.exercices (
   created_at timestamp with time zone default now() not null
 );
 
+create table if not exists public.facture_lignes (
+  id uuid default gen_random_uuid() not null,
+  facture_id uuid not null,
+  ordre integer default 0 not null,
+  libelle text not null,
+  quantite numeric default 1 not null,
+  prix_unitaire numeric default 0 not null,
+  montant numeric default 0 not null,
+  taux_tva numeric default 0 not null,
+  secteur_tdfn numeric,
+  compte_produit text default '3000'::text not null,
+  reservation_id uuid,
+  abonnement_id uuid,
+  cotisation_id uuid,
+  created_at timestamp with time zone default now() not null
+);
+
+create table if not exists public.facture_numerotation (
+  exercice integer not null,
+  prefixe text default 'FAC'::text not null,
+  prochain integer default 1 not null
+);
+
 create table if not exists public.facture_reservations (
   id uuid default gen_random_uuid() not null,
   facture_id uuid not null,
@@ -333,7 +356,19 @@ create table if not exists public.factures (
   premier_rappel_envoye boolean default false,
   deuxieme_rappel_envoye boolean default false,
   created_at timestamp with time zone default now(),
-  reference_qr text
+  reference_qr text,
+  type text default 'facture'::text not null,
+  facture_origine_id uuid,
+  date_echeance date,
+  montant_ht numeric,
+  montant_tva numeric default 0 not null,
+  montant_ttc numeric,
+  motif text,
+  pdf_path text,
+  pdf_sha256 text,
+  emise_par uuid,
+  emise_le timestamp with time zone,
+  exercice integer
 );
 
 create table if not exists public.fermetures_essai (
@@ -380,6 +415,18 @@ create table if not exists public.indisponibilites (
   date date not null,
   note text,
   created_at timestamp with time zone default now()
+);
+
+create table if not exists public.journal_evenements (
+  id uuid default gen_random_uuid() not null,
+  entite text not null,
+  entite_id uuid not null,
+  evenement text not null,
+  avant jsonb,
+  apres jsonb,
+  motif text,
+  user_id uuid,
+  created_at timestamp with time zone default now() not null
 );
 
 create table if not exists public.jours_feries (
@@ -433,7 +480,7 @@ create table if not exists public.occupation_boxes (
 
 create table if not exists public.paiements_resa (
   id uuid default gen_random_uuid() not null,
-  reservation_id uuid not null,
+  reservation_id uuid,
   client_id uuid not null,
   date_paiement date default CURRENT_DATE not null,
   mode text not null,
@@ -441,7 +488,10 @@ create table if not exists public.paiements_resa (
   motif text,
   created_by uuid,
   created_at timestamp with time zone default now() not null,
-  cle_idempotence text
+  cle_idempotence text,
+  facture_id uuid,
+  source text default 'manuel'::text not null,
+  arrondi numeric default 0 not null
 );
 
 create table if not exists public.parametres (
@@ -619,6 +669,8 @@ alter table public.emails_envoyes add constraint emails_envoyes_pkey PRIMARY KEY
 alter table public.employes_rh add constraint employes_rh_pkey PRIMARY KEY (id);
 alter table public.ententes_chiens add constraint ententes_chiens_pkey PRIMARY KEY (id);
 alter table public.exercices add constraint exercices_pkey PRIMARY KEY (annee);
+alter table public.facture_lignes add constraint facture_lignes_pkey PRIMARY KEY (id);
+alter table public.facture_numerotation add constraint facture_numerotation_pkey PRIMARY KEY (exercice, prefixe);
 alter table public.facture_reservations add constraint facture_reservations_pkey PRIMARY KEY (id);
 alter table public.factures add constraint factures_pkey PRIMARY KEY (id);
 alter table public.fermetures_essai add constraint fermetures_essai_pkey PRIMARY KEY (id);
@@ -626,6 +678,7 @@ alter table public.fermetures_exceptionnelles add constraint fermetures_exceptio
 alter table public.fiche_salaire_deductions add constraint fiche_salaire_deductions_pkey PRIMARY KEY (id);
 alter table public.fiches_salaire add constraint fiches_salaire_pkey PRIMARY KEY (id);
 alter table public.indisponibilites add constraint indisponibilites_pkey PRIMARY KEY (id);
+alter table public.journal_evenements add constraint journal_evenements_pkey PRIMARY KEY (id);
 alter table public.jours_feries add constraint jours_feries_pkey PRIMARY KEY (id);
 alter table public.liste_attente add constraint liste_attente_pkey PRIMARY KEY (id);
 alter table public.modeles_deductions add constraint modeles_deductions_pkey PRIMARY KEY (id);
@@ -658,7 +711,7 @@ alter table public.timbrage add constraint timbrage_employe_id_date_key UNIQUE (
 alter table public.abonnements add constraint abonnements_mode_paiement_check CHECK (((mode_paiement IS NULL) OR (mode_paiement = ANY (ARRAY['cash'::text, 'twint'::text, 'virement'::text, 'stripe'::text, 'avoir'::text]))));
 alter table public.abonnements add constraint abonnements_statut_check CHECK ((statut = ANY (ARRAY['en_attente_paiement'::text, 'actif'::text, 'epuise'::text, 'expire'::text, 'annule'::text])));
 alter table public.abonnements_mouvements add constraint abonnements_mouvements_type_check CHECK ((type = ANY (ARRAY['achat'::text, 'consommation'::text, 'recredit'::text, 'expiration'::text, 'ajustement'::text])));
-alter table public.avoirs_mouvements add constraint avoirs_mouvements_type_check CHECK ((type = ANY (ARRAY['ajout_manuel'::text, 'retrait_manuel'::text, 'annulation_paiement'::text, 'utilisation'::text, 'trop_percu'::text, 'reprise'::text, 'mise_en_avoir'::text])));
+alter table public.avoirs_mouvements add constraint avoirs_mouvements_type_check CHECK ((type = ANY (ARRAY['ajout_manuel'::text, 'retrait_manuel'::text, 'annulation_paiement'::text, 'utilisation'::text, 'trop_percu'::text, 'reprise'::text, 'mise_en_avoir'::text, 'avoir_facture'::text])));
 alter table public.box_indisponibilites add constraint box_indispo_dates_coherentes CHECK ((date_fin >= date_debut));
 alter table public.checkin_checkout add constraint checkin_checkout_statut_check CHECK ((statut = ANY (ARRAY['attendu'::text, 'arrive'::text, 'a_recuperer'::text, 'parti'::text])));
 alter table public.chiens add constraint chiens_categorie_poids_check CHECK ((categorie_poids = ANY (ARRAY['moins_15kg'::text, '15_30kg'::text, '30_40kg'::text])));
@@ -678,12 +731,15 @@ alter table public.ecritures_lignes add constraint ligne_debit_xor_credit CHECK 
 alter table public.emails_campagnes add constraint emails_campagnes_cible_check CHECK ((cible = ANY (ARRAY['membres_actifs'::text, 'tous_clients'::text])));
 alter table public.ententes_chiens add constraint ententes_chiens_type_check CHECK ((type = ANY (ARRAY['positif'::text, 'negatif'::text, 'box_compatible'::text, 'famille_uniquement'::text])));
 alter table public.exercices add constraint exercices_statut_check CHECK ((statut = ANY (ARRAY['ouvert'::text, 'cloture'::text])));
-alter table public.factures add constraint factures_statut_check CHECK ((statut = ANY (ARRAY['brouillon'::text, 'envoyee'::text, 'partiellement_reglee'::text, 'arrangement_paiement'::text, 'acquittee'::text, 'annulee'::text])));
+alter table public.factures add constraint factures_avoir_origine_check CHECK (((type <> 'avoir'::text) OR (facture_origine_id IS NOT NULL)));
+alter table public.factures add constraint factures_statut_check CHECK ((statut = ANY (ARRAY['brouillon'::text, 'envoyee'::text, 'partiellement_reglee'::text, 'arrangement_paiement'::text, 'acquittee'::text, 'annulee'::text, 'annulee_par_avoir'::text])));
+alter table public.factures add constraint factures_type_doc_check CHECK ((type = ANY (ARRAY['facture'::text, 'acompte'::text, 'avoir'::text, 'libre'::text])));
 alter table public.factures add constraint factures_type_facture_check CHECK ((type_facture = ANY (ARRAY['reservation'::text, 'adhesion'::text, 'service'::text])));
 alter table public.fermetures_essai add constraint fermetures_essai_dates_ok CHECK ((date_fin >= date_debut));
 alter table public.fiche_salaire_deductions add constraint fiche_salaire_deductions_type_check CHECK ((type = ANY (ARRAY['pourcentage'::text, 'montant_fixe'::text])));
 alter table public.modeles_deductions add constraint modeles_deductions_type_check CHECK ((type = ANY (ARRAY['pourcentage'::text, 'montant_fixe'::text])));
-alter table public.paiements_resa add constraint paiements_resa_mode_check CHECK ((mode = ANY (ARRAY['cash'::text, 'twint'::text, 'stripe'::text, 'virement'::text, 'avoir'::text])));
+alter table public.paiements_resa add constraint paiements_resa_mode_check CHECK ((mode = ANY (ARRAY['cash'::text, 'twint'::text, 'carte'::text, 'stripe'::text, 'virement'::text, 'avoir'::text])));
+alter table public.paiements_resa add constraint paiements_resa_piece_check CHECK (((reservation_id IS NOT NULL) OR (facture_id IS NOT NULL)));
 alter table public.planning_employes add constraint planning_employes_statut_check CHECK ((statut = ANY (ARRAY['travail'::text, 'repos'::text, 'vacances'::text, 'repos_vacances'::text, 'maladie'::text, 'accident'::text, 'militaire'::text, 'ferie'::text, 'ferie_travaille'::text, 'absent'::text, 'heures_sup'::text, 'autre'::text, 'cours'::text])));
 alter table public.profiles add constraint profiles_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'employe'::text, 'client'::text])));
 alter table public.reservations add constraint reservations_mode_paiement_check CHECK ((mode_paiement = ANY (ARRAY['twint'::text, 'cash'::text, 'iban'::text, 'stripe'::text, 'autre'::text, 'avoir'::text, 'abonnement'::text])));
@@ -717,18 +773,27 @@ alter table public.ecritures_lignes add constraint ecritures_lignes_ecriture_id_
 alter table public.employes_rh add constraint employes_rh_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES profiles(id);
 alter table public.ententes_chiens add constraint ententes_chiens_chien_cible_id_fkey FOREIGN KEY (chien_cible_id) REFERENCES chiens(id) ON DELETE CASCADE;
 alter table public.ententes_chiens add constraint ententes_chiens_chien_id_fkey FOREIGN KEY (chien_id) REFERENCES chiens(id) ON DELETE CASCADE;
+alter table public.facture_lignes add constraint facture_lignes_abonnement_id_fkey FOREIGN KEY (abonnement_id) REFERENCES abonnements(id) ON DELETE SET NULL;
+alter table public.facture_lignes add constraint facture_lignes_compte_produit_fkey FOREIGN KEY (compte_produit) REFERENCES comptes(numero);
+alter table public.facture_lignes add constraint facture_lignes_cotisation_id_fkey FOREIGN KEY (cotisation_id) REFERENCES cotisations_membres(id) ON DELETE SET NULL;
+alter table public.facture_lignes add constraint facture_lignes_facture_id_fkey FOREIGN KEY (facture_id) REFERENCES factures(id) ON DELETE CASCADE;
+alter table public.facture_lignes add constraint facture_lignes_reservation_id_fkey FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE SET NULL;
 alter table public.facture_reservations add constraint facture_reservations_facture_id_fkey FOREIGN KEY (facture_id) REFERENCES factures(id) ON DELETE CASCADE;
 alter table public.facture_reservations add constraint facture_reservations_reservation_id_fkey FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE RESTRICT;
 alter table public.factures add constraint factures_client_id_fkey FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE;
+alter table public.factures add constraint factures_emise_par_fkey FOREIGN KEY (emise_par) REFERENCES profiles(id);
+alter table public.factures add constraint factures_facture_origine_id_fkey FOREIGN KEY (facture_origine_id) REFERENCES factures(id);
 alter table public.factures add constraint factures_reservation_id_fkey FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE SET NULL;
 alter table public.fiche_salaire_deductions add constraint fiche_salaire_deductions_fiche_id_fkey FOREIGN KEY (fiche_id) REFERENCES fiches_salaire(id) ON DELETE CASCADE;
 alter table public.fiches_salaire add constraint fiches_salaire_employe_id_fkey FOREIGN KEY (employe_id) REFERENCES employes_rh(id) ON DELETE CASCADE;
 alter table public.indisponibilites add constraint indisponibilites_employe_id_fkey FOREIGN KEY (employe_id) REFERENCES employes_rh(id);
+alter table public.journal_evenements add constraint journal_evenements_user_id_fkey FOREIGN KEY (user_id) REFERENCES profiles(id);
 alter table public.liste_attente add constraint liste_attente_chien_id_fkey FOREIGN KEY (chien_id) REFERENCES chiens(id) ON DELETE CASCADE;
 alter table public.liste_attente add constraint liste_attente_client_id_fkey FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE;
 alter table public.occupation_boxes add constraint occupation_boxes_box_id_fkey FOREIGN KEY (box_id) REFERENCES boxes(id) ON DELETE CASCADE;
 alter table public.occupation_boxes add constraint occupation_boxes_chien_id_fkey FOREIGN KEY (chien_id) REFERENCES chiens(id) ON DELETE CASCADE;
 alter table public.occupation_boxes add constraint occupation_boxes_reservation_id_fkey FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE;
+alter table public.paiements_resa add constraint paiements_resa_facture_id_fkey FOREIGN KEY (facture_id) REFERENCES factures(id);
 alter table public.paiements_resa add constraint paiements_resa_reservation_id_fkey FOREIGN KEY (reservation_id) REFERENCES reservations(id);
 alter table public.photos_chiens add constraint photos_chiens_chien_id_fkey FOREIGN KEY (chien_id) REFERENCES chiens(id) ON DELETE CASCADE;
 alter table public.planning_employes add constraint planning_employes_employe_id_fkey FOREIGN KEY (employe_id) REFERENCES employes_rh(id);
@@ -770,18 +835,27 @@ CREATE INDEX idx_ecr_lignes_compte ON public.ecritures_lignes USING btree (compt
 CREATE INDEX idx_ecr_lignes_ecriture ON public.ecritures_lignes USING btree (ecriture_id);
 CREATE INDEX idx_employes_rh_profile_id ON public.employes_rh USING btree (profile_id);
 CREATE INDEX idx_ententes_chiens_chien_cible_id ON public.ententes_chiens USING btree (chien_cible_id);
+CREATE INDEX idx_facture_lignes_abonnement ON public.facture_lignes USING btree (abonnement_id);
+CREATE INDEX idx_facture_lignes_cotisation ON public.facture_lignes USING btree (cotisation_id);
+CREATE INDEX idx_facture_lignes_facture ON public.facture_lignes USING btree (facture_id);
+CREATE INDEX idx_facture_lignes_reservation ON public.facture_lignes USING btree (reservation_id);
 CREATE INDEX idx_facture_reservations_facture ON public.facture_reservations USING btree (facture_id);
 CREATE INDEX idx_facture_reservations_reservation ON public.facture_reservations USING btree (reservation_id);
 CREATE UNIQUE INDEX uniq_reservation_facture_active ON public.facture_reservations USING btree (reservation_id) WHERE (facture_annulee = false);
 CREATE INDEX idx_factures_client_id ON public.factures USING btree (client_id);
+CREATE INDEX idx_factures_echeance ON public.factures USING btree (date_echeance);
+CREATE INDEX idx_factures_exercice ON public.factures USING btree (exercice);
+CREATE INDEX idx_factures_origine ON public.factures USING btree (facture_origine_id);
 CREATE INDEX idx_factures_reservation_id ON public.factures USING btree (reservation_id);
 CREATE INDEX idx_fiche_salaire_deductions_fiche_id ON public.fiche_salaire_deductions USING btree (fiche_id);
+CREATE INDEX idx_journal_evenements_entite ON public.journal_evenements USING btree (entite, entite_id, created_at DESC);
 CREATE INDEX idx_liste_attente_chien_id ON public.liste_attente USING btree (chien_id);
 CREATE INDEX idx_liste_attente_client_id ON public.liste_attente USING btree (client_id);
 CREATE INDEX idx_occupation_boxes_box_id ON public.occupation_boxes USING btree (box_id);
 CREATE INDEX idx_occupation_boxes_chien_id ON public.occupation_boxes USING btree (chien_id);
 CREATE INDEX idx_occupation_boxes_reservation_id ON public.occupation_boxes USING btree (reservation_id);
 CREATE INDEX idx_paiements_resa_client ON public.paiements_resa USING btree (client_id);
+CREATE INDEX idx_paiements_resa_facture ON public.paiements_resa USING btree (facture_id);
 CREATE INDEX idx_paiements_resa_reservation ON public.paiements_resa USING btree (reservation_id);
 CREATE UNIQUE INDEX uq_paiements_resa_idempotence ON public.paiements_resa USING btree (reservation_id, cle_idempotence) WHERE (cle_idempotence IS NOT NULL);
 CREATE INDEX idx_photos_chiens_chien_id ON public.photos_chiens USING btree (chien_id);
@@ -804,6 +878,33 @@ AS $function$
 begin
   raise exception 'abonnements_mouvements est append-only : un mouvement ne peut etre ni modifie ni supprime';
 end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.acomptes_a_imputer(p_facture_id uuid)
+ RETURNS numeric
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  with resas as (
+    select distinct reservation_id
+      from public.facture_lignes
+     where facture_id = p_facture_id and reservation_id is not null
+  ),
+  factures_acompte as (
+    select distinct fa.id
+      from public.factures fa
+      join public.facture_lignes fl on fl.facture_id = fa.id
+     where fa.type = 'acompte'
+       and fa.numero is not null
+       and fa.statut not in ('annulee', 'annulee_par_avoir')
+       and fl.reservation_id in (select reservation_id from resas)
+  )
+  select round(coalesce(sum(p.montant), 0), 2)
+    from public.paiements_resa p
+   where (p.facture_id is null and p.reservation_id in (select reservation_id from resas))
+      or (p.facture_id in (select id from factures_acompte));
 $function$
 ;
 
@@ -968,6 +1069,155 @@ end;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.emettre_facture(p_facture_id uuid, p_user_id uuid DEFAULT NULL::uuid)
+ RETURNS text
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_f          record;
+  v_nb_lignes  int;
+  v_total      numeric;
+  v_exercice   int;
+  v_prefixe    text;
+  v_numero     text;
+  v_delai      int;
+  v_echeance   date;
+  v_acomptes   numeric := 0;
+  v_lignes     jsonb   := '[]'::jsonb;
+  l            record;
+begin
+  select * into v_f from public.factures where id = p_facture_id for update;
+  if not found then
+    raise exception 'Facture introuvable.';
+  end if;
+  if v_f.numero is not null then
+    raise exception 'Facture % déjà émise.', v_f.numero;
+  end if;
+  if v_f.statut <> 'brouillon' then
+    raise exception 'Seul un brouillon peut être émis (statut actuel : %).', v_f.statut;
+  end if;
+  if v_f.client_id is null then
+    raise exception 'Facture sans client : émission impossible.';
+  end if;
+
+  select count(*), coalesce(sum(montant), 0) into v_nb_lignes, v_total
+    from public.facture_lignes where facture_id = p_facture_id;
+  if v_nb_lignes = 0 then
+    raise exception 'Facture sans ligne : émission impossible.';
+  end if;
+
+  v_exercice := extract(year from coalesce(v_f.date_facture, current_date))::int;
+  v_prefixe  := case when v_f.type = 'avoir' then 'AV' else 'FAC' end;
+  v_numero   := public.prochain_numero_facture(v_exercice, v_prefixe);
+
+  select coalesce(nullif(valeur, ''), '30')::int into v_delai
+    from public.parametres where cle = 'delai_paiement_jours';
+  v_delai := coalesce(v_delai, 30);
+  v_echeance := coalesce(v_f.date_facture, current_date) + v_delai;
+
+  update public.factures
+     set numero        = v_numero,
+         reference_qr  = public.reference_qrr(v_numero),
+         date_echeance = v_echeance,
+         montant_total = v_total,
+         montant_ttc   = v_total,
+         montant_ht    = v_total,
+         montant_tva   = 0,
+         montant_restant = round(v_total - coalesce(montant_paye, 0), 2),
+         statut        = 'envoyee',
+         emise_par     = p_user_id,
+         emise_le      = now(),
+         exercice      = v_exercice
+   where id = p_facture_id;
+
+  insert into public.journal_evenements (entite, entite_id, evenement, apres, user_id)
+  values ('facture', p_facture_id, 'emission',
+          jsonb_build_object('numero', v_numero, 'total', v_total,
+                             'echeance', v_echeance, 'type', v_f.type),
+          p_user_id);
+
+  if v_f.type in ('avoir', 'acompte') then
+    return v_numero;
+  end if;
+
+  for l in
+    select compte_produit, round(sum(montant), 2) as montant
+      from public.facture_lignes
+     where facture_id = p_facture_id
+     group by compte_produit
+     having round(sum(montant), 2) <> 0
+  loop
+    v_lignes := v_lignes || jsonb_build_object(
+      'compte', l.compte_produit,
+      'debit',  greatest(-l.montant, 0),
+      'credit', greatest(l.montant, 0));
+  end loop;
+
+  v_acomptes := least(greatest(public.acomptes_a_imputer(p_facture_id), 0), v_total);
+
+  if v_total <> 0 then
+    v_lignes := v_lignes || jsonb_build_object(
+      'compte', '1100', 'debit', greatest(v_total, 0), 'credit', greatest(-v_total, 0));
+  end if;
+  if v_acomptes <> 0 then
+    v_lignes := v_lignes || jsonb_build_object('compte', '2030', 'debit', v_acomptes, 'credit', 0);
+    v_lignes := v_lignes || jsonb_build_object('compte', '1100', 'debit', 0, 'credit', v_acomptes);
+  end if;
+
+  if jsonb_array_length(v_lignes) > 0 and v_total <> 0 then
+    perform public.passer_ecriture(
+      coalesce(v_f.date_facture, current_date),
+      'Facture ' || v_numero,
+      'facture',
+      p_facture_id,
+      v_lignes,
+      p_user_id,
+      null);
+  end if;
+
+  return v_numero;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.facture_lignes_integrite()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+declare
+  v_numero text;
+begin
+  select numero into v_numero from public.factures
+   where id = case when TG_OP = 'DELETE' then OLD.facture_id else NEW.facture_id end;
+
+  if v_numero is null then
+    if TG_OP = 'DELETE' then return OLD; end if;
+    return NEW;
+  end if;
+
+  if TG_OP = 'DELETE' then
+    raise exception 'Ligne d''une facture emise (%) : suppression interdite.', v_numero;
+  end if;
+  raise exception 'Ligne d''une facture emise (%) : modification interdite.', v_numero;
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.facture_lignes_montant()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+begin
+  NEW.montant := round(coalesce(NEW.quantite, 0) * coalesce(NEW.prix_unitaire, 0), 2);
+  return NEW;
+end;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.facture_reservations_integrite()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -1005,26 +1255,31 @@ AS $function$
 begin
   if (TG_OP = 'DELETE') then
     if OLD.numero is not null then
-      raise exception 'Facture % deja emise : suppression interdite (annuler via note de credit).', OLD.numero;
+      raise exception 'Facture % deja emise : suppression interdite (passer par un avoir).', OLD.numero;
     end if;
     return OLD;
   end if;
 
   if OLD.numero is not null then
-    if NEW.numero is distinct from OLD.numero then
-      raise exception 'Le numero d''une facture emise est immuable.';
-    end if;
-    if NEW.montant_total is distinct from OLD.montant_total then
-      raise exception 'Le montant total d''une facture emise (%) est immuable.', OLD.numero;
-    end if;
-    if NEW.date_facture is distinct from OLD.date_facture then
-      raise exception 'La date d''une facture emise (%) est immuable.', OLD.numero;
-    end if;
-    if NEW.client_id is distinct from OLD.client_id then
-      raise exception 'Le client d''une facture emise (%) est immuable.', OLD.numero;
-    end if;
-    if NEW.type_facture is distinct from OLD.type_facture then
-      raise exception 'Le type d''une facture emise (%) est immuable.', OLD.numero;
+    if NEW.numero             is distinct from OLD.numero
+    or NEW.type               is distinct from OLD.type
+    or NEW.type_facture       is distinct from OLD.type_facture
+    or NEW.client_id          is distinct from OLD.client_id
+    or NEW.reservation_id     is distinct from OLD.reservation_id
+    or NEW.facture_origine_id is distinct from OLD.facture_origine_id
+    or NEW.date_facture       is distinct from OLD.date_facture
+    or NEW.date_echeance      is distinct from OLD.date_echeance
+    or NEW.montant_total      is distinct from OLD.montant_total
+    or NEW.montant_ht         is distinct from OLD.montant_ht
+    or NEW.montant_tva        is distinct from OLD.montant_tva
+    or NEW.montant_ttc        is distinct from OLD.montant_ttc
+    or NEW.motif              is distinct from OLD.motif
+    or NEW.reference_qr       is distinct from OLD.reference_qr
+    or NEW.emise_par          is distinct from OLD.emise_par
+    or NEW.emise_le           is distinct from OLD.emise_le
+    or NEW.exercice           is distinct from OLD.exercice
+    then
+      raise exception 'Facture % deja emise : seuls le statut, le suivi de paiement et le PDF peuvent changer.', OLD.numero;
     end if;
   end if;
   return NEW;
@@ -1064,15 +1319,6 @@ begin
   end if;
   return new;
 end;
-$function$
-;
-
-CREATE OR REPLACE FUNCTION public.generer_numero_facture()
- RETURNS text
- LANGUAGE sql
- SET search_path TO 'public'
-AS $function$
-  select 'FAC-' || to_char(now(), 'YYYY') || '-' || lpad(nextval('public.factures_numero_seq')::text, 4, '0');
 $function$
 ;
 
@@ -1117,6 +1363,17 @@ AS $function$
       and role in ('admin','employe')
       and actif is not false
   );
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.journal_evenements_append_only()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+begin
+  raise exception 'journal_evenements est en ajout seul : ni modification ni suppression.';
+end;
 $function$
 ;
 
@@ -1269,6 +1526,69 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.prochain_numero_facture(p_exercice integer, p_prefixe text)
+ RETURNS text
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_n int;
+begin
+  insert into public.facture_numerotation (exercice, prefixe, prochain)
+  values (p_exercice, p_prefixe, 1)
+  on conflict (exercice, prefixe) do nothing;
+
+  select prochain into v_n
+    from public.facture_numerotation
+   where exercice = p_exercice and prefixe = p_prefixe
+     for update;
+
+  update public.facture_numerotation
+     set prochain = v_n + 1
+   where exercice = p_exercice and prefixe = p_prefixe;
+
+  return p_prefixe || '-' || p_exercice::text || '-' || lpad(v_n::text, 4, '0');
+end;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.reference_qrr(p_numero text)
+ RETURNS text
+ LANGUAGE plpgsql
+ IMMUTABLE
+ SET search_path TO ''
+AS $function$
+declare
+  v_table int[][] := array[
+    array[0,9,4,6,8,2,7,1,3,5],
+    array[9,4,6,8,2,7,1,3,5,0],
+    array[4,6,8,2,7,1,3,5,0,9],
+    array[6,8,2,7,1,3,5,0,9,4],
+    array[8,2,7,1,3,5,0,9,4,6],
+    array[2,7,1,3,5,0,9,4,6,8],
+    array[7,1,3,5,0,9,4,6,8,2],
+    array[1,3,5,0,9,4,6,8,2,7],
+    array[3,5,0,9,4,6,8,2,7,1],
+    array[5,0,9,4,6,8,2,7,1,3]];
+  v_chiffres text;
+  v_base     text;
+  v_report   int := 0;
+  i          int;
+begin
+  v_chiffres := regexp_replace(coalesce(p_numero, ''), '\D', '', 'g');
+  if v_chiffres = '' then v_chiffres := '0'; end if;
+  v_base := right(lpad(v_chiffres, 26, '0'), 26);
+
+  for i in 1..26 loop
+    v_report := v_table[v_report + 1][substr(v_base, i, 1)::int + 1];
+  end loop;
+
+  return v_base || ((10 - v_report) % 10)::text;
+end;
+$function$
+;
+
 -- ── Déclencheurs ────────────────────────────────────────────────────────
 
 CREATE TRIGGER trg_abonnements_mouvements_append_only BEFORE DELETE OR UPDATE ON public.abonnements_mouvements FOR EACH ROW EXECUTE FUNCTION abonnements_mouvements_append_only();
@@ -1278,8 +1598,11 @@ CREATE TRIGGER trg_cotisations_membres_periode BEFORE INSERT OR UPDATE ON public
 CREATE TRIGGER trg_ecritures_append_only BEFORE DELETE OR UPDATE ON public.ecritures FOR EACH ROW EXECUTE FUNCTION ecritures_append_only();
 CREATE TRIGGER trg_ecritures_bloc_exercice_cloture BEFORE INSERT ON public.ecritures FOR EACH ROW EXECUTE FUNCTION bloquer_ecriture_exercice_cloture();
 CREATE TRIGGER trg_ecritures_lignes_append_only BEFORE DELETE OR UPDATE ON public.ecritures_lignes FOR EACH ROW EXECUTE FUNCTION ecritures_append_only();
+CREATE TRIGGER trg_facture_lignes_integrite BEFORE DELETE OR UPDATE ON public.facture_lignes FOR EACH ROW EXECUTE FUNCTION facture_lignes_integrite();
+CREATE TRIGGER trg_facture_lignes_montant BEFORE INSERT OR UPDATE ON public.facture_lignes FOR EACH ROW EXECUTE FUNCTION facture_lignes_montant();
 CREATE TRIGGER trg_facture_reservations_integrite BEFORE DELETE OR UPDATE ON public.facture_reservations FOR EACH ROW EXECUTE FUNCTION facture_reservations_integrite();
 CREATE TRIGGER trg_factures_inalterabilite BEFORE DELETE OR UPDATE ON public.factures FOR EACH ROW EXECUTE FUNCTION factures_inalterabilite();
+CREATE TRIGGER trg_journal_evenements_append_only BEFORE DELETE OR UPDATE ON public.journal_evenements FOR EACH ROW EXECUTE FUNCTION journal_evenements_append_only();
 CREATE TRIGGER trg_occupation_boxes_anti_surbooking BEFORE INSERT ON public.occupation_boxes FOR EACH ROW EXECUTE FUNCTION bloquer_surbooking_box();
 CREATE TRIGGER trg_paiements_resa_anti_doublon BEFORE INSERT ON public.paiements_resa FOR EACH ROW EXECUTE FUNCTION bloquer_doublon_paiement_resa();
 CREATE TRIGGER trg_paiements_resa_append_only BEFORE DELETE OR UPDATE ON public.paiements_resa FOR EACH ROW EXECUTE FUNCTION paiements_resa_append_only();
@@ -1308,6 +1631,8 @@ alter table public.emails_envoyes enable row level security;
 alter table public.employes_rh enable row level security;
 alter table public.ententes_chiens enable row level security;
 alter table public.exercices enable row level security;
+alter table public.facture_lignes enable row level security;
+alter table public.facture_numerotation enable row level security;
 alter table public.facture_reservations enable row level security;
 alter table public.factures enable row level security;
 alter table public.fermetures_essai enable row level security;
@@ -1315,6 +1640,7 @@ alter table public.fermetures_exceptionnelles enable row level security;
 alter table public.fiche_salaire_deductions enable row level security;
 alter table public.fiches_salaire enable row level security;
 alter table public.indisponibilites enable row level security;
+alter table public.journal_evenements enable row level security;
 alter table public.jours_feries enable row level security;
 alter table public.liste_attente enable row level security;
 alter table public.modeles_deductions enable row level security;
@@ -1375,8 +1701,17 @@ create policy admin_all_emails_envoyes on public.emails_envoyes as PERMISSIVE fo
 create policy admin_all_employes_rh on public.employes_rh as PERMISSIVE for ALL to authenticated using (is_admin()) with check (is_admin());
 create policy employe_self_select_employes_rh on public.employes_rh as PERMISSIVE for SELECT to authenticated using ((profile_id = ( SELECT auth.uid() AS uid)));
 create policy admin_all_ententes_chiens on public.ententes_chiens as PERMISSIVE for ALL to authenticated using (is_admin()) with check (is_admin());
+create policy admin_all_facture_lignes on public.facture_lignes as PERMISSIVE for ALL to authenticated using (is_admin()) with check (is_admin());
+create policy client_select_facture_lignes on public.facture_lignes as PERMISSIVE for SELECT to authenticated using ((facture_id IN ( SELECT f.id
+   FROM (factures f
+     JOIN clients c ON ((c.id = f.client_id)))
+  WHERE (c.auth_user_id = ( SELECT auth.uid() AS uid)))));
+create policy admin_all_facture_numerotation on public.facture_numerotation as PERMISSIVE for ALL to authenticated using (is_admin()) with check (is_admin());
 create policy admin_all_facture_reservations on public.facture_reservations as PERMISSIVE for ALL to authenticated using (is_admin());
 create policy admin_all_factures on public.factures as PERMISSIVE for ALL to authenticated using (is_admin()) with check (is_admin());
+create policy client_select_factures on public.factures as PERMISSIVE for SELECT to authenticated using ((client_id IN ( SELECT c.id
+   FROM clients c
+  WHERE (c.auth_user_id = ( SELECT auth.uid() AS uid)))));
 create policy admin_all_fermetures_exceptionnelles on public.fermetures_exceptionnelles as PERMISSIVE for ALL to authenticated using (is_admin()) with check (is_admin());
 create policy admin_all_fiche_salaire_deductions on public.fiche_salaire_deductions as PERMISSIVE for ALL to authenticated using (is_admin()) with check (is_admin());
 create policy employe_self_select_fiche_deductions on public.fiche_salaire_deductions as PERMISSIVE for SELECT to authenticated using ((fiche_id IN ( SELECT fiches_salaire.id
@@ -1389,6 +1724,7 @@ create policy employe_delete_indispo on public.indisponibilites as PERMISSIVE fo
 create policy employe_insert_indispo on public.indisponibilites as PERMISSIVE for INSERT to authenticated with check ((employe_id = ( SELECT mon_employe_id() AS mon_employe_id)));
 create policy employe_self_select_indispo on public.indisponibilites as PERMISSIVE for SELECT to authenticated using ((employe_id = ( SELECT mon_employe_id() AS mon_employe_id)));
 create policy employe_update_indispo on public.indisponibilites as PERMISSIVE for UPDATE to authenticated using ((employe_id = ( SELECT mon_employe_id() AS mon_employe_id))) with check ((employe_id = ( SELECT mon_employe_id() AS mon_employe_id)));
+create policy admin_all_journal_evenements on public.journal_evenements as PERMISSIVE for ALL to authenticated using (is_admin()) with check (is_admin());
 create policy admin_all_jours_feries on public.jours_feries as PERMISSIVE for ALL to authenticated using (is_admin()) with check (is_admin());
 create policy admin_all_liste_attente on public.liste_attente as PERMISSIVE for ALL to authenticated using (is_admin()) with check (is_admin());
 create policy admin_all_modeles_deductions on public.modeles_deductions as PERMISSIVE for ALL to authenticated using (is_admin()) with check (is_admin());
@@ -1432,8 +1768,10 @@ create policy admin_all_vaccins on public.vaccins as PERMISSIVE for ALL to authe
 
 -- ── Droits sur les fonctions SECURITY DEFINER ───────────────────────────
 
+revoke all on function public.acomptes_a_imputer(p_facture_id uuid) from anon, authenticated;
 revoke all on function public.bloquer_ecriture_exercice_cloture() from anon, authenticated;
 revoke all on function public.bloquer_surbooking_box() from anon, authenticated;
+revoke all on function public.emettre_facture(p_facture_id uuid, p_user_id uuid) from anon, authenticated;
 revoke all on function public.flip_cotisation_au_paiement_reservation() from anon, authenticated;
 revoke all on function public.handle_new_user() from anon, authenticated;
 revoke all on function public.is_admin() from anon, authenticated;
@@ -1442,3 +1780,4 @@ revoke all on function public.lier_client_auth() from anon, authenticated;
 revoke all on function public.mon_employe_id() from anon, authenticated;
 revoke all on function public.passer_ecriture(p_date date, p_libelle text, p_piece_type text, p_piece_id uuid, p_lignes jsonb, p_created_by uuid, p_contre_passe_id uuid) from anon, authenticated;
 revoke all on function public.payer_reservation_avec_avoir(p_reservation_id uuid, p_client_id uuid) from anon, authenticated;
+revoke all on function public.prochain_numero_facture(p_exercice integer, p_prefixe text) from anon, authenticated;

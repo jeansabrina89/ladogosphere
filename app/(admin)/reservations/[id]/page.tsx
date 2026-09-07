@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { getSoldeAvoir, getAvoirAppliqueReservation } from "@/src/lib/avoirs";
+import { factureEmisePourReservation } from "@/src/lib/factureResa";
 import BoutonAnnuler from "./BoutonAnnuler";
 import BoutonSupprimerDefinitif from "./BoutonSupprimerDefinitif";
 import CalculFacture from "./CalculFacture";
 import GestionPrix from "./GestionPrix";
 import BoutonValiderReservation from "@/app/components/BoutonValiderReservation";
 import BoutonEmail from "./BoutonEmail";
-import GestionPaiement from "./GestionPaiement";
+import BlocFacturation from "./BlocFacturation";
 import { formatDateFR, formatHeure } from "@/src/lib/dates";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
@@ -106,11 +106,8 @@ export default async function ReservationPage({
     .eq("statut", "en_attente")
     .maybeSingle();
 
-  // Solde d'avoir du client + avoir appliqué sur cette réservation
-  const [soldeAvoir, avoirApplique] = await Promise.all([
-    client_id ? getSoldeAvoir(supabaseAdmin, client_id) : Promise.resolve(0),
-    client_id ? getAvoirAppliqueReservation(supabaseAdmin, client_id, id) : Promise.resolve(0),
-  ]);
+  // Une facture émise fige le prix : la modifier passe par un avoir.
+  const factureEmise = await factureEmisePourReservation(id);
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -264,44 +261,42 @@ export default async function ReservationPage({
           </div>
         )}
 
-        {/* Facturation */}
-        <CalculFacture
+        {/* Facturation : la facture, ce qui reste dû, l'encaissement et le tarif */}
+        <BlocFacturation
           reservation={res}
-          nb_chiens={chiens.length}
-          chien_isole={chien_isole}
-          est_membre={est_membre}
-          tarifs={tarifs ?? []}
-          montant_actuel={res.montant_final}
-          cotisation_en_attente={!!cotisation}
-          cotisation_id={cotisation?.id}
-          cotisation_montant={cotisation ? Number(cotisation.montant) : undefined}
-          perm_reservations_modifier={perms.perm_reservations_modifier}
-        />
-
-        {/* Prix retenu + lignes supplémentaires */}
-        <GestionPrix
-          reservation_id={res.id}
-          statut={res.statut}
-          montant_calcule={res.montant_calcule}
-          ajustement_manuel={res.ajustement_manuel}
-          montant_final={res.montant_final}
-          extras={res.reservation_extras ?? []}
-          perm_reservations_modifier={perms.perm_reservations_modifier}
-        />
-
-        {/* Paiement */}
-        <GestionPaiement
-          reservation_id={res.id}
-          client_id={client_id}
-          solde_avoir={soldeAvoir}
-          avoirApplique={avoirApplique}
-          montant_final={res.montant_final}
-          statut_paiement={res.statut_paiement}
-          montant_paye={res.montant_paye}
-          date_paiement={res.date_paiement}
-          mode_paiement={res.mode_paiement}
-          perm_encaissements={perms.perm_encaissements}
-          statut={res.statut}
+          permEncaissements={perms.perm_encaissements}
+          enfants={
+            <>
+              <CalculFacture
+                reservation={res}
+                nb_chiens={chiens.length}
+                chien_isole={chien_isole}
+                est_membre={est_membre}
+                tarifs={tarifs ?? []}
+                montant_actuel={res.montant_final}
+                cotisation_en_attente={!!cotisation}
+                cotisation_id={cotisation?.id}
+                cotisation_montant={cotisation ? Number(cotisation.montant) : undefined}
+                perm_reservations_modifier={perms.perm_reservations_modifier && !factureEmise}
+              />
+              <GestionPrix
+                reservation_id={res.id}
+                statut={res.statut}
+                montant_calcule={res.montant_calcule}
+                ajustement_manuel={res.ajustement_manuel}
+                montant_final={res.montant_final}
+                extras={res.reservation_extras ?? []}
+                perm_reservations_modifier={perms.perm_reservations_modifier && !factureEmise}
+              />
+              {factureEmise && (
+                <p className="text-sm px-4 py-3 rounded-xl mt-2"
+                   style={{ backgroundColor: "#F4EAC9", color: "#6E5410" }}>
+                  La facture {factureEmise.numero} est émise : le prix ne se modifie plus.
+                  Créez un avoir puis une nouvelle facture.
+                </p>
+              )}
+            </>
+          }
         />
 
         {res.offerte && (

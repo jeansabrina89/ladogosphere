@@ -89,6 +89,24 @@ export default async function MesReservationsPage({
     getAbonnementsClient(client.id),
   ]);
 
+  // Une seule référence de paiement est communiquée au client : le numéro de
+  // facture. Tant qu'elle n'est pas émise, on n'en donne aucune.
+  const numerosFacture = new Map<string, string>();
+  {
+    const { data: liens } = await supabaseAdmin
+      .from("facture_lignes")
+      .select("reservation_id, factures!inner(numero, statut)")
+      .not("reservation_id", "is", null)
+      .not("factures.numero", "is", null);
+    for (const l of (liens ?? []) as { reservation_id: string; factures: unknown }[]) {
+      const f = (Array.isArray(l.factures) ? l.factures[0] : l.factures) as
+        { numero?: string; statut?: string } | null;
+      if (f?.numero && f.statut !== "annulee" && f.statut !== "annulee_par_avoir") {
+        numerosFacture.set(l.reservation_id, f.numero);
+      }
+    }
+  }
+
   const cartesParCategorie = new Map<string, number>();
   for (const a of abos) {
     const valide = a.statut === "actif" && a.jours_restants >= 1 &&
@@ -202,7 +220,7 @@ export default async function MesReservationsPage({
                     {montrerPayer ? (
                       <BoutonPaiementClient
                         reservation_id={res.id}
-                        numero={res.numero}
+                        numeroFacture={numerosFacture.get(res.id) ?? null}
                         iban={coords.iban}
                         titulaire={coords.titulaire}
                         montant_final={res.montant_final || 0}

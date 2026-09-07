@@ -1,359 +1,368 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { estMembreActif } from "@/src/lib/membre";
-import BadgeMembre from "@/app/components/BadgeMembre";
 import { formatDateFR } from "@/src/lib/dates";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
-import { genererQrBillSvg } from "@/src/lib/qrFacture";
 import { lireParametresTVA, ventilerTVA } from "@/src/lib/tva";
-import BoutonImprimer from "./BoutonImprimer";
-import BoutonReglement from "./BoutonReglement";
-import BoutonAnnulerFacture from "./BoutonAnnulerFacture";
+import { genererQrBillSvg } from "@/src/lib/qrFacture";
+import { estMembreActif } from "@/src/lib/membre";
+import { lireHistorique, libelleEvenement } from "@/src/lib/journalEvenements";
+import { libelleMode, libelleCompteProduit } from "@/src/lib/factureStatut";
+import BadgeMembre from "@/app/components/BadgeMembre";
 import NomClientLien from "@/app/components/NomClientLien";
+import BadgeFacture from "../BadgeFacture";
+import ActionsFacture from "./ActionsFacture";
 
-function libelleType(t: string): string {
-  if (t === "journee") return "Journée";
-  if (t === "sejour") return "Séjour";
-  if (t === "essai") return "Journée d'essai";
-  return t || "—";
-}
+const MARINE = "#1B2B5E";
+const GRIS = "rgba(27,43,94,0.55)";
+const chf = (n: number) => `CHF ${(Number(n) || 0).toFixed(2)}`;
 
-export default async function FactureGroupeePage({
+type LigneFacture = {
+  id: string; ordre: number; libelle: string;
+  quantite: number | string; prix_unitaire: number | string; montant: number | string;
+  compte_produit: string;
+};
+
+export default async function FacturePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  // Garde : admin ou perm_encaissements
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, perm_encaissements")
-    .eq("id", user.id)
-    .single();
-
+    .from("profiles").select("role, perm_encaissements").eq("id", user.id).single();
   if (profile?.role !== "admin" && !profile?.perm_encaissements) redirect("/");
-
-  const peutRegler = profile?.role === "admin" || !!profile?.perm_encaissements;
+  const peutEncaisser = profile?.role === "admin" || !!profile?.perm_encaissements;
 
   const { id } = await params;
 
   const { data: facture } = await supabaseAdmin
     .from("factures")
     .select(`
-      *,
-      clients (id, prenom, nom, adresse, email, telephone, membre),
-      facture_reservations (
-        id, montant, reservation_id,
-        reservations (numero, type_reservation, date_debut, date_fin)
-      )
+      id, numero, type, statut, date_facture, date_echeance, motif, pdf_path,
+      montant_total, montant_paye, montant_restant, reference_qr, facture_origine_id,
+      clients (id, prenom, nom, adresse, email, telephone, membre)
     `)
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
   if (!facture) return <div className="p-8">Facture introuvable.</div>;
 
-  const coords = await getCoordonneesPaiement(supabaseAdmin);
-  const paramsTV = await lireParametresTVA(supabaseAdmin);
-  const dateFactureISO = facture.date_facture
-    ? String(facture.date_facture).split("T")[0]
-    : null;
-  const tvaData = ventilerTVA(Number(facture.montant_total), dateFactureISO, paramsTV);
+  const client = facture.clients as unknown as
+    { id: string; prenom?: string; nom?: string; adresse?: string; email?: string; telephone?: string; membre?: boolean } | null;
 
-  const lignes: any[] = facture.facture_reservations ?? [];
+  const [{ data: lignesDb }, coords, paramsTV, historique] = await Promise.all([
+    supabaseAdmin.from("facture_lignes")
+      .select("id, ordre, libelle, quantite, prix_unitaire, montant, compte_produit")
+      .eq("facture_id", id).order("ordre"),
+    getCoordonneesPaiement(supabaseAdmin),
+    lireParametresTVA(supabaseAdmin),
+    lireHistorique("facture", id),
+  ]);
+  const lignes = (lignesDb ?? []) as LigneFacture[];
 
-  // Le suivi du règlement vient du journal des paiements (paiements_resa) :
-  // la table `paiements` a été supprimée, l'embed la visant cassait la page.
-  const idsResa = lignes.map((l) => l.reservation_id).filter(Boolean);
-  const { data: mouvements } = idsResa.length
-    ? await supabaseAdmin
-        .from("paiements_resa")
-        .select("date_paiement, mode")
-        .in("reservation_id", idsResa)
-        .gt("montant", 0)
-        .order("date_paiement", { ascending: true })
-    : { data: [] as { date_paiement: string; mode: string }[] };
-  const dernier = (mouvements ?? [])[(mouvements ?? []).length - 1] ?? null;
-  const dernierPaiement = dernier
-    ? { date_paiement: dernier.date_paiement, mode_paiement: dernier.mode }
-    : null;
-  const client = facture.clients as any;
-  const membre_a_jour = client?.id ? await estMembreActif(supabaseAdmin, client.id, dateFactureISO ?? undefined) : false;
+  const { data: paiements } = await supabaseAdmin
+    .from("paiements_resa")
+    .select("id, date_paiement, mode, montant, arrondi, motif")
+    .eq("facture_id", id)
+    .order("date_paiement");
 
-  const estAcquittee = facture.statut === "acquittee";
-  const estAnnulee = facture.statut === "annulee";
+  // Avoirs déjà émis sur cette facture.
+  const { data: avoirs } = await supabaseAdmin
+    .from("factures")
+    .select("id, numero, date_facture, montant_total, motif")
+    .eq("facture_origine_id", id).not("numero", "is", null);
 
-  const montantQr = Number(facture.montant_restant) > 0
-    ? Number(facture.montant_restant)
-    : Number(facture.montant_total);
-  const qrBillSvg = (!estAcquittee && !estAnnulee)
+  const dateISO = facture.date_facture ? String(facture.date_facture).split("T")[0] : null;
+  const tvaData = ventilerTVA(Number(facture.montant_total ?? 0), dateISO, paramsTV);
+  const membreAJour = client?.id ? await estMembreActif(supabaseAdmin, client.id, dateISO ?? undefined) : false;
+
+  const estAvoir = facture.type === "avoir";
+  const estBrouillon = !facture.numero;
+  const estClose = facture.statut === "annulee" || facture.statut === "annulee_par_avoir";
+  const reste = Number(facture.montant_restant ?? 0);
+  const aujourdhui = new Date().toISOString().split("T")[0];
+
+  const nomClient = `${client?.prenom ?? ""} ${client?.nom ?? ""}`.trim();
+  const adresseClient = (client?.adresse ?? "").split("\n").map((l) => l.trim()).filter(Boolean);
+
+  const qrBillSvg = !estAvoir && !estBrouillon && !estClose && reste > 0
     ? genererQrBillSvg({
-        iban: coords.iban,
-        titulaire: coords.titulaire,
-        adresse: coords.adresse,
-        montant: montantQr,
-        numeroFacture: String(facture.numero ?? ""),
-        referenceStockee: facture.reference_qr ?? null,
+        iban: coords.iban, titulaire: coords.titulaire, adresse: coords.adresse,
+        montant: reste, numeroFacture: facture.numero as string,
+        referenceStockee: (facture.reference_qr as string) ?? null,
+        debiteur: adresseClient.length > 0 ? { nom: nomClient || "Client", adresse: adresseClient } : null,
       })
     : null;
+
+  const titre = estAvoir ? "AVOIR" : facture.type === "acompte" ? "FACTURE D'ACOMPTE" : "FACTURE";
 
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: `
   @media print {
     .no-print { display: none !important; }
-    nav { display: none !important; }
-    header { display: none !important; }
+    nav, header { display: none !important; }
     body { background: white !important; }
     .facture { box-shadow: none !important; border: none !important; }
   }
-  @page {
-    margin: 1cm;
-    size: A4;
-  }
+  @page { margin: 1cm; size: A4; }
   .qrbill-wrap svg { width: 100%; height: auto; max-width: 820px; display: block; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 ` }} />
 
-      {/* Contrôles impression */}
-      <div className="no-print p-4 flex gap-3">
-        <BoutonImprimer />
-        <a
-          href="/reservations"
-          className="px-4 py-2 rounded-xl font-semibold text-sm"
-          style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}
-        >
-          ← Réservations
-        </a>
-      </div>
+      <main className="min-h-screen p-6" style={{ backgroundColor: "#F5F0E8" }}>
+        <div className="max-w-6xl mx-auto flex gap-6 items-start flex-wrap lg:flex-nowrap">
 
-      {/* Document A4 */}
-      <div className="facture max-w-3xl mx-auto bg-white p-10 shadow-sm mb-8">
+          {/* ── Document ────────────────────────────────────────────────── */}
+          <div className="facture bg-white p-10 shadow-sm rounded-2xl flex-1" style={{ minWidth: 320 }}>
+            <div className="flex justify-between items-start mb-8">
+              <div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/Logo.png" alt="La Dogosphère" style={{ height: 76, marginBottom: 8 }} />
+                <p className="text-sm" style={{ color: GRIS }}>{coords.titulaire}</p>
+                {[coords.adresse.rue, coords.adresse.numero].filter(Boolean).length > 0 && (
+                  <p className="text-sm" style={{ color: GRIS }}>
+                    {[coords.adresse.rue, coords.adresse.numero].filter(Boolean).join(" ")}
+                  </p>
+                )}
+                {[coords.adresse.npa, coords.adresse.ville].filter(Boolean).length > 0 && (
+                  <p className="text-sm" style={{ color: GRIS }}>
+                    {[coords.adresse.npa, coords.adresse.ville].filter(Boolean).join(" ")}
+                  </p>
+                )}
+                {paramsTV.assujettie && paramsTV.numero && (
+                  <p className="text-sm" style={{ color: GRIS }}>N° TVA : {paramsTV.numero}</p>
+                )}
+              </div>
+              <div className="text-right">
+                <h2 className="text-2xl font-bold mb-2" style={{ color: MARINE }}>{titre}</h2>
+                <p className="text-sm"><strong>N° :</strong> {facture.numero ?? "brouillon"}</p>
+                <p className="text-sm"><strong>Date :</strong> {facture.date_facture ? formatDateFR(facture.date_facture) : "—"}</p>
+                {!estAvoir && facture.date_echeance && (
+                  <p className="text-sm"><strong>Échéance :</strong> {formatDateFR(facture.date_echeance)}</p>
+                )}
+                <div className="mt-2"><BadgeFacture facture={facture} aujourdhui={aujourdhui} /></div>
+              </div>
+            </div>
 
-        {/* En-tête */}
-        <div className="flex justify-between items-start mb-10">
-          <div>
-            <img src="/Logo.png" alt="La Dogosphère" style={{ height: "80px", marginBottom: "8px" }} />
-            <p className="text-sm text-gray-500">Pension canine</p>
-            <p className="text-sm text-gray-500">Sion, Valais</p>
-            <p className="text-sm text-gray-500">ladogosphere@gmail.com</p>
-            {tvaData.applicable && paramsTV.numero && (
-              <p className="text-sm text-gray-500">N° TVA : {paramsTV.numero}</p>
-            )}
-          </div>
-          <div className="text-right">
-            <h2 className="text-2xl font-bold mb-2" style={{ color: "#1B2B5E" }}>FACTURE</h2>
-            <p className="text-sm"><strong>N° :</strong> {facture.numero}</p>
-            <p className="text-sm"><strong>Date :</strong> {formatDateFR(facture.date_facture)}</p>
-            <p className="text-sm">
-              <strong>Statut :</strong>{" "}
-              <span className={
-                estAcquittee ? "text-green-600 font-semibold" :
-                estAnnulee ? "text-gray-500 font-semibold" :
-                "text-red-600 font-semibold"
-              }>
-                {estAcquittee ? "✅ Réglée" : estAnnulee ? "Annulée" : "❌ En attente"}
-              </span>
-            </p>
-            {estAcquittee && dernierPaiement?.date_paiement && (
-              <p className="text-xs text-gray-500 mt-1">
-                Réglée le {formatDateFR(dernierPaiement.date_paiement)}
-                {dernierPaiement.mode_paiement ? ` — ${dernierPaiement.mode_paiement}` : ""}
+            <div className="border-t-2 mb-8" style={{ borderColor: MARINE }} />
+
+            <div className="mb-8">
+              <h3 className="font-bold text-xs uppercase tracking-wide mb-2" style={{ color: "rgba(27,43,94,0.4)" }}>
+                Facturé à
+              </h3>
+              <p className="font-bold text-lg" style={{ color: MARINE }}>
+                <NomClientLien id={client?.id} prenom={client?.prenom} nom={client?.nom} />{" "}
+                <BadgeMembre membre={!!client?.membre} aJour={membreAJour} />
               </p>
-            )}
-          </div>
-        </div>
+              {adresseClient.map((l, i) => <p key={i} className="text-sm" style={{ color: GRIS }}>{l}</p>)}
+              {client?.email && <p className="text-sm" style={{ color: GRIS }}>{client.email}</p>}
+              {client?.telephone && <p className="text-sm" style={{ color: GRIS }}>{client.telephone}</p>}
+            </div>
 
-        <div className="border-t-2 mb-8" style={{ borderColor: "#1B2B5E" }} />
-
-        {/* Bloc client */}
-        <div className="mb-8">
-          <h3 className="font-bold text-sm uppercase tracking-wide text-gray-400 mb-2">Facturé à</h3>
-          <p className="font-bold text-lg" style={{ color: "#1B2B5E" }}>
-            <NomClientLien id={client?.id} prenom={client?.prenom} nom={client?.nom} />{" "}
-            <BadgeMembre membre={!!client?.membre} aJour={membre_a_jour} />
-          </p>
-          {client?.adresse && <p className="text-sm text-gray-600">{client.adresse}</p>}
-          {client?.email && <p className="text-sm text-gray-600">{client.email}</p>}
-          {client?.telephone && <p className="text-sm text-gray-600">{client.telephone}</p>}
-        </div>
-
-        {/* Tableau des réservations */}
-        <table className="w-full mb-8 text-sm">
-          <thead>
-            <tr style={{ backgroundColor: "#1B2B5E", color: "white" }}>
-              <th className="px-4 py-3 text-left rounded-tl-lg">Réservation</th>
-              <th className="px-4 py-3 text-left">Période</th>
-              <th className="px-4 py-3 text-left">Type</th>
-              <th className="px-4 py-3 text-right rounded-tr-lg">Montant</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lignes.map((ligne: any) => {
-              const r = ligne.reservations;
-              return (
-                <tr key={ligne.id} className="border-b">
-                  <td className="px-4 py-3 font-semibold" style={{ color: "#1B2B5E" }}>
-                    #{r?.numero ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {r?.date_debut ? formatDateFR(r.date_debut) : "—"}
-                    {" → "}
-                    {r?.date_fin ? formatDateFR(r.date_fin) : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {r?.type_reservation ? libelleType(r.type_reservation) : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold">
-                    CHF {Number(ligne.montant).toFixed(2)}
-                  </td>
+            <table className="w-full mb-6 text-sm">
+              <thead>
+                <tr style={{ backgroundColor: MARINE, color: "white" }}>
+                  <th className="px-4 py-3 text-left rounded-tl-lg">Désignation</th>
+                  <th className="px-4 py-3 text-right">Qté</th>
+                  <th className="px-4 py-3 text-right">Prix unitaire</th>
+                  <th className="px-4 py-3 text-right rounded-tr-lg">Montant</th>
                 </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            {tvaData.applicable ? (
-              <>
-                <tr>
-                  <td colSpan={3} className="px-4 py-2 text-right text-sm text-gray-500">Total HT</td>
-                  <td className="px-4 py-2 text-right text-sm font-semibold">
-                    CHF {tvaData.ht.toFixed(2)}
-                  </td>
-                </tr>
-                <tr>
-                  <td colSpan={3} className="px-4 py-2 text-right text-sm text-gray-500">
-                    TVA {tvaData.taux} %
-                  </td>
-                  <td className="px-4 py-2 text-right text-sm font-semibold">
-                    CHF {tvaData.tva.toFixed(2)}
-                  </td>
-                </tr>
+              </thead>
+              <tbody>
+                {lignes.map((l) => (
+                  <tr key={l.id} className="border-b">
+                    <td className="px-4 py-3" style={{ color: MARINE }}>
+                      {l.libelle}
+                      <span className="block text-xs" style={{ color: "rgba(27,43,94,0.4)" }}>
+                        {libelleCompteProduit(l.compte_produit)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right" style={{ color: GRIS }}>{Number(l.quantite)}</td>
+                    <td className="px-4 py-3 text-right" style={{ color: GRIS }}>{chf(Number(l.prix_unitaire))}</td>
+                    <td className="px-4 py-3 text-right font-semibold">{chf(Number(l.montant))}</td>
+                  </tr>
+                ))}
+                {lignes.length === 0 && (
+                  <tr><td colSpan={4} className="px-4 py-6 text-center" style={{ color: GRIS }}>
+                    Aucune ligne : cette facture ne peut pas être émise.
+                  </td></tr>
+                )}
+              </tbody>
+              <tfoot>
+                {tvaData.applicable && (
+                  <>
+                    <tr>
+                      <td colSpan={3} className="px-4 py-2 text-right text-sm" style={{ color: GRIS }}>Total HT</td>
+                      <td className="px-4 py-2 text-right text-sm font-semibold">{chf(tvaData.ht)}</td>
+                    </tr>
+                    <tr>
+                      <td colSpan={3} className="px-4 py-2 text-right text-sm" style={{ color: GRIS }}>TVA {tvaData.taux} %</td>
+                      <td className="px-4 py-2 text-right text-sm font-semibold">{chf(tvaData.tva)}</td>
+                    </tr>
+                  </>
+                )}
                 <tr style={{ backgroundColor: "#F5F0E8" }}>
-                  <td colSpan={3} className="px-4 py-3 font-bold text-right">Total TTC</td>
-                  <td className="px-4 py-3 font-bold text-right text-lg" style={{ color: "#1B2B5E" }}>
-                    CHF {Number(facture.montant_total).toFixed(2)}
+                  <td colSpan={3} className="px-4 py-3 font-bold text-right">Total</td>
+                  <td className="px-4 py-3 font-bold text-right text-lg" style={{ color: MARINE }}>
+                    {chf(Number(facture.montant_total))}
                   </td>
                 </tr>
-              </>
-            ) : (
-              <tr style={{ backgroundColor: "#F5F0E8" }}>
-                <td colSpan={3} className="px-4 py-3 font-bold text-right">Total</td>
-                <td className="px-4 py-3 font-bold text-right text-lg" style={{ color: "#1B2B5E" }}>
-                  CHF {Number(facture.montant_total).toFixed(2)}
-                </td>
-              </tr>
-            )}
-            {Number(facture.montant_paye) > 0 && (
-              <tr>
-                <td colSpan={3} className="px-4 py-2 text-right text-sm text-gray-500">Montant réglé</td>
-                <td className="px-4 py-2 text-right text-sm text-green-600 font-semibold">
-                  CHF {Number(facture.montant_paye).toFixed(2)}
-                </td>
-              </tr>
-            )}
-            {Number(facture.montant_restant) > 0 && (
-              <tr>
-                <td colSpan={3} className="px-4 py-2 text-right text-sm text-gray-500">Reste à régler</td>
-                <td className="px-4 py-2 text-right text-sm text-red-600 font-semibold">
-                  CHF {Number(facture.montant_restant).toFixed(2)}
-                </td>
-              </tr>
-            )}
-          </tfoot>
-        </table>
+                {Number(facture.montant_paye) > 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-2 text-right text-sm" style={{ color: GRIS }}>Déjà payé</td>
+                    <td className="px-4 py-2 text-right text-sm font-semibold" style={{ color: "#1F6E5B" }}>
+                      − {chf(Number(facture.montant_paye))}
+                    </td>
+                  </tr>
+                )}
+                {!estAvoir && reste > 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-2 text-right text-sm" style={{ color: GRIS }}>Reste à payer</td>
+                    <td className="px-4 py-2 text-right text-sm font-semibold" style={{ color: "#A8453A" }}>
+                      {chf(reste)}
+                    </td>
+                  </tr>
+                )}
+              </tfoot>
+            </table>
 
-        {/* Mention TVA — entreprise non assujettie (Lot 2) */}
-        {!paramsTV.assujettie && (
-          <p className="text-xs text-gray-500 mb-6">
-            TVA non applicable — entreprise non assujettie (art. 10 LTVA).
-          </p>
-        )}
-
-        {/* Paiement : bulletin QR si donnees completes, sinon bloc texte */}
-        {!estAcquittee && !estAnnulee && qrBillSvg ? (
-          <div className="mb-8">
-            <p className="font-bold mb-2 no-print" style={{ color: "#1B2B5E" }}>💳 Bulletin de versement QR</p>
-            <div className="qrbill-wrap" style={{ width: "100%", overflowX: "auto" }} dangerouslySetInnerHTML={{ __html: qrBillSvg }} />
-          </div>
-        ) : !estAcquittee && !estAnnulee ? (
-          <div
-            className="border rounded-xl p-4 mb-8 text-sm"
-            style={{ borderColor: "#C9A84C", backgroundColor: "#FFFBF0" }}
-          >
-            <p className="font-bold mb-2" style={{ color: "#1B2B5E" }}>💳 Coordonnées de paiement</p>
-            {coords.ibanConfigure ? (
-              <>
-                <p><strong>Virement bancaire :</strong> IBAN {coords.iban}</p>
-                <p><strong>Titulaire :</strong> {coords.titulaire}</p>
-                <p className="text-gray-500 mt-1">
-                  Merci d&apos;indiquer votre nom et le numéro de facture {facture.numero} en référence.
-                </p>
-              </>
-            ) : (
-              <p>Coordonnées de paiement communiquées prochainement.</p>
+            {facture.motif && (
+              <div className="rounded-xl p-4 mb-6 text-sm" style={{ backgroundColor: "#F5F0E8" }}>
+                <p className="font-bold" style={{ color: MARINE }}>Motif</p>
+                <p style={{ color: GRIS }}>{facture.motif}</p>
+              </div>
             )}
-          </div>
-        ) : null}
 
-        {/* Badge annulée */}
-        {estAnnulee && (
-          <div
-            className="border rounded-xl p-4 mb-8 text-center"
-            style={{ borderColor: "#9CA3AF", backgroundColor: "#F9FAFB" }}
-          >
-            <p className="font-bold text-gray-500 text-lg">🚫 Facture annulée</p>
-            <p className="text-sm text-gray-400 mt-1">
-              Les réservations liées restent impayées et peuvent être refacturées.
-            </p>
-          </div>
-        )}
-
-        {/* Badge acquittement */}
-        {estAcquittee && (
-          <div
-            className="border rounded-xl p-4 mb-8 text-center"
-            style={{ borderColor: "#16A34A", backgroundColor: "#F0FDF4" }}
-          >
-            <p className="font-bold text-green-700 text-lg">✅ Facture réglée</p>
-            {dernierPaiement?.date_paiement && (
-              <p className="text-sm text-green-600 mt-1">
-                Le {formatDateFR(dernierPaiement.date_paiement)}
-                {dernierPaiement.mode_paiement
-                  ? ` par ${dernierPaiement.mode_paiement === "cash" ? "espèces" : dernierPaiement.mode_paiement}`
-                  : ""}
+            {!paramsTV.assujettie && (
+              <p className="text-xs mb-6" style={{ color: GRIS }}>
+                TVA non applicable — entreprise non assujettie (art. 10 LTVA).
               </p>
             )}
-          </div>
-        )}
 
-        {/* Contrôles admin — no-print */}
-        {peutRegler && !estAcquittee && !estAnnulee && (
-          <div className="no-print space-y-3 mb-8">
-            <div
-              className="border rounded-xl p-4"
-              style={{ borderColor: "#4AAEA0", backgroundColor: "#F0FAFA" }}
-            >
-              <BoutonReglement facture_id={facture.id} />
-            </div>
-            <div
-              className="border rounded-xl p-4"
-              style={{ borderColor: "#FCA5A5", backgroundColor: "#FFF5F5" }}
-            >
-              <BoutonAnnulerFacture facture_id={facture.id} />
-            </div>
+            {qrBillSvg ? (
+              <div className="mb-4">
+                <p className="font-bold mb-2 no-print" style={{ color: MARINE }}>Bulletin de versement QR</p>
+                <div className="qrbill-wrap" style={{ width: "100%", overflowX: "auto" }}
+                     dangerouslySetInnerHTML={{ __html: qrBillSvg }} />
+              </div>
+            ) : !estAvoir && !estBrouillon && !estClose && reste > 0 ? (
+              <div className="border rounded-xl p-4 mb-4 text-sm"
+                   style={{ borderColor: "#C9A84C", backgroundColor: "#FFFBF0" }}>
+                <p className="font-bold mb-2" style={{ color: MARINE }}>Coordonnées de paiement</p>
+                {coords.ibanConfigure ? (
+                  <>
+                    <p><strong>Virement :</strong> IBAN {coords.iban}</p>
+                    <p><strong>Titulaire :</strong> {coords.titulaire}</p>
+                    <p className="mt-1" style={{ color: GRIS }}>
+                      Merci d&apos;indiquer le numéro de facture {facture.numero} en référence.
+                    </p>
+                  </>
+                ) : (
+                  <p>Coordonnées de paiement communiquées prochainement.</p>
+                )}
+              </div>
+            ) : null}
           </div>
-        )}
 
-        {/* Pied de page */}
-        <div className="border-t pt-6 text-center text-xs text-gray-400">
-          <p>La Dogosphère Sàrl — Pension canine — Sion, Valais</p>
-          <p>Merci de votre confiance ! 🐾</p>
+          {/* ── Actions ─────────────────────────────────────────────────── */}
+          <aside className="no-print w-full lg:w-80 flex-shrink-0 space-y-4">
+            <ActionsFacture
+              factureId={facture.id}
+              numero={facture.numero as string | null}
+              type={facture.type as string}
+              estClose={estClose}
+              reste={reste}
+              peutEncaisser={peutEncaisser}
+              aUnPdf={!!facture.pdf_path}
+              aUnEmail={!!client?.email}
+              nbLignes={lignes.length}
+              lignes={lignes.map((l) => ({
+                id: l.id, libelle: l.libelle,
+                quantite: Number(l.quantite), prix_unitaire: Number(l.prix_unitaire),
+              }))}
+            />
+
+            {(paiements ?? []).length > 0 && (
+              <Bloc titre="Encaissements">
+                {(paiements ?? []).map((p: Record<string, unknown>) => (
+                  <div key={String(p.id)} className="flex justify-between items-baseline py-1.5 border-b last:border-0"
+                       style={{ borderColor: "rgba(27,43,94,0.08)" }}>
+                    <div>
+                      <span className="text-sm font-semibold" style={{ color: MARINE }}>
+                        {chf(Number(p.montant))}
+                      </span>
+                      <span className="text-xs ml-2" style={{ color: GRIS }}>{libelleMode(p.mode as string)}</span>
+                      {Number(p.arrondi ?? 0) !== 0 && (
+                        <span className="text-xs ml-2" style={{ color: "#6E5410" }}>
+                          arrondi {Number(p.arrondi) > 0 ? "+" : ""}{Number(p.arrondi).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs" style={{ color: GRIS }}>
+                      {formatDateFR(p.date_paiement as string)}
+                    </span>
+                  </div>
+                ))}
+              </Bloc>
+            )}
+
+            {(avoirs ?? []).length > 0 && (
+              <Bloc titre="Avoirs">
+                {(avoirs ?? []).map((a: Record<string, unknown>) => (
+                  <a key={String(a.id)} href={`/factures/${a.id}`}
+                     className="flex justify-between items-baseline py-1.5 border-b last:border-0"
+                     style={{ borderColor: "rgba(27,43,94,0.08)" }}>
+                    <span className="text-sm font-semibold" style={{ color: "#0369A1" }}>{String(a.numero)}</span>
+                    <span className="text-sm" style={{ color: MARINE }}>{chf(Number(a.montant_total))}</span>
+                  </a>
+                ))}
+              </Bloc>
+            )}
+
+            {facture.facture_origine_id && (
+              <Bloc titre="Avoir sur">
+                <a href={`/factures/${facture.facture_origine_id}`} className="text-sm font-semibold"
+                   style={{ color: MARINE }}>
+                  Voir la facture d&apos;origine →
+                </a>
+              </Bloc>
+            )}
+
+            <Bloc titre="Historique">
+              {historique.length === 0 ? (
+                <p className="text-sm" style={{ color: GRIS }}>Aucun évènement.</p>
+              ) : (
+                historique.map((h) => (
+                  <div key={h.id} className="py-1.5 border-b last:border-0" style={{ borderColor: "rgba(27,43,94,0.08)" }}>
+                    <p className="text-sm font-semibold" style={{ color: MARINE }}>{libelleEvenement(h.evenement)}</p>
+                    <p className="text-xs" style={{ color: GRIS }}>
+                      {new Date(h.created_at).toLocaleString("fr-CH")}
+                      {h.auteur ? ` — ${h.auteur}` : ""}
+                    </p>
+                    {h.motif && <p className="text-xs italic" style={{ color: GRIS }}>{h.motif}</p>}
+                  </div>
+                ))
+              )}
+            </Bloc>
+          </aside>
         </div>
-
-      </div>
+      </main>
     </>
+  );
+}
+
+function Bloc({ titre, children }: { titre: string; children: React.ReactNode }) {
+  return (
+    <div className="bg-white rounded-2xl p-4 border" style={{ borderColor: "rgba(27,43,94,0.12)" }}>
+      <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "rgba(27,43,94,0.5)" }}>
+        {titre}
+      </p>
+      {children}
+    </div>
   );
 }

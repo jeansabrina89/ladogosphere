@@ -33,6 +33,12 @@ vi.mock("@/src/lib/supabase-admin", () => {
       delete: () => { ctx.op = "delete"; return chain; },
       update: (vals: Ligne) => { ctx.op = "update"; ctx.vals = vals; return chain; },
       eq: (col: string, val: string) => { ctx.filters[col] = val; return chain; },
+      is: (col: string) => { ctx.filters[col] = "null"; return chain; },
+      not: () => chain,
+      neq: () => chain,
+      in: () => chain,
+      limit: () => Promise.resolve({ data: [], error: null }),
+      order: () => Promise.resolve({ data: [], error: null }),
       single: () => Promise.resolve({
         data: table === "reservations" ? H.reservation : null,
         error: null,

@@ -32,10 +32,23 @@ export async function synchroniserComptaResa(reservationId: string, dateOperatio
       return;
     }
 
+    // Un paiement rattache a une facture est porte par la facture : ici, on ne
+    // prend que ceux qui n'ont pas encore de piece de facturation.
     const { data: mouvements } = await supabaseAdmin
       .from("paiements_resa")
       .select("mode, montant")
-      .eq("reservation_id", reservationId);
+      .eq("reservation_id", reservationId)
+      .is("facture_id", null);
+
+    // Une facture emise sur cette reservation prend le relais du produit.
+    const { data: lienFacture } = await supabaseAdmin
+      .from("facture_lignes")
+      .select("factures!inner(numero, statut)")
+      .eq("reservation_id", reservationId)
+      .not("factures.numero", "is", null)
+      .neq("factures.statut", "annulee")
+      .limit(1);
+    const factureEmise = (lienFacture ?? []).length > 0;
 
     const { data: lignes } = await supabaseAdmin
       .from("ecritures_lignes")
@@ -52,7 +65,7 @@ export async function synchroniserComptaResa(reservationId: string, dateOperatio
     const montantAdhesion = cotis ? Number(cotis.montant) || 0 : 0;
 
     const lignesEcriture = calculerLignesEcriture(
-      resa,
+      { ...resa, factureEmise },
       (mouvements ?? []) as { mode: string; montant: number }[],
       (lignes ?? []) as { compte_numero: string; debit: number; credit: number }[],
       montantAdhesion,

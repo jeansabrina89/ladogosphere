@@ -86,6 +86,31 @@ Toute modification de schéma passe par une migration versionnée dans
 [supabase/migrations/](supabase/migrations/), jamais par une modification manuelle
 en console.
 
+## Facturation
+
+La **facture est la pièce pivot**. Elle porte des lignes
+(`facture_lignes`), reçoit son numéro à l'émission et ne bouge plus ensuite.
+
+- **Émission** : la RPC `emettre_facture` fait tout en une transaction — numéro
+  `FAC-AAAA-NNNN` pris sur un compteur par exercice (`facture_numerotation`,
+  verrouillé), échéance, référence QRR, écritures. Aucun numéro n'est consommé
+  sans facture émise : la séquence n'a pas de trou.
+- **Inaltérabilité** : après émission, seuls le statut, le suivi de paiement et
+  le PDF changent. Une facture émise ne s'annule pas — elle se corrige par un
+  **avoir** (`AV-AAAA-NNNN`), qui efface d'abord ce qui restait dû puis crédite
+  le client de ce qu'il avait déjà payé.
+- **Écritures** : tout passe par `passer_ecriture`, avec le même moteur par
+  delta que les réservations et les adhésions
+  ([src/lib/comptaFactureLogique.ts](src/lib/comptaFactureLogique.ts)). Un
+  paiement appartient à une seule pièce : à la facture s'il porte un
+  `facture_id`, à la réservation sinon.
+- **Documents** : le PDF est généré côté serveur, déposé dans le bucket privé
+  `factures` (`exercice/numero.pdf`) avec son empreinte SHA-256, et **jamais
+  régénéré**. Il est servi par URL signée de courte durée.
+- **TVA** : les colonnes existent (`montant_ht`, `montant_tva`, `montant_ttc`,
+  `taux_tva`, `secteur_tdfn`) mais restent neutres — la ventilation viendra en
+  phase 2.
+
 ## Tests
 
 ```bash

@@ -7,7 +7,7 @@ import { reglerReservationAvecAbonnement } from "./actions";
 
 export default function BoutonPaiementClient({
   reservation_id,
-  numero,
+  numeroFacture,
   iban,
   titulaire,
   montant_final,
@@ -18,7 +18,8 @@ export default function BoutonPaiementClient({
   joursAbonnement,
 }: {
   reservation_id: string;
-  numero: number;
+  /** Numero de la facture emise, seule reference de paiement communiquee. */
+  numeroFacture: string | null;
   iban: string;
   titulaire: string;
   montant_final: number;
@@ -286,12 +287,14 @@ export default function BoutonPaiementClient({
                           {montantNum.toFixed(2)} CHF
                         </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Référence</span>
-                        <span className="font-semibold font-mono text-xs" style={{ color: "#1B2B5E" }}>
-                          Réservation N°{numero}
-                        </span>
-                      </div>
+                      {numeroFacture && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Référence</span>
+                          <span className="font-semibold font-mono text-xs" style={{ color: "#1B2B5E" }}>
+                            {numeroFacture}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -301,7 +304,9 @@ export default function BoutonPaiementClient({
                 )}
                 {iban && (
                   <div className="rounded-xl p-3 bg-amber-50 border border-amber-200 text-xs text-amber-700">
-                    ⚠️ Votre paiement sera confirmé manuellement par notre équipe après réception du virement. Merci d'indiquer la référence dans le motif du virement.
+                    {numeroFacture
+                      ? `⚠️ Votre paiement sera confirmé après réception du virement. Merci d'indiquer le numéro de facture ${numeroFacture} dans le motif du virement, ou d'utiliser le bulletin QR de la facture.`
+                      : "⚠️ Votre facture vous parviendra à la fin du séjour : elle portera la référence de paiement et son bulletin QR."}
                   </div>
                 )}
                 <div className="flex gap-3">

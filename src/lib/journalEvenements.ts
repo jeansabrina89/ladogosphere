@@ -1,0 +1,113 @@
+import * as Sentry from "@sentry/nextjs";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+
+// Journal des événements métier (ajout seul, verrouillé par trigger).
+// Il répond à « qui a fait quoi, quand, et pourquoi » sur les pièces sensibles :
+// factures, paiements, avoirs. Il ne remplace pas le grand livre — il l'explique.
+
+export type EntiteJournal = "facture" | "paiement" | "avoir";
+
+export type EvenementJournal = {
+  entite: EntiteJournal;
+  entiteId: string;
+  evenement: string;
+  avant?: unknown;
+  apres?: unknown;
+  motif?: string | null;
+  userId?: string | null;
+};
+
+/** N'échoue jamais : une trace manquante ne doit pas annuler l'opération tracée. */
+export async function tracerEvenement(e: EvenementJournal): Promise<void> {
+  try {
+    await supabaseAdmin.from("journal_evenements").insert({
+      entite: e.entite,
+      entite_id: e.entiteId,
+      evenement: e.evenement,
+      avant: e.avant ?? null,
+      apres: e.apres ?? null,
+      motif: e.motif ?? null,
+      user_id: e.userId ?? null,
+    });
+  } catch (err) {
+    Sentry.captureException(err);
+    console.error("journal_evenements:", err);
+  }
+}
+
+export type LigneHistorique = {
+  id: string;
+  evenement: string;
+  motif: string | null;
+  created_at: string;
+  auteur: string | null;
+  apres: Record<string, unknown> | null;
+};
+
+/** Historique d'une entité, du plus récent au plus ancien. */
+export async function lireHistorique(
+  entite: EntiteJournal,
+  entiteId: string,
+): Promise<LigneHistorique[]> {
+  const { data } = await supabaseAdmin
+    .from("journal_evenements")
+    .select("id, evenement, motif, created_at, apres, profiles(prenom, nom)")
+    .eq("entite", entite)
+    .eq("entite_id", entiteId)
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((l: Record<string, unknown>) => {
+    const p = l.profiles as { prenom?: string; nom?: string } | null;
+    return {
+      id: String(l.id),
+      evenement: String(l.evenement),
+      motif: (l.motif as string | null) ?? null,
+      created_at: String(l.created_at),
+      auteur: p ? `${p.prenom ?? ""} ${p.nom ?? ""}`.trim() || null : null,
+      apres: (l.apres as Record<string, unknown> | null) ?? null,
+    };
+  });
+}
+
+/** Historique de toutes les factures d'un client (fiche client). */
+export async function lireHistoriqueClient(clientId: string): Promise<LigneHistorique[]> {
+  const { data: factures } = await supabaseAdmin
+    .from("factures").select("id").eq("client_id", clientId);
+  const ids = (factures ?? []).map((f: { id: string }) => f.id);
+  if (ids.length === 0) return [];
+
+  const { data } = await supabaseAdmin
+    .from("journal_evenements")
+    .select("id, evenement, motif, created_at, apres, profiles(prenom, nom)")
+    .in("entite_id", ids)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  return (data ?? []).map((l: Record<string, unknown>) => {
+    const p = l.profiles as { prenom?: string; nom?: string } | null;
+    return {
+      id: String(l.id),
+      evenement: String(l.evenement),
+      motif: (l.motif as string | null) ?? null,
+      created_at: String(l.created_at),
+      auteur: p ? `${p.prenom ?? ""} ${p.nom ?? ""}`.trim() || null : null,
+      apres: (l.apres as Record<string, unknown> | null) ?? null,
+    };
+  });
+}
+
+const LIBELLES: Record<string, string> = {
+  emission: "Facture émise",
+  envoi: "Envoyée par e-mail",
+  paiement: "Encaissement",
+  paiement_annule: "Encaissement annulé",
+  avoir: "Avoir créé",
+  avoir_recu: "Soldée par un avoir",
+  brouillon_annule: "Brouillon annulé",
+  creation: "Créée",
+  pdf: "PDF généré",
+};
+
+export function libelleEvenement(evenement: string): string {
+  return LIBELLES[evenement] ?? evenement;
+}

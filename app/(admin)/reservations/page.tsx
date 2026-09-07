@@ -2,7 +2,7 @@ import { exigerPersonnelPage } from "@/src/lib/exigerPersonnelPage";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import FiltresReservations from "./FiltresReservations";
 import RechercheReservation from "./RechercheReservation";
-import SelectionFactureGroupee from "./SelectionFactureGroupee";
+import ListeReservations from "./ListeReservations";
 import FiltrePeriodeReservations from "./FiltrePeriodeReservations";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { clientsMembresAJour } from "@/src/lib/membre";
@@ -107,7 +107,7 @@ export default async function ReservationsPage({
           {filtrePersonnel && " du personnel"}
         </p>
 
-        <SelectionFactureGroupee
+        <ListeReservations
           reservations={reservations ?? []}
           permEncaissements={perms.perm_encaissements}
         />

@@ -95,6 +95,7 @@ export default async function MonComptePage() {
     { href: "/mon-compte/chiens",        label: "Mes chiens" },
     { href: "/mon-compte/reservations",  label: "Mes réservations" },
     { href: "/mon-compte/abonnements",   label: "Mes abonnements" },
+    { href: "/mon-compte/factures",      label: "Mes factures" },
     { href: "/mon-compte/profil",        label: "Mon profil" },
   ];
 

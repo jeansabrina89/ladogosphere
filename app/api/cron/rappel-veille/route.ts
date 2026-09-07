@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { envoyerEmailRappelVeille, envoyerEmailPaiement } from "@/src/lib/email";
+import { factureEmisePourReservation } from "@/src/lib/factureResa";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { resteAPayer } from "@/src/lib/montants";
 
@@ -103,6 +104,7 @@ export async function GET(req: NextRequest) {
           type: res.type_reservation,
           iban: coords.iban,
           titulaire: coords.titulaire,
+          numeroFacture: (await factureEmisePourReservation(res.id))?.numero ?? null,
         });
         await supabaseAdmin
           .from("reservations")

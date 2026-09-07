@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { envoyerEmailRelancePaiement } from "@/src/lib/email";
+import { factureEmisePourReservation } from "@/src/lib/factureResa";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { resteAPayer } from "@/src/lib/montants";
 import { niveauRelanceDu } from "@/src/lib/relances";
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
       iban: coords.iban,
       titulaire: coords.titulaire,
       niveau: niveau as 1 | 2 | 3,
+      numeroFacture: (await factureEmisePourReservation(reservation_id))?.numero ?? null,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });

@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { figerFactureResa, defigerFactureResa } from "@/src/lib/factureResa";
+import { finaliserEmission } from "@/src/lib/factureDocument";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 import { synchroniserComptaAbonnement } from "@/src/lib/comptaAbonnement";
 import { estResultatEssai, type ResultatEssai } from "@/src/lib/journeeEssai";
@@ -154,7 +155,11 @@ export async function appliquerCheckout(
   const reservationId = await lireReservationId(checkinId);
   if (reservationId) {
     await supabaseAdmin.from("reservations").update({ statut: "terminee" }).eq("id", reservationId);
-    await figerFactureResa(reservationId);
+    // Le check-out EMET la facture : numero, echeance, ecritures, PDF et e-mail.
+    const emission = await figerFactureResa(reservationId, options.profilId ?? null);
+    if (emission.factureId) {
+      await finaliserEmission(emission.factureId, options.profilId ?? null);
+    }
     const { data: resaDate } = await supabaseAdmin
       .from("reservations")
       .select("date_fin, abonnement_id")

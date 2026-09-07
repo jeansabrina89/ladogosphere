@@ -167,6 +167,12 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
     intro: "Petit rappel — <strong>{nom_chien}</strong> arrive <strong>demain</strong> à La Dogosphère !",
     message_final: "En cas d'imprévu, contactez-nous au plus vite. À demain ! 🐾",
   },
+  facture_emise: {
+    sujet: "Votre facture {numero} — La Dogosphère",
+    titre: "Bonjour {prenom},",
+    intro: "Voici votre facture <strong>{numero}</strong> du {date}, d'un montant de <strong>CHF {montant}</strong>, payable jusqu'au <strong>{echeance}</strong>.",
+    message_final: "Le PDF est joint à ce message ; il est aussi disponible dans votre espace client. Merci de votre confiance ! 🐾",
+  },
   rappel_cotisation: {
     sujet: "⭐ Renouvellement de votre adhésion membre",
     titre: "Bonjour {prenom} ! ⭐",
@@ -204,6 +210,7 @@ export const MODELES_META: { type: string; label: string; variables: string[] }[
   { type: "essai_valide", label: "Journée d'essai — validée", variables: ["prenom", "nom_chien", "montant"] },
   { type: "essai_seconde_journee", label: "Journée d'essai — seconde journée", variables: ["prenom", "nom_chien"] },
   { type: "rappel_veille", label: "Rappel la veille", variables: ["prenom", "nom_chien", "date_debut"] },
+  { type: "facture_emise", label: "Facture émise", variables: ["prenom", "numero", "date", "echeance", "montant"] },
   { type: "rappel_cotisation", label: "Rappel adhésion", variables: ["prenom", "nom", "date_fin", "montant"] },
   { type: "relance_paiement", label: "Relance paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
   { type: "rappel_paiement_1", label: "1er rappel paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
@@ -252,12 +259,17 @@ async function envoyerEmail(p: {
   sujet: string;
   html: string;
   reservationId?: string | null;
+  /** Pièces jointes (le PDF d'une facture, par exemple). */
+  piecesJointes?: { filename: string; content: Buffer }[];
 }) {
   const { data, error } = await resend.emails.send({
     from: FROM,
     to: p.destinataire,
     subject: p.sujet,
     html: p.html,
+    ...(p.piecesJointes && p.piecesJointes.length > 0
+      ? { attachments: p.piecesJointes.map((f) => ({ filename: f.filename, content: f.content })) }
+      : {}),
   });
   await supabaseAdmin.from("emails_envoyes").insert({
     destinataire: p.destinataire,
@@ -498,11 +510,13 @@ export async function envoyerEmailReservationRefusee({
 }
 
 export async function envoyerEmailPaiement({
-  email, prenom, montant, date_debut, date_fin, type, iban, titulaire,
+  email, prenom, montant, date_debut, date_fin, type, iban, titulaire, numeroFacture,
 }: {
   email: string; prenom: string; montant: number;
   date_debut: string; date_fin: string; type: string;
   iban: string; titulaire: string;
+  /** Seule référence de paiement communiquée au client (jamais le n° de résa). */
+  numeroFacture?: string | null;
 }) {
   const m = await modeleEmail("paiement", {
     prenom, montant: montant.toFixed(2),
@@ -544,7 +558,9 @@ export async function envoyerEmailPaiement({
         <p style="margin:0 0 6px 0; color:#7A5C00; font-size:13px;">
           <strong>Virement bancaire :</strong> IBAN ${iban}<br/>
           <strong>Titulaire :</strong> ${titulaire}<br/>
-          <strong>Référence :</strong> Votre nom + date du séjour
+          ${numeroFacture
+            ? `<strong>Référence :</strong> ${numeroFacture}`
+            : `<strong>Référence :</strong> elle figurera sur votre facture`}
         </p>` : `
         <p style="margin:0 0 6px 0; color:#7A5C00; font-size:13px;">
           Les coordonnées de paiement vous seront communiquées séparément.
@@ -562,10 +578,12 @@ export async function envoyerEmailPaiement({
 }
 
 export async function envoyerEmailRelancePaiement({
-  email, prenom, montant, date_debut, date_fin, type, iban, titulaire, niveau,
+  email, prenom, montant, date_debut, date_fin, type, iban, titulaire, niveau, numeroFacture,
 }: {
   email: string; prenom: string; montant: number;
   date_debut: string; date_fin: string; type: string;
+  /** Seule reference de paiement communiquee au client. */
+  numeroFacture?: string | null;
   iban: string; titulaire: string; niveau: 1 | 2 | 3;
 }) {
   const typeModele =
@@ -610,7 +628,9 @@ export async function envoyerEmailRelancePaiement({
         <p style="margin:0 0 6px 0; color:#7A5C00; font-size:13px;">
           <strong>Virement bancaire :</strong> IBAN ${iban}<br/>
           <strong>Titulaire :</strong> ${titulaire}<br/>
-          <strong>Référence :</strong> Votre nom + date du séjour
+          ${numeroFacture
+            ? `<strong>Référence :</strong> ${numeroFacture}`
+            : `<strong>Référence :</strong> elle figurera sur votre facture`}
         </p>` : `
         <p style="margin:0 0 6px 0; color:#7A5C00; font-size:13px;">
           Les coordonnées de paiement vous seront communiquées séparément.
@@ -909,6 +929,72 @@ export async function envoyerEmailRappelCotisation({
       <p style="color:#6B7280; font-size:14px; margin:0;">
         ${m.message_final}
       </p>
+    `),
+  });
+}
+
+/**
+ * Facture émise : le PDF part en pièce jointe, avec un lien vers l'espace
+ * client. Une seule référence de paiement est communiquée : le numéro de
+ * facture (et sa QRR sur le bulletin) — jamais le numéro de réservation.
+ */
+export async function envoyerEmailFactureEmise(p: {
+  email: string;
+  prenom: string;
+  numero: string;
+  date: string;
+  echeance: string;
+  montant: number;
+  pdf?: Buffer | null;
+}) {
+  const vars = {
+    prenom: p.prenom,
+    numero: p.numero,
+    date: formatDate(p.date),
+    echeance: formatDate(p.echeance),
+    montant: p.montant.toFixed(2),
+  };
+  const m = await modeleEmail("facture_emise", vars);
+
+  await envoyerEmail({
+    destinataire: p.email,
+    type: "facture_emise",
+    sujet: m.sujet,
+    piecesJointes: p.pdf ? [{ filename: `${p.numero}.pdf`, content: p.pdf }] : undefined,
+    html: emailTemplate(`
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
+
+      <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
+        <table cellpadding="0" cellspacing="0" style="width:100%;">
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px; width:45%;">Facture</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${p.numero}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Date</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-size:14px;">${formatDate(p.date)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">À payer jusqu'au</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${formatDate(p.echeance)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Montant</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">CHF ${p.montant.toFixed(2)}</td>
+          </tr>
+        </table>
+      </div>
+
+      <p style="margin:0 0 24px 0;">
+        <a href="${SITE_URL}/mon-compte/factures"
+           style="display:inline-block; background-color:#1B2B5E; color:white; text-decoration:none;
+                  padding:12px 24px; border-radius:12px; font-weight:bold; font-size:14px;">
+          Voir mes factures
+        </a>
+      </p>
+
+      <p style="color:#6B7280; font-size:14px; margin:0;">${m.message_final}</p>
     `),
   });
 }
