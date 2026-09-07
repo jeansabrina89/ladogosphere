@@ -146,6 +146,17 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                 "Photos",
                 <BadgePhotos photos_ok={client.photos_ok} modifie_le={client.photos_ok_modifie_le} />
               )}
+              {ligne(
+                "Infos par e-mail",
+                <span>
+                  {client.emails_info_ok === false ? "non" : "oui"}
+                  {client.emails_info_modifie_le && (
+                    <span style={{ opacity: 0.6 }}>
+                      {" "}· {formatDateFR(client.emails_info_modifie_le)}
+                    </span>
+                  )}
+                </span>
+              )}
             </div>
           </Carte>
         </section>

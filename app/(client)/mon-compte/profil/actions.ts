@@ -12,7 +12,7 @@ export async function modifierProfil(_id: string, formData: FormData) {
   // Source de vérité = ta session : on récupère TA fiche client (RLS)
   const { data: monClient } = await supabase
     .from("clients")
-    .select("id, photos_ok")
+    .select("id, photos_ok, emails_info_ok")
     .eq("auth_user_id", user.id)
     .maybeSingle();
 
@@ -20,7 +20,9 @@ export async function modifierProfil(_id: string, formData: FormData) {
 
   // Mise à jour via supabaseAdmin — UNIQUEMENT les champs de contact (liste blanche)
   const photosOk = formData.get("photos_ok") === "on";
+  const emailsInfoOk = formData.get("emails_info_ok") === "on";
   const champs: Record<string, unknown> = {
+    emails_info_ok: emailsInfoOk,
     prenom: formData.get("prenom") as string,
     nom: formData.get("nom") as string,
     telephone: formData.get("telephone") as string || null,
@@ -34,6 +36,11 @@ export async function modifierProfil(_id: string, formData: FormData) {
   // fiable de la date du choix.
   if (photosOk !== monClient.photos_ok) {
     champs.photos_ok_modifie_le = new Date().toISOString();
+  }
+  // Même règle pour le consentement aux e-mails d'information : la date ne
+  // bouge que lorsque le choix change réellement.
+  if (emailsInfoOk !== monClient.emails_info_ok) {
+    champs.emails_info_modifie_le = new Date().toISOString();
   }
 
   const { error } = await supabaseAdmin

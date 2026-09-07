@@ -294,6 +294,12 @@ export async function envoyerMessageLibre(p: {
   corps: string;
   prenom?: string | null;
   nom?: string | null;
+  /**
+   * Jeton de désinscription du destinataire. C'est le SEUL envoi qui porte un
+   * lien de désinscription : les e-mails liés aux réservations, aux factures et
+   * à l'adhésion n'en ont pas, et ne sont jamais filtrés par le consentement.
+   */
+  token?: string | null;
 }) {
   const vars = { prenom: p.prenom ?? "", nom: p.nom ?? "" };
   const sujet = interpoler(p.sujet, vars);
@@ -302,12 +308,31 @@ export async function envoyerMessageLibre(p: {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/\n/g, "<br>");
+
+  const pied = p.token
+    ? `
+      <table cellpadding="0" cellspacing="0" style="width:100%; margin-top:28px; border-top:1px solid #F5F0E8;">
+        <tr>
+          <td style="padding-top:16px;">
+            <p style="margin:0 0 4px 0; color:#9CA3AF; font-size:12px; line-height:1.6;">
+              Vous recevez cet e-mail parce que vous êtes client de La Dogosphère.
+            </p>
+            <p style="margin:0; font-size:12px;">
+              <a href="${SITE_URL}/desinscription?t=${encodeURIComponent(p.token)}"
+                 style="color:#9CA3AF; text-decoration:underline;">Se désinscrire des informations</a>
+            </p>
+          </td>
+        </tr>
+      </table>`
+    : "";
+
   await envoyerEmail({
     destinataire: p.email,
     type: "campagne",
     sujet,
     html: emailTemplate(`
       <div style="color:#1B2B5E; font-size:15px; line-height:1.7;">${corpsHtml}</div>
+      ${pied}
     `),
   });
 }

@@ -222,6 +222,7 @@ function MessageMembres({ campagnes }: { campagnes: Campagne[] }) {
   const [corps, setCorps] = useState("");
   const [cible, setCible] = useState<"membres_actifs" | "tous_clients">("membres_actifs");
   const [count, setCount] = useState<number | null>(null);
+  const [exclus, setExclus] = useState(0);
   const [chargeCount, setChargeCount] = useState(false);
   const [envoi, setEnvoi] = useState(false);
   const [resultat, setResultat] = useState<{ total: number; envoyes: number; echecs: number } | null>(null);
@@ -231,6 +232,7 @@ function MessageMembres({ campagnes }: { campagnes: Campagne[] }) {
     let annule = false;
     setChargeCount(true);
     setCount(null);
+    setExclus(0);
     fetch("/api/emails/campagne", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -238,7 +240,10 @@ function MessageMembres({ campagnes }: { campagnes: Campagne[] }) {
     })
       .then((r) => r.json())
       .then((d) => {
-        if (!annule) setCount(typeof d.count === "number" ? d.count : null);
+        if (!annule) {
+          setCount(typeof d.count === "number" ? d.count : null);
+          setExclus(typeof d.exclus === "number" ? d.exclus : 0);
+        }
       })
       .catch(() => {
         if (!annule) setCount(null);
@@ -322,6 +327,12 @@ function MessageMembres({ campagnes }: { campagnes: Campagne[] }) {
               ? "Nombre de destinataires indisponible."
               : `👥 ${count} destinataire${count > 1 ? "s" : ""}`}
           </p>
+          {!chargeCount && exclus > 0 && (
+            <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "#A8453A" }}>
+              {exclus} client{exclus > 1 ? "s ont" : " a"} refusé les informations et ne
+              recevr{exclus > 1 ? "ont" : "a"} pas ce message.
+            </p>
+          )}
         </div>
 
         <div>

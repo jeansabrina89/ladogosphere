@@ -96,6 +96,31 @@ export default async function MonProfilPage() {
               )}
             </Carte>
 
+            {/* Informations et actualités */}
+            <Carte>
+              <h2 style={titreSection}>✉️ Informations</h2>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  name="emails_info_ok"
+                  defaultChecked={client.emails_info_ok !== false}
+                  style={{ marginTop: 3, width: 20, height: 20, flexShrink: 0, accentColor: "#4AAEA0" }}
+                />
+                <span style={{ fontSize: 14, color: "#1B2B5E", lineHeight: 1.5 }}>
+                  Recevoir les informations et actualités de La Dogosphère
+                </span>
+              </label>
+              <p style={{ ...muted, marginTop: 10 }}>
+                Les e-mails concernant vos réservations, vos factures et votre adhésion vous
+                sont envoyés dans tous les cas.
+              </p>
+              {client.emails_info_modifie_le && (
+                <p style={{ ...muted, marginTop: 4 }}>
+                  Dernière modification : {formatDateFR(client.emails_info_modifie_le)}
+                </p>
+              )}
+            </Carte>
+
             {/* Contact d'urgence */}
             <Carte>
               <h2 style={titreSection}>🚨 Contact d'urgence</h2>

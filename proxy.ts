@@ -8,6 +8,8 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/login') ||
     pathname.startsWith('/inscription') ||
     pathname.startsWith('/reset-password') ||
+    // Désinscription : accessible depuis un e-mail, donc sans session.
+    pathname.startsWith('/desinscription') ||
     pathname.startsWith('/auth/confirm') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
