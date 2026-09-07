@@ -9,11 +9,27 @@ import {
   categorieDepuisPoids,
   messageErreurBase,
 } from "@/src/lib/validationChien";
+import {
+  valeursFormulaire,
+  type EtatFormulaire,
+} from "@/src/lib/etatFormulaire";
 
-export async function modifierChienClient(chien_id: string, formData: FormData) {
+/** Modifie le chien, ou RENVOIE le refus (cf. creerChienClient). */
+export async function modifierChienClient(
+  chien_id: string,
+  _etat: EtatFormulaire,
+  formData: FormData
+): Promise<EtatFormulaire> {
+  const valeurs = valeursFormulaire(formData);
+  const refus = (message: string, champ?: string): EtatFormulaire => ({
+    erreur: message,
+    champ: champ ?? null,
+    valeurs,
+  });
+
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Non authentifié");
+  if (!user) return refus("Non authentifié.");
 
   // Vérifie via la session (RLS) que ce chien t'appartient
   const { data: chien } = await supabase
@@ -22,7 +38,7 @@ export async function modifierChienClient(chien_id: string, formData: FormData) 
     .eq("id", chien_id)
     .maybeSingle();
 
-  if (!chien) throw new Error("Accès refusé à ce chien.");
+  if (!chien) return refus("Accès refusé à ce chien.");
 
   const nom = (formData.get("nom") as string || "").trim();
   const race = (formData.get("race") as string || "").trim();
@@ -36,7 +52,7 @@ export async function modifierChienClient(chien_id: string, formData: FormData) 
     { nom, race, couleur, poids, sexe, sterilisation, numero_puce },
     { sterilisationObligatoire: true }
   );
-  if (invalide) throw new Error(invalide);
+  if (invalide) return refus(invalide.message, invalide.champ);
   // Après validation, le poids est un nombre : la garde ci-dessus l’a exigé.
   const poidsValide = Number(poids);
 
@@ -60,7 +76,7 @@ export async function modifierChienClient(chien_id: string, formData: FormData) 
     })
     .eq("id", chien.id);
 
-  if (error) throw new Error(messageErreurBase(error));
+  if (error) return refus(messageErreurBase(error));
 
   // Cohabitation en box, déclarée par le propriétaire. Sans effet si la pension
   // a tranché : sa décision prime (cf. appliquerCohabitationClient).

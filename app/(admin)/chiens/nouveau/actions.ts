@@ -8,12 +8,28 @@ import {
   categorieDepuisPoids,
   messageErreurBase,
 } from "@/src/lib/validationChien";
+import {
+  valeursFormulaire,
+  type EtatFormulaire,
+} from "@/src/lib/etatFormulaire";
 
-export async function creerChien(formData: FormData) {
+/** Crée le chien, ou RENVOIE le refus (cf. creerChienClient). */
+export async function creerChien(
+  _etat: EtatFormulaire,
+  formData: FormData
+): Promise<EtatFormulaire> {
+  const valeurs = valeursFormulaire(formData);
+  const refus = (message: string, champ?: string): EtatFormulaire => ({
+    erreur: message,
+    champ: champ ?? null,
+    valeurs,
+  });
+
   const verif = await verifierPermission("perm_chiens_creer");
-  if (verif.error) throw new Error(verif.error);
+  if (verif.error) return refus(verif.error);
 
   const client_id = formData.get("client_id") as string;
+  if (!client_id) return refus("Choisissez le propriétaire.", "client_id");
   const nom = (formData.get("nom") as string || "").trim();
   const race = (formData.get("race") as string || "").trim();
   const couleur = (formData.get("couleur") as string || "").trim();
@@ -30,7 +46,7 @@ export async function creerChien(formData: FormData) {
     { nom, race, couleur, poids, sexe, sterilisation, numero_puce },
     { puceObligatoire: true }
   );
-  if (invalide) throw new Error(invalide);
+  if (invalide) return refus(invalide.message, invalide.champ);
   const niveau_energie = formData.get("niveau_energie") as string;
   const allergies = formData.get("allergies") as string;
   const traitements = formData.get("traitements") as string;
@@ -87,6 +103,6 @@ export async function creerChien(formData: FormData) {
       cohabitation_source: formData.get("doit_etre_isole") === "on" ? "pension" : null,
     });
 
-  if (error) throw new Error(messageErreurBase(error));
+  if (error) return refus(messageErreurBase(error));
   redirect("/chiens");
 }

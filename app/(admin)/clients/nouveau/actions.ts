@@ -3,12 +3,51 @@
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
+import { messageErreurBase } from "@/src/lib/validationChien";
+import {
+  valeursFormulaire,
+  type EtatFormulaire,
+} from "@/src/lib/etatFormulaire";
 
-export async function creerClient(formData: FormData) {
+/** Champs d'identité d'une fiche client : le refus nomme le champ fautif. */
+function refusIdentiteClient(
+  prenom: string,
+  nom: string,
+  email: string
+): { champ: string; message: string } | null {
+  if (!prenom.trim()) return { champ: "prenom", message: "Le prénom est obligatoire." };
+  if (!nom.trim()) return { champ: "nom", message: "Le nom est obligatoire." };
+  if (!email.trim()) return { champ: "email", message: "L'adresse e-mail est obligatoire." };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
+    return { champ: "email", message: "L'adresse e-mail n'est pas valide." };
+  }
+  return null;
+}
+
+/**
+ * Crée la fiche, ou RENVOIE le refus : une exception de Server Action est
+ * masquée en production, le message n'arriverait jamais à l'écran.
+ */
+export async function creerClient(
+  _etat: EtatFormulaire,
+  formData: FormData
+): Promise<EtatFormulaire> {
+  const valeurs = valeursFormulaire(formData);
+  const refus = (message: string, champ?: string): EtatFormulaire => ({
+    erreur: message,
+    champ: champ ?? null,
+    valeurs,
+  });
+
   const verif = await verifierPermission("perm_clients_creer");
-  if (verif.error) throw new Error(verif.error);
+  if (verif.error) return refus(verif.error);
 
-  const email = formData.get("email") as string;
+  const prenom = String(formData.get("prenom") ?? "").trim();
+  const nomClient = String(formData.get("nom") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
+
+  const invalide = refusIdentiteClient(prenom, nomClient, email);
+  if (invalide) return refus(invalide.message, invalide.champ);
 
   // Vérifier si un compte Auth existe déjà avec cet email
   let auth_user_id: string | null = null;
@@ -23,8 +62,8 @@ export async function creerClient(formData: FormData) {
   const { data: client, error } = await supabaseAdmin
     .from("clients")
     .insert({
-      prenom: formData.get("prenom") as string,
-      nom: formData.get("nom") as string,
+      prenom,
+      nom: nomClient,
       email: email || null,
       telephone: formData.get("telephone") as string || null,
       adresse: formData.get("adresse") as string || null,
@@ -39,9 +78,9 @@ export async function creerClient(formData: FormData) {
 
   if (error) {
     if (error.code === "23505") {
-      throw new Error("Un client avec cette adresse email existe déjà.");
+      return refus("Un client existe déjà avec cette adresse e-mail.", "email");
     }
-    throw new Error(error.message);
+    return refus(messageErreurBase(error));
   }
 
   // Si on a trouvé un compte Auth, s'assurer que son profil est bien "client"

@@ -9,19 +9,37 @@ import {
   categorieDepuisPoids,
   messageErreurBase,
 } from "@/src/lib/validationChien";
+import {
+  valeursFormulaire,
+  type EtatFormulaire,
+} from "@/src/lib/etatFormulaire";
 
-export async function creerChienClient(client_id: string, formData: FormData) {
+/**
+ * Crée le chien, ou RENVOIE le refus : une exception de Server Action est
+ * masquée en production, le message n'arriverait jamais à l'écran.
+ */
+export async function creerChienClient(
+  client_id: string,
+  _etat: EtatFormulaire,
+  formData: FormData
+): Promise<EtatFormulaire> {
+  const valeurs = valeursFormulaire(formData);
+  const refus = (message: string, champ?: string): EtatFormulaire => ({
+    erreur: message,
+    champ: champ ?? null,
+    valeurs,
+  });
+
   const supabaseServer = await createSupabaseServerClient();
 
   // La session courante a-t-elle le droit de lire cette fiche ? (RLS)
-  const { data: fiche, error: verifErr } = await supabaseServer
+  const { data: fiche } = await supabaseServer
     .from("clients")
     .select("id, interne")
     .eq("id", client_id)
     .maybeSingle();
 
-  if (verifErr) throw new Error("Vérification: " + verifErr.message);
-  if (!fiche) throw new Error("Accès refusé à cette fiche client.");
+  if (!fiche) return refus("Accès refusé à cette fiche client.");
 
   const nom = (formData.get("nom") as string || "").trim();
   const race = (formData.get("race") as string || "").trim();
@@ -35,7 +53,7 @@ export async function creerChienClient(client_id: string, formData: FormData) {
     { nom, race, couleur, poids, sexe, sterilisation, numero_puce },
     { sterilisationObligatoire: true }
   );
-  if (invalide) throw new Error(invalide);
+  if (invalide) return refus(invalide.message, invalide.champ);
   // Après validation, le poids est un nombre : la garde ci-dessus l’a exigé.
   const poidsValide = Number(poids);
 
@@ -77,7 +95,7 @@ export async function creerChienClient(client_id: string, formData: FormData) {
     .select("id")
     .single();
 
-  if (error) throw new Error(messageErreurBase(error));
+  if (error) return refus(messageErreurBase(error));
 
   // Cohabitation en box déclarée à la création (le chien vient d'être créé :
   // aucune décision de la pension ne peut encore le verrouiller).

@@ -3,10 +3,49 @@
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
+import { messageErreurBase } from "@/src/lib/validationChien";
+import {
+  valeursFormulaire,
+  type EtatFormulaire,
+} from "@/src/lib/etatFormulaire";
 
-export async function modifierClient(id: string, formData: FormData) {
+/** Champs d'identité d'une fiche client : le refus nomme le champ fautif. */
+function refusIdentiteClient(
+  prenom: string,
+  nom: string,
+  email: string
+): { champ: string; message: string } | null {
+  if (!prenom.trim()) return { champ: "prenom", message: "Le prénom est obligatoire." };
+  if (!nom.trim()) return { champ: "nom", message: "Le nom est obligatoire." };
+  if (!email.trim()) return { champ: "email", message: "L'adresse e-mail est obligatoire." };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
+    return { champ: "email", message: "L'adresse e-mail n'est pas valide." };
+  }
+  return null;
+}
+
+/** Modifie la fiche, ou RENVOIE le refus (cf. creerClient). */
+export async function modifierClient(
+  id: string,
+  _etat: EtatFormulaire,
+  formData: FormData
+): Promise<EtatFormulaire> {
+  const valeurs = valeursFormulaire(formData);
+  const refus = (message: string, champ?: string): EtatFormulaire => ({
+    erreur: message,
+    champ: champ ?? null,
+    valeurs,
+  });
+
   const verif = await verifierPermission("perm_clients_modifier");
-  if (verif.error) throw new Error(verif.error);
+  if (verif.error) return refus(verif.error);
+
+  const prenom = String(formData.get("prenom") ?? "").trim();
+  const nomClient = String(formData.get("nom") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
+
+  const invalide = refusIdentiteClient(prenom, nomClient, email);
+  if (invalide) return refus(invalide.message, invalide.champ);
 
   // Accord photos : horodaté seulement s'il change réellement.
   const photosOk = formData.get("photos_ok") === "on";
@@ -18,9 +57,9 @@ export async function modifierClient(id: string, formData: FormData) {
 
   const updateData: Record<string, unknown> = {
     photos_ok: photosOk,
-    prenom: formData.get("prenom") as string,
-    nom: formData.get("nom") as string,
-    email: formData.get("email") as string,
+    prenom,
+    nom: nomClient,
+    email,
     telephone: formData.get("telephone") as string || null,
     adresse: formData.get("adresse") as string || null,
     membre: formData.get("membre") === "on",
@@ -46,7 +85,10 @@ export async function modifierClient(id: string, formData: FormData) {
 
   if (error) {
     console.error(error);
-    throw new Error(error.message);
+    if (error.code === "23505") {
+      return refus("Un client existe déjà avec cette adresse e-mail.", "email");
+    }
+    return refus(messageErreurBase(error));
   }
 
   redirect(`/clients/${id}`);

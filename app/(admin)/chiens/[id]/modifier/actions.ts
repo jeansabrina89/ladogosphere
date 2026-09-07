@@ -8,10 +8,26 @@ import {
   categorieDepuisPoids,
   messageErreurBase,
 } from "@/src/lib/validationChien";
+import {
+  valeursFormulaire,
+  type EtatFormulaire,
+} from "@/src/lib/etatFormulaire";
 
-export async function modifierChien(id: string, formData: FormData) {
+/** Modifie le chien, ou RENVOIE le refus (cf. creerChienClient). */
+export async function modifierChien(
+  id: string,
+  _etat: EtatFormulaire,
+  formData: FormData
+): Promise<EtatFormulaire> {
+  const valeurs = valeursFormulaire(formData);
+  const refus = (message: string, champ?: string): EtatFormulaire => ({
+    erreur: message,
+    champ: champ ?? null,
+    valeurs,
+  });
+
   const verif = await verifierPermission("perm_chiens_modifier");
-  if (verif.error) throw new Error(verif.error);
+  if (verif.error) return refus(verif.error);
 
   const poids = Number(formData.get("poids"));
   const sterilisationRaw = formData.get("sterilisation") as string;
@@ -26,7 +42,7 @@ export async function modifierChien(id: string, formData: FormData) {
     { nom, race, couleur, poids, sexe, sterilisation, numero_puce },
     { puceObligatoire: true }
   );
-  if (invalide) throw new Error(invalide);
+  if (invalide) return refus(invalide.message, invalide.champ);
 
   const { error } = await supabaseAdmin
     .from("chiens")
@@ -62,6 +78,6 @@ export async function modifierChien(id: string, formData: FormData) {
     })
     .eq("id", id);
 
-  if (error) throw new Error(messageErreurBase(error));
+  if (error) return refus(messageErreurBase(error));
   redirect(`/chiens/${id}`);
 }

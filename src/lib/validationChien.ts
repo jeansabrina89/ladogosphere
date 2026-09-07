@@ -35,38 +35,50 @@ export const POIDS_MIN = 0.5;
 export const POIDS_MAX = 120;
 
 /**
- * Renvoie le message à afficher, ou null si tout est bon.
+ * Refus de validation : le message à afficher et le nom du champ fautif, pour
+ * que le formulaire puisse le marquer et y placer le focus.
+ */
+export type RefusChamp = { champ: string; message: string };
+
+/**
+ * Renvoie le refus à afficher, ou null si tout est bon.
  * Le message nomme le champ fautif — jamais la contrainte SQL.
  */
 export function validerChampsChien(
   champs: ChampsChien,
   exigences: ExigencesChien = {}
-): string | null {
+): RefusChamp | null {
   const vide = (v?: string | null) => !v || !String(v).trim();
 
-  if (vide(champs.nom)) return "Le nom du chien est obligatoire.";
-  if (vide(champs.race)) return "La race est obligatoire.";
-  if (vide(champs.couleur)) return "La couleur est obligatoire.";
+  if (vide(champs.nom)) return { champ: "nom", message: "Le nom du chien est obligatoire." };
+  if (vide(champs.race)) return { champ: "race", message: "La race est obligatoire." };
+  if (vide(champs.couleur)) return { champ: "couleur", message: "La couleur est obligatoire." };
   if (exigences.puceObligatoire && vide(champs.numero_puce)) {
-    return "Le numéro de puce est obligatoire.";
+    return { champ: "numero_puce", message: "Le numéro de puce est obligatoire." };
   }
 
   const poids = Number(champs.poids);
   if (!champs.poids || !Number.isFinite(poids) || poids <= 0) {
-    return "Le poids est obligatoire et doit être un nombre.";
+    return { champ: "poids", message: "Le poids est obligatoire et doit être un nombre." };
   }
   if (poids < POIDS_MIN || poids > POIDS_MAX) {
-    return `Le poids doit être compris entre ${POIDS_MIN} et ${POIDS_MAX} kg.`;
+    return {
+      champ: "poids",
+      message: `Le poids doit être compris entre ${POIDS_MIN} et ${POIDS_MAX} kg.`,
+    };
   }
 
   if (!SEXES.includes(String(champs.sexe ?? "").trim() as (typeof SEXES)[number])) {
-    return "Le sexe doit être « Mâle » ou « Femelle ».";
+    return { champ: "sexe", message: "Le sexe doit être « Mâle » ou « Femelle »." };
   }
 
   const sterilisation = String(champs.sterilisation ?? "").trim();
   if (exigences.sterilisationObligatoire || sterilisation) {
     if (!STERILISATIONS.includes(sterilisation as (typeof STERILISATIONS)[number])) {
-      return "La stérilisation doit être « oui », « non » ou « chimique ».";
+      return {
+        champ: "sterilisation",
+        message: "La stérilisation doit être « oui », « non » ou « chimique ».",
+      };
     }
   }
 
