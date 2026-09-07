@@ -50,7 +50,7 @@ export default async function CommandesPage({
               <Bouton href={avecCloses ? "/boutique/commandes" : "/boutique/commandes?closes=1"} variante="secondaire">
                 {avecCloses ? "Masquer les closes" : "Voir les closes"}
               </Bouton>
-              <Bouton href="/boutique/articles" variante="secondaire">← Boutique</Bouton>
+              <Bouton href="/boutique" variante="secondaire">← Boutique</Bouton>
             </div>
           }
         />

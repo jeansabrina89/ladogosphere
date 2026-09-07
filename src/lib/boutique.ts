@@ -227,3 +227,33 @@ export async function compterArticlesSousSeuil(): Promise<number> {
     sousLeSeuil(a as { stock_actuel: number | null; stock_alerte: number | null })
   ).length;
 }
+
+/**
+ * Les chiffres du tableau de bord de la boutique. La lecture est ici, le
+ * calcul est dans tableauBoutique — c'est lui que les tests couvrent.
+ */
+export async function lireChiffresBoutique(jourISO: string) {
+  const { chiffresBoutique, debutDuMois } = await import("@/src/lib/tableauBoutique");
+
+  const [{ data: ventes }, { data: commandes }, { data: articles }] = await Promise.all([
+    supabaseAdmin
+      .from("ventes")
+      .select("date_vente, montant_total, mode_reglement, vente_origine_id")
+      .gte("date_vente", `${debutDuMois(jourISO)}T00:00:00`),
+    supabaseAdmin
+      .from("commandes_personnalisees")
+      .select("statut, date_promise")
+      .in("statut", ["a_faire", "en_cours", "prete"]),
+    supabaseAdmin
+      .from("articles")
+      .select("actif, composant, type_article, stock_actuel, stock_alerte, prix_achat")
+      .eq("actif", true),
+  ]);
+
+  return chiffresBoutique({
+    ventes: (ventes ?? []) as never,
+    commandes: (commandes ?? []) as never,
+    articles: (articles ?? []) as never,
+    jourISO,
+  });
+}

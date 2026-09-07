@@ -36,7 +36,7 @@ export default async function InventairePage() {
               <Bouton href="/boutique/inventaire/recapitulatif" variante="secondaire">
                 🖨️ Récapitulatif
               </Bouton>
-              <Bouton href="/boutique/articles" variante="secondaire">← Boutique</Bouton>
+              <Bouton href="/boutique" variante="secondaire">← Boutique</Bouton>
             </div>
           }
         />

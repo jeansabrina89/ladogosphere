@@ -15,14 +15,24 @@ export type CategorieArticle =
   | "alimentation"
   | "friandises"
   | "litiere"
+  | "colliers"
+  | "laisses"
+  | "harnais"
   | "jouets"
   | "peluches"
-  | "laisses_harnais"
   | "couchages"
   | "soins"
   | "divers";
 
-/** Libellés en français accentué : ce sont eux qui s'affichent, partout. */
+/**
+ * Les catégories, en français accentué, DANS L'ORDRE DU MAGASIN — pas dans
+ * l'ordre alphabétique. C'est la seule source de cet ordre : les écrans
+ * d'administration, les filtres et les menus la parcourent telle quelle.
+ *
+ * Le site vitrine est un projet séparé : il reçoit le même ordre par la
+ * colonne `ordre_categorie` de la vue articles_vitrine, qui reprend cette
+ * liste. Toute valeur ajoutée ici doit l'être là aussi.
+ */
 export const CATEGORIES_ARTICLE: {
   valeur: CategorieArticle;
   libelle: string;
@@ -30,16 +40,24 @@ export const CATEGORIES_ARTICLE: {
   /** Une denrée se périme : la date de péremption est proposée à l'entrée. */
   perissable: boolean;
 }[] = [
-  { valeur: "alimentation",    libelle: "Alimentation",       taux: TAUX_REDUIT, perissable: true },
-  { valeur: "friandises",      libelle: "Friandises",         taux: TAUX_REDUIT, perissable: true },
-  { valeur: "litiere",         libelle: "Litière",            taux: TAUX_REDUIT, perissable: false },
-  { valeur: "jouets",          libelle: "Jouets",             taux: TAUX_NORMAL, perissable: false },
-  { valeur: "peluches",        libelle: "Peluches",           taux: TAUX_NORMAL, perissable: false },
-  { valeur: "laisses_harnais", libelle: "Laisses et harnais", taux: TAUX_NORMAL, perissable: false },
-  { valeur: "couchages",       libelle: "Couchages",          taux: TAUX_NORMAL, perissable: false },
-  { valeur: "soins",           libelle: "Soins",              taux: TAUX_NORMAL, perissable: false },
-  { valeur: "divers",          libelle: "Divers",             taux: TAUX_NORMAL, perissable: false },
+  { valeur: "alimentation", libelle: "Alimentation", taux: TAUX_REDUIT, perissable: true },
+  { valeur: "friandises",   libelle: "Friandises",   taux: TAUX_REDUIT, perissable: true },
+  { valeur: "litiere",      libelle: "Litière",      taux: TAUX_REDUIT, perissable: false },
+  { valeur: "colliers",     libelle: "Colliers",     taux: TAUX_NORMAL, perissable: false },
+  { valeur: "laisses",      libelle: "Laisses",      taux: TAUX_NORMAL, perissable: false },
+  { valeur: "harnais",      libelle: "Harnais",      taux: TAUX_NORMAL, perissable: false },
+  { valeur: "jouets",       libelle: "Jouets",       taux: TAUX_NORMAL, perissable: false },
+  { valeur: "peluches",     libelle: "Peluches",     taux: TAUX_NORMAL, perissable: false },
+  { valeur: "couchages",    libelle: "Couchages",    taux: TAUX_NORMAL, perissable: false },
+  { valeur: "soins",        libelle: "Soins",        taux: TAUX_NORMAL, perissable: false },
+  { valeur: "divers",       libelle: "Divers",       taux: TAUX_NORMAL, perissable: false },
 ];
+
+/** Rang d'une catégorie dans l'ordre du magasin, pour trier une liste. */
+export function ordreCategorie(categorie: string | null | undefined): number {
+  const i = CATEGORIES_ARTICLE.findIndex((c) => c.valeur === categorie);
+  return i === -1 ? CATEGORIES_ARTICLE.length : i;
+}
 
 export const MENTION_TAUX = "Taux modifiable, à vérifier pour les produits particuliers.";
 

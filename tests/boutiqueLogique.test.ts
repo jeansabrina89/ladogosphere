@@ -6,6 +6,7 @@ import {
   tauxPropose,
   estPerissable,
   libelleCategorieArticle,
+  ordreCategorie,
   libelleMouvement,
   motifObligatoire,
   quantiteSignee,
@@ -35,7 +36,7 @@ describe("taux de TVA proposé par la catégorie", () => {
   });
 
   it("8,1 % pour tout le reste", () => {
-    for (const c of ["jouets", "peluches", "laisses_harnais", "couchages", "soins", "divers"]) {
+    for (const c of ["colliers", "laisses", "harnais", "jouets", "peluches", "couchages", "soins", "divers"]) {
       expect(tauxPropose(c)).toBe(8.1);
     }
     expect(TAUX_NORMAL).toBe(8.1);
@@ -46,11 +47,28 @@ describe("taux de TVA proposé par la catégorie", () => {
     expect(tauxPropose(null)).toBe(8.1);
   });
 
-  it("les neuf catégories du modèle sont là, en français accentué", () => {
-    expect(CATEGORIES_ARTICLE).toHaveLength(9);
+  it("les onze catégories du modèle sont là, en français accentué", () => {
+    expect(CATEGORIES_ARTICLE).toHaveLength(11);
     expect(libelleCategorieArticle("litiere")).toBe("Litière");
-    expect(libelleCategorieArticle("laisses_harnais")).toBe("Laisses et harnais");
+    expect(libelleCategorieArticle("colliers")).toBe("Colliers");
+    expect(libelleCategorieArticle("laisses")).toBe("Laisses");
+    expect(libelleCategorieArticle("harnais")).toBe("Harnais");
     expect(libelleCategorieArticle(null)).toBe("—");
+    // L'ancien fourre-tout n'existe plus.
+    expect(CATEGORIES_ARTICLE.some((c) => c.valeur === ("laisses_harnais" as never))).toBe(false);
+  });
+
+  it("suit l'ordre du magasin, pas l'alphabet", () => {
+    expect(CATEGORIES_ARTICLE.map((c) => c.valeur)).toEqual([
+      "alimentation", "friandises", "litiere",
+      "colliers", "laisses", "harnais",
+      "jouets", "peluches", "couchages", "soins", "divers",
+    ]);
+    // Un rang par catégorie, et le dernier rang pour une valeur inconnue.
+    expect(ordreCategorie("alimentation")).toBe(0);
+    expect(ordreCategorie("colliers")).toBeLessThan(ordreCategorie("jouets"));
+    expect(ordreCategorie("harnais")).toBeLessThan(ordreCategorie("divers"));
+    expect(ordreCategorie("chapeaux")).toBe(CATEGORIES_ARTICLE.length);
   });
 
   it("seules les denrées se périment", () => {

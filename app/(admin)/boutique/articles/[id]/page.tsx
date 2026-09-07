@@ -105,7 +105,7 @@ export default async function ArticlePage({
                 <Bouton href={`/boutique/articles/${id}/options`} variante="principal">🎨 Options</Bouton>
               )}
               <Bouton href={`/boutique/articles/${id}/modifier`} variante="secondaire">✏️ Modifier</Bouton>
-              <Bouton href="/boutique/articles" variante="secondaire">← Boutique</Bouton>
+              <Bouton href="/boutique/articles" variante="secondaire">← Articles</Bouton>
             </div>
           }
         />

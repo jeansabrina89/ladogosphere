@@ -71,7 +71,7 @@ export default async function VentesPage({
           action={
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <Bouton href="/boutique/caisse" variante="principal">💳 Caisse</Bouton>
-              <Bouton href="/boutique/articles" variante="secondaire">← Boutique</Bouton>
+              <Bouton href="/boutique" variante="secondaire">← Boutique</Bouton>
             </div>
           }
         />

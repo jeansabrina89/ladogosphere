@@ -22,7 +22,7 @@ export default async function NouvelArticlePage() {
         <EnTete
           titre="🛒 Nouvel article"
           sousTitre="La photo se dépose ensuite, sur la fiche."
-          action={<Bouton href="/boutique/articles" variante="secondaire">← Boutique</Bouton>}
+          action={<Bouton href="/boutique/articles" variante="secondaire">← Articles</Bouton>}
         />
         <Carte>
           <FormArticle fournisseurs={(fournisseurs ?? []) as { id: string; nom: string }[]} />

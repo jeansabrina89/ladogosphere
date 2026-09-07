@@ -201,8 +201,11 @@ export default function Caisse({
   return (
     <div className="caisse-cadre">
       <style>{`
-        .caisse-cadre { display: flex; flex-direction: column; height: calc(100dvh - 57px); background: #F5F0E8; }
-        @media (min-width: 768px) { .caisse-cadre { height: 100dvh; } }
+        /* En-tête mobile (57 px) et barre de l'espace Boutique : la caisse
+           occupe tout ce qui reste, sans jamais déborder. */
+        .caisse-cadre { display: flex; flex-direction: column; background: #F5F0E8;
+          height: calc(100dvh - 57px - var(--nav-boutique, 0px)); }
+        @media (min-width: 768px) { .caisse-cadre { height: calc(100dvh - var(--nav-boutique, 0px)); } }
       `}</style>
 
       {/* Recherche — elle reste en haut, toujours atteignable */}
