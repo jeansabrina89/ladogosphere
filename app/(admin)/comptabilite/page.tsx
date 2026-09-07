@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { createClient } from "@/src/utils/supabase/server";
 import { formatDateFR } from "@/src/lib/dates";
@@ -261,6 +262,8 @@ export default async function ComptabilitePage({
               </div>
             </div>
             <ExportCompta annees={anneesDisponibles} />
+            <Link href="/comptabilite/depenses" className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: "#8A6BA8" }}>💸 Dépenses</Link>
+            <Link href="/comptabilite/fournisseurs" className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: "#6E7FA8" }}>🏢 Fournisseurs</Link>
             <a href="/comptabilite/journal" className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: "#1B2B5E" }}>📒 Journal comptable</a>
             <a href="/comptabilite/rapports" className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: "#2E8B7E" }}>📊 Rapports</a>
             <a href="/comptabilite/reconciliation" className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: "#C9A84C" }}>🔄 Réconciliation</a>

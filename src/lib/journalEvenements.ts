@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 // Il répond à « qui a fait quoi, quand, et pourquoi » sur les pièces sensibles :
 // factures, paiements, avoirs. Il ne remplace pas le grand livre — il l'explique.
 
-export type EntiteJournal = "facture" | "paiement" | "avoir" | "reservation";
+export type EntiteJournal = "facture" | "paiement" | "avoir" | "reservation" | "depense";
 
 export type EvenementJournal = {
   entite: EntiteJournal;
@@ -106,6 +106,9 @@ const LIBELLES: Record<string, string> = {
   brouillon_annule: "Brouillon annulé",
   creation: "Créée",
   pdf: "PDF généré",
+  validation: "Dépense validée",
+  annulation: "Annulée par contre-écriture",
+  emission_facture_echouee: "Émission de facture refusée",
 };
 
 export function libelleEvenement(evenement: string): string {

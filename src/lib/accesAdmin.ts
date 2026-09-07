@@ -21,6 +21,7 @@ export const PERMISSIONS_PERSONNEL = [
   "perm_chiens_modifier",
   "perm_clients_creer",
   "perm_clients_modifier",
+  "perm_depenses",
   "perm_encaissements",
   "perm_journee_essai",
   "perm_planning",

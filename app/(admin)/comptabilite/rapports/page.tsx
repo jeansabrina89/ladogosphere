@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { formatDateFR } from "@/src/lib/dates";
@@ -7,6 +8,7 @@ import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import BoutonCloture from "./BoutonCloture";
 import { anneesExercices } from "@/src/lib/exercices";
+import { compterDepensesSansJustificatif } from "@/src/lib/depenses";
 
 const chf = (n: number) => `${n.toFixed(2)} CHF`;
 
@@ -40,6 +42,10 @@ export default async function RapportsPage({
 
   const { data: exercice } = await supabaseAdmin
     .from("exercices").select("statut, date_cloture").eq("annee", annee).maybeSingle();
+
+  // Ligne de contrôle : elle doit rester à zéro. Une dépense au grand-livre
+  // sans justificatif, c’est une charge que rien ne prouve.
+  const depensesSansJustificatif = await compterDepensesSansJustificatif(annee);
   const exerciceCloture = exercice?.statut === "cloture";
 
   const rap = construireRapport({
@@ -80,6 +86,23 @@ export default async function RapportsPage({
             style={{ backgroundColor: "#2E8B7E" }}>
             📥 Télécharger l&apos;exercice
           </a>
+        </div>
+
+        <div
+          className="mb-6 px-4 py-3 rounded-xl flex items-center justify-between gap-3 flex-wrap"
+          style={{
+            backgroundColor: depensesSansJustificatif === 0 ? "#DCEEE9" : "#FDECEC",
+            color: depensesSansJustificatif === 0 ? "#1F6E5B" : "#8A1F1F",
+          }}
+        >
+          <span className="text-sm font-semibold">
+            Contrôle — dépenses sans justificatif : {depensesSansJustificatif}
+          </span>
+          {depensesSansJustificatif > 0 && (
+            <Link href="/comptabilite/depenses" className="text-sm font-bold underline">
+              Les voir
+            </Link>
+          )}
         </div>
 
         <div className="mb-6">

@@ -23,6 +23,8 @@ const TABLE: Record<string, { libelle: string; ton: Ton }> = {
   impaye:           { libelle: "Impayé",            ton: "rose-doux" },
   // Factures
   acquittee:        { libelle: "Réglée",            ton: "or-doux" },
+  // Dépenses
+  brouillon:        { libelle: "Brouillon",         ton: "neutre" },
   // Vacances / demandes RH
   acceptee:         { libelle: "Acceptée",          ton: "or-doux" },
   // Checkin

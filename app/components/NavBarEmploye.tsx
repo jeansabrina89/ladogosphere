@@ -39,6 +39,12 @@ export default async function NavBarEmploye() {
         { href: "/abonnements", label: "🎟️ Abonnements", badge: nbAbonnements || undefined },
       ] : []),
     ]},
+    ...(perms.perm_depenses ? [{
+      titre: "Gestion", liens: [
+        { href: "/comptabilite/depenses", label: "💸 Dépenses" },
+        { href: "/comptabilite/fournisseurs", label: "🏢 Fournisseurs" },
+      ],
+    }] : []),
     { titre: "Mon espace", liens: [
       { href: "/mon-compte", label: "🐾 Mes chiens" },
     ]},

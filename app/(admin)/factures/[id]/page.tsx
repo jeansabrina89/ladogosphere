@@ -6,6 +6,8 @@ import { lireParametresTVA, ventilerTVA } from "@/src/lib/tva";
 import { genererQrBillSvg } from "@/src/lib/qrFacture";
 import { estMembreActif } from "@/src/lib/membre";
 import { lireHistorique, libelleEvenement } from "@/src/lib/journalEvenements";
+import { listerPieces } from "@/src/lib/pieces";
+import PiecesJointes from "@/app/components/PiecesJointes";
 import { libelleMode, libelleCompteProduit } from "@/src/lib/factureStatut";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import NomClientLien from "@/app/components/NomClientLien";
@@ -57,11 +59,36 @@ export default async function FacturePage({
   ]);
   const lignes = (lignesDb ?? []) as LigneFacture[];
 
+  const piecesFacture = await listerPieces("facture", id);
+
   const { data: paiements } = await supabaseAdmin
     .from("paiements_resa")
     .select("id, date_paiement, mode, montant, arrondi, motif")
     .eq("facture_id", id)
     .order("date_paiement");
+
+  // Justificatifs rattachés aux encaissements (un reçu, une confirmation…).
+  const idsPaiements = (paiements ?? []).map((p) => String(p.id));
+  const { data: piecesPaiements } = idsPaiements.length
+    ? await supabaseAdmin
+        .from("pieces")
+        .select("id, entite_id, nom_fichier, mime, taille, created_at")
+        .eq("entite", "paiement")
+        .in("entite_id", idsPaiements)
+        .order("created_at")
+    : { data: [] as { id: string; entite_id: string; nom_fichier: string; mime: string; taille: number; created_at: string }[] };
+
+  const piecesParPaiement = new Map<string, { id: string; nom_fichier: string; mime: string; taille: number; created_at: string }[]>();
+  for (const piece of piecesPaiements ?? []) {
+    const cle = String(piece.entite_id);
+    const liste = piecesParPaiement.get(cle) ?? [];
+    liste.push({
+      id: String(piece.id), nom_fichier: String(piece.nom_fichier),
+      mime: String(piece.mime), taille: Number(piece.taille),
+      created_at: String(piece.created_at),
+    });
+    piecesParPaiement.set(cle, liste);
+  }
 
   // Avoirs déjà émis sur cette facture.
   const { data: avoirs } = await supabaseAdmin
@@ -280,10 +307,14 @@ export default async function FacturePage({
               }))}
             />
 
+            <Bloc titre="Pièces jointes">
+              <PiecesJointes entite="facture" entiteId={id} pieces={piecesFacture} titre="" />
+            </Bloc>
+
             {(paiements ?? []).length > 0 && (
               <Bloc titre="Encaissements">
                 {(paiements ?? []).map((p: Record<string, unknown>) => (
-                  <div key={String(p.id)} className="flex justify-between items-baseline py-1.5 border-b last:border-0"
+                  <div key={String(p.id)} className="flex justify-between items-baseline flex-wrap py-1.5 border-b last:border-0"
                        style={{ borderColor: "rgba(27,43,94,0.08)" }}>
                     <div>
                       <span className="text-sm font-semibold" style={{ color: MARINE }}>
@@ -299,6 +330,14 @@ export default async function FacturePage({
                     <span className="text-xs" style={{ color: GRIS }}>
                       {formatDateFR(p.date_paiement as string)}
                     </span>
+                    <div style={{ flexBasis: "100%", marginTop: 8 }}>
+                      <PiecesJointes
+                        entite="paiement"
+                        entiteId={String(p.id)}
+                        pieces={piecesParPaiement.get(String(p.id)) ?? []}
+                        titre=""
+                      />
+                    </div>
                   </div>
                 ))}
               </Bloc>
