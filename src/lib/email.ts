@@ -113,6 +113,18 @@ export type ChampsModele = {
 };
 
 export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
+  commande_confirmee: {
+    sujet: "🛍️ Votre commande {numero} est enregistrée",
+    titre: "Merci {prenom} ! 🛍️",
+    intro: "Nous avons bien reçu votre commande et nous la préparons.",
+    message_final: "Une question sur votre commande ? Répondez simplement à cet e-mail.",
+  },
+  commande_expediee: {
+    sujet: "📦 Votre commande {numero} est en route",
+    titre: "C'est parti, {prenom} ! 📦",
+    intro: "Votre commande a quitté la pension.",
+    message_final: "Bonne réception ! 🐾",
+  },
   confirmation_demande: {
     sujet: "🐾 Votre demande de réservation a été reçue",
     titre: "Bonjour {prenom} ! 👋",
@@ -1138,4 +1150,151 @@ function echapper(texte: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/\n/g, "<br />");
+}
+
+
+// ===========================================================================
+// BOUTIQUE EN LIGNE
+// ===========================================================================
+
+const chfEmail = (n: number) =>
+  new Intl.NumberFormat("fr-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+
+const LIBELLES_REMISE: Record<string, string> = {
+  retrait: "Retrait à la pension",
+  depart_chien: "Remise au départ de votre chien",
+  postal: "Envoi postal",
+};
+
+/** Ce que le client doit savoir pour venir chercher, ou attendre son colis. */
+function consigneRemise(mode: string | null, delaiJours: number): string {
+  if (mode === "postal") {
+    return `Votre colis part sous ${delaiJours} jour${delaiJours > 1 ? "s" : ""} ouvrable${delaiJours > 1 ? "s" : ""}. Vous recevrez le numéro de suivi dès l'expédition.`;
+  }
+  if (mode === "depart_chien") {
+    return "Votre commande vous sera remise au départ de votre chien, avec lui.";
+  }
+  return `Votre commande sera prête sous ${delaiJours} jour${delaiJours > 1 ? "s" : ""} ouvrable${delaiJours > 1 ? "s" : ""}. Vous pourrez la retirer à la pension aux heures d'ouverture.`;
+}
+
+/**
+ * Confirmation d'une commande en ligne : le récapitulatif, le mode de remise
+ * et le délai. Le modèle « commande_confirmee » est éditable depuis l'écran
+ * des e-mails, comme les autres.
+ */
+export async function envoyerEmailCommandeConfirmee(commandeId: string): Promise<void> {
+  const { data: cmd } = await supabaseAdmin
+    .from("commandes")
+    .select("id, numero, mode_remise, mode_paiement, frais_port, remise_membre, montant_total, client_id")
+    .eq("id", commandeId)
+    .maybeSingle();
+  if (!cmd) return;
+
+  const [{ data: client }, { data: lignes }, { data: params }] = await Promise.all([
+    supabaseAdmin.from("clients").select("prenom, email").eq("id", cmd.client_id).maybeSingle(),
+    supabaseAdmin.from("commandes_lignes")
+      .select("libelle, quantite, prix_unitaire, montant")
+      .eq("commande_id", commandeId).order("created_at"),
+    supabaseAdmin.from("parametres").select("valeur").eq("cle", "delai_preparation_jours").maybeSingle(),
+  ]);
+  if (!client?.email) return;
+
+  const delai = Math.max(Number(params?.valeur ?? 2) || 2, 1);
+  const m = await modeleEmail("commande_confirmee", {
+    prenom: client.prenom ?? "",
+    numero: cmd.numero ?? "",
+  });
+
+  const lignesHtml = ((lignes ?? []) as { libelle: string; quantite: number; montant: number }[])
+    .map((l) => `
+      <tr>
+        <td style="padding:6px 0; color:#1B2B5E; font-size:14px;">${l.quantite} × ${l.libelle}</td>
+        <td style="padding:6px 0; color:#1B2B5E; font-size:14px; text-align:right; white-space:nowrap;">${chfEmail(Number(l.montant))} CHF</td>
+      </tr>`)
+    .join("");
+
+  const remise = Number(cmd.remise_membre ?? 0);
+  const port = Number(cmd.frais_port ?? 0);
+
+  await envoyerEmail({
+    destinataire: client.email,
+    type: "commande_confirmee",
+    sujet: m.sujet,
+    html: emailTemplate(`
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
+
+      <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
+        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">🛍️ Commande ${cmd.numero ?? ""}</h3>
+        <table cellpadding="0" cellspacing="0" style="width:100%;">
+          ${lignesHtml}
+          ${remise > 0 ? `<tr><td style="padding:6px 0; color:#1F6E5B; font-size:14px;">Remise membre</td><td style="padding:6px 0; color:#1F6E5B; font-size:14px; text-align:right;">−${chfEmail(remise)} CHF</td></tr>` : ""}
+          ${port > 0 ? `<tr><td style="padding:6px 0; color:#6B7280; font-size:14px;">Frais de port</td><td style="padding:6px 0; color:#6B7280; font-size:14px; text-align:right;">${chfEmail(port)} CHF</td></tr>` : ""}
+          <tr>
+            <td style="padding:12px 0 0 0; border-top:2px solid #FFFFFF; color:#1B2B5E; font-weight:bold; font-size:16px;">Prix TTC</td>
+            <td style="padding:12px 0 0 0; border-top:2px solid #FFFFFF; color:#1B2B5E; font-weight:bold; font-size:16px; text-align:right;">${chfEmail(Number(cmd.montant_total))} CHF</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">
+        <p style="margin:0 0 6px 0; color:#1B5E4F; font-size:14px;"><strong>${LIBELLES_REMISE[cmd.mode_remise ?? ""] ?? "Retrait à la pension"}</strong></p>
+        <p style="margin:0; color:#1B5E4F; font-size:14px;">${consigneRemise(cmd.mode_remise, delai)}</p>
+      </div>
+
+      ${cmd.mode_paiement === "facture"
+        ? '<p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">Votre facture vous parvient par un second e-mail, avec son bulletin de versement QR.</p>'
+        : '<p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">Vous réglerez votre commande au retrait.</p>'}
+
+      <p style="color:#6B7280; font-size:14px; margin:0;">${m.message_final}</p>
+    `),
+  });
+}
+
+/** Expédition : le numéro de suivi, quand il existe. */
+export async function envoyerEmailCommandeExpediee(commandeId: string): Promise<void> {
+  const { data: cmd } = await supabaseAdmin
+    .from("commandes")
+    .select("numero, numero_suivi, client_id, adresse_livraison")
+    .eq("id", commandeId)
+    .maybeSingle();
+  if (!cmd) return;
+
+  const { data: client } = await supabaseAdmin
+    .from("clients").select("prenom, email").eq("id", cmd.client_id).maybeSingle();
+  if (!client?.email) return;
+
+  const m = await modeleEmail("commande_expediee", {
+    prenom: client.prenom ?? "", numero: cmd.numero ?? "",
+  });
+
+  const adresse = (cmd.adresse_livraison ?? {}) as Record<string, string>;
+  const lignesAdresse = [adresse.nom, adresse.rue, `${adresse.npa ?? ""} ${adresse.localite ?? ""}`]
+    .map((l) => (l ?? "").trim()).filter(Boolean).join("<br>");
+
+  await envoyerEmail({
+    destinataire: client.email,
+    type: "commande_expediee",
+    sujet: m.sujet,
+    html: emailTemplate(`
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
+
+      ${cmd.numero_suivi
+        ? `<div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
+             <p style="margin:0 0 4px 0; color:#6B7280; font-size:13px;">Numéro de suivi</p>
+             <p style="margin:0; color:#1B2B5E; font-size:18px; font-weight:bold; letter-spacing:1px;">${cmd.numero_suivi}</p>
+           </div>`
+        : ""}
+
+      ${lignesAdresse
+        ? `<div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
+             <p style="margin:0 0 4px 0; color:#6B7280; font-size:13px;">Envoyé à</p>
+             <p style="margin:0; color:#1B2B5E; font-size:14px;">${lignesAdresse}</p>
+           </div>`
+        : ""}
+
+      <p style="color:#6B7280; font-size:14px; margin:0;">${m.message_final}</p>
+    `),
+  });
 }

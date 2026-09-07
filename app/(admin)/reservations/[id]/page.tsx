@@ -18,6 +18,8 @@ import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import BoutonOffrir from "./BoutonOffrir";
 import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
+import { commandesARemettre } from "@/src/lib/venteEnLigne";
+import { libelleModeRemise } from "@/src/lib/venteEnLigneLogique";
 import NomClientLien from "@/app/components/NomClientLien";
 import ContactEmail from "@/app/components/ContactEmail";
 import ContactTelephone from "@/app/components/ContactTelephone";
@@ -76,6 +78,10 @@ export default async function ReservationPage({
     .order("created_at", { ascending: true });
 
   if (!res) return <div>Réservation introuvable</div>;
+
+  // Les commandes de boutique qui attendent ce client : rattachées à CE séjour,
+  // ou simplement à retirer. Le colis part avec le chien, ou pas du tout.
+  const colisEnAttente = await commandesARemettre({ clientId: res.client_id });
 
   const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens).filter(Boolean) ?? [];
   // « Privatif » = un chien isolé, OU un chien « famille uniquement » réservé
@@ -221,6 +227,33 @@ export default async function ReservationPage({
             </>
           )}
         </div>
+
+        {/* Le colis qui attend : impossible de rendre le chien sans le voir. */}
+        {colisEnAttente.length > 0 && (
+          <div
+            className="border rounded-xl p-4 mb-6"
+            style={{ backgroundColor: "#F4EAC9", borderColor: "#C9A84C" }}
+          >
+            <p className="font-bold mb-1" style={{ color: "#6E5410" }}>
+              📦 {colisEnAttente.length === 1
+                ? "Une commande de boutique attend d'être remise à ce client"
+                : `${colisEnAttente.length} commandes de boutique attendent d'être remises à ce client`}
+            </p>
+            <ul className="text-sm" style={{ color: "#6E5410", margin: 0, paddingLeft: 18 }}>
+              {colisEnAttente.map((c) => (
+                <li key={c.id}>
+                  <Link href="/boutique/commandes-en-ligne" style={{ color: "#6E5410", fontWeight: 600 }}>
+                    {c.numero ?? "Commande"}
+                  </Link>{" "}
+                  — {libelleModeRemise(c.mode_remise)}, {Number(c.montant_total).toFixed(2)} CHF
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs mt-2" style={{ color: "#6E5410" }}>
+              Ne rendez pas le chien sans le colis.
+            </p>
+          </div>
+        )}
 
         {/* Arrivée / Départ (check-in / check-out) */}
         {perms.perm_checkin && (checkins?.length ?? 0) > 0 && (

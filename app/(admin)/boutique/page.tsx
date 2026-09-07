@@ -161,6 +161,7 @@ export default async function BoutiquePage() {
             <Raccourci href="/boutique/articles" titre="🛒 Articles" note="Catalogue, prix et stock" />
             <Raccourci href="/boutique/inventaire" titre="📦 Inventaire" note="Comptage et écarts" />
             <Raccourci href="/boutique/modeles" titre="🧩 Modèles d&apos;options" note="Les questions posées sur plusieurs articles" />
+            <Raccourci href="/boutique/commandes-en-ligne" titre="🌐 Commandes en ligne" note="À préparer, à remettre, à expédier" />
             <Raccourci href="/comptabilite/fournisseurs" titre="🏢 Fournisseurs"
               note={acces.permissions.perm_depenses
                 ? "Carnet partagé avec les dépenses"

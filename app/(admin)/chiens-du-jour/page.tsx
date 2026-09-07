@@ -4,6 +4,8 @@ import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { aujourdhuiISO, formatDateFR, formatHeure } from "@/src/lib/dates";
 import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
 import NavDatesChiensDuJour from "./NavDatesChiensDuJour";
+import BadgeCommandeARemettre from "@/app/components/BadgeCommandeARemettre";
+import { clientsAvecCommandeARemettre } from "@/src/lib/venteEnLigne";
 import NomClientLien from "@/app/components/NomClientLien";
 import NomChienLien from "@/app/components/NomChienLien";
 import BadgePhotos from "@/app/components/BadgePhotos";
@@ -76,6 +78,16 @@ export default async function ChiensDuJourPage({
 
   const peutPointer = estAujourdhui && perms.perm_checkin;
 
+  // Les colis qui attendent : on ne rend pas un chien en oubliant la commande
+  // de son maître. Le badge ne s'affiche que là où il y a vraiment de quoi.
+  const clientsDuJour = [...new Set(
+    [...(arrivees ?? []), ...(presents ?? []), ...(departs ?? [])]
+      .map((cc) => (cc as { reservations?: { clients?: { id?: string } } })
+        .reservations?.clients?.id)
+      .filter((id): id is string => !!id)
+  )];
+  const colis = await clientsAvecCommandeARemettre(clientsDuJour);
+
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-5xl mx-auto">
@@ -114,6 +126,7 @@ export default async function ChiensDuJourPage({
                           <p className="font-bold" style={{ color: "#1B2B5E" }}><NomChienLien id={cc.chiens?.id} nom={cc.chiens?.nom} /></p>
                           {badge(cc.statut)}
                           <BadgePhotos photos_ok={cc.reservations?.clients?.photos_ok} taille="petite" />
+                          <BadgeCommandeARemettre nombre={colis.get(cc.reservations?.clients?.id) ?? 0} taille="petite" />
                         </div>
                         <p className="text-sm text-gray-500 truncate">
                           <NomClientLien id={cc.reservations?.clients?.id} prenom={cc.reservations?.clients?.prenom} nom={cc.reservations?.clients?.nom} />
@@ -154,6 +167,7 @@ export default async function ChiensDuJourPage({
                           <p className="font-bold" style={{ color: "#1B2B5E" }}><NomChienLien id={cc.chiens?.id} nom={cc.chiens?.nom} /></p>
                           {badge(cc.statut)}
                           <BadgePhotos photos_ok={cc.reservations?.clients?.photos_ok} taille="petite" />
+                          <BadgeCommandeARemettre nombre={colis.get(cc.reservations?.clients?.id) ?? 0} taille="petite" />
                         </div>
                         <p className="text-sm text-gray-500 truncate">
                           <NomClientLien id={cc.reservations?.clients?.id} prenom={cc.reservations?.clients?.prenom} nom={cc.reservations?.clients?.nom} />
@@ -196,6 +210,7 @@ export default async function ChiensDuJourPage({
                           <p className="font-bold" style={{ color: "#1B2B5E" }}><NomChienLien id={cc.chiens?.id} nom={cc.chiens?.nom} /></p>
                           {badge(cc.statut)}
                           <BadgePhotos photos_ok={cc.reservations?.clients?.photos_ok} taille="petite" />
+                          <BadgeCommandeARemettre nombre={colis.get(cc.reservations?.clients?.id) ?? 0} taille="petite" />
                         </div>
                         <p className="text-sm text-gray-500 truncate">
                           <NomClientLien id={cc.reservations?.clients?.id} prenom={cc.reservations?.clients?.prenom} nom={cc.reservations?.clients?.nom} />

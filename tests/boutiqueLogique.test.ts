@@ -29,8 +29,8 @@ import {
 } from "@/src/lib/boutiqueLogique";
 
 describe("taux de TVA proposé par la catégorie", () => {
-  it("2,6 % pour l'alimentation, les friandises et la litière", () => {
-    expect(tauxPropose("alimentation")).toBe(2.6);
+  it("2,6 % pour les alimentations, les friandises et la litière", () => {
+    expect(tauxPropose("alimentation_seche")).toBe(2.6);
     expect(tauxPropose("friandises")).toBe(2.6);
     expect(tauxPropose("litiere")).toBe(2.6);
     expect(TAUX_REDUIT).toBe(2.6);
@@ -49,8 +49,8 @@ describe("taux de TVA proposé par la catégorie", () => {
     expect(tauxPropose(null)).toBe(8.1);
   });
 
-  it("les quinze catégories du modèle sont là, en français accentué", () => {
-    expect(CATEGORIES_ARTICLE).toHaveLength(15);
+  it("les seize catégories du modèle sont là, en français accentué", () => {
+    expect(CATEGORIES_ARTICLE).toHaveLength(16);
     expect(libelleCategorieArticle("litiere")).toBe("Litière");
     expect(libelleCategorieArticle("colliers")).toBe("Colliers");
     expect(libelleCategorieArticle("laisses")).toBe("Laisses");
@@ -65,19 +65,19 @@ describe("taux de TVA proposé par la catégorie", () => {
 
   it("suit l'ordre du magasin, pas l'alphabet", () => {
     expect(CATEGORIES_ARTICLE.map((c) => c.valeur)).toEqual([
-      "alimentation", "friandises", "mastication", "litiere",
+      "alimentation_seche", "alimentation_humide", "friandises", "mastication", "litiere",
       "colliers", "laisses", "harnais", "muselieres", "longes",
       "jouets", "peluches", "couchages", "soins", "medaillons_accessoires", "divers",
     ]);
     // Un rang par catégorie, et le dernier rang pour une valeur inconnue.
-    expect(ordreCategorie("alimentation")).toBe(0);
+    expect(ordreCategorie("alimentation_seche")).toBe(0);
     expect(ordreCategorie("colliers")).toBeLessThan(ordreCategorie("jouets"));
     expect(ordreCategorie("harnais")).toBeLessThan(ordreCategorie("divers"));
     expect(ordreCategorie("chapeaux")).toBe(CATEGORIES_ARTICLE.length);
   });
 
   it("seules les denrées se périment", () => {
-    expect(estPerissable("alimentation")).toBe(true);
+    expect(estPerissable("alimentation_seche")).toBe(true);
     expect(estPerissable("friandises")).toBe(true);
     expect(estPerissable("jouets")).toBe(false);
   });
@@ -247,7 +247,7 @@ describe("marge, valeur du stock et seuil", () => {
 describe("saisie d'un article", () => {
   const complet = {
     nom: "Croquettes agneau 12 kg",
-    categorie: "alimentation",
+    categorie: "alimentation_seche",
     taux_tva: 2.6,
     prix_vente: 79.9,
     prix_achat: 52,

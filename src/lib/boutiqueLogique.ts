@@ -12,7 +12,8 @@ export const TAUX_REDUIT = 2.6; // denrées alimentaires et litière
 export const TAUX_NORMAL = 8.1; // tout le reste
 
 export type CategorieArticle =
-  | "alimentation"
+  | "alimentation_seche"
+  | "alimentation_humide"
   | "friandises"
   | "mastication"
   | "litiere"
@@ -44,7 +45,8 @@ export const CATEGORIES_ARTICLE: {
   /** Une denrée se périme : la date de péremption est proposée à l'entrée. */
   perissable: boolean;
 }[] = [
-  { valeur: "alimentation", libelle: "Alimentation", taux: TAUX_REDUIT, perissable: true },
+  { valeur: "alimentation_seche",  libelle: "Alimentation sèche",  taux: TAUX_REDUIT, perissable: true },
+  { valeur: "alimentation_humide", libelle: "Alimentation humide", taux: TAUX_REDUIT, perissable: true },
   { valeur: "friandises",   libelle: "Friandises",   taux: TAUX_REDUIT, perissable: true },
   { valeur: "mastication",  libelle: "Mastication",  taux: TAUX_REDUIT, perissable: true },
   { valeur: "litiere",      libelle: "Litière",      taux: TAUX_REDUIT, perissable: false },
@@ -76,6 +78,8 @@ export const MENTION_TAUX = "Taux modifiable, à vérifier pour les produits par
  * article, encore faut-il savoir qu'il y a une décision à prendre.
  */
 export const AIDE_CATEGORIE: Partial<Record<CategorieArticle, string>> = {
+  alimentation_seche: "Les croquettes. Trop lourdes pour un colis : ces articles ne sont pas expédiables.",
+  alimentation_humide: "Les pâtées, boîtes et sachets. Trop lourds pour un colis : ces articles ne sont pas expédiables.",
   mastication:
     "Ce qui se mange : bois de cerf, oreilles et peaux séchées, bâtonnets, cornes. " +
     "Un objet à mâcher NON comestible — corde, caoutchouc, plastique — n'est pas de " +

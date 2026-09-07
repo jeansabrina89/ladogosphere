@@ -22,6 +22,7 @@ export const ENTREES_BOUTIQUE: EntreeBoutique[] = [
   { href: "/boutique/caisse", label: "💳 Caisse" },
   { href: "/boutique/ventes", label: "🧾 Ventes" },
   { href: "/boutique/commandes", label: "🎁 Sur mesure" },
+  { href: "/boutique/commandes-en-ligne", label: "🌐 En ligne" },
   { href: "/boutique/articles", label: "🛒 Articles" },
   { href: "/boutique/modeles", label: "🧩 Modèles" },
   { href: "/boutique/inventaire", label: "📦 Inventaire" },

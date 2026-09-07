@@ -7,7 +7,8 @@ const liens: { href: string; label: string; exact: boolean; clientSeul?: boolean
   { href: "/mon-compte/reservations", label: "📅 Mes réservations", exact: false },
   // Les abonnements n'ont pas de sens pour une fiche du personnel (gratuite).
   { href: "/mon-compte/abonnements", label: "🎟️ Mes abonnements", exact: false, clientSeul: true },
-  { href: "/mon-compte/boutique", label: "🎁 Sur mesure", exact: false, clientSeul: true },
+  { href: "/mon-compte/boutique", label: "🛍️ Boutique", exact: false, clientSeul: true },
+  { href: "/mon-compte/commandes", label: "📦 Mes commandes", exact: false, clientSeul: true },
   { href: "/mon-compte/profil", label: "👤 Mon profil", exact: false },
   // Les tarifs ne concernent pas une fiche du personnel (réservations gratuites).
   { href: "/mon-compte/tarifs", label: "💰 Tarifs", exact: false, clientSeul: true },
