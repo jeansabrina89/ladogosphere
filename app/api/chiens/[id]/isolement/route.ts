@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 
@@ -21,7 +22,9 @@ export async function POST(
     return NextResponse.json({ error: "Accès réservé au personnel" }, { status: 403 });
   }
 
-  const { doit_etre_isole } = await req.json();
+  const lecture = await lireCorpsJson(req);
+  if (!lecture.ok) return lecture.reponse;
+  const { doit_etre_isole } = lecture.corps;
 
   const { error } = await supabaseAdmin
     .from("chiens")

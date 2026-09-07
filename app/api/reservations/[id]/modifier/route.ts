@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lireCorpsFormulaire } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { recalculerMontantSejour } from "@/app/(admin)/reservations/[id]/actions";
@@ -12,7 +13,9 @@ export async function POST(
   const garde = await exigerPermissionApi(supabase, "perm_reservations_modifier");
   if (garde) return garde;
   const { id } = await params;
-  const formData = await req.formData();
+  const lecture = await lireCorpsFormulaire(req);
+  if (!lecture.ok) return lecture.reponse;
+  const formData = lecture.corps;
 
   const statut = formData.get("statut") as string;
   const box_id = formData.get("box_id") as string || null;

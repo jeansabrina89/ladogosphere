@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { exigerPersonnel } from "@/src/lib/apiAuth";
 
@@ -6,7 +7,9 @@ export async function PUT(req: NextRequest) {
   const supabase = await createClient();
   const garde = await exigerPersonnel(supabase);
   if (garde) return garde;
-  const { updates, cotisation, iban, coordonnees, tva } = await req.json();
+  const lecture = await lireCorpsJson(req);
+  if (!lecture.ok) return lecture.reponse;
+  const { updates, cotisation, iban, coordonnees, tva } = lecture.corps;
 
   // Mettre à jour les tarifs
   for (const { id, prix } of updates) {

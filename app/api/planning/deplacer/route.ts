@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
@@ -8,7 +9,9 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const garde = await exigerPermissionApi(supabase, "perm_box");
   if (garde) return garde;
-  const { occupation_id, nouveau_box_id, mode, date_changement } = await req.json();
+  const lecture = await lireCorpsJson(req);
+  if (!lecture.ok) return lecture.reponse;
+  const { occupation_id, nouveau_box_id, mode, date_changement } = lecture.corps;
 
   // Récupérer l'occupation actuelle
   const { data: occupation } = await supabaseAdmin

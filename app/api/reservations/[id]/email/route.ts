@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { envoyerEmailPaiement, envoyerEmailSatisfactionEssai } from "@/src/lib/email";
@@ -14,7 +15,9 @@ export async function POST(
   const garde = await exigerPersonnel(supabase);
   if (garde) return garde;
   const { id } = await params;
-  const { type } = await req.json();
+  const lecture = await lireCorpsJson(req);
+  if (!lecture.ok) return lecture.reponse;
+  const { type } = lecture.corps;
 
   const { data: res } = await supabase
     .from("reservations")

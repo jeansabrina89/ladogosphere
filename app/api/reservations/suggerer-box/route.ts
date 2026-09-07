@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { exigerPersonnel } from "@/src/lib/apiAuth";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
@@ -8,7 +9,9 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const garde = await exigerPersonnel(supabase);
   if (garde) return garde;
-  const { chien_ids, date_debut, date_fin, reservation_id, heure_arrivee, heure_depart, type_reservation } = await req.json();
+  const lecture = await lireCorpsJson(req);
+  if (!lecture.ok) return lecture.reponse;
+  const { chien_ids, date_debut, date_fin, reservation_id, heure_arrivee, heure_depart, type_reservation } = lecture.corps;
 
   if (!chien_ids || chien_ids.length === 0) {
     return NextResponse.json({ suggestions: [] });

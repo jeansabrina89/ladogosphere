@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
@@ -17,7 +18,9 @@ export async function POST(
   if (garde) return garde;
   const { data: { user } } = await supabase.auth.getUser();
   const { id } = await params;
-  const data = await req.json();
+  const lecture = await lireCorpsJson(req);
+  if (!lecture.ok) return lecture.reponse;
+  const data = lecture.corps;
 
   const updateData: Record<string, unknown> = {};
 

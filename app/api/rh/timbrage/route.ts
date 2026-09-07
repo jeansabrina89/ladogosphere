@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPersonnel, exigerPermissionApi } from "@/src/lib/apiAuth";
@@ -19,7 +20,9 @@ export async function POST(req: NextRequest) {
   const garde = await exigerPersonnel(supabase);
   if (garde) return garde;
 
-  const body = await req.json();
+  const lecture = await lireCorpsJson(req);
+  if (!lecture.ok) return lecture.reponse;
+  const body = lecture.corps;
   const {
     employe_id, date,
     heure_debut_matin, heure_fin_matin,
@@ -64,7 +67,9 @@ export async function DELETE(req: NextRequest) {
   const garde = await exigerPersonnel(supabase);
   if (garde) return garde;
 
-  const { employe_id, date } = await req.json();
+  const lecture2 = await lireCorpsJson(req);
+  if (!lecture2.ok) return lecture2.reponse;
+  const { employe_id, date } = lecture2.corps;
   if (!employe_id || !date)
     return NextResponse.json({ error: "employe_id et date requis" }, { status: 400 });
 
@@ -91,7 +96,9 @@ export async function PATCH(req: NextRequest) {
   const garde = await exigerPersonnel(supabase);
   if (garde) return garde;
 
-  const { employe_id, mois, valide_admin = true } = await req.json();
+  const lecture3 = await lireCorpsJson(req);
+  if (!lecture3.ok) return lecture3.reponse;
+  const { employe_id, mois, valide_admin = true } = lecture3.corps;
   if (!employe_id || !mois)
     return NextResponse.json({ error: "employe_id et mois requis" }, { status: 400 });
 

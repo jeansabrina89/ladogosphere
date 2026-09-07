@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { envoyerEmailReservationValidee, envoyerEmailReservationAnnulee, envoyerEmailReservationRefusee } from "@/src/lib/email";
@@ -19,7 +20,9 @@ export async function POST(
   const garde = await exigerPermissionApi(supabase, "perm_reservations_modifier");
   if (garde) return garde;
   const { id } = await params;
-  const { statut } = await req.json();
+  const lecture = await lireCorpsJson(req);
+  if (!lecture.ok) return lecture.reponse;
+  const { statut } = lecture.corps;
 
   const STATUTS_VALIDES = ["en_attente", "validee", "refusee", "annulee", "terminee"];
   if (!statut) return NextResponse.json({ error: "statut manquant" }, { status: 400 });

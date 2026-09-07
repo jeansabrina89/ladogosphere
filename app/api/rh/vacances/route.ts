@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPersonnel, exigerPermissionApi } from "@/src/lib/apiAuth";
@@ -8,7 +9,9 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const garde = await exigerPersonnel(supabase);
   if (garde) return garde;
-  const body = await req.json();
+  const lecture = await lireCorpsJson(req);
+  if (!lecture.ok) return lecture.reponse;
+  const body = lecture.corps;
   const { employe_id, date_debut, date_fin, nb_jours, note_employe } = body;
 
   // Vérifier si les dates se chevauchent avec d'autres demandes de cet employé
@@ -39,7 +42,9 @@ export async function PATCH(req: NextRequest) {
   const supabase = await createClient();
   const garde = await exigerPermissionApi(supabase, "perm_vacances_equipe");
   if (garde) return garde;
-  const { id, statut, note_admin } = await req.json();
+  const lecture2 = await lireCorpsJson(req);
+  if (!lecture2.ok) return lecture2.reponse;
+  const { id, statut, note_admin } = lecture2.corps;
 
   // 1. Mettre à jour le statut et la note admin
   const { error } = await supabaseAdmin
@@ -213,7 +218,9 @@ export async function DELETE(req: NextRequest) {
   const garde = await exigerPermissionApi(supabase, "perm_vacances_equipe");
   if (garde) return garde;
 
-  const { id } = await req.json();
+  const lecture3 = await lireCorpsJson(req);
+  if (!lecture3.ok) return lecture3.reponse;
+  const { id } = lecture3.corps;
   if (!id) {
     return NextResponse.json({ error: "Identifiant manquant." }, { status: 400 });
   }
@@ -274,7 +281,9 @@ export async function PUT(req: NextRequest) {
   const garde = await exigerPermissionApi(supabase, "perm_vacances_equipe");
   if (garde) return garde;
 
-  const { id, date_debut, date_fin, nb_jours } = await req.json();
+  const lecture4 = await lireCorpsJson(req);
+  if (!lecture4.ok) return lecture4.reponse;
+  const { id, date_debut, date_fin, nb_jours } = lecture4.corps;
   if (!id || !date_debut || !date_fin) {
     return NextResponse.json({ error: "Données manquantes." }, { status: 400 });
   }

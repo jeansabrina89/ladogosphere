@@ -3,12 +3,11 @@
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
-
-function calculerCategorie(poids: number): string {
-  if (poids < 15) return "moins_15kg";
-  if (poids <= 30) return "15_30kg";
-  return "30_40kg";
-}
+import {
+  validerChampsChien,
+  categorieDepuisPoids,
+  messageErreurBase,
+} from "@/src/lib/validationChien";
 
 export async function modifierChien(id: string, formData: FormData) {
   const verif = await verifierPermission("perm_chiens_modifier");
@@ -19,21 +18,26 @@ export async function modifierChien(id: string, formData: FormData) {
   const sterilisation = ["oui", "non", "chimique"].includes(sterilisationRaw) ? sterilisationRaw : "non";
   const race = (formData.get("race") as string || "").trim();
   const numero_puce = (formData.get("numero_puce") as string || "").trim();
+  const nom = (formData.get("nom") as string || "").trim();
+  const couleur = (formData.get("couleur") as string || "").trim();
+  const sexe = (formData.get("sexe") as string || "").trim();
 
-  if (!race || !numero_puce) {
-    throw new Error("La race et le numéro de puce sont obligatoires.");
-  }
+  const invalide = validerChampsChien(
+    { nom, race, couleur, poids, sexe, sterilisation, numero_puce },
+    { puceObligatoire: true }
+  );
+  if (invalide) throw new Error(invalide);
 
   const { error } = await supabaseAdmin
     .from("chiens")
     .update({
-      nom: formData.get("nom"),
+      nom,
       race,
-      couleur: formData.get("couleur"),
+      couleur,
       poids,
-      categorie_poids: calculerCategorie(poids),
+      categorie_poids: categorieDepuisPoids(poids),
       date_naissance: formData.get("date_naissance") || null,
-      sexe: formData.get("sexe"),
+      sexe,
       sterilisation,
       sterilise: sterilisation === "oui",
       numero_puce,
@@ -58,6 +62,6 @@ export async function modifierChien(id: string, formData: FormData) {
     })
     .eq("id", id);
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(messageErreurBase(error));
   redirect(`/chiens/${id}`);
 }

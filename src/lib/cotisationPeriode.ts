@@ -1,14 +1,16 @@
 /**
- * Validité d'une cotisation membre : 12 mois glissants, alignés sur le 1er du
- * mois du paiement.
+ * Validité d'une cotisation membre : DOUZE MOIS PLEINS, du 1er du mois du
+ * paiement au dernier jour du mois précédent, un an plus tard.
  *
  * Règle métier (pure, testable) :
- * - date_debut = date de paiement, SAUF si une cotisation précédente du même
- *   client se termine à une date >= date de paiement (renouvellement anticipé) :
- *   date_debut = fin précédente + 1 jour, sans perte de couverture ni doublon.
- * - date_fin = (1er jour du mois de date_debut) + 1 an - 1 jour.
- *   Autrement dit : la cotisation couvre 12 mois civils entiers à partir du
- *   mois de paiement (17.01.2025 → 31.12.2025 ; 31.08.2026 → 31.07.2027).
+ * - date_debut = 1er jour du mois de la date de paiement. La date de paiement
+ *   elle-même ne bouge pas : c’est la pièce comptable, elle reste telle quelle
+ *   dans cotisations_membres.date_paiement.
+ *   Exception : si une cotisation précédente du même client se termine à une
+ *   date >= date de paiement (renouvellement anticipé), date_debut = fin
+ *   précédente + 1 jour, sans perte de couverture ni doublon.
+ * - date_fin = date_debut + 1 an - 1 jour.
+ *   Un paiement le 07.09.2026 donne donc « membre du 01.09.2026 au 31.08.2027 ».
  *
  * Une cotisation est ACTIVE à une date D si date_debut <= D <= date_fin.
  */
@@ -67,8 +69,40 @@ export function calculerPeriodeCotisation(
   const paiement = datePaiementISO.slice(0, 10);
   // Renouvellement anticipé : la nouvelle période enchaîne sur la précédente.
   const enchaine = !!finPrecedenteISO && finPrecedenteISO.slice(0, 10) >= paiement;
-  const date_debut = enchaine ? ajouterJoursISO(finPrecedenteISO!, 1) : paiement;
+  const date_debut = enchaine ? ajouterJoursISO(finPrecedenteISO!, 1) : premierDuMois(paiement);
   return { date_debut, date_fin: finDePeriode(date_debut) };
+}
+
+/** "2026-09-07" → "2026-09-01". */
+export function premierDuMois(dateISO: string): string {
+  return `${dateISO.slice(0, 7)}-01`;
+}
+
+export type DecisionAdhesion = { refuse: false } | { refuse: true; message: string };
+
+/**
+ * Faut-il refuser l’enregistrement d’une NOUVELLE adhésion ?
+ *
+ * Oui dès qu’une adhésion payée couvre déjà la date, sauf dans la fenêtre de
+ * renouvellement : c’est elle qui distingue le renouvellement voulu du double
+ * clic. Sans cette garde, deux enregistrements le même jour facturaient deux
+ * années.
+ */
+export function refusNouvelleAdhesion({
+  finAdhesionActive,
+  aujourdhui,
+}: {
+  /** date_fin de l’adhésion payée qui couvre la date, ou null s’il n’y en a pas. */
+  finAdhesionActive?: string | null;
+  aujourdhui: string;
+}): DecisionAdhesion {
+  if (!finAdhesionActive) return { refuse: false };
+  const restants = joursEntre(aujourdhui.slice(0, 10), finAdhesionActive.slice(0, 10));
+  if (restants <= JOURS_FENETRE_RENOUVELLEMENT) return { refuse: false };
+  return {
+    refuse: true,
+    message: `Ce client est déjà membre jusqu’au ${formatJJMMAAAA(finAdhesionActive)}.`,
+  };
 }
 
 /** "2026-01-01" → "01.01.2026" (format suisse, sans dépendance au fuseau). */

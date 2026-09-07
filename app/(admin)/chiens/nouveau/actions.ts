@@ -3,12 +3,11 @@
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
-
-function calculerCategorie(poids: number): string {
-  if (poids < 15) return "moins_15kg";
-  if (poids <= 30) return "15_30kg";
-  return "30_40kg";
-}
+import {
+  validerChampsChien,
+  categorieDepuisPoids,
+  messageErreurBase,
+} from "@/src/lib/validationChien";
 
 export async function creerChien(formData: FormData) {
   const verif = await verifierPermission("perm_chiens_creer");
@@ -27,9 +26,11 @@ export async function creerChien(formData: FormData) {
   const sterilise = sterilisation === "oui";
   const numero_puce = (formData.get("numero_puce") as string || "").trim();
 
-  if (!nom || !race || !couleur || !numero_puce || !poids || !sexe) {
-    throw new Error("Merci de remplir tous les champs obligatoires (nom, race, couleur, puce, poids, sexe).");
-  }
+  const invalide = validerChampsChien(
+    { nom, race, couleur, poids, sexe, sterilisation, numero_puce },
+    { puceObligatoire: true }
+  );
+  if (invalide) throw new Error(invalide);
   const niveau_energie = formData.get("niveau_energie") as string;
   const allergies = formData.get("allergies") as string;
   const traitements = formData.get("traitements") as string;
@@ -39,7 +40,7 @@ export async function creerChien(formData: FormData) {
   const destructeur = formData.get("destructeur") === "on";
   const craintif = formData.get("craintif") === "on";
   const remarques = formData.get("remarques") as string;
-  const categorie_poids = calculerCategorie(poids);
+  const categorie_poids = categorieDepuisPoids(poids);
 
   // Chien du personnel : validé d'office, aucune journée d'essai n'est
   // proposée ni exigée.
@@ -86,6 +87,6 @@ export async function creerChien(formData: FormData) {
       cohabitation_source: formData.get("doit_etre_isole") === "on" ? "pension" : null,
     });
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(messageErreurBase(error));
   redirect("/chiens");
 }

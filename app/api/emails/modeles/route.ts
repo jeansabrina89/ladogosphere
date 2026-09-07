@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 
@@ -20,7 +21,9 @@ export async function POST(req: NextRequest) {
   const { erreur, user } = await exigerAdmin();
   if (erreur) return erreur;
 
-  const body = await req.json();
+  const lecture = await lireCorpsJson(req);
+  if (!lecture.ok) return lecture.reponse;
+  const body = lecture.corps;
   const type = typeof body?.type === "string" ? body.type.trim() : "";
   if (!type) {
     return NextResponse.json({ error: "Type manquant" }, { status: 400 });

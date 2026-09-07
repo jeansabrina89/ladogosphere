@@ -97,6 +97,8 @@ export default async function MonComptePage() {
     { href: "/mon-compte/abonnements",   label: "Mes abonnements" },
     { href: "/mon-compte/factures",      label: "Mes factures" },
     { href: "/mon-compte/profil",        label: "Mon profil" },
+    // Les tarifs ne concernent pas une fiche du personnel (réservations gratuites).
+    ...(estInterne ? [] : [{ href: "/mon-compte/tarifs", label: "Tarifs" }]),
   ];
 
   const statCardStyle = (bg: string): React.CSSProperties => ({

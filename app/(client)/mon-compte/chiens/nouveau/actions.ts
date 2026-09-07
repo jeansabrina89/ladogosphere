@@ -4,12 +4,11 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { appliquerCohabitationClient } from "@/src/lib/cohabitationDb";
-
-function calculerCategorie(poids: number): string {
-  if (poids < 15) return "moins_15kg";
-  if (poids <= 30) return "15_30kg";
-  return "30_40kg";
-}
+import {
+  validerChampsChien,
+  categorieDepuisPoids,
+  messageErreurBase,
+} from "@/src/lib/validationChien";
 
 export async function creerChienClient(client_id: string, formData: FormData) {
   const supabaseServer = await createSupabaseServerClient();
@@ -32,9 +31,13 @@ export async function creerChienClient(client_id: string, formData: FormData) {
   const sterilisation = (formData.get("sterilisation") as string || "").trim();
   const numero_puce = (formData.get("numero_puce") as string || "").trim();
 
-  if (!nom || !race || !couleur || !poids || !sexe || !["oui", "non", "chimique"].includes(sterilisation)) {
-    throw new Error("Merci de remplir tous les champs obligatoires.");
-  }
+  const invalide = validerChampsChien(
+    { nom, race, couleur, poids, sexe, sterilisation, numero_puce },
+    { sterilisationObligatoire: true }
+  );
+  if (invalide) throw new Error(invalide);
+  // Après validation, le poids est un nombre : la garde ci-dessus l’a exigé.
+  const poidsValide = Number(poids);
 
   // Garde anti-doublon : si un chien identique (même fiche + même nom) a été créé
   // il y a moins de 15 s, c'est une double soumission -> on ne réinsère pas.
@@ -57,8 +60,8 @@ export async function creerChienClient(client_id: string, formData: FormData) {
       nom,
       race,
       couleur,
-      poids,
-      categorie_poids: calculerCategorie(poids),
+      poids: poidsValide,
+      categorie_poids: categorieDepuisPoids(poidsValide),
       sexe,
       sterilisation,
       sterilise: sterilisation === "oui",
@@ -74,7 +77,7 @@ export async function creerChienClient(client_id: string, formData: FormData) {
     .select("id")
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(messageErreurBase(error));
 
   // Cohabitation en box déclarée à la création (le chien vient d'être créé :
   // aucune décision de la pension ne peut encore le verrouiller).

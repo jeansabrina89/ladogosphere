@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   calculerPeriodeCotisation,
+  premierDuMois,
+  refusNouvelleAdhesion,
   finDePeriode,
   ajouterJoursISO,
   joursEntre,
@@ -11,9 +13,9 @@ import {
 } from "../src/lib/cotisationPeriode";
 
 describe("calculerPeriodeCotisation — exemples de la règle métier", () => {
-  it("17.01.2025 → 17.01.2025 au 31.12.2025", () => {
+  it("17.01.2025 → 01.01.2025 au 31.12.2025", () => {
     expect(calculerPeriodeCotisation("2025-01-17")).toEqual({
-      date_debut: "2025-01-17",
+      date_debut: "2025-01-01",
       date_fin: "2025-12-31",
     });
   });
@@ -25,9 +27,9 @@ describe("calculerPeriodeCotisation — exemples de la règle métier", () => {
     });
   });
 
-  it("31.08.2026 → 31.08.2026 au 31.07.2027", () => {
+  it("31.08.2026 → 01.08.2026 au 31.07.2027", () => {
     expect(calculerPeriodeCotisation("2026-08-31")).toEqual({
-      date_debut: "2026-08-31",
+      date_debut: "2026-08-01",
       date_fin: "2027-07-31",
     });
   });
@@ -39,29 +41,52 @@ describe("calculerPeriodeCotisation — exemples de la règle métier", () => {
     });
   });
 
-  it("11.08.2026 (reprise des deux cotisations existantes) → 31.07.2027", () => {
+  it("11.08.2026 → 01.08.2026 au 31.07.2027", () => {
     expect(calculerPeriodeCotisation("2026-08-11")).toEqual({
-      date_debut: "2026-08-11",
+      date_debut: "2026-08-01",
       date_fin: "2027-07-31",
     });
   });
-});
 
-describe("calculerPeriodeCotisation — cas limites", () => {
-  it("paiement le 1er du mois : 12 mois pleins", () => {
-    expect(calculerPeriodeCotisation("2026-09-01")).toEqual({
+  it("07.09.2026 → membre du 01.09.2026 au 31.08.2027", () => {
+    expect(calculerPeriodeCotisation("2026-09-07")).toEqual({
       date_debut: "2026-09-01",
       date_fin: "2027-08-31",
     });
   });
+});
 
-  it("paiement le dernier jour du mois : même fin que le 1er du mois", () => {
-    expect(calculerPeriodeCotisation("2026-09-30").date_fin).toBe("2027-08-31");
+describe("calculerPeriodeCotisation — le jour du paiement dans le mois", () => {
+  // Trois paiements du même mois donnent exactement la même période : douze
+  // mois pleins depuis le 1er. Seule date_paiement, la pièce comptable, diffère.
+  const attendue = { date_debut: "2026-09-01", date_fin: "2027-08-31" };
+
+  it("payé le 1er du mois", () => {
+    expect(calculerPeriodeCotisation("2026-09-01")).toEqual(attendue);
   });
 
-  it("29 février (année bissextile) → 31.01 de l'année suivante", () => {
+  it("payé en cours de mois", () => {
+    expect(calculerPeriodeCotisation("2026-09-07")).toEqual(attendue);
+  });
+
+  it("payé le dernier jour du mois", () => {
+    expect(calculerPeriodeCotisation("2026-09-30")).toEqual(attendue);
+  });
+
+  it("la période fait toujours douze mois pleins", () => {
+    for (let mois = 1; mois <= 12; mois++) {
+      const mm = String(mois).padStart(2, "0");
+      const p = calculerPeriodeCotisation(`2026-${mm}-15`);
+      expect(p.date_debut).toBe(`2026-${mm}-01`);
+      expect(ajouterJoursISO(p.date_fin, 1)).toBe(`2027-${mm}-01`);
+    }
+  });
+});
+
+describe("calculerPeriodeCotisation — cas limites", () => {
+  it("29 février (année bissextile) → du 01.02.2024 au 31.01.2025", () => {
     expect(calculerPeriodeCotisation("2024-02-29")).toEqual({
-      date_debut: "2024-02-29",
+      date_debut: "2024-02-01",
       date_fin: "2025-01-31",
     });
   });
@@ -70,9 +95,9 @@ describe("calculerPeriodeCotisation — cas limites", () => {
     expect(calculerPeriodeCotisation("2027-03-15").date_fin).toBe("2028-02-29");
   });
 
-  it("31 décembre : le mois de référence est décembre → 30.11 de l'année suivante", () => {
+  it("31 décembre : le mois de référence est décembre → du 01.12.2026 au 30.11.2027", () => {
     expect(calculerPeriodeCotisation("2026-12-31")).toEqual({
-      date_debut: "2026-12-31",
+      date_debut: "2026-12-01",
       date_fin: "2027-11-30",
     });
   });
@@ -91,9 +116,9 @@ describe("calculerPeriodeCotisation — cas limites", () => {
     });
   });
 
-  it("renouvellement tardif après expiration : date_debut = date de paiement", () => {
+  it("renouvellement tardif après expiration : date_debut = 1er du mois de paiement", () => {
     expect(calculerPeriodeCotisation("2026-09-15", "2026-07-31")).toEqual({
-      date_debut: "2026-09-15",
+      date_debut: "2026-09-01",
       date_fin: "2027-08-31",
     });
   });
@@ -113,8 +138,8 @@ describe("calculerPeriodeCotisation — cas limites", () => {
   });
 
   it("finPrecedente absente ou nulle : ignorée", () => {
-    expect(calculerPeriodeCotisation("2026-05-04", null).date_debut).toBe("2026-05-04");
-    expect(calculerPeriodeCotisation("2026-05-04", undefined).date_debut).toBe("2026-05-04");
+    expect(calculerPeriodeCotisation("2026-05-04", null).date_debut).toBe("2026-05-01");
+    expect(calculerPeriodeCotisation("2026-05-04", undefined).date_debut).toBe("2026-05-01");
   });
 
   it("une date ISO avec heure est tolérée (troncature au jour)", () => {
@@ -218,5 +243,54 @@ describe("rappels du cron (lendemain de l'échéance, puis J+30)", () => {
   it("les deux fenêtres ne se recouvrent jamais", () => {
     const jour = "2026-09-06";
     expect(ajouterJoursISO(jour, -1)).not.toBe(ajouterJoursISO(jour, -30));
+  });
+});
+
+describe("premierDuMois", () => {
+  it("ramène n'importe quel jour au 1er de son mois", () => {
+    expect(premierDuMois("2026-09-07")).toBe("2026-09-01");
+    expect(premierDuMois("2026-09-01")).toBe("2026-09-01");
+    expect(premierDuMois("2026-12-31")).toBe("2026-12-01");
+  });
+});
+
+describe("refusNouvelleAdhesion", () => {
+  it("laisse passer quand le client n'est pas membre", () => {
+    expect(refusNouvelleAdhesion({ finAdhesionActive: null, aujourdhui: "2026-09-07" })).toEqual({
+      refuse: false,
+    });
+  });
+
+  it("refuse un second enregistrement le jour même", () => {
+    const d = refusNouvelleAdhesion({
+      finAdhesionActive: "2027-08-31",
+      aujourdhui: "2026-09-07",
+    });
+    expect(d.refuse).toBe(true);
+    expect(d.refuse && d.message).toBe("Ce client est déjà membre jusqu\u2019au 31.08.2027.");
+  });
+
+  it("refuse tant qu'il reste plus de 60 jours", () => {
+    expect(
+      refusNouvelleAdhesion({ finAdhesionActive: "2026-12-31", aujourdhui: "2026-10-31" }).refuse
+    ).toBe(true);
+  });
+
+  it("laisse renouveler dans les 60 derniers jours", () => {
+    expect(
+      refusNouvelleAdhesion({ finAdhesionActive: "2026-12-31", aujourdhui: "2026-11-01" }).refuse
+    ).toBe(false);
+  });
+
+  it("laisse renouveler le dernier jour de validité", () => {
+    expect(
+      refusNouvelleAdhesion({ finAdhesionActive: "2026-12-31", aujourdhui: "2026-12-31" }).refuse
+    ).toBe(false);
+  });
+
+  it("laisse enregistrer après expiration", () => {
+    expect(
+      refusNouvelleAdhesion({ finAdhesionActive: "2026-12-31", aujourdhui: "2027-03-15" }).refuse
+    ).toBe(false);
   });
 });

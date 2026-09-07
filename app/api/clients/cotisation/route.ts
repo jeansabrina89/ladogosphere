@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { synchroniserComptaCotisation } from "@/src/lib/comptaCotisation";
-import { cotisationEnAttente } from "@/src/lib/cotisation";
-import { calculerPeriodeCotisation } from "@/src/lib/cotisationPeriode";
+import { cotisationEnAttente, cotisationActive } from "@/src/lib/cotisation";
+import { calculerPeriodeCotisation, refusNouvelleAdhesion } from "@/src/lib/cotisationPeriode";
 import { aujourdhuiISO } from "@/src/lib/dates";
 
 /**
@@ -31,7 +32,9 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const garde = await exigerPermissionApi(supabase, "perm_encaissements");
   if (garde) return garde;
-  const { client_id, mode_paiement, statut, date_paiement } = await req.json();
+  const lecture = await lireCorpsJson(req);
+  if (!lecture.ok) return lecture.reponse;
+  const { client_id, mode_paiement, statut, date_paiement } = lecture.corps;
 
   if (!client_id) {
     return NextResponse.json({ error: "client_id manquant" }, { status: 400 });
@@ -53,6 +56,21 @@ export async function POST(req: NextRequest) {
   const enAttente = await cotisationEnAttente(supabaseAdmin, client_id);
 
   const aujourdhui = aujourdhuiISO();
+
+  // Garde anti-doublon : sans elle, deux enregistrements le même jour créaient
+  // deux adhésions payées, donc deux années facturées. Une ligne « en attente »
+  // qu’on encaisse n’est pas un doublon : elle est mise à jour, pas ajoutée.
+  if (!enAttente) {
+    const active = await cotisationActive(supabaseAdmin, client_id, date_paiement || aujourdhui);
+    const refus = refusNouvelleAdhesion({
+      finAdhesionActive: active?.date_fin ?? null,
+      aujourdhui: date_paiement || aujourdhui,
+    });
+    if (refus.refuse) {
+      return NextResponse.json({ error: refus.message }, { status: 400 });
+    }
+  }
+
   const periode =
     statut === "payee"
       ? await periodePayee(client_id, date_paiement || aujourdhui, enAttente?.id)

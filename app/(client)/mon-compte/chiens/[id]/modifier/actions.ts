@@ -4,12 +4,11 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { appliquerCohabitationClient } from "@/src/lib/cohabitationDb";
-
-function calculerCategorie(poids: number): string {
-  if (poids < 15) return "moins_15kg";
-  if (poids <= 30) return "15_30kg";
-  return "30_40kg";
-}
+import {
+  validerChampsChien,
+  categorieDepuisPoids,
+  messageErreurBase,
+} from "@/src/lib/validationChien";
 
 export async function modifierChienClient(chien_id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient();
@@ -33,9 +32,13 @@ export async function modifierChienClient(chien_id: string, formData: FormData) 
   const sterilisation = (formData.get("sterilisation") as string || "").trim();
   const numero_puce = (formData.get("numero_puce") as string || "").trim();
 
-  if (!nom || !race || !couleur || !poids || !sexe || !["oui", "non", "chimique"].includes(sterilisation)) {
-    throw new Error("Merci de remplir tous les champs obligatoires.");
-  }
+  const invalide = validerChampsChien(
+    { nom, race, couleur, poids, sexe, sterilisation, numero_puce },
+    { sterilisationObligatoire: true }
+  );
+  if (invalide) throw new Error(invalide);
+  // Après validation, le poids est un nombre : la garde ci-dessus l’a exigé.
+  const poidsValide = Number(poids);
 
   // Mise à jour via supabaseAdmin — UNIQUEMENT les champs de base/santé (liste blanche)
   const { error } = await supabaseAdmin
@@ -44,8 +47,8 @@ export async function modifierChienClient(chien_id: string, formData: FormData) 
       nom,
       race,
       couleur,
-      poids,
-      categorie_poids: calculerCategorie(poids),
+      poids: poidsValide,
+      categorie_poids: categorieDepuisPoids(poidsValide),
       sexe,
       sterilisation,
       sterilise: sterilisation === "oui",
@@ -57,7 +60,7 @@ export async function modifierChienClient(chien_id: string, formData: FormData) 
     })
     .eq("id", chien.id);
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(messageErreurBase(error));
 
   // Cohabitation en box, déclarée par le propriétaire. Sans effet si la pension
   // a tranché : sa décision prime (cf. appliquerCohabitationClient).

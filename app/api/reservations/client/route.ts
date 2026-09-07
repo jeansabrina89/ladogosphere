@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lireCorpsFormulaire } from "@/src/lib/corpsRequete";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { envoyerEmailConfirmationDemande } from "@/src/lib/email";
@@ -29,7 +30,9 @@ export async function POST(req: NextRequest) {
   if (ficheErr) return NextResponse.json({ error: ficheErr.message }, { status: 500 });
   if (!fiche) return NextResponse.json({ error: "Profil client introuvable." }, { status: 403 });
 
-  const formData = await req.formData();
+  const lecture = await lireCorpsFormulaire(req);
+  if (!lecture.ok) return lecture.reponse;
+  const formData = lecture.corps;
 
   const type_reservation = formData.get("type_reservation") as string;
   const date_debut = formData.get("date_debut") as string;

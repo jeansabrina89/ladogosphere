@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { exigerPersonnel } from "@/src/lib/apiAuth";
 
@@ -6,7 +7,9 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const garde = await exigerPersonnel(supabase);
   if (garde) return garde;
-  const { employe_id, mois, annee, salaire_brut, salaire_net, total_deductions, commentaire, deductions } = await req.json();
+  const lecture = await lireCorpsJson(req);
+  if (!lecture.ok) return lecture.reponse;
+  const { employe_id, mois, annee, salaire_brut, salaire_net, total_deductions, commentaire, deductions } = lecture.corps;
 
   const { data: fiche, error } = await supabase
     .from("fiches_salaire")

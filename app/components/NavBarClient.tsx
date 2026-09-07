@@ -8,6 +8,8 @@ const liens: { href: string; label: string; exact: boolean; clientSeul?: boolean
   // Les abonnements n'ont pas de sens pour une fiche du personnel (gratuite).
   { href: "/mon-compte/abonnements", label: "🎟️ Mes abonnements", exact: false, clientSeul: true },
   { href: "/mon-compte/profil", label: "👤 Mon profil", exact: false },
+  // Les tarifs ne concernent pas une fiche du personnel (réservations gratuites).
+  { href: "/mon-compte/tarifs", label: "💰 Tarifs", exact: false, clientSeul: true },
 ];
 export default function NavBarClient({ interne = false }: { interne?: boolean }) {
   const pathname = usePathname();

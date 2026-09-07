@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lireCorpsFormulaire } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 
@@ -26,7 +27,9 @@ export async function POST(
     .maybeSingle();
   if (!chien) return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
 
-  const form = await req.formData();
+  const lecture = await lireCorpsFormulaire(req);
+  if (!lecture.ok) return lecture.reponse;
+  const form = lecture.corps;
   const file = form.get("photo") as File | null;
   if (!file || file.size === 0) return NextResponse.json({ error: "Aucun fichier reçu." }, { status: 400 });
 

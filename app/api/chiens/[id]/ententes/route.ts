@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { exigerPersonnel } from "@/src/lib/apiAuth";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
@@ -42,7 +43,9 @@ export async function POST(
   const garde = await exigerPersonnel(supabase);
   if (garde) return garde;
   const { id } = await params;
-  const { chien_cible_id, type, note, famille_uniquement } = await req.json();
+  const lecture = await lireCorpsJson(req);
+  if (!lecture.ok) return lecture.reponse;
+  const { chien_cible_id, type, note, famille_uniquement } = lecture.corps;
 
   if (famille_uniquement) {
     // Toggle famille uniquement
