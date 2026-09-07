@@ -363,35 +363,103 @@ function Valeurs({
   const [modifiee, setModifiee] = useState<string | null>(null);
   const [ajout, setAjout] = useState(false);
   const [depot, setDepot] = useState<string | null>(null);
+  const [resultat, setResultat] = useState<{ ok: boolean; texte: string } | null>(null);
   const valeurs = [...groupe.valeurs].sort((a, b) => a.ordre - b.ordre);
+  const estCouleur = groupe.type === "couleur";
 
+  /**
+   * Dépôt d'un lot de photos : l'indicateur reste affiché jusqu'à la réponse,
+   * et cède la place à un résultat qui dit ce qui est passé et ce qui ne l'est
+   * pas — fichier par fichier, avec la raison. Une image refusée n'empêche
+   * jamais les autres.
+   */
   async function deposerPlusieurs(fichiers: FileList | null) {
     if (!fichiers || fichiers.length === 0) return;
-    setDepot(`Envoi de ${fichiers.length} image${fichiers.length > 1 ? "s" : ""}…`);
+    const nb = fichiers.length;
+    setResultat(null);
+    setDepot(`Envoi de ${nb} image${nb > 1 ? "s" : ""}…`);
 
     const corps = new FormData();
     for (const f of Array.from(fichiers)) corps.append("photos", f);
 
-    const r = await fetch(`/api/options/groupes/${groupe.id}/couleurs`, { method: "POST", body: corps });
-    const data = await r.json().catch(() => ({}));
+    type Reponse = {
+      creees?: { libelle: string }[];
+      refuses?: { fichier: string; raison: string }[];
+      error?: string;
+    };
+
+    let data: Reponse = {};
+    let repondu = false;
+    try {
+      const r = await fetch(`/api/options/groupes/${groupe.id}/couleurs`, {
+        method: "POST",
+        body: corps,
+      });
+      data = (await r.json().catch(() => ({}))) as Reponse;
+      repondu = r.ok;
+    } catch {
+      data = { error: "L'envoi n'a pas abouti. Vérifiez la connexion, puis réessayez." };
+    }
+
     if (champFichiers.current) champFichiers.current.value = "";
     setDepot(null);
 
-    if (!r.ok) return onRetour({ error: data.error ?? "Le dépôt a échoué." });
-
-    const refuses = (data.refuses ?? []) as { fichier: string; raison: string }[];
-    if (refuses.length > 0) {
-      onRetour({ error: `${refuses[0].fichier} : ${refuses[0].raison}` });
-    } else {
-      onRetour({ message: `${(data.creees ?? []).length} coloris ajoutés. Corrigez les noms si besoin.` });
+    if (!repondu) {
+      setResultat({ ok: false, texte: data.error ?? "Le dépôt a échoué." });
+      return;
     }
+
+    const creees = data.creees ?? [];
+    const refuses = data.refuses ?? [];
+
+    const lignes = [
+      creees.length > 0
+        ? `${creees.length} coloris créé${creees.length > 1 ? "s" : ""}. Vérifiez les noms.`
+        : "Aucun coloris créé.",
+      ...(refuses.length > 0
+        ? [
+            `${refuses.length} image${refuses.length > 1 ? "s" : ""} refusée${refuses.length > 1 ? "s" : ""} :`,
+            ...refuses.map((r) => `• ${r.fichier} — ${r.raison}`),
+          ]
+        : []),
+    ];
+
+    setResultat({ ok: refuses.length === 0 && creees.length > 0, texte: lignes.join("\n") });
     router.refresh();
   }
 
   return (
     <div style={{ display: "grid", gap: 10 }}>
+      {/*
+        Le champ de fichiers vit hors de toute condition : le chemin rapide
+        doit rester disponible, que le formulaire d'ajout soit ouvert ou non.
+      */}
+      {estCouleur && (
+        <input
+          ref={champFichiers}
+          type="file"
+          multiple
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+          style={{ display: "none" }}
+          onChange={(e) => deposerPlusieurs(e.target.files)}
+        />
+      )}
+
       {valeurs.length === 0 && (
-        <p style={{ color: SOUS, fontSize: 14, margin: 0 }}>Aucune option dans ce groupe.</p>
+        estCouleur ? (
+          // C'est le moment exact où l'on cherche quoi faire : on le dit.
+          <p style={{
+            color: MARINE, fontSize: 15, lineHeight: 1.5, margin: 0,
+            backgroundColor: "#FBF9F5", border: "1px dashed rgba(27,43,94,0.22)",
+            borderRadius: 12, padding: 14,
+          }}>
+            Aucun coloris pour l&apos;instant. Déposez toutes vos photos d&apos;un coup — un
+            coloris sera créé par image, nommé d&apos;après le fichier — ou ajoutez-les une
+            par une.
+          </p>
+        ) : (
+          <p style={{ color: SOUS, fontSize: 14, margin: 0 }}>Aucune option dans ce groupe.</p>
+        )
       )}
 
       {valeurs.map((v, i) => (
@@ -442,6 +510,48 @@ function Valeurs({
         </div>
       ))}
 
+      {/*
+        Le chemin rapide, au-dessus du formulaire et jamais masqué par lui :
+        c'est celui qu'on prend pour entrer vingt coloris d'affilée.
+      */}
+      {estCouleur && (
+        <div>
+          <button
+            type="button"
+            onClick={() => champFichiers.current?.click()}
+            disabled={depot !== null}
+            style={{ ...boutonPrincipal, opacity: depot !== null ? 0.6 : 1 }}
+          >
+            📷 Déposer plusieurs photos
+          </button>
+          <p style={{ color: SOUS, fontSize: 12, margin: "6px 0 0" }}>
+            Le nom du fichier devient le nom du coloris : « bleu-nuit.jpg » → « Bleu nuit ».
+          </p>
+        </div>
+      )}
+
+      {depot && (
+        <p role="status" aria-live="polite" style={{
+          color: MARINE, fontSize: 14, fontWeight: 600, margin: 0,
+          backgroundColor: "#F1F8F6", border: `1px solid ${VERT}`,
+          borderRadius: 10, padding: "8px 10px",
+        }}>
+          ⏳ {depot}
+        </p>
+      )}
+
+      {resultat && (
+        <p role="status" aria-live="polite" style={{
+          fontSize: 14, fontWeight: 600, margin: 0, whiteSpace: "pre-line",
+          borderRadius: 10, padding: "8px 10px",
+          color: resultat.ok ? "#1F6E5B" : "#8A1F1F",
+          backgroundColor: resultat.ok ? "#E4F1EC" : "#FDECEC",
+          border: `1px solid ${resultat.ok ? "#B9DDD1" : "#F0C2C2"}`,
+        }}>
+          {resultat.ok ? "✅ " : "⚠️ "}{resultat.texte}
+        </p>
+      )}
+
       {ajout ? (
         <div style={{ border: `1px solid ${VERT}`, borderRadius: 12, padding: 10, backgroundColor: "#F6FBF9" }}>
           <FormValeur
@@ -456,32 +566,9 @@ function Valeurs({
       ) : (
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button type="button" onClick={() => setAjout(true)} style={bouton}>
-            + {groupe.type === "couleur" ? "Ajouter une couleur" : "Ajouter une option"}
+            + {estCouleur ? "Ajouter une couleur" : "Ajouter une option"}
           </button>
-
-          {groupe.type === "couleur" && (
-            <>
-              <input
-                ref={champFichiers}
-                type="file"
-                multiple
-                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-                style={{ display: "none" }}
-                onChange={(e) => deposerPlusieurs(e.target.files)}
-              />
-              <button type="button" onClick={() => champFichiers.current?.click()} style={bouton}>
-                📷 Déposer plusieurs photos
-              </button>
-            </>
-          )}
         </div>
-      )}
-
-      {depot && <p style={{ color: SOUS, fontSize: 14, margin: 0 }}>{depot}</p>}
-      {groupe.type === "couleur" && !ajout && (
-        <p style={{ color: SOUS, fontSize: 12, margin: 0 }}>
-          Le nom du fichier devient le nom du coloris : « bleu-nuit.jpg » → « Bleu nuit ».
-        </p>
       )}
     </div>
   );
@@ -621,6 +708,10 @@ function FormValeur({
           </div>
           <p style={{ fontSize: 12, color: SOUS, margin: "4px 0 0" }}>
             {photoEnCours ? "Envoi…" : "JPEG, PNG, WebP ou HEIC. Convertie en vignette carrée automatiquement."}
+          </p>
+          {/* Les deux chemins se connaissent : celui-ci renvoie au rapide. */}
+          <p style={{ fontSize: 12, color: SOUS, margin: "2px 0 0" }}>
+            Vous pouvez aussi déposer toutes vos photos d&apos;un coup avec le bouton ci-dessus.
           </p>
         </div>
       )}
