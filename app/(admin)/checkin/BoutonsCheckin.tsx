@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { fairerCheckin, fairerCheckout } from "./actions";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { fairerCheckin, fairerCheckout, type EtatCheckout } from "./actions";
 import DialogueResultatEssai from "@/app/components/DialogueResultatEssai";
 import type { ResultatEssai } from "@/src/lib/journeeEssai";
 
@@ -22,6 +22,33 @@ const STYLE_DEPART: React.CSSProperties = {
   padding: "8px 16px", borderRadius: "10px", fontSize: "14px", fontWeight: 600, cursor: "pointer",
 };
 
+const ETAT_INITIAL: EtatCheckout = { erreur: null };
+
+/**
+ * Message d'échec du départ. Il s'affiche tel quel : une facture qui n'a pas
+ * pu être émise ne doit jamais passer inaperçue.
+ */
+function MessageErreur({ texte }: { texte: string }) {
+  return (
+    <p
+      aria-live="polite"
+      style={{
+        marginTop: 8,
+        maxWidth: 320,
+        backgroundColor: "#FDECEC",
+        color: "#8A1F1F",
+        border: "1px solid #F0C2C2",
+        borderRadius: 10,
+        padding: "8px 10px",
+        fontSize: 13,
+        fontWeight: 600,
+      }}
+    >
+      ⚠️ {texte}
+    </p>
+  );
+}
+
 export function BoutonCheckout({
   checkin_id,
   est_essai = false,
@@ -31,6 +58,7 @@ export function BoutonCheckout({
   est_essai?: boolean;
   nom_chien?: string;
 }) {
+  const [etat, action, enCours] = useActionState(fairerCheckout, ETAT_INITIAL);
   const [ouvert, setOuvert] = useState(false);
   const [saisie, setSaisie] = useState<{ resultat: ResultatEssai; note: string } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -41,12 +69,20 @@ export function BoutonCheckout({
     if (saisie) formRef.current?.requestSubmit();
   }, [saisie]);
 
+  // Départ refusé : on rouvre la saisie pour que le geste soit rejouable.
+  useEffect(() => {
+    if (etat.erreur) setSaisie(null);
+  }, [etat.erreur]);
+
   // Prestation ordinaire : départ direct.
   if (!est_essai) {
     return (
-      <form action={fairerCheckout}>
+      <form action={action}>
         <input type="hidden" name="checkin_id" value={checkin_id} />
-        <button type="submit" style={STYLE_DEPART}>🏁 Parti</button>
+        <button type="submit" disabled={enCours} style={STYLE_DEPART}>
+          {enCours ? "…" : "🏁 Parti"}
+        </button>
+        {etat.erreur && <MessageErreur texte={etat.erreur} />}
       </form>
     );
   }
@@ -54,9 +90,11 @@ export function BoutonCheckout({
   // Journée d'essai : le résultat est saisi avant d'enregistrer le départ.
   return (
     <>
-      <button type="button" onClick={() => setOuvert(true)} disabled={!!saisie} style={STYLE_DEPART}>
-        {saisie ? "…" : "🏁 Parti"}
+      <button type="button" onClick={() => setOuvert(true)} disabled={enCours} style={STYLE_DEPART}>
+        {enCours ? "…" : "🏁 Parti"}
       </button>
+
+      {etat.erreur && <MessageErreur texte={etat.erreur} />}
 
       {ouvert && (
         <DialogueResultatEssai
@@ -69,7 +107,7 @@ export function BoutonCheckout({
         />
       )}
 
-      <form action={fairerCheckout} ref={formRef} style={{ display: "none" }}>
+      <form action={action} ref={formRef} style={{ display: "none" }}>
         <input type="hidden" name="checkin_id" value={checkin_id} />
         <input type="hidden" name="resultat" value={saisie?.resultat ?? ""} />
         <input type="hidden" name="note" value={saisie?.note ?? ""} />

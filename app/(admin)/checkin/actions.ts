@@ -16,9 +16,19 @@ export async function fairerCheckin(formData: FormData) {
   revalidatePath("/checkin");
 }
 
-export async function fairerCheckout(formData: FormData) {
+export type EtatCheckout = { erreur: string | null };
+
+/**
+ * Le départ RENVOIE son erreur au lieu de la lever : un échec d’émission de
+ * facture doit s’afficher tel quel à l’écran, pas se perdre dans la page
+ * d’erreur générique de production.
+ */
+export async function fairerCheckout(
+  _etat: EtatCheckout,
+  formData: FormData
+): Promise<EtatCheckout> {
   const verif = await verifierPermission("perm_checkin");
-  if (verif.error) throw new Error(verif.error);
+  if (verif.error) return { erreur: verif.error };
 
   const checkin_id = formData.get("checkin_id") as string;
 
@@ -28,7 +38,8 @@ export async function fairerCheckout(formData: FormData) {
     note: (formData.get("note") as string) || null,
     profilId: verif.userId ?? null,
   });
-  if (error) throw new Error(error);
+  if (error) return { erreur: error };
 
   revalidatePath("/checkin");
+  return { erreur: null };
 }

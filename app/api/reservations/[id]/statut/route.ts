@@ -4,16 +4,12 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { envoyerEmailReservationValidee, envoyerEmailReservationAnnulee, envoyerEmailReservationRefusee } from "@/src/lib/email";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
-import { calculerMontant } from "@/src/lib/calculTarif";
-import { recalculerMontantSejour, enregistrerMontantCalcule } from "@/app/(admin)/reservations/[id]/actions";
-import { estMembreActif } from "@/src/lib/membre";
-import { estPrivatifPourSelection } from "@/src/lib/cohabitation";
-import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { creerOuMajFactureBrouillon, annulerFactureResa } from "@/src/lib/factureResa";
 import { recrediterAbonnementResa } from "@/src/lib/consommationAbonnement";
 import { marquerChiensEssaiProgramme } from "@/src/lib/essaiReservation";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
+import { assurerMontantCalcule } from "@/src/lib/prixReservation";
 
 export async function POST(
   req: NextRequest,
@@ -28,6 +24,19 @@ export async function POST(
   const STATUTS_VALIDES = ["en_attente", "validee", "refusee", "annulee", "terminee"];
   if (!statut) return NextResponse.json({ error: "statut manquant" }, { status: 400 });
   if (!STATUTS_VALIDES.includes(statut)) return NextResponse.json({ error: "statut invalide" }, { status: 400 });
+
+  // Le prix se calcule AVANT de valider : une réservation validée sans prix
+  // calculé ne doit pas exister. L'échec est visible, jamais avalé.
+  if (statut === "validee") {
+    const { data: { user } } = await supabase.auth.getUser();
+    const prix = await assurerMontantCalcule(id, user?.id ?? null);
+    if (prix.erreur) {
+      return NextResponse.json(
+        { error: `Le prix n'a pas pu être calculé : ${prix.erreur}` },
+        { status: 400 }
+      );
+    }
+  }
 
   const { error } = await supabaseAdmin
     .from("reservations")
@@ -50,54 +59,6 @@ export async function POST(
       await marquerChiensEssaiProgramme(id);
     } catch (e) {
       console.error("Erreur passage des chiens en essai programmé:", e);
-    }
-  }
-
-  // Calcul automatique du montant à la validation (seulement si pas déjà calculé)
-  if (statut === "validee") {
-    try {
-      const { data: resa } = await supabaseAdmin
-        .from("reservations")
-        .select(`
-          type_reservation, urgence, date_debut, date_fin, heure_arrivee, heure_depart,
-          montant_calcule,
-          client_id,
-          clients (membre),
-          reservation_chiens (chiens (doit_etre_isole))
-        `)
-        .eq("id", id)
-        .single();
-
-      if (resa && !resa.montant_calcule) {
-        if (resa.type_reservation === "sejour") {
-          await recalculerMontantSejour(id);
-        } else {
-          const { data: tarifs } = await supabaseAdmin
-            .from("tarifs")
-            .select("categorie, membre, prix")
-            .eq("actif", true);
-          if (tarifs) {
-            const chiens = (resa.reservation_chiens ?? [])
-              .map((rc: any) => rc.chiens)
-              .filter(Boolean);
-            const montant = calculerMontant({
-              tarifs,
-              type_reservation: resa.type_reservation,
-              nb_chiens: chiens.length,
-              est_membre: (resa as any).client_id ? await estMembreActif(supabaseAdmin, (resa as any).client_id, resa.date_debut) : false,
-              est_urgence: !!resa.urgence,
-              est_privatif: estPrivatifPourSelection(await lireCohabitationChiens(chiens.map((c: any) => c.id))),
-              date_debut: resa.date_debut,
-              date_fin: resa.date_fin,
-              heure_arrivee: resa.heure_arrivee,
-              heure_depart: resa.heure_depart,
-            });
-            await enregistrerMontantCalcule(id, montant);
-          }
-        }
-      }
-    } catch (calcError) {
-      console.error("Erreur calcul montant à la validation:", calcError);
     }
   }
 

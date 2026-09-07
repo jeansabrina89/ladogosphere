@@ -6,6 +6,7 @@ import { verifierPermission } from "@/src/lib/verifierPermission";
 import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "@/src/lib/membre";
 import { verifierChiensPourReservation, marquerChiensEssaiProgramme } from "@/src/lib/essaiReservation";
 import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
+import { assurerMontantCalcule } from "@/src/lib/prixReservation";
 
 export async function creerReservation(formData: FormData) {
   const verif = await verifierPermission("perm_reservations_creer");
@@ -108,8 +109,19 @@ export async function creerReservation(formData: FormData) {
     // Lignes de check-in — couche métier commune à tous les chemins.
     await assurerLignesCheckin(reservation.id);
 
-    // Essai créé directement validé : les chiens passent à 'programme'.
+    // Une réservation créée directement « Validée » doit porter son prix.
     if (statut === "validee") {
+      const prix = await assurerMontantCalcule(reservation.id, verif.userId);
+      if (prix.erreur) {
+        await supabaseAdmin
+          .from("reservations")
+          .update({ statut: "en_attente" })
+          .eq("id", reservation.id);
+        throw new Error(
+          `Le prix n'a pas pu être calculé : ${prix.erreur} La réservation reste en attente.`
+        );
+      }
+      // Essai créé directement validé : les chiens passent à 'programme'.
       await marquerChiensEssaiProgramme(reservation.id);
     }
   }

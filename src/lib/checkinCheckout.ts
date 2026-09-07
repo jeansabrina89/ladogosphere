@@ -5,11 +5,15 @@ import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 import { synchroniserComptaAbonnement } from "@/src/lib/comptaAbonnement";
 import { estResultatEssai, type ResultatEssai } from "@/src/lib/journeeEssai";
 import { envoyerEmailResultatEssai } from "@/src/lib/email";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
 
 type Resultat = { error?: string };
 
 export const MESSAGE_RESULTAT_ESSAI_REQUIS =
   "Journée d'essai : indiquez le résultat (validé, seconde journée ou refusé) avant d'enregistrer le départ.";
+
+/** Préfixe du message d'échec d'émission — le départ n'est PAS enregistré. */
+export const MESSAGE_FACTURE_NON_EMISE = "La facture n'a pas pu être émise";
 
 /** Options du check-out : résultat de la journée d'essai, le cas échéant. */
 export type OptionsCheckout = {
@@ -154,9 +158,39 @@ export async function appliquerCheckout(
 
   const reservationId = await lireReservationId(checkinId);
   if (reservationId) {
+    const { data: avant } = await supabaseAdmin
+      .from("reservations")
+      .select("statut")
+      .eq("id", reservationId)
+      .maybeSingle();
+    const statutAvant = avant?.statut ?? "validee";
+
     await supabaseAdmin.from("reservations").update({ statut: "terminee" }).eq("id", reservationId);
+
     // Le check-out EMET la facture : numero, echeance, ecritures, PDF et e-mail.
+    // Un echec ici n'est JAMAIS avale : c'est un chemin qui produit de l'argent.
     const emission = await figerFactureResa(reservationId, options.profilId ?? null);
+    if (emission.error) {
+      // Retour a l'etat d'avant : la reservation reste en cours et le chien
+      // n'est pas parti. Rien ne doit rester a moitie fait.
+      await supabaseAdmin
+        .from("reservations")
+        .update({ statut: statutAvant })
+        .eq("id", reservationId);
+      await majCheckinCheckout(checkinId, { statut: "arrive", date_depart_reel: null });
+
+      await tracerEvenement({
+        entite: "reservation",
+        entiteId: reservationId,
+        evenement: "emission_facture_echouee",
+        motif: emission.error,
+        apres: { checkin_id: checkinId, statut_retabli: statutAvant },
+        userId: options.profilId ?? null,
+      });
+
+      return { error: `${MESSAGE_FACTURE_NON_EMISE} : ${emission.error}` };
+    }
+
     if (emission.factureId) {
       await finaliserEmission(emission.factureId, options.profilId ?? null);
     }

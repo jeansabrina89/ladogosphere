@@ -7,6 +7,7 @@ import {
   annulerCheckin,
   annulerCheckout,
   MESSAGE_RESULTAT_ESSAI_REQUIS,
+  MESSAGE_FACTURE_NON_EMISE,
 } from "@/src/lib/checkinCheckout";
 
 export async function POST(
@@ -49,8 +50,11 @@ export async function POST(
   }
 
   if (resultat.error) {
-    // Résultat d'essai manquant : erreur de saisie, pas une panne serveur.
-    const statut = resultat.error === MESSAGE_RESULTAT_ESSAI_REQUIS ? 400 : 500;
+    // Refus métier (résultat d'essai manquant, facture non émise) : 400, pas 500.
+    const refusMetier =
+      resultat.error === MESSAGE_RESULTAT_ESSAI_REQUIS ||
+      resultat.error.startsWith(MESSAGE_FACTURE_NON_EMISE);
+    const statut = refusMetier ? 400 : 500;
     return NextResponse.json({ error: resultat.error }, { status: statut });
   }
 

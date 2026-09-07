@@ -5,16 +5,13 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
-import type { EcartType } from "@/src/lib/facturation";
 import { calculerMontant } from "@/src/lib/calculTarif";
-import { calculerStatut } from "@/src/lib/factures";
 import { estMembreActif } from "@/src/lib/membre";
 import { estPrivatifPourSelection } from "@/src/lib/cohabitation";
 import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
-import { rafraichirFactureBrouillon, factureEmisePourReservation } from "@/src/lib/factureResa";
-import { synchroniserComptaResa } from "@/src/lib/comptaResa";
-import { synchroniserComptaAvoir } from "@/src/lib/comptaAvoir";
+import { factureEmisePourReservation } from "@/src/lib/factureResa";
+import { recalculerTotalEtPaiement, type RecalculResult } from "@/src/lib/prixReservation";
 
 async function verifierAdmin(): Promise<{ error?: string; userId?: string }> {
   const supabase = await createSupabaseServerClient();
@@ -32,13 +29,6 @@ function estCloturee(statut: string | null | undefined): boolean {
   return !!statut && STATUTS_CLOTURES.includes(statut);
 }
 
-export type RecalculResult = {
-  error?: string;
-  nouveau_total?: number;
-  ecart?: number;
-  type_ecart?: EcartType;
-};
-
 /**
  * Une facture émise fige le prix de la réservation : la corriger, c'est créer
  * un avoir puis une nouvelle facture. Renvoie le message de refus, ou null.
@@ -47,89 +37,6 @@ async function refusSiFactureEmise(reservationId: string): Promise<string | null
   const facture = await factureEmisePourReservation(reservationId);
   if (!facture) return null;
   return `La facture ${facture.numero} est émise : créez un avoir puis une nouvelle facture.`;
-}
-
-/**
- * Recalcule montant_final = montant_calcule + ajustement_manuel + Σ(extras) (plancher 0),
- * puis réévalue montant_paye / statut_paiement en conséquence.
- * - Trop-perçu (montant_paye > nouveau_total) : crédite l'avoir du client de la différence.
- * - Manque (0 < montant_paye < nouveau_total) : reste 'partiel', aucun mouvement auto.
- * À appeler après toute modif de montant_calcule, ajustement_manuel ou reservation_extras.
- */
-async function recalculerTotalEtPaiement(reservationId: string, createdBy?: string): Promise<RecalculResult> {
-  const { data: reservation, error: resError } = await supabaseAdmin
-    .from("reservations")
-    .select("montant_calcule, ajustement_manuel, montant_paye, numero, client_id, offerte")
-    .eq("id", reservationId)
-    .single();
-  if (resError || !reservation) return { error: "Réservation introuvable." };
-
-  const { data: extras, error: extrasError } = await supabaseAdmin
-    .from("reservation_extras")
-    .select("montant")
-    .eq("reservation_id", reservationId);
-  if (extrasError) return { error: extrasError.message };
-
-  const montantCalcule = Number(reservation.montant_calcule) || 0;
-  const ajustement = Number(reservation.ajustement_manuel) || 0;
-  const sommeExtras = (extras ?? []).reduce((s, e) => s + (Number(e.montant) || 0), 0);
-  let nouveauTotal = Math.max(0, montantCalcule + ajustement + sommeExtras);
-  if (reservation.offerte) nouveauTotal = 0;
-  const montantPaye = Number(reservation.montant_paye) || 0;
-
-  let nouveauMontantPaye = montantPaye;
-  let statut: string;
-  let ecart = 0;
-  let type_ecart: EcartType = "aucun";
-
-  if (montantPaye > nouveauTotal) {
-    const tropPercu = montantPaye - nouveauTotal;
-    if (!reservation.client_id) return { error: "Client introuvable (impossible de créditer le trop-perçu)." };
-
-    const { data: mvt, error: mvtError } = await supabaseAdmin
-      .from("avoirs_mouvements")
-      .insert({
-        client_id: reservation.client_id,
-        montant: tropPercu,
-        type: "trop_percu",
-        motif: `Trop-perçu — modification montant résa #${reservation.numero}`,
-        reservation_id: reservationId,
-        created_by: createdBy ?? null,
-      })
-      .select("id")
-      .single();
-    if (mvtError) return { error: mvtError.message };
-
-    // Le trop-perçu devient une dette envers le client : D 1100 / C 2035.
-    await synchroniserComptaAvoir(mvt.id, createdBy ?? null);
-
-    nouveauMontantPaye = nouveauTotal;
-    statut = "paye";
-    ecart = tropPercu;
-    type_ecart = "trop_percu";
-  } else {
-    statut = nouveauTotal === 0 ? "paye" : calculerStatut(nouveauMontantPaye, nouveauTotal);
-    if (nouveauMontantPaye > 0 && nouveauMontantPaye < nouveauTotal) {
-      ecart = nouveauTotal - nouveauMontantPaye;
-      type_ecart = "complement";
-    }
-  }
-
-  const { error: updateError } = await supabaseAdmin
-    .from("reservations")
-    .update({
-      montant_final: nouveauTotal,
-      montant_paye: nouveauMontantPaye,
-      statut_paiement: statut,
-    })
-    .eq("id", reservationId);
-  if (updateError) return { error: updateError.message };
-
-  await rafraichirFactureBrouillon(reservationId);
-
-  await synchroniserComptaResa(reservationId);
-
-  return { nouveau_total: nouveauTotal, ecart, type_ecart };
 }
 
 /**

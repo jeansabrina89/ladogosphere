@@ -5,6 +5,7 @@ import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { verifierChiensPourReservation, marquerChiensEssaiProgramme, etatJourneeEssai } from "@/src/lib/essaiReservation";
 import { heureCourte, MESSAGE_DATE_ESSAI_PRISE } from "@/src/lib/journeeEssai";
 import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
+import { assurerMontantCalcule } from "@/src/lib/prixReservation";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -123,8 +124,26 @@ export async function POST(req: NextRequest) {
     // Lignes de check-in — couche métier commune à tous les chemins.
     await assurerLignesCheckin(reservation.id);
 
-    // Essai créé directement validé : les chiens passent à 'programme'.
+    // Une réservation créée directement « Validée » doit porter son prix : le
+    // calcul ne peut pas attendre un passage par /statut qui n'aura pas lieu.
     if (statut === "validee") {
+      const { data: { user } } = await supabase.auth.getUser();
+      const prix = await assurerMontantCalcule(reservation.id, user?.id ?? null);
+      if (prix.erreur) {
+        // On ne laisse pas une réservation validée à 0 CHF : elle repasse en
+        // attente et l'erreur est affichée au lieu d'être avalée.
+        await supabaseAdmin
+          .from("reservations")
+          .update({ statut: "en_attente" })
+          .eq("id", reservation.id);
+        return NextResponse.json(
+          {
+            error: `Le prix n'a pas pu être calculé : ${prix.erreur} La réservation reste en attente.`,
+          },
+          { status: 400 }
+        );
+      }
+      // Essai créé directement validé : les chiens passent à 'programme'.
       await marquerChiensEssaiProgramme(reservation.id);
     }
   }
