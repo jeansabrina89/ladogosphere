@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { lireArticle } from "@/src/lib/boutique";
-import { lireGroupes } from "@/src/lib/personnalisation";
+import { lireCatalogueOptions } from "@/src/lib/personnalisation";
 import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
 import CommandeSurMesure from "./CommandeSurMesure";
@@ -19,7 +19,7 @@ export default async function SurMesurePage({
   const article = await lireArticle(articleId);
   if (!article || article.type_article !== "personnalisable") notFound();
 
-  const groupes = await lireGroupes(articleId);
+  const { groupes, dependances } = await lireCatalogueOptions(articleId);
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -57,6 +57,8 @@ export default async function SurMesurePage({
               taux_tva: article.taux_tva,
             }}
             groupes={groupes}
+            dependances={dependances}
+            affichage="liste"
             peutFacturer={acces.permissions.perm_encaissements === true}
           />
         )}

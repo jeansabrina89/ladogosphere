@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Configurateur, { type ArticleConfigurable } from "@/app/components/Configurateur";
+import Configurateur, { type Affichage, type ArticleConfigurable } from "@/app/components/Configurateur";
 import {
   commanderSurMesure,
   chercherClientCommande,
@@ -10,7 +10,7 @@ import {
 } from "../actions";
 import { MODES_CAISSE, lireMontant, rendreMonnaie, encaissementVente, chf } from "@/src/lib/caisseLogique";
 import { formatDateFR } from "@/src/lib/dates";
-import type { ChoixParGroupe, OptionGroupe } from "@/src/lib/personnalisationLogique";
+import type { ChoixParGroupe, Dependance, OptionGroupe } from "@/src/lib/personnalisationLogique";
 
 /**
  * Commande sur mesure au comptoir : on configure, on rattache un client, on
@@ -39,10 +39,14 @@ const boutonSecondaire: React.CSSProperties = {
 export default function CommandeSurMesure({
   article,
   groupes,
+  dependances,
+  affichage,
   peutFacturer,
 }: {
   article: ArticleConfigurable & { taux_tva: number | string };
   groupes: OptionGroupe[];
+  dependances: Dependance[];
+  affichage: Affichage;
   peutFacturer: boolean;
 }) {
   const [etape, setEtape] = useState<"configuration" | "paiement" | "fait">("configuration");
@@ -275,10 +279,13 @@ export default function CommandeSurMesure({
     );
   }
 
+  // Au comptoir on balaie une liste dense, pas une grille de vignettes.
   return (
     <Configurateur
       article={article}
       groupes={groupes}
+      dependances={dependances}
+      affichage={affichage}
       libelleValidation="Encaisser la commande"
       onValider={(c, resume) => {
         setChoix(c);

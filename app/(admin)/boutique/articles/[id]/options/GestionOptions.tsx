@@ -19,8 +19,10 @@ import {
   type OptionGroupe,
   type OptionValeur,
   type TypeGroupe,
+  type Dependance,
 } from "@/src/lib/personnalisationLogique";
 import { urlPhotoArticle } from "@/src/lib/boutiqueLogique";
+import MatriceDependances from "./MatriceDependances";
 
 /**
  * Catalogue d'options d'un article personnalisable.
@@ -66,11 +68,13 @@ const carreOrdre: React.CSSProperties = {
 export default function GestionOptions({
   articleId,
   groupes,
+  dependances,
   fournitures,
   sources,
 }: {
   articleId: string;
   groupes: OptionGroupe[];
+  dependances: Dependance[];
   /** Articles marqués « fourniture », consommables par un choix. */
   fournitures: { id: string; nom: string; unite: string }[];
   /** Autres articles personnalisables, pour la duplication. */
@@ -192,12 +196,21 @@ export default function GestionOptions({
                   {g.max_caracteres ? ` La saisie est bornée à ${g.max_caracteres} caractères.` : ""}
                 </p>
               ) : (
-                <Valeurs
-                  articleId={articleId}
-                  groupe={g}
-                  fournitures={fournitures}
-                  onRetour={suite}
-                />
+                <>
+                  <Valeurs
+                    articleId={articleId}
+                    groupe={g}
+                    fournitures={fournitures}
+                    onRetour={suite}
+                  />
+                  <MatriceDependances
+                    articleId={articleId}
+                    groupe={g}
+                    groupes={groupes}
+                    dependances={dependances}
+                    onRetour={suite}
+                  />
+                </>
               )}
             </div>
           )}

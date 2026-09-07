@@ -118,11 +118,7 @@ export async function deplacerGroupe(
   const res = echanger(groupes ?? [], groupeId, sens);
   if (!res) return { message: "Déjà à sa place." };
 
-  for (const { id, ordre } of res) {
-    await supabaseAdmin.from("options_groupes").update({ ordre }).eq("id", id);
-  }
-  rafraichir(articleId);
-  return { message: "Ordre modifié." };
+  return ordonnerGroupes(articleId, res.map((l) => l.id));
 }
 
 /** Réordonnancement par glisser : la liste complète, dans son nouvel ordre. */
@@ -130,11 +126,23 @@ export async function ordonnerGroupes(articleId: string, ids: string[]): Promise
   const g = await garde();
   if (g.erreur) return { error: g.erreur };
 
-  for (let i = 0; i < ids.length; i++) {
-    await supabaseAdmin.from("options_groupes").update({ ordre: i + 1 }).eq("id", ids[i]);
-  }
+  // Tout part ensemble : un groupe qui dépend d'un autre ne doit jamais se
+  // retrouver, même un instant, placé avant lui.
+  const { error } = await supabaseAdmin.rpc("ordonner_groupes_options", {
+    p_article_id: articleId,
+    p_ids: ids,
+  });
+  if (error) return { error: messageOrdre(error.message) };
+
   rafraichir(articleId);
   return { message: "Ordre enregistré." };
+}
+
+/** Le refus du trigger est déjà écrit en français : on le laisse passer. */
+function messageOrdre(message: string): string {
+  const m = message ?? "";
+  if (/dépend de|dépendraient|même article|lui-même/.test(m)) return m;
+  return "Cet ordre n'est pas possible : un groupe doit rester après celui dont il dépend.";
 }
 
 // ── Valeurs ─────────────────────────────────────────────────────────────────
@@ -310,4 +318,134 @@ function echanger(
   const nouvelOrdre = [...liste];
   [nouvelOrdre[i], nouvelOrdre[j]] = [nouvelOrdre[j], nouvelOrdre[i]];
   return nouvelOrdre.map((l, k) => ({ id: l.id, ordre: k + 1 }));
+}
+
+// ── Dépendances entre options ───────────────────────────────────────────────
+
+/** Les valeurs d'un groupe, dans l'ordre. */
+async function valeursDe(groupeId: string): Promise<string[]> {
+  const { data } = await supabaseAdmin
+    .from("options_valeurs").select("id").eq("groupe_id", groupeId).order("ordre");
+  return (data ?? []).map((v) => v.id as string);
+}
+
+/**
+ * Déclare de quel groupe celui-ci dépend.
+ *
+ * À la déclaration, TOUT est coché : un article existant ne change pas de
+ * comportement, et Sabrina décoche ensuite les quelques cases qui font
+ * exception. À la suppression du parent, les dépendances tombent avec lui —
+ * le groupe redevient libre.
+ */
+export async function definirParentGroupe(
+  articleId: string,
+  groupeId: string,
+  parentId: string | null
+): Promise<Retour> {
+  const g = await garde();
+  if (g.erreur) return { error: g.erreur };
+
+  const valeurs = await valeursDe(groupeId);
+
+  if (!parentId) {
+    if (valeurs.length > 0) {
+      await supabaseAdmin.from("options_dependances").delete().in("valeur_id", valeurs);
+    }
+    const { error } = await supabaseAdmin
+      .from("options_groupes").update({ depend_de_groupe_id: null }).eq("id", groupeId);
+    if (error) return { error: messageOrdre(error.message) };
+
+    rafraichir(articleId);
+    return { message: "Ce groupe ne dépend plus d'aucun autre." };
+  }
+
+  const { error } = await supabaseAdmin
+    .from("options_groupes").update({ depend_de_groupe_id: parentId }).eq("id", groupeId);
+  if (error) return { error: messageOrdre(error.message) };
+
+  // Tout coché par défaut : le comportement d'avant, à la lettre.
+  const requises = await valeursDe(parentId);
+  if (valeurs.length > 0 && requises.length > 0) {
+    const lignes = valeurs.flatMap((v) =>
+      requises.map((r) => ({ valeur_id: v, valeur_requise_id: r }))
+    );
+    const { error: erreurLignes } = await supabaseAdmin
+      .from("options_dependances").upsert(lignes, { onConflict: "valeur_id,valeur_requise_id" });
+    if (erreurLignes) return { error: "Les dépendances n'ont pas pu être posées." };
+  }
+
+  rafraichir(articleId);
+  return { message: "Dépendance déclarée. Tout est disponible : décochez les exceptions." };
+}
+
+/** Une case de la matrice. */
+export async function basculerDependance(
+  articleId: string,
+  valeurId: string,
+  valeurRequiseId: string,
+  coche: boolean
+): Promise<Retour> {
+  const g = await garde();
+  if (g.erreur) return { error: g.erreur };
+
+  if (coche) {
+    const { error } = await supabaseAdmin
+      .from("options_dependances")
+      .upsert(
+        [{ valeur_id: valeurId, valeur_requise_id: valeurRequiseId }],
+        { onConflict: "valeur_id,valeur_requise_id" }
+      );
+    if (error) return { error: messageDependance(error.message) };
+  } else {
+    const { error } = await supabaseAdmin
+      .from("options_dependances")
+      .delete()
+      .eq("valeur_id", valeurId)
+      .eq("valeur_requise_id", valeurRequiseId);
+    if (error) return { error: "La modification a été refusée." };
+  }
+
+  rafraichir(articleId);
+  return {};
+}
+
+/**
+ * Tout cocher ou tout décocher, par ligne ou par colonne. Avec vingt coloris
+ * et trois largeurs, case à case serait insupportable.
+ */
+export async function basculerLot(entree: {
+  article_id: string;
+  valeurs: string[];
+  requises: string[];
+  coche: boolean;
+}): Promise<Retour> {
+  const g = await garde();
+  if (g.erreur) return { error: g.erreur };
+
+  if (entree.valeurs.length === 0 || entree.requises.length === 0) return {};
+
+  if (entree.coche) {
+    const lignes = entree.valeurs.flatMap((v) =>
+      entree.requises.map((r) => ({ valeur_id: v, valeur_requise_id: r }))
+    );
+    const { error } = await supabaseAdmin
+      .from("options_dependances").upsert(lignes, { onConflict: "valeur_id,valeur_requise_id" });
+    if (error) return { error: messageDependance(error.message) };
+  } else {
+    const { error } = await supabaseAdmin
+      .from("options_dependances")
+      .delete()
+      .in("valeur_id", entree.valeurs)
+      .in("valeur_requise_id", entree.requises);
+    if (error) return { error: "La modification a été refusée." };
+  }
+
+  rafraichir(entree.article_id);
+  return { message: entree.coche ? "Tout coché." : "Tout décoché." };
+}
+
+function messageDependance(message: string): string {
+  const m = message ?? "";
+  if (/même article|même groupe|posée avant elle|introuvable/.test(m)) return m;
+  return "Cette dépendance a été refusée.";
 }

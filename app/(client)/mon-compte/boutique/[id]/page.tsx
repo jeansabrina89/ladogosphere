@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { lireArticle } from "@/src/lib/boutique";
-import { lireGroupes } from "@/src/lib/personnalisation";
+import { lireCatalogueOptions } from "@/src/lib/personnalisation";
 import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
 import Configurateur from "@/app/components/Configurateur";
@@ -37,7 +37,7 @@ export default async function ArticleSurMesurePage({
     notFound();
   }
 
-  const groupes = await lireGroupes(id);
+  const { groupes, dependances } = await lireCatalogueOptions(id);
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -64,6 +64,8 @@ export default async function ArticleSurMesurePage({
               photo_path: article.photo_path,
             }}
             groupes={groupes}
+            dependances={dependances}
+            affichage="grille"
             noteFin="Cette configuration se commande au comptoir : montrez-la-nous, ou dites-nous les couleurs par leur nom. Le paiement en ligne viendra plus tard."
           />
         )}

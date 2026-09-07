@@ -5,6 +5,7 @@ import {
   type ChoixFige,
   type OptionGroupe,
   type OptionValeur,
+  type Dependance,
 } from "@/src/lib/personnalisationLogique";
 
 /**
@@ -14,7 +15,8 @@ import {
  * eux-mêmes finaliser_vente et passer_ecriture. Rien de neuf côté comptable.
  */
 
-const COLONNES_GROUPE = "id, article_id, nom, type, obligatoire, ordre, aide, max_caracteres";
+const COLONNES_GROUPE =
+  "id, article_id, nom, type, obligatoire, ordre, aide, max_caracteres, depend_de_groupe_id";
 const COLONNES_VALEUR = `
   id, groupe_id, libelle, image_path, code_couleur, supplement_prix,
   supplement_delai_jours, composant_article_id, composant_quantite, actif, ordre, defaut
@@ -288,4 +290,38 @@ function messageBase(message: string): string {
   if (/Aucun choix|Commande introuvable|Statut inconnu|même article/i.test(m)) return m;
   if (/duplicate key/i.test(m)) return "Cet enregistrement existe déjà.";
   return "L'enregistrement a été refusé. Vérifiez la saisie.";
+}
+
+/**
+ * Les dépendances entre options d'un article : quelle valeur en rend une
+ * autre disponible. La règle, elle, vit dans personnalisationLogique.
+ */
+export async function lireDependances(articleId: string): Promise<Dependance[]> {
+  const { data: groupes } = await supabaseAdmin
+    .from("options_groupes").select("id").eq("article_id", articleId);
+  const ids = (groupes ?? []).map((g) => g.id as string);
+  if (ids.length === 0) return [];
+
+  const { data: valeurs } = await supabaseAdmin
+    .from("options_valeurs").select("id").in("groupe_id", ids);
+  const valeurIds = (valeurs ?? []).map((v) => v.id as string);
+  if (valeurIds.length === 0) return [];
+
+  const { data } = await supabaseAdmin
+    .from("options_dependances")
+    .select("valeur_id, valeur_requise_id")
+    .in("valeur_id", valeurIds);
+
+  return (data ?? []) as unknown as Dependance[];
+}
+
+/** Le catalogue d'options ET ses dépendances, en une fois. */
+export async function lireCatalogueOptions(
+  articleId: string
+): Promise<{ groupes: OptionGroupe[]; dependances: Dependance[] }> {
+  const [groupes, dependances] = await Promise.all([
+    lireGroupes(articleId),
+    lireDependances(articleId),
+  ]);
+  return { groupes, dependances };
 }

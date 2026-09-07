@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { lireArticle } from "@/src/lib/boutique";
-import { lireGroupes, articlesPersonnalisables } from "@/src/lib/personnalisation";
+import { lireCatalogueOptions, articlesPersonnalisables } from "@/src/lib/personnalisation";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
@@ -24,8 +24,8 @@ export default async function OptionsArticlePage({
   // Un article ordinaire n'a pas d'options : on renvoie à sa fiche.
   if (article.type_article !== "personnalisable") redirect(`/boutique/articles/${id}`);
 
-  const [groupes, sources, { data: fournitures }] = await Promise.all([
-    lireGroupes(id),
+  const [{ groupes, dependances }, sources, { data: fournitures }] = await Promise.all([
+    lireCatalogueOptions(id),
     articlesPersonnalisables(id),
     supabaseAdmin
       .from("articles")
@@ -55,6 +55,7 @@ export default async function OptionsArticlePage({
           <GestionOptions
             articleId={id}
             groupes={groupes}
+            dependances={dependances}
             fournitures={(fournitures ?? []) as { id: string; nom: string; unite: string }[]}
             sources={sources}
           />

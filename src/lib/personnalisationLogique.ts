@@ -41,6 +41,8 @@ export type OptionGroupe = {
   ordre: number;
   aide: string | null;
   max_caracteres: number | null;
+  /** Groupe parent : ce groupe ne s'active qu'une fois celui-là choisi. */
+  depend_de_groupe_id?: string | null;
   valeurs: OptionValeur[];
 };
 
@@ -361,4 +363,210 @@ export function normaliserCouleur(code: string | null | undefined): string | nul
   if (!brut) return null;
   const avec = brut.startsWith("#") ? brut : `#${brut}`;
   return /^#[0-9a-fA-F]{6}$/.test(avec) ? avec.toLowerCase() : null;
+}
+
+// ── Dépendances entre options ───────────────────────────────────────────────
+
+/**
+ * Une valeur conditionnée par une autre. Une valeur SANS aucune ligne est
+ * toujours disponible ; avec des lignes, elle exige qu'AU MOINS UNE de ses
+ * valeurs requises soit choisie — un OU, pas un ET : un coloris peut exister
+ * en 19 et en 25 mm.
+ */
+export type Dependance = { valeur_id: string; valeur_requise_id: string };
+
+/** Toutes les valeurs de tous les groupes, par identifiant. */
+export function indexerValeurs(groupes: OptionGroupe[]): Map<string, OptionValeur> {
+  const index = new Map<string, OptionValeur>();
+  for (const g of groupes) for (const v of g.valeurs ?? []) index.set(v.id, v);
+  return index;
+}
+
+/** Les identifiants des valeurs actuellement retenues, tous groupes confondus. */
+export function valeursChoisies(groupes: OptionGroupe[], choix: ChoixParGroupe): Set<string> {
+  const ids = new Set<string>();
+  for (const g of groupes) {
+    const v = valeurRetenue(g, choix);
+    if (v) ids.add(v.id);
+  }
+  return ids;
+}
+
+/** « 19 mm », « 19 et 22 mm », « 19, 22 et 25 mm ». */
+export function enumererFr(libelles: string[]): string {
+  if (libelles.length === 0) return "";
+  if (libelles.length === 1) return libelles[0];
+  return `${libelles.slice(0, -1).join(", ")} et ${libelles[libelles.length - 1]}`;
+}
+
+export type EtatValeur = {
+  valeur: OptionValeur;
+  disponible: boolean;
+  /**
+   * Pourquoi elle ne l'est pas, en toutes lettres. C'est un texte lu en
+   * permanence, jamais une bulle au survol : sur un téléphone il n'y a pas
+   * de survol.
+   */
+  raison: string | null;
+  /** Ce qu'il faudrait choisir pour la rendre disponible. */
+  requises: OptionValeur[];
+};
+
+export type EtatGroupe = {
+  groupe: OptionGroupe;
+  /** Le groupe parent, quand il y en a un. */
+  parent: OptionGroupe | null;
+  /** Un groupe conditionné reste VISIBLE ; il n'est actif qu'une fois son parent choisi. */
+  actif: boolean;
+  raisonInactif: string | null;
+  valeurs: EtatValeur[];
+};
+
+/**
+ * L'état de chaque groupe et de chaque valeur, pour les choix courants.
+ *
+ * Rien n'est masqué : un groupe pas encore ouvert reste visible et inactif,
+ * une valeur indisponible reste affichée avec sa raison. Le client doit voir
+ * dès l'abord tout ce qu'il aura à décider, et apprendre qu'un coloris existe
+ * dans une autre largeur plutôt que de renoncer.
+ */
+export function etatDesGroupes(
+  groupes: OptionGroupe[],
+  choix: ChoixParGroupe,
+  dependances: Dependance[] = []
+): EtatGroupe[] {
+  const ordonnes = [...groupes].sort((a, b) => a.ordre - b.ordre);
+  const parId = new Map(ordonnes.map((g) => [g.id, g]));
+  const valeurs = indexerValeurs(ordonnes);
+  const choisies = valeursChoisies(ordonnes, choix);
+
+  const requisesDe = new Map<string, string[]>();
+  for (const d of dependances) {
+    const liste = requisesDe.get(d.valeur_id) ?? [];
+    liste.push(d.valeur_requise_id);
+    requisesDe.set(d.valeur_id, liste);
+  }
+
+  return ordonnes.map((g) => {
+    const parent = g.depend_de_groupe_id ? parId.get(g.depend_de_groupe_id) ?? null : null;
+    const actif = !parent || valeurRetenue(parent, choix) !== null;
+
+    return {
+      groupe: g,
+      parent,
+      actif,
+      raisonInactif: actif ? null : `Choisissez d'abord « ${parent!.nom} ».`,
+      valeurs: valeursActives(g).map((v) => {
+        const ids = requisesDe.get(v.id) ?? [];
+        if (ids.length === 0) {
+          return { valeur: v, disponible: true, raison: null, requises: [] };
+        }
+
+        const requises = ids
+          .map((id) => valeurs.get(id))
+          .filter((r): r is OptionValeur => r !== undefined);
+        const disponible = ids.some((id) => choisies.has(id));
+
+        return {
+          valeur: v,
+          disponible,
+          raison: disponible
+            ? null
+            : `Disponible en ${enumererFr(requises.map((r) => r.libelle))} seulement`,
+          requises,
+        };
+      }),
+    };
+  });
+}
+
+/** Une valeur donnée est-elle disponible pour les choix courants ? */
+export function valeurDisponible(
+  valeurId: string,
+  groupes: OptionGroupe[],
+  choix: ChoixParGroupe,
+  dependances: Dependance[] = []
+): boolean {
+  for (const etat of etatDesGroupes(groupes, choix, dependances)) {
+    const v = etat.valeurs.find((e) => e.valeur.id === valeurId);
+    if (v) return etat.actif && v.disponible;
+  }
+  return false;
+}
+
+export type Nettoyage = { choix: ChoixParGroupe; messages: string[] };
+
+/**
+ * Efface les choix devenus impossibles, et dit lesquels et pourquoi.
+ *
+ * Jamais un choix invalide qui subsiste en silence : si la largeur change et
+ * que le coloris retenu n'existe pas dans la nouvelle, il saute — avec le
+ * message qui l'explique.
+ */
+export function nettoyerChoixInvalides(
+  groupes: OptionGroupe[],
+  choix: ChoixParGroupe,
+  dependances: Dependance[] = []
+): Nettoyage {
+  const ordonnes = [...groupes].sort((a, b) => a.ordre - b.ordre);
+  let courant: ChoixParGroupe = { ...choix };
+  const messages: string[] = [];
+
+  // Les groupes sont parcourus dans l'ordre : un parent est toujours traité
+  // avant son enfant, un seul passage suffit donc à propager la cascade.
+  for (const g of ordonnes) {
+    const etats = etatDesGroupes(ordonnes, courant, dependances);
+    const etat = etats.find((e) => e.groupe.id === g.id)!;
+    const retenue = valeurRetenue(g, courant);
+    if (!retenue) continue;
+
+    const surValeur = etat.valeurs.find((e) => e.valeur.id === retenue.id);
+    const impossible = !etat.actif || (surValeur ? !surValeur.disponible : true);
+    if (!impossible) continue;
+
+    const contexte = etat.parent ? valeurRetenue(etat.parent, courant) : null;
+    messages.push(
+      contexte
+        ? `${g.nom} : « ${retenue.libelle} » n'existe pas en ${contexte.libelle}. Choisissez-en un autre.`
+        : `${g.nom} : « ${retenue.libelle} » n'est plus disponible. Choisissez-en un autre.`
+    );
+
+    courant = { ...courant };
+    if (g.type === "booleen") courant[g.id] = { ...courant[g.id], booleen: false };
+    else courant[g.id] = { ...courant[g.id], valeur_id: null };
+  }
+
+  return { choix: courant, messages };
+}
+
+/**
+ * Refus d'une configuration, dépendances comprises. La même fonction sert au
+ * navigateur et au serveur : c'est le serveur qui a le dernier mot, mais les
+ * deux disent la même chose.
+ */
+export function refusConfigurationAvecDependances(
+  groupes: OptionGroupe[],
+  choix: ChoixParGroupe,
+  dependances: Dependance[] = []
+): string | null {
+  const etats = etatDesGroupes(groupes, choix, dependances);
+
+  // Un groupe inactif n'a rien à répondre : sa question n'est pas posée.
+  const actifs = etats.filter((e) => e.actif).map((e) => e.groupe);
+  const refus = refusConfiguration(actifs, choix);
+  if (refus) return refus;
+
+  for (const etat of etats) {
+    const retenue = valeurRetenue(etat.groupe, choix);
+    if (!retenue) continue;
+
+    if (!etat.actif) {
+      return `${etat.groupe.nom} : ${etat.raisonInactif}`;
+    }
+    const surValeur = etat.valeurs.find((e) => e.valeur.id === retenue.id);
+    if (surValeur && !surValeur.disponible) {
+      return `${etat.groupe.nom} : « ${retenue.libelle} » n'est pas disponible avec ce choix. ${surValeur.raison}.`;
+    }
+  }
+  return null;
 }

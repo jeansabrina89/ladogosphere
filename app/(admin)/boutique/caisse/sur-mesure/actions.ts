@@ -12,13 +12,13 @@ import {
   rendreMonnaie,
   type ModeReglementVente,
 } from "@/src/lib/caisseLogique";
-import { creerCommande, lireGroupes } from "@/src/lib/personnalisation";
+import { creerCommande, lireCatalogueOptions } from "@/src/lib/personnalisation";
 import {
   datePromise,
   delaiTotal,
   figerChoix,
   prixTotal,
-  refusConfiguration,
+  refusConfigurationAvecDependances,
   type ChoixParGroupe,
 } from "@/src/lib/personnalisationLogique";
 
@@ -75,8 +75,10 @@ export async function commanderSurMesure(entree: {
     return { error: "Cet article ne se commande pas sur mesure." };
   }
 
-  const groupes = await lireGroupes(entree.article_id);
-  const refus = refusConfiguration(groupes, entree.choix);
+  // Le navigateur a déjà filtré, mais c'est ici que cela compte : une
+  // combinaison devenue impossible ne passe pas, même envoyée à la main.
+  const { groupes, dependances } = await lireCatalogueOptions(entree.article_id);
+  const refus = refusConfigurationAvecDependances(groupes, entree.choix, dependances);
   if (refus) return { error: refus };
 
   const prix = prixTotal(article.prix_vente, groupes, entree.choix);
