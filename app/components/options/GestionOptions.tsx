@@ -67,6 +67,35 @@ const carreOrdre: React.CSSProperties = {
   fontFamily: "inherit", cursor: "pointer", lineHeight: 1,
 };
 
+/**
+ * La rangée d'actions d'une ligne.
+ *
+ * Elle forme UN SEUL élément souple : quand la place manque, elle passe à la
+ * ligne d'un bloc, sous le libellé, au lieu de se disloquer bouton par bouton
+ * ou de déborder de la carte. `flexShrink: 0` la protège de la compression —
+ * on ne rétrécit pas une cible tactile pour gagner deux pixels.
+ */
+const rangeeActions: React.CSSProperties = {
+  display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+  flexShrink: 0, marginLeft: "auto",
+};
+
+/**
+ * Le libellé, lui, cède la place. `minWidth: 0` lève le plancher implicite des
+ * éléments souples (`min-width: auto`, la largeur du contenu) sans quoi un nom
+ * long pousse tout le reste dehors ; `overflowWrap` casse le mot au besoin.
+ */
+const zoneLibelle: React.CSSProperties = {
+  flex: "1 1 180px", minWidth: 0, overflowWrap: "anywhere",
+};
+
+/** Le destructeur se tient à l'écart : on ne le touche pas au pouce par erreur. */
+const ecartDestructeur: React.CSSProperties = { marginLeft: 8 };
+
+const boutonSupprimer: React.CSSProperties = {
+  ...bouton, ...ecartDestructeur, color: "#A8453A",
+};
+
 export default function GestionOptions({
   porteur,
   groupes,
@@ -178,12 +207,22 @@ export default function GestionOptions({
             <button
               type="button"
               onClick={() => setOuverts({ ...ouverts, [g.id]: !ouverts[g.id] })}
-              style={{ ...bouton, border: "none", flex: 1, textAlign: "left", minWidth: 0 }}
+              aria-expanded={ouverts[g.id] === true}
+              style={{
+                ...bouton, ...zoneLibelle, border: "none",
+                textAlign: "left", paddingLeft: 0, paddingRight: 0,
+              }}
             >
-              <span style={{ display: "block", color: MARINE, fontSize: 16, fontWeight: 700 }}>
+              <span style={{
+                display: "block", color: MARINE, fontSize: 16, fontWeight: 700,
+                overflowWrap: "anywhere",
+              }}>
                 {ouverts[g.id] ? "▾" : "▸"} {g.nom}
               </span>
-              <span style={{ display: "block", color: SOUS, fontSize: 13, fontWeight: 400 }}>
+              <span style={{
+                display: "block", color: SOUS, fontSize: 13, fontWeight: 400,
+                overflowWrap: "anywhere",
+              }}>
                 {libelleTypeGroupe(g.type)}
                 {g.obligatoire ? " · obligatoire" : " · facultatif"}
                 {g.type !== "texte" && g.type !== "booleen" && g.type !== "mesure"
@@ -194,13 +233,17 @@ export default function GestionOptions({
               </span>
             </button>
 
-            <button type="button" onClick={() => setGroupeModifie(groupeModifie === g.id ? null : g.id)}
-              style={bouton}>✏️</button>
-            <button type="button" style={{ ...bouton, color: "#A8453A" }}
-              onClick={async () => {
-                if (!confirmerRetrait(`la question « ${g.nom} »`)) return;
-                suite(await supprimerGroupe(porteur, g.id));
-              }}>🗑️</button>
+            <span style={rangeeActions}>
+              <button type="button" aria-label={`Modifier le groupe ${g.nom}`}
+                onClick={() => setGroupeModifie(groupeModifie === g.id ? null : g.id)}
+                style={bouton}>✏️</button>
+              <button type="button" aria-label={`Supprimer le groupe ${g.nom}`}
+                style={boutonSupprimer}
+                onClick={async () => {
+                  if (!confirmerRetrait(`la question « ${g.nom} »`)) return;
+                  suite(await supprimerGroupe(porteur, g.id));
+                }}>🗑️</button>
+            </span>
           </div>
 
           {groupeModifie === g.id && (
@@ -720,11 +763,14 @@ function Valeurs({
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <Vignette valeur={v} taille={44} />
-            <span style={{ flex: 1, minWidth: 120 }}>
-              <span style={{ display: "block", color: MARINE, fontSize: 15, fontWeight: 600 }}>
+            <span style={zoneLibelle}>
+              <span style={{
+                display: "block", color: MARINE, fontSize: 15, fontWeight: 600,
+                overflowWrap: "anywhere",
+              }}>
                 {v.libelle}{v.defaut && " · par défaut"}
               </span>
-              <span style={{ display: "block", color: SOUS, fontSize: 13 }}>
+              <span style={{ display: "block", color: SOUS, fontSize: 13, overflowWrap: "anywhere" }}>
                 {Number(v.supplement_prix) > 0 ? `+${Number(v.supplement_prix).toFixed(2)} CHF` : "sans supplément"}
                 {Number(v.supplement_delai_jours) > 0 ? ` · +${v.supplement_delai_jours} j` : ""}
                 {v.composant_article_id ? ` · ${v.composant_quantite} ${fournitures.find((f) => f.id === v.composant_article_id)?.unite ?? ""} de ${fournitures.find((f) => f.id === v.composant_article_id)?.nom ?? "fourniture"}` : ""}
@@ -732,23 +778,28 @@ function Valeurs({
               </span>
             </span>
 
-            <button type="button" aria-label={`Monter ${v.libelle}`} disabled={i === 0}
-              onClick={async () => onRetour(await deplacerValeur(porteur, groupe.id, v.id, "haut"))}
-              style={{ ...carreOrdre, opacity: i === 0 ? 0.4 : 1 }}>↑</button>
-            <button type="button" aria-label={`Descendre ${v.libelle}`} disabled={i === valeurs.length - 1}
-              onClick={async () => onRetour(await deplacerValeur(porteur, groupe.id, v.id, "bas"))}
-              style={{ ...carreOrdre, opacity: i === valeurs.length - 1 ? 0.4 : 1 }}>↓</button>
-            <button type="button" onClick={() => setModifiee(modifiee === v.id ? null : v.id)}
-              style={bouton}>✏️</button>
-            <button type="button" style={bouton}
-              onClick={async () => onRetour(await basculerValeur(porteur, v.id, !v.actif))}>
-              {v.actif ? "Désactiver" : "Réactiver"}
-            </button>
-            <button type="button" style={{ ...bouton, color: "#A8453A" }}
-              onClick={async () => {
-                if (!avantRetrait(`l'option « ${v.libelle} »`)) return;
-                onRetour(await supprimerValeur(porteur, v.id));
-              }}>🗑️</button>
+            <span style={rangeeActions}>
+              <button type="button" aria-label={`Monter ${v.libelle}`} disabled={i === 0}
+                onClick={async () => onRetour(await deplacerValeur(porteur, groupe.id, v.id, "haut"))}
+                style={{ ...carreOrdre, opacity: i === 0 ? 0.4 : 1 }}>↑</button>
+              <button type="button" aria-label={`Descendre ${v.libelle}`} disabled={i === valeurs.length - 1}
+                onClick={async () => onRetour(await deplacerValeur(porteur, groupe.id, v.id, "bas"))}
+                style={{ ...carreOrdre, opacity: i === valeurs.length - 1 ? 0.4 : 1 }}>↓</button>
+              <button type="button" aria-label={`Modifier l'option ${v.libelle}`}
+                onClick={() => setModifiee(modifiee === v.id ? null : v.id)}
+                style={bouton}>✏️</button>
+              <button type="button" style={bouton}
+                aria-label={`${v.actif ? "Désactiver" : "Réactiver"} l'option ${v.libelle}`}
+                onClick={async () => onRetour(await basculerValeur(porteur, v.id, !v.actif))}>
+                {v.actif ? "Désactiver" : "Réactiver"}
+              </button>
+              <button type="button" style={boutonSupprimer}
+                aria-label={`Supprimer l'option ${v.libelle}`}
+                onClick={async () => {
+                  if (!avantRetrait(`l'option « ${v.libelle} »`)) return;
+                  onRetour(await supprimerValeur(porteur, v.id));
+                }}>🗑️</button>
+            </span>
           </div>
 
           {modifiee === v.id && (

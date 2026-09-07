@@ -35,6 +35,16 @@ const boutonPrincipal: React.CSSProperties = {
   ...bouton, backgroundColor: VERT, borderColor: VERT, color: "#FFFFFF",
 };
 
+/** La rangée d'actions passe à la ligne d'un bloc, elle ne se comprime pas. */
+const rangeeActions: React.CSSProperties = {
+  display: "flex", gap: 8, flexWrap: "wrap", flexShrink: 0, marginLeft: "auto",
+};
+
+/** Le destructeur, à l'écart des autres. */
+const boutonSupprimer: React.CSSProperties = {
+  ...bouton, marginLeft: 8, color: "#A8453A",
+};
+
 export type LigneModele = {
   id: string;
   nom: string;
@@ -101,7 +111,10 @@ export default function Bibliotheque({ modeles }: { modeles: LigneModele[] }) {
             <div style={{ flex: "1 1 240px", minWidth: 0 }}>
               <Link
                 href={`/boutique/modeles/${m.id}`}
-                style={{ color: MARINE, fontSize: 17, fontWeight: 700, textDecoration: "none" }}
+                style={{
+                  color: MARINE, fontSize: 17, fontWeight: 700, textDecoration: "none",
+                  overflowWrap: "anywhere",
+                }}
               >
                 {m.nom}
                 {!m.actif && (
@@ -124,8 +137,10 @@ export default function Bibliotheque({ modeles }: { modeles: LigneModele[] }) {
               </p>
             </div>
 
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <Link href={`/boutique/modeles/${m.id}`} style={{ ...bouton, textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+            <div style={rangeeActions}>
+              <Link href={`/boutique/modeles/${m.id}`}
+                aria-label={`Modifier le modèle ${m.nom}`}
+                style={{ ...bouton, textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
                 ✏️ Modifier
               </Link>
               <button
@@ -155,21 +170,26 @@ export default function Bibliotheque({ modeles }: { modeles: LigneModele[] }) {
               >
                 {m.actif ? "Désactiver" : "Réactiver"}
               </button>
-              {m.nbArticles === 0 && (
-                <button
-                  type="button"
-                  style={{ ...bouton, color: "#A8453A" }}
-                  disabled={enCours}
-                  onClick={async () => {
-                    if (!window.confirm(`Supprimer le modèle « ${m.nom} » ? Aucun article ne l'utilise.`)) return;
-                    setEnCours(true);
-                    suite(await supprimerModele(m.id));
-                    setEnCours(false);
-                  }}
-                >
-                  🗑️
-                </button>
-              )}
+              {/* La corbeille reste visible même quand le modèle sert : le refus
+                  dit alors combien d'articles s'en servent et lesquels. Cachée,
+                  elle laissait croire à un écran incomplet plutôt qu'à une règle. */}
+              <button
+                type="button"
+                style={boutonSupprimer}
+                aria-label={`Supprimer le modèle ${m.nom}`}
+                disabled={enCours}
+                onClick={async () => {
+                  if (
+                    m.nbArticles === 0 &&
+                    !window.confirm(`Supprimer le modèle « ${m.nom} » ? Aucun article ne l'utilise.`)
+                  ) return;
+                  setEnCours(true);
+                  suite(await supprimerModele(m.id));
+                  setEnCours(false);
+                }}
+              >
+                🗑️
+              </button>
             </div>
           </div>
         </div>

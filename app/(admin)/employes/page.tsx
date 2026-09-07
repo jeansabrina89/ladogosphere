@@ -60,7 +60,7 @@ export default async function EmployesPage() {
             return (
               <Carte key={emp.id} accent={emp.actif ? "teal" : "aucun"}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", flexWrap: "wrap" }}>
-                  <div style={{ flex: 1, minWidth: "240px" }}>
+                  <div style={{ flex: "1 1 240px", minWidth: 0, overflowWrap: "anywhere" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                       <p style={{ fontSize: "18px", fontWeight: 700, color: "#1B2B5E", margin: 0 }}>
                         {emp.prenom} {emp.nom}
@@ -80,7 +80,7 @@ export default async function EmployesPage() {
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flexShrink: 0 }}>
                     <Link href={`/employes/${emp.id}/modifier`} style={{ ...lienAction, backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>✏️ Modifier</Link>
                     {emp.profile_id && <BoutonReinitialiserMdp profilId={emp.profile_id} />}
                     <Link href={`/employes/timbrage?employe=${emp.id}`} style={{ ...lienAction, backgroundColor: "#4AAEA0", color: "#FFFFFF" }}>⏱️ Heures</Link>

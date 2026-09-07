@@ -117,9 +117,12 @@ export default function ModelesAttaches({
               style={{ ...carreOrdre, opacity: i === attaches.length - 1 ? 0.4 : 1 }}
               onClick={async () => { setEnCours(true); suite(await deplacerModele(articleId, m.id, "bas")); setEnCours(false); }}>↓</button>
 
-            <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+            <div style={{ flex: "1 1 200px", minWidth: 0, overflowWrap: "anywhere" }}>
               <Link href={`/boutique/modeles/${m.id}`}
-                style={{ color: MARINE, fontSize: 16, fontWeight: 700, textDecoration: "none" }}>
+                style={{
+                  color: MARINE, fontSize: 16, fontWeight: 700, textDecoration: "none",
+                  overflowWrap: "anywhere",
+                }}>
                 {m.nom}
               </Link>
               <p style={{ color: SOUS, fontSize: 13, margin: "2px 0 0" }}>
@@ -128,7 +131,9 @@ export default function ModelesAttaches({
               </p>
             </div>
 
-            <button type="button" style={bouton} disabled={enCours}
+            <button type="button" disabled={enCours}
+              aria-label={`Détacher le modèle ${m.nom}`}
+              style={{ ...bouton, flexShrink: 0, marginLeft: "auto" }}
               onClick={async () => {
                 if (!window.confirm(`Détacher « ${m.nom} » ? Ses questions ne seront plus posées sur cet article. Les commandes déjà passées ne changent pas.`)) return;
                 setEnCours(true);

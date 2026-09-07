@@ -132,22 +132,29 @@ export default function ActionsVente({
               const valeur = quantites[l.id] ?? 0;
               return (
                 <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <span style={{ flex: 1, minWidth: 140 }}>
+                  {/* Le libellé cède la place ; le compteur, lui, passe à la
+                      ligne d'un bloc plutôt que de se disloquer. */}
+                  <span style={{ flex: "1 1 160px", minWidth: 0, overflowWrap: "anywhere" }}>
                     <span style={{ display: "block", color: MARINE, fontSize: 15, fontWeight: 600 }}>{l.libelle}</span>
                     <span style={{ display: "block", color: SOUS, fontSize: 13 }}>
                       {max > 0 ? `${max} à rendre au maximum` : "déjà entièrement rendu"}
                     </span>
                   </span>
 
-                  <button type="button" disabled={valeur <= 0} aria-label={`Rendre un ${l.libelle} de moins`}
-                    onClick={() => setQuantites({ ...quantites, [l.id]: Math.max(valeur - 1, 0) })}
-                    style={rond}>−</button>
-                  <span style={{ minWidth: 28, textAlign: "center", color: MARINE, fontSize: 18, fontWeight: 700 }}>
-                    {valeur}
+                  <span style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    flexShrink: 0, marginLeft: "auto",
+                  }}>
+                    <button type="button" disabled={valeur <= 0} aria-label={`Rendre un ${l.libelle} de moins`}
+                      onClick={() => setQuantites({ ...quantites, [l.id]: Math.max(valeur - 1, 0) })}
+                      style={rond}>−</button>
+                    <span style={{ minWidth: 28, textAlign: "center", color: MARINE, fontSize: 18, fontWeight: 700 }}>
+                      {valeur}
+                    </span>
+                    <button type="button" disabled={valeur >= max} aria-label={`Rendre un ${l.libelle} de plus`}
+                      onClick={() => setQuantites({ ...quantites, [l.id]: Math.min(valeur + 1, max) })}
+                      style={rond}>+</button>
                   </span>
-                  <button type="button" disabled={valeur >= max} aria-label={`Rendre un ${l.libelle} de plus`}
-                    onClick={() => setQuantites({ ...quantites, [l.id]: Math.min(valeur + 1, max) })}
-                    style={rond}>+</button>
                 </div>
               );
             })}
