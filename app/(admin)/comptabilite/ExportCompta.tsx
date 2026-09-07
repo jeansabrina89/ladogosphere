@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 
-export default function ExportCompta() {
+export default function ExportCompta({ annees }: { annees: number[] }) {
   const [mois, setMois] = useState("");
-  const [annee, setAnnee] = useState(new Date().getFullYear().toString());
+  const [annee, setAnnee] = useState(String(annees[0] ?? new Date().getFullYear()));
   const [erreur, setErreur] = useState<string | null>(null);
 
   const handleExport = () => {
@@ -35,7 +35,7 @@ export default function ExportCompta() {
 
       <select value={annee} onChange={e => setAnnee(e.target.value)}
         className="border rounded-lg p-2 text-sm">
-        {[2024, 2025, 2026, 2027].map(a => (
+        {annees.map(a => (
           <option key={a} value={a}>{a}</option>
         ))}
       </select>

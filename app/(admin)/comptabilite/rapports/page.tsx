@@ -8,6 +8,7 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import BoutonCloture from "./BoutonCloture";
+import { anneesExercices } from "@/src/lib/exercices";
 
 const chf = (n: number) => `${n.toFixed(2)} CHF`;
 
@@ -24,6 +25,7 @@ export default async function RapportsPage({
   if (profile?.role !== "admin") redirect("/");
 
   const params = await searchParams;
+  const anneesDisponibles = await anneesExercices();
   const annee = parseInt(params.annee || String(new Date().getFullYear()));
   const anneeCourante = new Date().getFullYear();
 
@@ -73,7 +75,7 @@ export default async function RapportsPage({
 
         <div className="flex items-center gap-2 mb-6 flex-wrap">
           <span className="text-sm font-semibold" style={{ color: marine }}>Exercice :</span>
-          {[2025, 2026, 2027, 2028].map(a => (
+          {anneesDisponibles.map(a => (
             <a key={a} href={`/comptabilite/rapports?annee=${a}`}
               className="px-3 py-1 rounded-lg text-sm font-semibold transition"
               style={{ backgroundColor: a === annee ? marine : "white", color: a === annee ? "white" : marine, border: bordure }}>

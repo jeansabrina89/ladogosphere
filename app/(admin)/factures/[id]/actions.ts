@@ -51,7 +51,6 @@ export async function marquerFactureReglee(
     if (!r) continue;
     const fd = new FormData();
     fd.set("reservation_id", ligne.reservation_id);
-    fd.set("client_id", r.client_id ?? "");
     fd.set("montant_paye", String(montantDuReservation(r)));
     fd.set("date_paiement", today);
     fd.set("mode_paiement", mode);

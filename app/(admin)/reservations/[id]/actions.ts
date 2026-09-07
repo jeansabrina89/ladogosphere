@@ -15,6 +15,9 @@ import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { rafraichirFactureBrouillon } from "@/src/lib/factureResa";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
+import { verifierDatePaiement } from "@/src/lib/datePaiement";
+import { anneesExercicesOuverts } from "@/src/lib/exercices";
+import { synchroniserComptaAvoir } from "@/src/lib/comptaAvoir";
 
 async function verifierAdmin(): Promise<{ error?: string; userId?: string }> {
   const supabase = await createSupabaseServerClient();
@@ -76,15 +79,22 @@ async function recalculerTotalEtPaiement(reservationId: string, createdBy?: stri
     const tropPercu = montantPaye - nouveauTotal;
     if (!reservation.client_id) return { error: "Client introuvable (impossible de créditer le trop-perçu)." };
 
-    const { error: mvtError } = await supabaseAdmin.from("avoirs_mouvements").insert({
-      client_id: reservation.client_id,
-      montant: tropPercu,
-      type: "trop_percu",
-      motif: `Trop-perçu — modification montant résa #${reservation.numero}`,
-      reservation_id: reservationId,
-      created_by: createdBy ?? null,
-    });
+    const { data: mvt, error: mvtError } = await supabaseAdmin
+      .from("avoirs_mouvements")
+      .insert({
+        client_id: reservation.client_id,
+        montant: tropPercu,
+        type: "trop_percu",
+        motif: `Trop-perçu — modification montant résa #${reservation.numero}`,
+        reservation_id: reservationId,
+        created_by: createdBy ?? null,
+      })
+      .select("id")
+      .single();
     if (mvtError) return { error: mvtError.message };
+
+    // Le trop-perçu devient une dette envers le client : D 1100 / C 2035.
+    await synchroniserComptaAvoir(mvt.id, createdBy ?? null);
 
     nouveauMontantPaye = nouveauTotal;
     statut = "paye";
@@ -127,7 +137,6 @@ export async function enregistrerPaiement(formData: FormData, cleIdempotence?: s
   if (verif.error) return verif;
 
   const reservation_id = formData.get("reservation_id") as string;
-  const client_id = (formData.get("client_id") as string) || null;
   const montantSaisi = parseFloat((formData.get("montant_paye") as string) || "0");
   const date_paiement = (formData.get("date_paiement") as string) || null;
   const mode = ((formData.get("mode_paiement") as string) || "").trim() || null;
@@ -137,10 +146,26 @@ export async function enregistrerPaiement(formData: FormData, cleIdempotence?: s
 
   const { data: reservation, error: resError } = await supabaseAdmin
     .from("reservations")
-    .select("montant_final, montant_calcule, statut, montant_paye")
+    .select("client_id, created_at, montant_final, montant_calcule, statut, montant_paye")
     .eq("id", reservation_id)
     .single();
   if (resError || !reservation) return { error: "Réservation introuvable." };
+
+  // Le client est LU sur la réservation, jamais reçu du navigateur.
+  const client_id = (reservation.client_id as string | null) ?? null;
+  if (!client_id) return { error: "Réservation sans client : paiement impossible." };
+
+  // Bornes de la date de paiement : jamais avant l'enregistrement de la
+  // réservation (un acompte peut précéder le séjour, pas la réservation),
+  // jamais dans le futur, jamais dans un exercice clôturé.
+  if (date_paiement) {
+    const verdict = verifierDatePaiement(date_paiement, {
+      datePiece: (reservation.created_at as string | null)?.slice(0, 10) ?? null,
+      aujourdhui: new Date().toISOString().split("T")[0],
+      exercicesOuverts: await anneesExercicesOuverts(),
+    });
+    if (!verdict.ok) return { error: verdict.message };
+  }
 
   if (reservation.statut === "annulee") {
     return { error: "Réservation annulée : aucun nouveau paiement ni avoir ne peut être appliqué. Utilisez « Annuler le paiement » pour corriger." };
@@ -196,7 +221,7 @@ export async function enregistrerPaiement(formData: FormData, cleIdempotence?: s
     }
   }
 
-  await synchroniserComptaResa(reservation_id, date_paiement || undefined);
+  await synchroniserComptaResa(reservation_id, date_paiement || undefined, verif.userId ?? null);
 
   revalidatePath(`/reservations/${reservation_id}`);
   return {};
@@ -684,10 +709,24 @@ export async function supprimerReservationDefinitivement(formData: FormData): Pr
     return { error: "Un paiement est rattaché à cette réservation : impossible de supprimer." };
   }
 
-  const { count: facturesCount, error: factureErr } = await supabaseAdmin
-    .from("factures").select("id", { count: "exact", head: true }).eq("reservation_id", id);
+  // Le lien facture ↔ réservation passe par facture_reservations : `factures.reservation_id`
+  // est toujours nul pour une facture groupée, la garde ne voyait donc rien.
+  const { data: lignesFacture, error: factureErr } = await supabaseAdmin
+    .from("facture_reservations")
+    .select("facture_annulee")
+    .eq("reservation_id", id);
   if (factureErr) return { error: factureErr.message };
-  if ((facturesCount ?? 0) > 0) return { error: "Une facture est liée à cette réservation : impossible de supprimer." };
+  if ((lignesFacture ?? []).some((l) => l.facture_annulee === false)) {
+    return { error: "Une facture est liée à cette réservation : impossible de supprimer." };
+  }
+  if ((lignesFacture ?? []).length > 0) {
+    return { error: "Une facture annulée référence encore cette réservation : elle doit rester traçable, la suppression est impossible." };
+  }
+
+  const { count: paiementsCount, error: paiementErr } = await supabaseAdmin
+    .from("paiements_resa").select("id", { count: "exact", head: true }).eq("reservation_id", id);
+  if (paiementErr) return { error: paiementErr.message };
+  if ((paiementsCount ?? 0) > 0) return { error: "Le journal des paiements contient des mouvements pour cette réservation : impossible de supprimer." };
 
   const { count: avoirsCount, error: avoirErr } = await supabaseAdmin
     .from("avoirs_mouvements").select("id", { count: "exact", head: true }).eq("reservation_id", id);
@@ -697,7 +736,7 @@ export async function supprimerReservationDefinitivement(formData: FormData): Pr
   const { count: cotisationsCount, error: cotisationErr } = await supabaseAdmin
     .from("cotisations_membres").select("id", { count: "exact", head: true }).eq("reservation_id", id);
   if (cotisationErr) return { error: cotisationErr.message };
-  if ((cotisationsCount ?? 0) > 0) return { error: "Une cotisation est liée à cette réservation : impossible de supprimer." };
+  if ((cotisationsCount ?? 0) > 0) return { error: "Une adhésion est liée à cette réservation : impossible de supprimer." };
 
   // ── 3. Suppression dans l'ordre (lignes liées avant la réservation) ───────
   const { error: e1 } = await supabaseAdmin.from("reservation_extras").delete().eq("reservation_id", id);

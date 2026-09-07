@@ -168,9 +168,9 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
     message_final: "En cas d'imprévu, contactez-nous au plus vite. À demain ! 🐾",
   },
   rappel_cotisation: {
-    sujet: "⭐ Renouvellement de votre cotisation membre",
+    sujet: "⭐ Renouvellement de votre adhésion membre",
     titre: "Bonjour {prenom} ! ⭐",
-    intro: "Votre cotisation membre La Dogosphère est échue depuis le <strong>{date_fin}</strong>.",
+    intro: "Votre adhésion membre La Dogosphère est échue depuis le <strong>{date_fin}</strong>.",
     message_final: "Merci pour votre fidélité ! Nous espérons vous accueillir encore longtemps. 🐶",
   },
   relance_paiement: {
@@ -204,7 +204,7 @@ export const MODELES_META: { type: string; label: string; variables: string[] }[
   { type: "essai_valide", label: "Journée d'essai — validée", variables: ["prenom", "nom_chien", "montant"] },
   { type: "essai_seconde_journee", label: "Journée d'essai — seconde journée", variables: ["prenom", "nom_chien"] },
   { type: "rappel_veille", label: "Rappel la veille", variables: ["prenom", "nom_chien", "date_debut"] },
-  { type: "rappel_cotisation", label: "Rappel cotisation", variables: ["prenom", "nom", "date_fin", "montant"] },
+  { type: "rappel_cotisation", label: "Rappel adhésion", variables: ["prenom", "nom", "date_fin", "montant"] },
   { type: "relance_paiement", label: "Relance paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
   { type: "rappel_paiement_1", label: "1er rappel paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
   { type: "rappel_paiement_2", label: "2ème rappel paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
@@ -806,13 +806,13 @@ const VARIANTES_RAPPEL_COTISATION = {
   echue: {
     titre: "Bonjour {prenom} ! ⭐",
     intro:
-      "Votre cotisation membre La Dogosphère est arrivée à échéance le <strong>{date_fin}</strong>. " +
+      "Votre adhésion membre La Dogosphère est arrivée à échéance le <strong>{date_fin}</strong>. " +
       "Renouvelez-la pour continuer à profiter des tarifs membres.",
   },
   rappel: {
     titre: "Bonjour {prenom}, petit rappel ⭐",
     intro:
-      "Votre cotisation membre La Dogosphère est échue depuis un mois (échéance le <strong>{date_fin}</strong>). " +
+      "Votre adhésion membre La Dogosphère est échue depuis un mois (échéance le <strong>{date_fin}</strong>). " +
       "Sans renouvellement, les tarifs membres ne s'appliquent plus à vos réservations.",
   },
 } as const;
@@ -839,7 +839,7 @@ export async function envoyerEmailRappelCotisation({
   // l'échéance), pour que le virement soit rattachable sans ambiguïté.
   const debutNouvellePeriode = ajouterJoursISO(date_fin, 1);
   const [anneeRef, moisRef] = debutNouvellePeriode.split("-");
-  const referencePaiement = `${prenom} ${nom} Cotisation ${moisRef}.${anneeRef}`;
+  const referencePaiement = `${prenom} ${nom} Adhesion ${moisRef}.${anneeRef}`;
   await envoyerEmail({
     destinataire: email,
     type: "rappel_cotisation",
@@ -855,14 +855,14 @@ export async function envoyerEmailRappelCotisation({
         <table cellpadding="0" cellspacing="0" style="width:100%;">
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Statut actuel</td>
-            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">⏳ Cotisation échue</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">⏳ Adhésion échue</td>
           </tr>
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px;">Échue le</td>
             <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${finLisible}</td>
           </tr>
           <tr>
-            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Renouvellement de la cotisation</td>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Renouvellement de l'adhésion</td>
             <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">CHF ${montant.toFixed(2)}</td>
           </tr>
         </table>

@@ -25,7 +25,7 @@ export default function BadgeMembre({
   }
   if (compact) {
     return (
-      <span style={{ marginLeft: 4, fontSize: 12 }} title={aJour ? "Membre à jour" : "Cotisation à renouveler"}>
+      <span style={{ marginLeft: 4, fontSize: 12 }} title={aJour ? "Membre à jour" : "Adhésion à renouveler"}>
         {aJour ? "⭐" : "🔔"}
       </span>
     );

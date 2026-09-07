@@ -5,6 +5,8 @@ import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { synchroniserComptaCotisation } from "@/src/lib/comptaCotisation";
 import { calculerPeriodeCotisation } from "@/src/lib/cotisationPeriode";
 import { aujourdhuiISO } from "@/src/lib/dates";
+import { verifierDatePaiement } from "@/src/lib/datePaiement";
+import { anneesExercicesOuverts } from "@/src/lib/exercices";
 
 // Confirmer le paiement d'une adhésion : passe en "payee"
 export async function POST(
@@ -26,11 +28,21 @@ export async function POST(
 
     const { data: cotisation } = await supabaseAdmin
       .from("cotisations_membres")
-      .select("client_id")
+      .select("client_id, created_at")
       .eq("id", id)
       .maybeSingle();
     if (!cotisation) {
       return NextResponse.json({ error: "Cotisation introuvable" }, { status: 404 });
+    }
+
+    // Bornes de la date d'encaissement (mêmes règles que pour une réservation).
+    const verdictDate = verifierDatePaiement(date_paiement || aujourdhuiISO(), {
+      datePiece: (cotisation.created_at as string | null)?.slice(0, 10) ?? null,
+      aujourdhui: aujourdhuiISO(),
+      exercicesOuverts: await anneesExercicesOuverts(),
+    });
+    if (!verdictDate.ok) {
+      return NextResponse.json({ error: verdictDate.message }, { status: 400 });
     }
 
     // Date d'encaissement = celle fournie, sinon aujourd'hui. La période de

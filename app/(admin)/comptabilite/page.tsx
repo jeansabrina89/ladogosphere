@@ -10,6 +10,7 @@ import { clientsMembresAJour } from "@/src/lib/membre";
 import { formatPeriodeCotisation } from "@/src/lib/cotisationPeriode";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import NomClientLien from "@/app/components/NomClientLien";
+import { anneesExercices } from "@/src/lib/exercices";
 
 export default async function ComptabilitePage({
   searchParams,
@@ -26,6 +27,8 @@ export default async function ComptabilitePage({
   if (profile?.role !== "admin") redirect("/");
 
   const params = await searchParams;
+  // Les années proposées viennent de la table exercices, jamais d'une liste en dur.
+  const anneesDisponibles = await anneesExercices();
   const annee = parseInt(params.annee || new Date().getFullYear().toString());
   const moisFiltre = params.mois ? parseInt(params.mois) : null;
   const anneePrec = annee - 1;
@@ -227,9 +230,9 @@ export default async function ComptabilitePage({
     return d.getFullYear() === annee && (!moisFiltre || d.getMonth() + 1 === moisFiltre);
   }) ?? [];
 
-  const caFacturePeriode = resPeriodeFacture.reduce((s, r) => {
-    return s + Number(r.montant_final ?? r.montant_calcule ?? 0) + Number(r.ajustement_manuel ?? 0);
-  }, 0);
+  // montantDuReservation applique déjà l'ajustement manuel — et le montant final,
+  // quand il existe, l'inclut déjà : l'ajouter à nouveau comptait le geste deux fois.
+  const caFacturePeriode = resPeriodeFacture.reduce((s, r) => s + montantDuReservation(r), 0);
   const caEncaissePeriode = resPeriodeEncaisse.reduce((s, r) => s + Number(r.montant_paye ?? 0), 0);
   const totalCotisFiltrees = cotisationsFiltrees?.reduce((s, c) => s + Number(c.montant), 0) ?? 0;
   const totalEncaissePeriode = caEncaissePeriode + totalCotisFiltrees;
@@ -252,7 +255,7 @@ export default async function ComptabilitePage({
             <div className="flex items-center gap-2 bg-white rounded-[18px] p-3 border border-[rgba(27,43,94,0.12)]">
               <label className="text-sm font-semibold" style={{ color: "#1B2B5E" }}>Année :</label>
               <div className="flex gap-1">
-                {[2025, 2026, 2027, 2028].map(a => (
+                {anneesDisponibles.map(a => (
                   <a key={a} href={`/comptabilite?annee=${a}`}
                     className="px-3 py-1 rounded-lg text-sm font-semibold transition"
                     style={{
@@ -264,7 +267,7 @@ export default async function ComptabilitePage({
                 ))}
               </div>
             </div>
-            <ExportCompta />
+            <ExportCompta annees={anneesDisponibles} />
             <a href="/comptabilite/journal" className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: "#1B2B5E" }}>📒 Journal comptable</a>
             <a href="/comptabilite/rapports" className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: "#2E8B7E" }}>📊 Rapports</a>
             <a href="/comptabilite/reconciliation" className="px-4 py-2 rounded-xl text-sm font-semibold text-white" style={{ backgroundColor: "#C9A84C" }}>🔄 Réconciliation</a>

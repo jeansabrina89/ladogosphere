@@ -32,7 +32,7 @@ export async function demanderAdhesion(mode: "virement" | "prochaine_resa") {
   const active = await cotisationActive(supabaseAdmin, client.id, aujourdhui);
   if (active && joursEntre(aujourdhui, active.date_fin) > JOURS_FENETRE_RENOUVELLEMENT) {
     return {
-      error: `Votre cotisation est valable jusqu'au ${formatDateLong(active.date_fin)}. Le renouvellement sera possible dans les ${JOURS_FENETRE_RENOUVELLEMENT} derniers jours.`,
+      error: `Votre adhésion est valable jusqu'au ${formatDateLong(active.date_fin)}. Le renouvellement sera possible dans les ${JOURS_FENETRE_RENOUVELLEMENT} derniers jours.`,
     };
   }
 
@@ -87,7 +87,7 @@ export async function commanderAbonnement(categorie: string): Promise<{ ok?: boo
   }
 
   const membre = await estMembreActif(supabaseAdmin, client.id);
-  if (!membre) return { error: "Reserve aux membres a jour de cotisation." };
+  if (!membre) return { error: "Réservé aux membres à jour d'adhésion." };
 
   const { data: chiens } = await supabaseAdmin
     .from("chiens")

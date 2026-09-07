@@ -25,6 +25,28 @@ describe("montantDuReservation", () => {
   it("ajustement_manuel absent = 0", () => {
     expect(montantDuReservation({ montant_calcule: 70 })).toBe(70);
   });
+
+  // Le piège du CA facturé : la carte de comptabilité rajoutait l'ajustement
+  // manuel APRÈS le helper, alors que celui-ci l'a déjà appliqué.
+  it("l'ajustement manuel n'est compté qu'une fois, jamais deux", () => {
+    const resa = { montant_final: null, montant_calcule: 100, ajustement_manuel: -30 };
+    const parLeHelper = montantDuReservation(resa);
+    const ancienCalculFautif =
+      Number(resa.montant_final ?? resa.montant_calcule ?? 0) + Number(resa.ajustement_manuel ?? 0);
+
+    expect(parLeHelper).toBe(70);
+    expect(ancienCalculFautif).toBe(70); // par hasard identique tant que montant_final est nul…
+  });
+
+  it("dès que montant_final est figé, l'ancien calcul comptait le geste deux fois", () => {
+    // montant_final = 100 - 30 : le geste commercial est DÉJÀ dedans.
+    const resa = { montant_final: 70, montant_calcule: 100, ajustement_manuel: -30 };
+    const ancienCalculFautif =
+      Number(resa.montant_final ?? resa.montant_calcule ?? 0) + Number(resa.ajustement_manuel ?? 0);
+
+    expect(montantDuReservation(resa)).toBe(70);
+    expect(ancienCalculFautif).toBe(40);
+  });
 });
 
 describe("resteAPayer", () => {

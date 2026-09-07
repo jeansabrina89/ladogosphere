@@ -222,12 +222,12 @@ export default async function MonComptePage() {
           <div style={{ marginBottom: "32px" }}>
             <Carte>
               <p style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 18, fontWeight: 700, color: "#1B2B5E", margin: "0 0 4px" }}>
-                {estRenouvellement ? "★ Renouveler ma cotisation" : "★ Devenir membre"}
+                {estRenouvellement ? "★ Renouveler mon adhésion" : "★ Devenir membre"}
               </p>
               <p style={{ fontSize: 13, color: "rgba(27,43,94,0.6)", margin: "0 0 4px" }}>
                 {estRenouvellement
-                  ? `Ta cotisation prend fin le ${formatDateLong(cotisationEnCours!.date_fin)}. La cotisation annuelle de ${montantCotisation} CHF te donne accès aux tarifs membres sur toutes tes réservations.`
-                  : `La cotisation annuelle de ${montantCotisation} CHF te donne accès aux tarifs membres sur toutes tes réservations.`}
+                  ? `Ton adhésion prend fin le ${formatDateLong(cotisationEnCours!.date_fin)}. L'adhésion annuelle de ${montantCotisation} CHF te donne accès aux tarifs membres sur toutes tes réservations.`
+                  : `L'adhésion annuelle de ${montantCotisation} CHF te donne accès aux tarifs membres sur toutes tes réservations.`}
               </p>
               <BoutonDemanderAdhesion montant={montantCotisation} renouvellement={estRenouvellement} />
             </Carte>

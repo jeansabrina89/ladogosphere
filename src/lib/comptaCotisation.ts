@@ -7,7 +7,7 @@ import { calculerLignesCotisation, estModeLiquideDirect, type LigneExistante } f
  * Ne throw jamais (Sentry). Garde anti-doublon : une adhésion liée à une
  * réservation est comptabilisée via la réservation (Partie A) → on n'y touche pas.
  */
-export async function synchroniserComptaCotisation(cotisationId: string, dateOperation?: string): Promise<void> {
+export async function synchroniserComptaCotisation(cotisationId: string, dateOperation?: string, createdBy?: string | null): Promise<void> {
   try {
     const { data: cotis } = await supabaseAdmin
       .from("cotisations_membres")
@@ -41,6 +41,7 @@ export async function synchroniserComptaCotisation(cotisationId: string, dateOpe
       p_piece_type: "cotisation",
       p_piece_id: cotisationId,
       p_lignes: lignesEcriture,
+      p_created_by: createdBy ?? null,
     });
     if (error) throw error;
   } catch (e: any) {

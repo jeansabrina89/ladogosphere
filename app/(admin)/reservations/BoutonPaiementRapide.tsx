@@ -6,12 +6,10 @@ import { enregistrerPaiement } from "./[id]/actions";
 
 export default function BoutonPaiementRapide({
   reservation_id,
-  client_id,
   montant_final,
   statut_paiement,
 }: {
   reservation_id: string;
-  client_id?: string;
   montant_final: number | null;
   statut_paiement: string | null;
 }) {
@@ -24,14 +22,20 @@ export default function BoutonPaiementRapide({
     if (!mode) { alert("Choisis un mode de paiement."); return; }
     setLoading(true);
 
+    const montant = (montant_final ?? 0).toString();
+    const date = new Date().toISOString().split("T")[0];
+
+    // Le client n'est pas envoyé par le navigateur : l'action le lit sur la réservation.
     const formData = new FormData();
     formData.set("reservation_id", reservation_id);
-    formData.set("client_id", client_id || "");
-    formData.set("montant_paye", (montant_final ?? 0).toString());
-    formData.set("date_paiement", new Date().toISOString().split("T")[0]);
+    formData.set("montant_paye", montant);
+    formData.set("date_paiement", date);
     formData.set("mode_paiement", mode);
 
-    const res = await enregistrerPaiement(formData);
+    // Clé d'idempotence : un double clic rejoue le même paiement, il n'en crée pas deux.
+    const cleIdempotence = [reservation_id, montant, date, mode].join(":");
+
+    const res = await enregistrerPaiement(formData, cleIdempotence);
     if (res?.error) {
       alert(res.error);
       setLoading(false);
@@ -74,9 +78,8 @@ export default function BoutonPaiementRapide({
                 <option value="">-- Choisir --</option>
                 <option value="twint">Twint</option>
                 <option value="cash">Cash</option>
-                <option value="iban">Virement IBAN</option>
+                <option value="virement">Virement</option>
                 <option value="stripe">Stripe</option>
-                <option value="autre">Autre</option>
               </select>
             </div>
 

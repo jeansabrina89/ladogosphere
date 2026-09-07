@@ -12,7 +12,7 @@ async function marquer(abonnementId: string, ok: boolean, erreur?: string) {
 
 // Synchronise les ecritures comptables d'un abonnement (idempotent).
 // Ne throw jamais : les erreurs sont tracees dans abonnements.compta_erreur.
-export async function synchroniserComptaAbonnement(abonnementId: string, dateOperation?: string): Promise<void> {
+export async function synchroniserComptaAbonnement(abonnementId: string, dateOperation?: string, createdBy?: string | null): Promise<void> {
   const dateEcriture = dateOperation ?? new Date().toISOString().split("T")[0];
   const today = new Date().toISOString().split("T")[0];
 
@@ -67,6 +67,7 @@ export async function synchroniserComptaAbonnement(abonnementId: string, dateOpe
       p_piece_type: "abonnement",
       p_piece_id: abonnementId,
       p_lignes: lignesEcriture,
+      p_created_by: createdBy ?? null,
     });
     if (error) throw error;
 

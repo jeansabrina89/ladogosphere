@@ -6,7 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * ce libellé de blocage cite la valeur courante de 200.-.)
  */
 export const MESSAGE_ADHESION_REQUISE =
-  "Adhésion requise : la cotisation annuelle (200.-) doit être réglée avant de pouvoir réserver.";
+  "Adhésion requise : l'adhésion annuelle (200.-) doit être réglée avant de pouvoir réserver.";
 
 /**
  * Règle métier (pure, testable) : un client peut créer une réservation si et

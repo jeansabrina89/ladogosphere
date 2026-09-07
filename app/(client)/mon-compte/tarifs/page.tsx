@@ -210,11 +210,11 @@ export default async function TarifsClientPage() {
 
           {peutDemander && (
             <Carte>
-              <p style={sSecTitre}>{estRenouvellement ? "★ Renouveler ma cotisation" : "★ Devenir membre"}</p>
+              <p style={sSecTitre}>{estRenouvellement ? "★ Renouveler mon adhésion" : "★ Devenir membre"}</p>
               <p style={sSecSous}>
                 {estRenouvellement
-                  ? `Ta cotisation prend fin le ${formatDateLong(cotisationEnCours!.date_fin)}. La cotisation annuelle de ${cotisation || 200} CHF est obligatoire pour pouvoir réserver (hors journée d'essai).`
-                  : `La cotisation annuelle de ${cotisation || 200} CHF est obligatoire pour pouvoir réserver (hors journée d'essai).`}
+                  ? `Ton adhésion prend fin le ${formatDateLong(cotisationEnCours!.date_fin)}. L'adhésion annuelle de ${cotisation || 200} CHF est obligatoire pour pouvoir réserver (hors journée d'essai).`
+                  : `L'adhésion annuelle de ${cotisation || 200} CHF est obligatoire pour pouvoir réserver (hors journée d'essai).`}
               </p>
               <BoutonDemanderAdhesion montant={cotisation} renouvellement={estRenouvellement} />
             </Carte>

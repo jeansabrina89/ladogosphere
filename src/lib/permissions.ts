@@ -52,6 +52,48 @@ export async function verifierPermission(
   return { error: "Accès réservé à l'admin" };
 }
 
+/**
+ * Réservé à l'admin, sans délégation possible à un employé.
+ * Pour les gestes comptables sensibles (resynchronisation, export du grand livre).
+ */
+export async function verifierAdmin(): Promise<{ error?: string; userId?: string }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Non connecté" };
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (profile?.role !== "admin") return { error: "Accès réservé à l'admin" };
+  return { userId: user.id };
+}
+
+/** Même règle que verifierAdmin, côté Route Handler. */
+export async function exigerAdminApi(supabase: any): Promise<NextResponse | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (profile?.role !== "admin") {
+    return NextResponse.json({ error: "Accès réservé à l'admin" }, { status: 403 });
+  }
+  return null;
+}
+
+/**
+ * Id du profil connecté, ou null (traitement automatique / trigger).
+ * Sert à renseigner created_by sur les écritures comptables.
+ */
+export async function idUtilisateurCourant(): Promise<string | null> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id ?? null;
+}
+
 // ── Profile Permissions ──────────────────────────────────────────────────────
 
 export type ProfilePerms = {

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "backup:data": "node scripts/sauvegarde-donnees.mjs"
+    "backup:data": "node scripts/sauvegarde-donnees.mjs",
+    "backup:schema": "node scripts/sauvegarde-schema.mjs"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.60.0",

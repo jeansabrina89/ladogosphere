@@ -7,24 +7,24 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Non connecte." }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return NextResponse.json({ error: "Acces reserve a l administration." }, { status: 403 });
+  if (profile?.role !== "admin") return NextResponse.json({ error: "Accès réservé à l'administration." }, { status: 403 });
 
   let body: { annee?: number };
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Requete invalide." }, { status: 400 }); }
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Requête invalide." }, { status: 400 }); }
   const annee = Number(body.annee);
-  if (!annee || !Number.isInteger(annee)) return NextResponse.json({ error: "Annee invalide." }, { status: 400 });
+  if (!annee || !Number.isInteger(annee)) return NextResponse.json({ error: "Année invalide." }, { status: 400 });
 
   const anneeCourante = new Date().getFullYear();
   if (annee >= anneeCourante) {
-    return NextResponse.json({ error: "On ne peut cloturer qu un exercice ecoule (annee passee)." }, { status: 400 });
+    return NextResponse.json({ error: "On ne peut clôturer qu'un exercice écoulé (année passée)." }, { status: 400 });
   }
 
   // Deja cloture ?
   const { data: exExist } = await supabaseAdmin.from("exercices").select("statut").eq("annee", annee).maybeSingle();
   if (exExist?.statut === "cloture") {
-    return NextResponse.json({ error: `L exercice ${annee} est deja cloture.` }, { status: 400 });
+    return NextResponse.json({ error: `L'exercice ${annee} est déjà clôturé.` }, { status: 400 });
   }
 
   // Cloture sequentielle : l annee precedente doit etre cloturee si elle contient des ecritures
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   if ((nbPrec ?? 0) > 0) {
     const { data: exPrec } = await supabaseAdmin.from("exercices").select("statut").eq("annee", annee - 1).maybeSingle();
     if (exPrec?.statut !== "cloture") {
-      return NextResponse.json({ error: `Cloture d abord l exercice ${annee - 1}.` }, { status: 400 });
+      return NextResponse.json({ error: `Clôturez d'abord l'exercice ${annee - 1}.` }, { status: 400 });
     }
   }
 
@@ -93,10 +93,11 @@ export async function POST(req: NextRequest) {
   if (lignes.length > 0) {
     const { error: errEcr } = await supabaseAdmin.rpc("passer_ecriture", {
       p_date: `${annee}-12-31`,
-      p_libelle: `Cloture exercice ${annee}`,
+      p_libelle: `Clôture exercice ${annee}`,
       p_piece_type: "cloture",
       p_piece_id: null,
       p_lignes: lignes,
+      p_created_by: user.id,
     });
     if (errEcr) return NextResponse.json({ error: errEcr.message }, { status: 400 });
   }

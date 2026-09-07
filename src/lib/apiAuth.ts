@@ -1,1 +1,1 @@
-export { exigerPersonnel, exigerPermissionApi } from "./permissions";
+export { exigerPersonnel, exigerPermissionApi, exigerAdminApi } from "./permissions";

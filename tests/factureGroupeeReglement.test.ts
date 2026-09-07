@@ -49,6 +49,11 @@ vi.mock("@/src/lib/supabase-admin", () => {
       },
       update: (vals: any) => { ctx.op = "update"; ctx.vals = vals; return chain; },
       eq: (col: string, val: any) => { ctx.filters[col] = val; return chain; },
+      // Exercices ouverts (bornes de la date de paiement) : année en cours ouverte.
+      order: () => Promise.resolve({
+        data: table === "exercices" ? [{ annee: new Date().getFullYear() }] : [],
+        error: null,
+      }),
       single: () => Promise.resolve({ data: resolveSingle(ctx), error: null }),
       maybeSingle: () => Promise.resolve({ data: resolveSingle(ctx), error: null }),
       // Terminal pour update().eq() (awaité sans single).

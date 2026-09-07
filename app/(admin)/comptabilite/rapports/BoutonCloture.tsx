@@ -11,7 +11,7 @@ export default function BoutonCloture({ annee }: { annee: number }) {
   const cloturer = async () => {
     if (
       !confirm(
-        `Cloturer definitivement l exercice ${annee} ?\n\nCette action passe l ecriture de cloture (resultat vers le report a nouveau) et VERROUILLE l annee : plus aucune ecriture ne pourra y etre ajoutee.`
+        `Clôturer définitivement l'exercice ${annee} ?\n\nCette action passe l'écriture de clôture (résultat vers le report à nouveau) et VERROUILLE l'année : plus aucune écriture ne pourra y être ajoutée.`
       )
     )
       return;
@@ -25,7 +25,7 @@ export default function BoutonCloture({ annee }: { annee: number }) {
     setLoading(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      setError(d.error ?? "Erreur lors de la cloture.");
+      setError(d.error ?? "Erreur lors de la clôture.");
       return;
     }
     router.refresh();
@@ -42,7 +42,7 @@ export default function BoutonCloture({ annee }: { annee: number }) {
         className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
         style={{ backgroundColor: "#1B2B5E" }}
       >
-        {loading ? "Cloture..." : `🔒 Cloturer l exercice ${annee}`}
+        {loading ? "Clôture…" : `🔒 Clôturer l'exercice ${annee}`}
       </button>
     </div>
   );

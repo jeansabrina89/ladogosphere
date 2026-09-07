@@ -12,7 +12,7 @@ async function marquerStatutCompta(reservationId: string, ok: boolean, erreur?: 
 
 // Synchronise les ecritures comptables d'une reservation (idempotent).
 // Ne throw jamais : les erreurs sont tracees dans reservations.compta_erreur.
-export async function synchroniserComptaResa(reservationId: string, dateOperation?: string): Promise<void> {
+export async function synchroniserComptaResa(reservationId: string, dateOperation?: string, createdBy?: string | null): Promise<void> {
   const dateEcriture = dateOperation ?? new Date().toISOString().split("T")[0];
 
   try {
@@ -69,6 +69,7 @@ export async function synchroniserComptaResa(reservationId: string, dateOperatio
       p_piece_type: "reservation",
       p_piece_id: reservationId,
       p_lignes: lignesEcriture,
+      p_created_by: createdBy ?? null,
     });
     if (error) throw error;
 

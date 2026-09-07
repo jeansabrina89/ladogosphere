@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/server";
 import * as XLSX from "xlsx";
-import { exigerPersonnel } from "@/src/lib/apiAuth";
+import { exigerAdminApi } from "@/src/lib/apiAuth";
 import { lireParametresTVA, ventilerTVA } from "@/src/lib/tva";
 
 type Ligne = {
@@ -17,7 +17,7 @@ type Ligne = {
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
-  const garde = await exigerPersonnel(supabase);
+  const garde = await exigerAdminApi(supabase);
   if (garde) return garde;
 
   const { searchParams } = new URL(req.url);
@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
       "Date": dateISO,
       "Pièce": "Adhésion",
       "Client": client,
-      "Libellé": `Cotisation membre — ${client}`,
+      "Libellé": `Adhésion membre — ${client}`,
       "Mode": cot.mode_paiement || "—",
       "Montant TTC": v.ttc,
       "HT": v.ht,

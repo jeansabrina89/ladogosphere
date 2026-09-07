@@ -57,7 +57,7 @@ export default async function AdhesionsPage() {
   return (
     <main className="min-h-screen p-6 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-3xl mx-auto">
-        <EnTete titre="🎫 Demandes d'adhésion" sousTitre="Cotisations en attente de confirmation de paiement." />
+        <EnTete titre="🎫 Demandes d'adhésion" sousTitre="Adhésions en attente de confirmation de paiement." />
 
         {liste.length === 0 ? (
           <Carte>

@@ -8,9 +8,16 @@ import { getSoldeAvoir } from "@/src/lib/avoirs";
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { labelAbonnement } from "@/src/lib/abonnementsTypes";
 import { synchroniserComptaAbonnement } from "@/src/lib/comptaAbonnement";
+import { synchroniserComptaAvoir, contrePasserComptaAvoir } from "@/src/lib/comptaAvoir";
 
 // Types crédit (montant positif) vs débit (montant négatif)
 const TYPES_CREDIT = ["ajout_manuel", "annulation_paiement", "trop_percu"];
+
+// Seuls les gestes saisis à la main se corrigent à la main. Les mouvements
+// produits par l'application (utilisation, trop-perçu, annulation de paiement…)
+// sont le reflet d'une réservation : on les corrige par un mouvement inverse
+// motivé, jamais en réécrivant l'historique.
+const TYPES_MANUELS = ["ajout_manuel", "retrait_manuel"];
 
 export async function ajouterAvoir(formData: FormData): Promise<{ error?: string }> {
   const verif = await verifierPermission("perm_encaissements");
@@ -24,15 +31,22 @@ export async function ajouterAvoir(formData: FormData): Promise<{ error?: string
   if (!montant || montant <= 0) return { error: "Le montant doit être supérieur à 0." };
   if (!motif) return { error: "Le motif est requis." };
 
-  const { error } = await supabaseAdmin.from("avoirs_mouvements").insert({
-    client_id,
-    montant,
-    type: "ajout_manuel",
-    motif,
-    created_by: verif.userId ?? null,
-  });
+  const { data: mvt, error } = await supabaseAdmin
+    .from("avoirs_mouvements")
+    .insert({
+      client_id,
+      montant,
+      type: "ajout_manuel",
+      motif,
+      created_by: verif.userId ?? null,
+    })
+    .select("id")
+    .single();
 
   if (error) return { error: error.message };
+
+  // Geste commercial : D 3800 diminutions de produits / C 2035 avoirs clients.
+  await synchroniserComptaAvoir(mvt.id, verif.userId ?? null);
 
   revalidatePath(`/clients/${client_id}`);
   return {};
@@ -55,15 +69,22 @@ export async function retirerAvoir(formData: FormData): Promise<{ error?: string
     return { error: `Retrait impossible : le solde actuel (CHF ${solde.toFixed(2)}) est insuffisant.` };
   }
 
-  const { error } = await supabaseAdmin.from("avoirs_mouvements").insert({
-    client_id,
-    montant: -montant,
-    type: "retrait_manuel",
-    motif,
-    created_by: verif.userId ?? null,
-  });
+  const { data: mvt, error } = await supabaseAdmin
+    .from("avoirs_mouvements")
+    .insert({
+      client_id,
+      montant: -montant,
+      type: "retrait_manuel",
+      motif,
+      created_by: verif.userId ?? null,
+    })
+    .select("id")
+    .single();
 
   if (error) return { error: error.message };
+
+  // Reprise : D 2035 avoirs clients / C 3800 diminutions de produits.
+  await synchroniserComptaAvoir(mvt.id, verif.userId ?? null);
 
   revalidatePath(`/clients/${client_id}`);
   return {};
@@ -95,6 +116,12 @@ export async function modifierMouvementAvoir(formData: FormData): Promise<{ erro
     return { error: "Mouvement introuvable." };
   }
 
+  if (!TYPES_MANUELS.includes(ligne.type)) {
+    return {
+      error: "Ce mouvement est généré automatiquement par une réservation : il ne se modifie pas. Pour le corriger, saisissez un ajout ou un retrait d'avoir avec le motif.",
+    };
+  }
+
   // Calcule le montant signé selon le type (le signe ne change pas)
   const signe = TYPES_CREDIT.includes(ligne.type) ? 1 : -1;
   const nouveauMontantSigne = signe * Math.abs(nouveau_montant);
@@ -115,6 +142,9 @@ export async function modifierMouvementAvoir(formData: FormData): Promise<{ erro
 
   if (updateErr) return { error: updateErr.message };
 
+  // Le grand livre suit le nouveau montant (delta, pas de doublon).
+  await synchroniserComptaAvoir(mouvement_id, verif.userId ?? null);
+
   revalidatePath(`/clients/${client_id}`);
   return {};
 }
@@ -132,12 +162,18 @@ export async function supprimerMouvementAvoir(formData: FormData): Promise<{ err
   // Récupère la ligne et vérifie l'ownership
   const { data: ligne, error: fetchErr } = await supabaseAdmin
     .from("avoirs_mouvements")
-    .select("montant, client_id")
+    .select("montant, type, client_id")
     .eq("id", mouvement_id)
     .single();
 
   if (fetchErr || !ligne || ligne.client_id !== client_id) {
     return { error: "Mouvement introuvable." };
+  }
+
+  if (!TYPES_MANUELS.includes(ligne.type)) {
+    return {
+      error: "Ce mouvement est généré automatiquement par une réservation : il ne se supprime pas. Pour le corriger, saisissez un ajout ou un retrait d'avoir avec le motif.",
+    };
   }
 
   // Invariant : la suppression ne doit pas rendre le solde négatif
@@ -148,6 +184,10 @@ export async function supprimerMouvementAvoir(formData: FormData): Promise<{ err
       error: `Suppression impossible : le solde deviendrait négatif (CHF ${soldeApres.toFixed(2)}).`,
     };
   }
+
+  // Contre-passer AVANT de supprimer : après la suppression, la pièce n'existe
+  // plus et l'écriture resterait seule au grand livre.
+  await contrePasserComptaAvoir(mouvement_id, verif.userId ?? null);
 
   const { error: deleteErr } = await supabaseAdmin
     .from("avoirs_mouvements")
@@ -201,7 +241,7 @@ export async function confirmerPaiementAbonnement(
   });
   if (mvErr) return { error: mvErr.message };
 
-  await synchroniserComptaAbonnement(abonnementId);
+  await synchroniserComptaAbonnement(abonnementId, undefined, verif.userId ?? null);
 
   revalidatePath(`/clients/${abo.client_id}`);
   return { ok: true };
@@ -323,7 +363,7 @@ export async function supprimerAbonnement(
   if (upErr) return { error: upErr.message };
 
   // Contre-passe la compta si la carte avait été payée (idempotent, ne throw pas).
-  await synchroniserComptaAbonnement(abonnementId);
+  await synchroniserComptaAbonnement(abonnementId, undefined, verif.userId ?? null);
 
   revalidatePath(`/clients/${abo.client_id}`);
   return { ok: true };
@@ -372,7 +412,7 @@ export async function cloturerAbonnement(
   if (upErr) return { error: upErr.message };
 
   // Reconnaissance du montant non consommé en produit (statut 'expire' => rec = prix).
-  await synchroniserComptaAbonnement(abonnementId);
+  await synchroniserComptaAbonnement(abonnementId, undefined, verif.userId ?? null);
 
   revalidatePath(`/clients/${abo.client_id}`);
   return { ok: true };

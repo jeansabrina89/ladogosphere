@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
     .order("created_at", { ascending: true });
 
   type Ligne = {
-    "Date": string; "Ecriture": string; "Compte": string; "Libelle compte": string;
-    "Debit": number | string; "Credit": number | string;
+    "Date": string; "Écriture": string; "Compte": string; "Libellé compte": string;
+    "Débit": number | string; "Crédit": number | string;
   };
   const lignes: Ligne[] = [];
   let totalDebit = 0, totalCredit = 0;
@@ -42,18 +42,18 @@ export async function GET(req: NextRequest) {
       totalDebit += d; totalCredit += c;
       lignes.push({
         "Date": e.date_ecriture,
-        "Ecriture": e.libelle,
+        "Écriture": e.libelle,
         "Compte": l.compte_numero,
-        "Libelle compte": libelleCompte.get(l.compte_numero) ?? "",
-        "Debit": d ? Math.round(d * 100) / 100 : "",
-        "Credit": c ? Math.round(c * 100) / 100 : "",
+        "Libellé compte": libelleCompte.get(l.compte_numero) ?? "",
+        "Débit": d ? Math.round(d * 100) / 100 : "",
+        "Crédit": c ? Math.round(c * 100) / 100 : "",
       });
     }
   }
   lignes.push({
-    "Date": "", "Ecriture": "TOTAL", "Compte": "", "Libelle compte": "",
-    "Debit": Math.round(totalDebit * 100) / 100,
-    "Credit": Math.round(totalCredit * 100) / 100,
+    "Date": "", "Écriture": "TOTAL", "Compte": "", "Libellé compte": "",
+    "Débit": Math.round(totalDebit * 100) / 100,
+    "Crédit": Math.round(totalCredit * 100) / 100,
   });
 
   const wb = XLSX.utils.book_new();

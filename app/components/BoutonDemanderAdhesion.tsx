@@ -27,7 +27,7 @@ export default function BoutonDemanderAdhesion({ montant, renouvellement = false
         onClick={() => setOuvert(true)}
         style={{ backgroundColor: "#2E8B7E", color: "#fff", border: "none", padding: "10px 18px", borderRadius: 12, fontWeight: 600, fontSize: 14, cursor: "pointer", marginTop: 8 }}
       >
-        {renouvellement ? "★ Renouveler ma cotisation" : "★ Demander mon adhésion"}
+        {renouvellement ? "★ Renouveler mon adhésion" : "★ Demander mon adhésion"}
       </button>
 
       {ouvert && (
@@ -39,7 +39,7 @@ export default function BoutonDemanderAdhesion({ montant, renouvellement = false
             style={{ background: "#fff", borderRadius: 16, padding: 24, maxWidth: 380, width: "100%" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <p style={{ fontFamily: "Georgia, serif", fontSize: 18, fontWeight: 700, color: "#1B2B5E", margin: "0 0 6px" }}>{renouvellement ? "Renouveler ma cotisation" : "Demander mon adhésion"}</p>
+            <p style={{ fontFamily: "Georgia, serif", fontSize: 18, fontWeight: 700, color: "#1B2B5E", margin: "0 0 6px" }}>{renouvellement ? "Renouveler mon adhésion" : "Demander mon adhésion"}</p>
             <p style={{ fontSize: 13, color: "rgba(27,43,94,0.6)", margin: "0 0 18px" }}>
               Cotisation annuelle de {montant || 200} CHF. Comment souhaites-tu la régler ?
             </p>

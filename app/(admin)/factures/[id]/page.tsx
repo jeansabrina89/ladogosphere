@@ -47,10 +47,9 @@ export default async function FactureGroupeePage({
       *,
       clients (id, prenom, nom, adresse, email, telephone, membre),
       facture_reservations (
-        id, montant,
+        id, montant, reservation_id,
         reservations (numero, type_reservation, date_debut, date_fin)
-      ),
-      paiements (date_paiement, mode_paiement)
+      )
     `)
     .eq("id", id)
     .single();
@@ -65,8 +64,22 @@ export default async function FactureGroupeePage({
   const tvaData = ventilerTVA(Number(facture.montant_total), dateFactureISO, paramsTV);
 
   const lignes: any[] = facture.facture_reservations ?? [];
-  const paiements: any[] = facture.paiements ?? [];
-  const dernierPaiement = paiements[paiements.length - 1] ?? null;
+
+  // Le suivi du règlement vient du journal des paiements (paiements_resa) :
+  // la table `paiements` a été supprimée, l'embed la visant cassait la page.
+  const idsResa = lignes.map((l) => l.reservation_id).filter(Boolean);
+  const { data: mouvements } = idsResa.length
+    ? await supabaseAdmin
+        .from("paiements_resa")
+        .select("date_paiement, mode")
+        .in("reservation_id", idsResa)
+        .gt("montant", 0)
+        .order("date_paiement", { ascending: true })
+    : { data: [] as { date_paiement: string; mode: string }[] };
+  const dernier = (mouvements ?? [])[(mouvements ?? []).length - 1] ?? null;
+  const dernierPaiement = dernier
+    ? { date_paiement: dernier.date_paiement, mode_paiement: dernier.mode }
+    : null;
   const client = facture.clients as any;
   const membre_a_jour = client?.id ? await estMembreActif(supabaseAdmin, client.id, dateFactureISO ?? undefined) : false;
 
@@ -132,7 +145,7 @@ export default async function FactureGroupeePage({
             )}
           </div>
           <div className="text-right">
-            <h2 className="text-2xl font-bold mb-2" style={{ color: "#1B2B5E" }}>FACTURE GROUPÉE</h2>
+            <h2 className="text-2xl font-bold mb-2" style={{ color: "#1B2B5E" }}>FACTURE</h2>
             <p className="text-sm"><strong>N° :</strong> {facture.numero}</p>
             <p className="text-sm"><strong>Date :</strong> {formatDateFR(facture.date_facture)}</p>
             <p className="text-sm">

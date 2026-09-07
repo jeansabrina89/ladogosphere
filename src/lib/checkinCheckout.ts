@@ -177,8 +177,11 @@ export async function annulerCheckin(checkinId: string): Promise<Resultat> {
   });
 }
 
-// Annulation du check-out : la reservation est rouverte, la facture defigee
-// et la compta de l'abonnement eventuel resynchronisee.
+// Annulation du check-out : la reservation est rouverte, la facture defigee,
+// la compta de la reservation ET celle de l'abonnement eventuel resynchronisees.
+// La resynchronisation de la reservation est indispensable : le sejour n'est plus
+// "terminee", le produit ne doit donc plus etre reconnu et les encaissements
+// repassent en acompte (2030).
 export async function annulerCheckout(checkinId: string): Promise<Resultat> {
   const res = await majCheckinCheckout(checkinId, {
     statut: "arrive",
@@ -190,6 +193,7 @@ export async function annulerCheckout(checkinId: string): Promise<Resultat> {
   if (reservationId) {
     await supabaseAdmin.from("reservations").update({ statut: "validee" }).eq("id", reservationId);
     await defigerFactureResa(reservationId);
+    await synchroniserComptaResa(reservationId);
     const { data: resaAbo } = await supabaseAdmin
       .from("reservations")
       .select("abonnement_id")

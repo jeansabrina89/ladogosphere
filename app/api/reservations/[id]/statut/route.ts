@@ -12,6 +12,7 @@ import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { creerOuMajFactureBrouillon, annulerFactureResa } from "@/src/lib/factureResa";
 import { recrediterAbonnementResa } from "@/src/lib/consommationAbonnement";
 import { marquerChiensEssaiProgramme } from "@/src/lib/essaiReservation";
+import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 
 export async function POST(
   req: NextRequest,
@@ -110,6 +111,12 @@ export async function POST(
     } catch (aboErr) {
       console.error("Erreur recredit abonnement:", aboErr);
     }
+  }
+
+  // Toute sortie de l'état "terminée" (annulation, refus, retour en attente ou
+  // en validée) retire la reconnaissance du produit : le grand livre doit suivre.
+  if (statut !== "terminee") {
+    await synchroniserComptaResa(id);
   }
 
   // Envoyer email selon le statut

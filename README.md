@@ -55,14 +55,36 @@ Les variables attendues sont listées et commentées dans [.env.example](.env.ex
 | [app/api/](app/api/) | Route handlers (API, webhooks, tâches cron). |
 | [app/components/ui/](app/components/ui/) | Kit UI partagé. |
 | [src/lib/](src/lib/) | Logique métier : tarification, facturation, comptabilité, planning. |
+| [supabase/schema.sql](supabase/schema.sql) | Structure complète de la base (référence). |
 | [supabase/migrations/](supabase/migrations/) | Migrations SQL versionnées. |
 | [tests/](tests/) | Tests unitaires et d'intégration. |
 
 ## Base de données
 
+La référence de la structure est [supabase/schema.sql](supabase/schema.sql) : un
+export du schéma `public` (tables, contraintes, index, fonctions, déclencheurs,
+RLS), sans aucune donnée. Les migrations de
+[supabase/migrations/](supabase/migrations/) postérieures à sa date de génération
+le complètent — le dossier des migrations à lui seul ne reproduit pas le schéma,
+plusieurs tables historiques n'y figurant pas.
+
+Pour recréer une base à l'identique :
+
+```bash
+psql "<connexion cible>" -f supabase/schema.sql
+# puis les migrations postérieures à l'en-tête du fichier
+```
+
+Pour regénérer le fichier après une série de migrations (nécessite la chaîne de
+connexion « Session pooler » dans `SUPABASE_DB_URL`) :
+
+```bash
+npm run backup:schema
+```
+
 Toute modification de schéma passe par une migration versionnée dans
 [supabase/migrations/](supabase/migrations/), jamais par une modification manuelle
-en console. Le dossier fait foi sur l'état du schéma.
+en console.
 
 ## Tests
 

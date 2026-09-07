@@ -97,7 +97,7 @@ export async function figerFactureResa(reservationId: string): Promise<void> {
   const total = arrondi(montantDuReservation(resa));
   const paye = arrondi(Number(resa.montant_paye ?? 0));
   const reste = arrondi(resteAPayer(resa));
-  const statutFacture = reste <= 0 ? "payee" : "envoyee";
+  const statutFacture = reste <= 0 ? "acquittee" : "envoyee";
   const aujourdhui = new Date().toISOString().split("T")[0];
 
   let active = await factureActive(reservationId);

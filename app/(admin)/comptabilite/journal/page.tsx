@@ -7,6 +7,7 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import FormEcriture from "./FormEcriture";
+import { anneesExercices } from "@/src/lib/exercices";
 
 const MOIS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -24,6 +25,7 @@ export default async function JournalPage({
   if (profile?.role !== "admin") redirect("/");
 
   const params = await searchParams;
+  const anneesDisponibles = await anneesExercices();
   const annee = parseInt(params.annee || String(new Date().getFullYear()));
   const moisFiltre = params.mois ? parseInt(params.mois) : null;
   const debut = moisFiltre ? `${annee}-${String(moisFiltre).padStart(2, "0")}-01` : `${annee}-01-01`;
@@ -75,7 +77,7 @@ export default async function JournalPage({
 
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           <span className="text-sm font-semibold" style={{ color: marine }}>Année :</span>
-          {[2025, 2026, 2027, 2028].map(a => (
+          {anneesDisponibles.map(a => (
             <a key={a} href={hrefBase(a, null)} className="px-3 py-1 rounded-lg text-sm font-semibold transition" style={lienStyle(a === annee, marine)}>{a}</a>
           ))}
         </div>
