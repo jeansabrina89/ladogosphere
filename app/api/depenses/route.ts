@@ -5,9 +5,11 @@ import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { deposerPiece } from "@/src/lib/pieces";
 import { validerDepense } from "@/src/lib/depenses";
+import { entrerStockDepuisDepense, type LigneEntreeStock } from "@/src/lib/boutique";
 import {
   COMPTES_DEPENSE,
   MODES_PAIEMENT,
+  COMPTE_MARCHANDISES,
   type ModePaiementDepense,
 } from "@/src/lib/depensesLogique";
 
@@ -85,5 +87,39 @@ export async function POST(req: NextRequest) {
   const res = await validerDepense(id, user?.id ?? null);
   if (res.error) return NextResponse.json({ id, error: res.error }, { status: 400 });
 
-  return NextResponse.json({ id, numero: res.numero, statut: "validee" });
+  // Entrées en stock d'un achat de marchandises. Aucune écriture comptable de
+  // plus : l'achat vient d'être passé en charge sur 4200. Si une entrée est
+  // refusée, la dépense reste validée — c'est le stock qu'on signale.
+  let stock: { entrees: number; erreurs: string[] } | null = null;
+  if (compte_charge === COMPTE_MARCHANDISES) {
+    const lignes = lireEntrees(formData.get("entrees"));
+    if (lignes.length > 0) {
+      stock = await entrerStockDepuisDepense(id, lignes, user?.id ?? null);
+    }
+  }
+
+  return NextResponse.json({
+    id,
+    numero: res.numero,
+    statut: "validee",
+    ...(stock ? { entrees: stock.entrees, erreurs_stock: stock.erreurs } : {}),
+  });
+}
+
+/** Entrées en stock transmises par le formulaire, en JSON. Une saisie illisible n'entre rien. */
+function lireEntrees(brut: FormDataEntryValue | null): LigneEntreeStock[] {
+  if (typeof brut !== "string" || !brut.trim()) return [];
+  try {
+    const lu = JSON.parse(brut);
+    if (!Array.isArray(lu)) return [];
+    return lu
+      .map((l) => ({
+        article_id: String(l?.article_id ?? ""),
+        quantite: Number(String(l?.quantite ?? "").replace(",", ".")),
+        date_peremption: l?.date_peremption ? String(l.date_peremption) : null,
+      }))
+      .filter((l) => l.article_id && Number.isFinite(l.quantite) && l.quantite > 0);
+  } catch {
+    return [];
+  }
 }

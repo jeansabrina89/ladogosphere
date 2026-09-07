@@ -198,6 +198,7 @@ export default async function ModifierEmployePage({
                     items: [
                       { key: "perm_encaissements", label: "Encaissements (enregistrer un paiement, marquer payé, avoirs)" },
                       { key: "perm_depenses", label: "Dépenses (saisir, valider et payer, carnet de fournisseurs)" },
+                      { key: "perm_boutique", label: "Boutique (catalogue d'articles, stock et inventaire)" },
                       { key: "perm_tarifs_urgence", label: "Appliquer le tarif d'urgence" },
                     ],
                   },

@@ -3,6 +3,7 @@ import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { compterReservationsPersonnelAVoir } from "@/src/lib/reservationsPersonnelAdmin";
+import { compterArticlesSousSeuil } from "@/src/lib/boutique";
 import { aujourdhuiISO, formatHeure } from "@/src/lib/dates";
 import CarteReservationAttente from "@/app/components/CarteReservationAttente";
 import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
@@ -18,6 +19,7 @@ export default async function Home() {
   const perms = await getProfilePerms();
   const aujourd_hui = aujourdhuiISO();
   const nbResaPersonnel = await compterReservationsPersonnelAVoir();
+  const nbSousSeuil = perms.perm_boutique ? await compterArticlesSousSeuil() : 0;
 
   const [
     { count: totalChiens },
@@ -195,6 +197,16 @@ export default async function Home() {
             <p style={{ ...statNum, color: "#6E5410" }}>12</p>
             <p style={{ ...statLbl, color: "rgba(110,84,16,0.7)" }}>Boxes disponibles</p>
           </div>
+          {perms.perm_boutique && (
+            <Link href="/boutique/articles?seuil=1" style={{ textDecoration: "none" }}>
+              <div style={stat(nbSousSeuil > 0 ? "#F7DFDC" : "#EDE8DF")}>
+                <p style={{ ...statNum, color: nbSousSeuil > 0 ? "#A8453A" : "rgba(27,43,94,0.6)" }}>{nbSousSeuil}</p>
+                <p style={{ ...statLbl, color: nbSousSeuil > 0 ? "rgba(168,69,58,0.8)" : "rgba(27,43,94,0.6)" }}>
+                  Articles sous le seuil
+                </p>
+              </div>
+            </Link>
+          )}
         </div>
 
         {/* Accès rapides */}

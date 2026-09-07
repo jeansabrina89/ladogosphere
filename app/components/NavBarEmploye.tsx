@@ -39,10 +39,15 @@ export default async function NavBarEmploye() {
         { href: "/abonnements", label: "🎟️ Abonnements", badge: nbAbonnements || undefined },
       ] : []),
     ]},
-    ...(perms.perm_depenses ? [{
+    ...(perms.perm_depenses || perms.perm_boutique ? [{
       titre: "Gestion", liens: [
-        { href: "/comptabilite/depenses", label: "💸 Dépenses" },
-        { href: "/comptabilite/fournisseurs", label: "🏢 Fournisseurs" },
+        ...(perms.perm_depenses ? [
+          { href: "/comptabilite/depenses", label: "💸 Dépenses" },
+          { href: "/comptabilite/fournisseurs", label: "🏢 Fournisseurs" },
+        ] : []),
+        ...(perms.perm_boutique ? [
+          { href: "/boutique/articles", label: "🛒 Boutique" },
+        ] : []),
       ],
     }] : []),
     { titre: "Mon espace", liens: [

@@ -3,7 +3,9 @@ import Link from "next/link";
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { formatDateFR, aujourdhuiISO } from "@/src/lib/dates";
-import { libelleCategorie, libelleMode } from "@/src/lib/depensesLogique";
+import { libelleCategorie, libelleMode, COMPTE_MARCHANDISES } from "@/src/lib/depensesLogique";
+import { mouvementsDeDepense, listerArticles } from "@/src/lib/boutique";
+import { libelleMouvement, formatQuantite } from "@/src/lib/boutiqueLogique";
 import { listerPieces } from "@/src/lib/pieces";
 import { lireHistorique, libelleEvenement } from "@/src/lib/journalEvenements";
 import EnTete from "@/app/components/ui/EnTete";
@@ -11,6 +13,7 @@ import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import BadgeStatut from "@/app/components/ui/BadgeStatut";
 import PiecesJointes from "@/app/components/PiecesJointes";
+import AjouterEntreeStock from "./AjouterEntreeStock";
 import {
   BoutonValider,
   FormReglement,
@@ -40,7 +43,7 @@ export default async function DepensePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await exigerAccesAdmin("perm_depenses");
+  const acces = await exigerAccesAdmin("perm_depenses");
   const { id } = await params;
 
   const { data: depense } = await supabaseAdmin
@@ -66,6 +69,20 @@ export default async function DepensePage({
     .eq("piece_id", id)
     .in("piece_type", ["depense", "depense_paiement", "depense_annulation"])
     .order("created_at", { ascending: true });
+
+  // Marchandises à revendre : le stock que cet achat a produit.
+  const estMarchandises = depense.compte_charge === COMPTE_MARCHANDISES;
+  const mouvements = estMarchandises ? await mouvementsDeDepense(id) : [];
+  const catalogue = estMarchandises ? await listerArticles() : [];
+  const nomArticle = new Map(catalogue.map((a) => [a.id, { nom: a.nom, unite: a.unite }]));
+  const articlesEntree =
+    estMarchandises && acces.permissions.perm_boutique && depense.statut !== "annulee"
+      ? catalogue
+          .filter((a) => a.actif)
+          .map((a) => ({
+            id: a.id, nom: a.nom, reference: a.reference, unite: a.unite, categorie: a.categorie,
+          }))
+      : [];
 
   const estBrouillon = depense.statut === "brouillon";
   const aRegler = depense.statut === "validee" && depense.mode_paiement === "a_payer";
@@ -134,6 +151,47 @@ export default async function DepensePage({
             </p>
           )}
         </Carte>
+
+        {estMarchandises && (
+          <Carte>
+            <h2 className="font-bold mb-1" style={{ color: marine }}>Entrée en stock</h2>
+            <p style={{ color: sousTexte, fontSize: 13, marginTop: 0 }}>
+              Le stock ne compte que des quantités : l&apos;achat est déjà passé en charge sur le
+              compte 4200, aucune écriture ne s&apos;y ajoute.
+            </p>
+
+            {mouvements.length > 0 && (
+              <ul style={{ listStyle: "none", margin: "0 0 14px", padding: 0 }}>
+                {mouvements.map((m) => {
+                  const article = nomArticle.get(m.article_id);
+                  return (
+                    <li key={m.id} style={{ borderTop: bordure, padding: "8px 0", fontSize: 14 }}>
+                      <Link href={`/boutique/articles/${m.article_id}`} style={{ color: marine, fontWeight: 600 }}>
+                        {article?.nom ?? "Article"}
+                      </Link>
+                      <span style={{ color: sousTexte }}>
+                        {" "}— {libelleMouvement(m.type)} de {formatQuantite(m.quantite)} {article?.unite ?? ""}
+                        {m.date_peremption ? ` · à consommer avant le ${formatDateFR(m.date_peremption)}` : ""}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            {articlesEntree.length > 0 && !estBrouillon ? (
+              <AjouterEntreeStock depenseId={id} articles={articlesEntree} />
+            ) : (
+              mouvements.length === 0 && (
+                <p style={{ color: sousTexte, fontSize: 14, margin: 0 }}>
+                  {estBrouillon
+                    ? "Les entrées en stock s'enregistrent à la validation de la dépense."
+                    : "Aucune entrée en stock rattachée à cet achat."}
+                </p>
+              )
+            )}
+          </Carte>
+        )}
 
         {estBrouillon && (
           <Carte>

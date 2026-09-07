@@ -15,6 +15,7 @@ import { createClient } from "../utils/supabase/server";
  */
 
 export const PERMISSIONS_PERSONNEL = [
+  "perm_boutique",
   "perm_box",
   "perm_checkin",
   "perm_chiens_creer",

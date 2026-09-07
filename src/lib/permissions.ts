@@ -102,6 +102,7 @@ export type ProfilePerms = {
   perm_clients_creer: boolean;
   perm_clients_modifier: boolean;
   perm_depenses: boolean;
+  perm_boutique: boolean;
   perm_reservations_creer: boolean;
   perm_reservations_modifier: boolean;
   perm_reservations_annuler: boolean;
@@ -124,7 +125,7 @@ export async function getProfilePerms(): Promise<ProfilePerms> {
     .from("profiles")
     .select(`role,
       perm_chiens_creer, perm_chiens_modifier,
-      perm_clients_creer, perm_clients_modifier, perm_depenses,
+      perm_clients_creer, perm_clients_modifier, perm_depenses, perm_boutique,
       perm_reservations_creer, perm_reservations_modifier, perm_reservations_annuler,
       perm_journee_essai, perm_encaissements, perm_tarifs_urgence,
       perm_checkin, perm_box, perm_planning,
@@ -142,6 +143,7 @@ export async function getProfilePerms(): Promise<ProfilePerms> {
     perm_clients_creer: isAdmin || !!profile.perm_clients_creer,
     perm_clients_modifier: isAdmin || !!profile.perm_clients_modifier,
     perm_depenses: isAdmin || !!profile.perm_depenses,
+    perm_boutique: isAdmin || !!profile.perm_boutique,
     perm_reservations_creer: isAdmin || !!profile.perm_reservations_creer,
     perm_reservations_modifier: isAdmin || !!profile.perm_reservations_modifier,
     perm_reservations_annuler: isAdmin || !!profile.perm_reservations_annuler,
@@ -164,6 +166,7 @@ function falsePerms(): ProfilePerms {
     perm_clients_creer: false,
     perm_clients_modifier: false,
     perm_depenses: false,
+    perm_boutique: false,
     perm_reservations_creer: false,
     perm_reservations_modifier: false,
     perm_reservations_annuler: false,

@@ -3,10 +3,12 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import EntreeEnStock, { type ArticleEntree, type LigneEntree } from "@/app/components/EntreeEnStock";
 import {
   CATEGORIES_DEPENSE,
   MODES_PAIEMENT,
   MESSAGE_JUSTIFICATIF_REQUIS,
+  COMPTE_MARCHANDISES,
   refusFichierPiece,
 } from "@/src/lib/depensesLogique";
 
@@ -57,9 +59,12 @@ const aide: React.CSSProperties = { fontSize: 12, color: SOUS, marginTop: 6 };
 export default function FormDepense({
   fournisseurs,
   dateDuJour,
+  articles,
 }: {
   fournisseurs: FournisseurChoix[];
   dateDuJour: string;
+  /** Catalogue actif, pour l'entrée en stock d'un achat de marchandises. */
+  articles: ArticleEntree[];
 }) {
   const router = useRouter();
   const champFichier = useRef<HTMLInputElement>(null);
@@ -74,6 +79,7 @@ export default function FormDepense({
   const [apercu, setApercu] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState<"" | "brouillon" | "valider">("");
+  const [entrees, setEntrees] = useState<Record<string, LigneEntree>>({});
 
   const categorie = useMemo(
     () => CATEGORIES_DEPENSE.find((c) => c.compte === compte) ?? null,
@@ -119,6 +125,17 @@ export default function FormDepense({
     corps.set("mode_paiement", mode);
     if (fournisseurId) corps.set("fournisseur_id", fournisseurId);
     if (fichier) corps.set("fichier", fichier);
+    // Les entrées en stock ne partent qu'à la validation : un brouillon ne
+    // bouge pas le stock.
+    if (action === "valider" && Object.keys(entrees).length > 0) {
+      corps.set("entrees", JSON.stringify(
+        Object.entries(entrees).map(([article_id, l]) => ({
+          article_id,
+          quantite: l.quantite,
+          date_peremption: l.peremption || null,
+        }))
+      ));
+    }
     corps.set("action", action);
 
     const r = await fetch("/api/depenses", { method: "POST", body: corps });
@@ -129,6 +146,12 @@ export default function FormDepense({
       setErreur(data.error ?? "L'enregistrement a échoué.");
       // Le brouillon a pu être créé malgré l'échec : on y emmène l'utilisateur.
       if (data.id) router.push(`/comptabilite/depenses/${data.id}`);
+      return;
+    }
+    // La dépense est validée ; si une entrée en stock a été refusée, on le dit
+    // ici plutôt que de la laisser disparaître dans la navigation.
+    if (Array.isArray(data.erreurs_stock) && data.erreurs_stock.length > 0) {
+      setErreur(`Dépense enregistrée, mais une entrée en stock a été refusée : ${data.erreurs_stock[0]}`);
       return;
     }
     router.push(`/comptabilite/depenses/${data.id}`);
@@ -210,6 +233,17 @@ export default function FormDepense({
             ))}
           </select>
         </div>
+
+        {compte === COMPTE_MARCHANDISES && (
+          <div style={{ border: BORDURE, borderRadius: 14, padding: 14, backgroundColor: "#FFFFFF" }}>
+            <span style={etiquette}>Entrée en stock (facultatif)</span>
+            <p style={{ ...aide, marginTop: 0, marginBottom: 12 }}>
+              Cochez ce qui est arrivé. Les entrées seront enregistrées à la validation de la
+              dépense. Aucune écriture supplémentaire : l&apos;achat est déjà en charge.
+            </p>
+            <EntreeEnStock articles={articles} lignes={entrees} onChange={setEntrees} />
+          </div>
+        )}
 
         <div>
           <span style={etiquette}>Justificatif</span>

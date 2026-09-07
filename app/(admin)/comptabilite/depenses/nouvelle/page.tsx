@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
+import { listerArticles } from "@/src/lib/boutique";
+import type { ArticleEntree } from "@/app/components/EntreeEnStock";
 import FormDepense, { type FournisseurChoix } from "../FormDepense";
 
 export const dynamic = "force-dynamic";
@@ -10,11 +12,14 @@ export const dynamic = "force-dynamic";
 export default async function NouvelleDepensePage() {
   await exigerAccesAdmin("perm_depenses");
 
-  const { data: fournisseurs } = await supabaseAdmin
-    .from("fournisseurs")
-    .select("id, nom, compte_charge_defaut")
-    .eq("actif", true)
-    .order("nom");
+  const [{ data: fournisseurs }, articles] = await Promise.all([
+    supabaseAdmin
+      .from("fournisseurs")
+      .select("id, nom, compte_charge_defaut")
+      .eq("actif", true)
+      .order("nom"),
+    listerArticles({ actifsSeulement: true }),
+  ]);
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -27,6 +32,10 @@ export default async function NouvelleDepensePage() {
         <FormDepense
           fournisseurs={(fournisseurs ?? []) as FournisseurChoix[]}
           dateDuJour={aujourdhuiISO()}
+          articles={articles.map((a) => ({
+            id: a.id, nom: a.nom, reference: a.reference,
+            unite: a.unite, categorie: a.categorie,
+          })) as ArticleEntree[]}
         />
       </div>
     </main>

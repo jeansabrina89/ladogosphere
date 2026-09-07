@@ -40,6 +40,7 @@ export default async function NavBarAdmin() {
       { href: "/comptabilite/relances", label: "🔔 Relances" },
       { href: "/factures", label: "🧾 Factures" },
       { href: "/comptabilite/depenses", label: "💸 Dépenses" },
+      { href: "/boutique/articles", label: "🛒 Boutique" },
       { href: "/comptabilite", label: "📈 Compta" },
       { href: "/emails", label: "✉️ Emails" },
     ]},

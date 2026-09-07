@@ -38,6 +38,10 @@ export const CATEGORIES_DEPENSE = [
   { compte: "6700", libelle: "Autre charge" },
 ] as const;
 
+/** Achat de marchandises destinées à la boutique : c'est la seule catégorie
+ *  qui ouvre l'entrée en stock. */
+export const COMPTE_MARCHANDISES = "4200";
+
 export type CategorieDepense = (typeof CATEGORIES_DEPENSE)[number];
 
 export const COMPTES_DEPENSE = CATEGORIES_DEPENSE.map((c) => c.compte) as readonly string[];
