@@ -1023,3 +1023,48 @@ export async function envoyerEmailFactureEmise(p: {
     `),
   });
 }
+
+/**
+ * Ticket de caisse envoyé au client, en pièce jointe.
+ * Pas de modèle configurable : un ticket ne se négocie pas, il constate.
+ */
+export async function envoyerEmailTicketBoutique(p: {
+  email: string;
+  prenom: string;
+  numero: string;
+  date: string;
+  montant: number;
+  pdf: Buffer;
+}) {
+  await envoyerEmail({
+    destinataire: p.email,
+    type: "ticket_boutique",
+    sujet: `Votre ticket ${p.numero} — La Dogosphère`,
+    piecesJointes: [{ filename: `${p.numero}.pdf`, content: p.pdf }],
+    html: emailTemplate(`
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Merci de votre visite</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">
+        Voici le ticket de votre achat à la boutique, en pièce jointe.
+      </p>
+
+      <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
+        <table cellpadding="0" cellspacing="0" style="width:100%;">
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px; width:45%;">Ticket</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${p.numero}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Date</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-size:14px;">${formatDate(p.date)}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Montant</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">CHF ${Math.abs(p.montant).toFixed(2)}</td>
+          </tr>
+        </table>
+      </div>
+
+      <p style="color:#6B7280; font-size:14px; margin:0;">À bientôt à la Dogosphère.</p>
+    `),
+  });
+}

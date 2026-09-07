@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { compterReservationsPersonnelAVoir } from "@/src/lib/reservationsPersonnelAdmin";
 import { compterArticlesSousSeuil } from "@/src/lib/boutique";
+import { resumeVentesDuJour } from "@/src/lib/caisse";
 import { aujourdhuiISO, formatHeure } from "@/src/lib/dates";
 import CarteReservationAttente from "@/app/components/CarteReservationAttente";
 import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
@@ -20,6 +21,7 @@ export default async function Home() {
   const aujourd_hui = aujourdhuiISO();
   const nbResaPersonnel = await compterReservationsPersonnelAVoir();
   const nbSousSeuil = perms.perm_boutique ? await compterArticlesSousSeuil() : 0;
+  const ventesDuJour = perms.perm_boutique ? await resumeVentesDuJour(aujourd_hui) : null;
 
   const [
     { count: totalChiens },
@@ -197,6 +199,18 @@ export default async function Home() {
             <p style={{ ...statNum, color: "#6E5410" }}>12</p>
             <p style={{ ...statLbl, color: "rgba(110,84,16,0.7)" }}>Boxes disponibles</p>
           </div>
+          {perms.perm_boutique && (
+            <Link href="/boutique/ventes" style={{ textDecoration: "none" }}>
+              <div style={stat("#DBEFEA")}>
+                <p style={{ ...statNum, color: "#1F6E5B" }}>
+                  {(ventesDuJour?.total ?? 0).toFixed(2)}
+                </p>
+                <p style={{ ...statLbl, color: "rgba(31,110,91,0.7)" }}>
+                  Boutique — ventes du jour ({ventesDuJour?.nombre ?? 0})
+                </p>
+              </div>
+            </Link>
+          )}
           {perms.perm_boutique && (
             <Link href="/boutique/articles?seuil=1" style={{ textDecoration: "none" }}>
               <div style={stat(nbSousSeuil > 0 ? "#F7DFDC" : "#EDE8DF")}>

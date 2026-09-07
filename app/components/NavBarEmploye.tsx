@@ -46,7 +46,9 @@ export default async function NavBarEmploye() {
           { href: "/comptabilite/fournisseurs", label: "🏢 Fournisseurs" },
         ] : []),
         ...(perms.perm_boutique ? [
+          { href: "/boutique/caisse", label: "💳 Caisse" },
           { href: "/boutique/articles", label: "🛒 Boutique" },
+          { href: "/boutique/ventes", label: "🧾 Ventes boutique" },
         ] : []),
       ],
     }] : []),
