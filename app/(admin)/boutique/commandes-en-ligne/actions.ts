@@ -270,7 +270,7 @@ async function avoirSurFacture(
   motif: string,
   userId: string | null
 ): Promise<{ error?: string; numero?: string }> {
-  const { creerAvoir } = await import("@/app/(admin)/factures/actionsCreation");
+  const { creerAvoir } = await import("@/app/(admin)/(espace-comptabilite)/factures/actionsCreation");
 
   const { data: lignes } = await supabaseAdmin
     .from("facture_lignes").select("id, quantite").eq("facture_id", factureId);

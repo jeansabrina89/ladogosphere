@@ -98,9 +98,9 @@ vi.mock("@sentry/nextjs", () => ({ captureException: () => {} }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 vi.mock("next/navigation", () => ({ redirect: () => { throw new Error("REDIRECT"); } }));
 
-import { supprimerReservationDefinitivement } from "@/app/(admin)/reservations/[id]/actions";
+import { supprimerReservationDefinitivement } from "@/app/(admin)/(espace-clients)/reservations/[id]/actions";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
-import { resynchroniserCompta } from "@/app/(admin)/comptabilite/reconciliation/actions";
+import { resynchroniserCompta } from "@/app/(admin)/(espace-comptabilite)/comptabilite/reconciliation/actions";
 
 function fd(id = "r1") {
   const f = new FormData();

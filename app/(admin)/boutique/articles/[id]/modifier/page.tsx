@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation";
-import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
+import { notFound, redirect } from "next/navigation";
+import { exigerAccesAdmin, refusStock } from "@/src/lib/accesAdmin";
+import { perimetreDeArticle } from "@/src/lib/perimetreStock";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { lireArticle } from "@/src/lib/boutique";
 import EnTete from "@/app/components/ui/EnTete";
@@ -14,7 +15,10 @@ export default async function ModifierArticlePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await exigerAccesAdmin("perm_boutique_gestion");
+  // Le rôle d'abord. La permission ensuite, mais elle dépend de la donnée :
+  // une fourniture relève de l'atelier, un article revendu de la boutique. On
+  // lit donc la fiche avant de savoir quelle porte il fallait pousser.
+  const acces = await exigerAccesAdmin();
   const { id } = await params;
 
   const [article, { data: fournisseurs }] = await Promise.all([
@@ -22,6 +26,9 @@ export default async function ModifierArticlePage({
     supabaseAdmin.from("fournisseurs").select("id, nom").eq("actif", true).order("nom"),
   ]);
   if (!article) notFound();
+
+  const refus = refusStock(acces, perimetreDeArticle(article), "gestion");
+  if (refus) redirect(refus);
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>

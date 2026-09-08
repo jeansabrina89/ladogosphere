@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
+import { exigerAccesAdmin, refusStock } from "@/src/lib/accesAdmin";
+import { perimetreDeArticle, accesStockAccorde, configPerimetre } from "@/src/lib/perimetreStock";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { formatDateFR } from "@/src/lib/dates";
 import { lireArticle, lireArticleVente, historiqueMouvements, type Article } from "@/src/lib/boutique";
@@ -68,13 +69,26 @@ export default async function ArticlePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const acces = await exigerAccesAdmin("perm_boutique_vente");
-  const gestion = acces.permissions.perm_boutique_gestion === true;
+  // Le rôle d'abord. La permission dépend ensuite de ce qu'est cette fiche :
+  // une fourniture relève de l'atelier, un article revendu de la boutique.
+  // On lit d'abord la version « vente », qui suffit à trancher et ne divulgue
+  // ni prix d'achat ni fournisseur.
+  const acces = await exigerAccesAdmin();
   const { id } = await params;
+
+  const apercu = await lireArticleVente(id);
+  if (!apercu) notFound();
+
+  const perimetre = perimetreDeArticle(apercu);
+  const refus = refusStock(acces, perimetre, "vente");
+  if (refus) redirect(refus);
+
+  const gestion = accesStockAccorde(acces.permissions, perimetre, "gestion");
+  const retour = configPerimetre(perimetre).liste;
 
   // Sans la gestion, le prix d'achat et le fournisseur ne sont pas SÉLECTIONNÉS :
   // ils ne partent pas dans la réponse, ils ne sont pas seulement cachés.
-  const brut = gestion ? await lireArticle(id) : await lireArticleVente(id);
+  const brut = gestion ? await lireArticle(id) : apercu;
   if (!brut) notFound();
   const article = brut as Article;
 
@@ -104,7 +118,7 @@ export default async function ArticlePage({
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-2xl mx-auto" style={{ display: "grid", gap: 16 }}>
         <EnTete
-          titre={`🛒 ${article.nom}`}
+          titre={`${configPerimetre(perimetre).icone} ${article.nom}`}
           sousTitre={`${article.reference}${article.marque ? ` · ${article.marque}` : ""}`}
           action={
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -114,7 +128,7 @@ export default async function ArticlePage({
               {gestion && (
                 <Bouton href={`/boutique/articles/${id}/modifier`} variante="secondaire">✏️ Modifier</Bouton>
               )}
-              <Bouton href="/boutique/articles" variante="secondaire">← Articles</Bouton>
+              <Bouton href={retour} variante="secondaire">← Retour</Bouton>
             </div>
           }
         />

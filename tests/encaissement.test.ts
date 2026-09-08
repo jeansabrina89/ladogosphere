@@ -131,7 +131,7 @@ vi.mock("@/src/lib/factureDocument", () => ({
 vi.mock("@sentry/nextjs", () => ({ captureException: () => {} }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
 
-import { encaisser, annulerPaiement } from "@/app/(admin)/factures/actions";
+import { encaisser, annulerPaiement } from "@/app/(admin)/(espace-comptabilite)/factures/actions";
 
 function fd(over: Record<string, string> = {}) {
   const f = new FormData();

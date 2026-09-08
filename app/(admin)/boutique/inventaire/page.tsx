@@ -5,15 +5,19 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
-import FormInventaire, { type LigneComptage } from "./FormInventaire";
+import FormInventaire, { type LigneComptage } from "@/app/components/stock/FormInventaire";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Inventaire du magasin. On ne compte QUE ce qui se vend : les fournitures de
+ * fabrication se comptent à l'atelier, sur le même écran, avec leur périmètre.
+ */
 export default async function InventairePage() {
   await exigerAccesAdmin("perm_boutique_gestion");
 
   // Un article sur mesure n'a pas de stock de produit fini : rien à compter.
-  const articles = (await listerArticles({ actifsSeulement: true }))
+  const articles = (await listerArticles({ actifsSeulement: true, perimetre: "boutique" }))
     .filter((a) => a.type_article !== "personnalisable");
 
   const lignes: LigneComptage[] = articles.map((a) => ({

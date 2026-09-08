@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/src/utils/supabase/server";
 import { getEmployeRhActuel } from "@/src/lib/employeActuel";
 import { calculerDecompteHeures } from "@/src/lib/decompteHeures";
-import TimbrageCalendrier from "../../timbrage/TimbrageCalendrier";
+// Le calendrier est celui de l'espace Équipe : un seul composant, deux lectures
+// (l'équipe entière côté responsable, ses propres heures ici).
+import TimbrageCalendrier from "@/app/(admin)/(espace-equipe)/employes/timbrage/TimbrageCalendrier";
 import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
 

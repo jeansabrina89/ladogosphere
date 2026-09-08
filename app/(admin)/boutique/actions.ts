@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { verifierPermissionBoutique } from "@/src/lib/permissions";
+import { verifierPermissionStock } from "@/src/lib/permissions";
+import {
+  perimetreDeArticle,
+  perimetreDuCompte,
+  PERIMETRES,
+  type PerimetreStock,
+} from "@/src/lib/perimetreStock";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import {
   enregistrerMouvement,
@@ -27,9 +33,13 @@ import {
 } from "@/src/lib/etatFormulaire";
 
 /**
- * Boutique — actions d'écran. Toutes exigent « Boutique — gestion » (l'admin l'a
- * d'office). Le stock n'est jamais écrit ici : on passe un mouvement, et c'est
- * le trigger SQL qui tient le compte.
+ * Actions de stock — magasin et atelier. Le stock n'est jamais écrit ici : on
+ * passe un mouvement, et c'est le trigger SQL qui tient le compte.
+ *
+ * La permission dépend du PÉRIMÈTRE DE LA DONNÉE, pas de l'écran d'où part la
+ * requête : « Boutique — gestion » pour un article revendu, « Atelier » pour
+ * une fourniture de fabrication. Le périmètre est relu en base à chaque fois —
+ * un champ caché de formulaire ne décide jamais d'un droit.
  *
  * Un refus est RETOURNÉ, jamais lancé : une exception d'action serveur est
  * masquée en production, et l'utilisateur ne verrait rien.
@@ -39,10 +49,46 @@ export type EtatBoutique = EtatFormulaire & { message?: string | null };
 
 const TYPES_MANUELS: TypeMouvement[] = ["entree", "perte", "usage_interne", "retour", "ajustement"];
 
-async function garde(): Promise<{ userId?: string; erreur?: string }> {
-  const verif = await verifierPermissionBoutique("gestion");
+async function garde(
+  perimetre: PerimetreStock
+): Promise<{ userId?: string; erreur?: string }> {
+  const verif = await verifierPermissionStock(perimetre, "gestion");
   if (verif.error) return { erreur: verif.error };
   return { userId: verif.userId };
+}
+
+/**
+ * La garde de plusieurs articles d'un coup — l'inventaire, qui peut porter sur
+ * un seul périmètre à la fois mais dont on ne croit pas la liste sur parole.
+ * Il faut avoir droit à TOUS les périmètres touchés.
+ */
+async function gardeArticles(
+  ids: string[]
+): Promise<{ userId?: string; erreur?: string; perimetres: PerimetreStock[] }> {
+  const { data } = await supabaseAdmin
+    .from("articles")
+    .select("id, composant")
+    .in("id", ids.length > 0 ? ids : ["00000000-0000-0000-0000-000000000000"]);
+
+  const perimetres = [...new Set(
+    ((data ?? []) as { composant: boolean | null }[]).map(perimetreDeArticle)
+  )];
+
+  let userId: string | undefined;
+  for (const p of perimetres) {
+    const g = await garde(p);
+    if (g.erreur) return { erreur: g.erreur, perimetres };
+    userId = g.userId;
+  }
+  return { userId, perimetres };
+}
+
+/** Rafraîchit les écrans du périmètre touché, et l'accueil qui en montre les chiffres. */
+function revalider(perimetre: PerimetreStock, ...autres: string[]) {
+  const config = PERIMETRES[perimetre];
+  for (const chemin of [config.liste, config.accueil, "/", ...autres]) {
+    revalidatePath(chemin);
+  }
 }
 
 /** Création et modification d'un article : une seule action, un seul chemin. */
@@ -51,9 +97,19 @@ export async function enregistrerArticle(
   _etat: EtatBoutique,
   formData: FormData
 ): Promise<EtatBoutique> {
-  const g = await garde();
   const valeurs = valeursFormulaire(formData);
-  if (g.erreur) return { erreur: g.erreur, valeurs };
+
+  // Le périmètre VOULU (la case cochée) et, sur une modification, le périmètre
+  // ACTUEL : il faut avoir droit aux deux. Sans quoi on pourrait sortir une
+  // fourniture de l'atelier sans y avoir accès, ou y faire entrer un article.
+  const voulu: PerimetreStock = formData.get("composant") === "on" ? "atelier" : "boutique";
+  const existant = articleId ? await lireArticle(articleId) : null;
+  if (articleId && !existant) return { erreur: "Article introuvable.", valeurs };
+
+  for (const p of new Set(existant ? [voulu, perimetreDeArticle(existant)] : [voulu])) {
+    const g = await garde(p);
+    if (g.erreur) return { erreur: g.erreur, valeurs };
+  }
 
   const nom = String(formData.get("nom") ?? "").trim();
   const categorie = String(formData.get("categorie") ?? "").trim();
@@ -108,8 +164,10 @@ export async function enregistrerArticle(
       .eq("id", articleId);
     if (error) return { erreur: messageBase(error), champ: champFautif(error), valeurs };
 
-    revalidatePath("/boutique/articles");
-    revalidatePath(`/boutique/articles/${articleId}`);
+    // Les deux périmètres se rafraîchissent : un article qui change de camp
+    // disparaît d'une liste et apparaît dans l'autre.
+    revalider(voulu, `/boutique/articles/${articleId}`);
+    if (existant) revalider(perimetreDeArticle(existant));
     redirect(`/boutique/articles/${articleId}`);
   }
 
@@ -120,7 +178,7 @@ export async function enregistrerArticle(
     .single();
   if (error) return { erreur: messageBase(error), champ: champFautif(error), valeurs };
 
-  revalidatePath("/boutique/articles");
+  revalider(voulu);
   redirect(`/boutique/articles/${data.id as string}`);
 }
 
@@ -130,17 +188,20 @@ export async function passerMouvement(
   _etat: EtatBoutique,
   formData: FormData
 ): Promise<EtatBoutique> {
-  const g = await garde();
   const valeurs = valeursFormulaire(formData);
+
+  const article = await lireArticle(articleId);
+  if (!article) return { erreur: "Article introuvable.", valeurs };
+
+  // C'est l'article qui dit quelle permission il faut, pas l'écran.
+  const perimetre = perimetreDeArticle(article);
+  const g = await garde(perimetre);
   if (g.erreur) return { erreur: g.erreur, valeurs };
 
   const type = String(formData.get("type") ?? "") as TypeMouvement;
   if (!TYPES_MANUELS.includes(type)) {
     return { erreur: "Choisissez le type de mouvement.", champ: "type", valeurs };
   }
-
-  const article = await lireArticle(articleId);
-  if (!article) return { erreur: "Article introuvable.", valeurs };
 
   const motif = String(formData.get("motif") ?? "").trim();
   const saisie = lireNombre(formData.get("quantite"));
@@ -171,9 +232,7 @@ export async function passerMouvement(
     return { erreur: res.error, champ: res.error.includes("motif") ? "motif" : "quantite", valeurs };
   }
 
-  revalidatePath("/boutique/articles");
-  revalidatePath(`/boutique/articles/${articleId}`);
-  revalidatePath("/");
+  revalider(perimetre, `/boutique/articles/${articleId}`, "/atelier/entrees");
   return { erreur: null, message: "Mouvement enregistré." };
 }
 
@@ -185,9 +244,6 @@ export async function validerComptage(
   _etat: EtatBoutique,
   formData: FormData
 ): Promise<EtatBoutique> {
-  const g = await garde();
-  if (g.erreur) return { erreur: g.erreur };
-
   const date = String(formData.get("date_inventaire") ?? "").trim() || aujourdhuiISO();
 
   const lignes: { article_id: string; stock_theorique: number; stock_compte: number | null }[] = [];
@@ -203,12 +259,17 @@ export async function validerComptage(
     return { erreur: "Aucune quantité comptée : il n'y a rien à valider." };
   }
 
+  // Le périmètre se relit sur les articles comptés : le formulaire ne décide
+  // pas de la permission qu'il faut pour être validé.
+  const g = await gardeArticles(
+    lignes.filter((l) => l.stock_compte !== null).map((l) => l.article_id)
+  );
+  if (g.erreur) return { erreur: g.erreur };
+
   const res = await validerInventaire(lignes, date, g.userId ?? null);
   if (res.erreurs.length > 0) return { erreur: res.erreurs[0] };
 
-  revalidatePath("/boutique/articles");
-  revalidatePath("/boutique/inventaire");
-  revalidatePath("/");
+  for (const p of g.perimetres) revalider(p, PERIMETRES[p].inventaire);
   return {
     erreur: null,
     message:
@@ -218,14 +279,30 @@ export async function validerComptage(
   };
 }
 
-/** Entrées en stock rattachées à une dépense de marchandises déjà validée. */
+/**
+ * Entrées en stock rattachées à une dépense déjà validée.
+ *
+ * C'est la CATÉGORIE DE LA DÉPENSE qui décide de la permission : « Matières de
+ * fabrication » (4000) demande l'atelier, « Marchandises à revendre » (4200) la
+ * gestion boutique. On relit la dépense plutôt que de croire l'écran.
+ *
+ * Et parce qu'une même facture peut porter les deux, la garde des articles
+ * cochés s'ajoute à celle de la catégorie.
+ */
 export async function entrerStock(
   depenseId: string,
   _etat: EtatBoutique,
   formData: FormData
 ): Promise<EtatBoutique> {
-  const g = await garde();
-  if (g.erreur) return { erreur: g.erreur };
+  const { data: depense } = await supabaseAdmin
+    .from("depenses").select("compte_charge").eq("id", depenseId).maybeSingle();
+
+  const perimetreDepense = perimetreDuCompte(depense?.compte_charge as string | undefined);
+  if (!perimetreDepense) {
+    return { erreur: "Cette catégorie de dépense n'ouvre pas d'entrée en stock." };
+  }
+  const gDepense = await garde(perimetreDepense);
+  if (gDepense.erreur) return { erreur: gDepense.erreur };
 
   const lignes: { article_id: string; quantite: number; date_peremption?: string | null }[] = [];
   for (const [cle, brut] of formData.entries()) {
@@ -245,12 +322,15 @@ export async function entrerStock(
     return { erreur: "Cochez au moins un article et indiquez sa quantité." };
   }
 
+  const g = await gardeArticles(lignes.map((l) => l.article_id));
+  if (g.erreur) return { erreur: g.erreur };
+
   const res = await entrerStockDepuisDepense(depenseId, lignes, g.userId ?? null);
   if (res.erreurs.length > 0) return { erreur: res.erreurs[0] };
 
-  revalidatePath("/boutique/articles");
-  revalidatePath(`/comptabilite/depenses/${depenseId}`);
-  revalidatePath("/");
+  for (const p of new Set([perimetreDepense, ...g.perimetres])) {
+    revalider(p, `/comptabilite/depenses/${depenseId}`, "/atelier/entrees");
+  }
   return {
     erreur: null,
     message: `${res.entrees} entrée${res.entrees > 1 ? "s" : ""} en stock enregistrée${res.entrees > 1 ? "s" : ""}.`,

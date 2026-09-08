@@ -1,5 +1,12 @@
 import { redirect } from "next/navigation";
 import { createClient } from "../utils/supabase/server";
+import {
+  permissionStock,
+  accesStockAccorde,
+  configPerimetre,
+  type PerimetreStock,
+  type NiveauStock,
+} from "./perimetreStock";
 
 /**
  * Garde d'accès unique des écrans d'administration.
@@ -15,6 +22,7 @@ import { createClient } from "../utils/supabase/server";
  */
 
 export const PERMISSIONS_PERSONNEL = [
+  "perm_atelier",
   "perm_boutique_vente",
   "perm_boutique_gestion",
   "perm_box",
@@ -181,6 +189,40 @@ export async function exigerAccesAdmin(
 /** Variante des écrans réservés à l'administratrice (comptabilité, RH, tarifs…). */
 export async function exigerAdminPage(): Promise<AccesAdmin> {
   return exiger({ adminSeul: true });
+}
+
+/**
+ * Garde des écrans de stock, boutique ou atelier.
+ *
+ * Elle ne fait rien de neuf : elle choisit la permission qui correspond au
+ * périmètre et rend la main à la garde partagée. Le rôle passe d'abord, la
+ * permission ensuite — comme partout ailleurs.
+ */
+export async function exigerAccesStock(
+  perimetre: PerimetreStock,
+  niveau: NiveauStock
+): Promise<AccesAdmin> {
+  return exiger({ permission: permissionStock(perimetre, niveau) });
+}
+
+/**
+ * Variante des écrans dont le périmètre ne se connaît qu'APRÈS lecture de la
+ * donnée : la fiche d'un article dit elle-même si c'est une fourniture.
+ *
+ * On entre d'abord en tant que personnel (le rôle d'abord, toujours), puis
+ * l'appelant vérifie le périmètre avec `refusStock`.
+ */
+export function refusStock(
+  acces: AccesAdmin,
+  perimetre: PerimetreStock,
+  niveau: NiveauStock
+): string | null {
+  if (accesStockAccorde(acces.permissions, perimetre, niveau)) return null;
+  // On ne renvoie jamais vers une porte qui se refermerait aussitôt : l'accueil
+  // du périmètre si on y a droit (le cas d'une vendeuse qui pousse une porte de
+  // gestion), la page d'accueil de l'application sinon.
+  const accueil = configPerimetre(perimetre).accueil;
+  return accesStockAccorde(acces.permissions, perimetre, "vente") ? accueil : "/";
 }
 
 async function exiger(exigence: ExigenceAcces): Promise<AccesAdmin> {

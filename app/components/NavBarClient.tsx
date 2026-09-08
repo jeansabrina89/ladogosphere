@@ -39,17 +39,19 @@ export default function NavBarClient({ interne = false }: { interne?: boolean })
               La Dogosphère
             </span>
           </a>
+          {/* 44 px : c'est la taille d'un pouce, pas celle d'un curseur. */}
           <button onClick={handleLogout}
-            className="text-sm px-4 py-2 rounded-lg font-semibold flex-shrink-0"
-            style={{ backgroundColor: "#1B2B5E", color: "#F5F0E8" }}>
+            className="text-sm px-4 rounded-lg font-semibold flex-shrink-0"
+            style={{ backgroundColor: "#1B2B5E", color: "#F5F0E8", minHeight: 44 }}>
             Déconnexion
           </button>
         </div>
         <div className="flex flex-wrap gap-1 pb-3">
           {liens.filter(l => !(interne && l.clientSeul)).map(({ href, label, exact }) => (
             <a key={href} href={href}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap"
+              className="px-3 rounded-lg text-sm font-medium whitespace-nowrap inline-flex items-center"
               style={{
+                minHeight: 44,
                 color: isActive(href, exact) ? "#E8847A" : "#1B2B5E",
                 backgroundColor: isActive(href, exact) ? "rgba(255,255,255,0.2)" : "transparent",
                 fontWeight: isActive(href, exact) ? 700 : 500,

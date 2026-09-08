@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { lireCorpsFormulaire } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { recalculerMontantSejour } from "@/app/(admin)/reservations/[id]/actions";
+import { recalculerMontantSejour } from "@/app/(admin)/(espace-clients)/reservations/[id]/actions";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
 
 export async function POST(

@@ -1,7 +1,20 @@
 import { describe, it, expect } from "vitest";
 import { deciderAccesAdmin, permissionsBoutique } from "@/src/lib/accesAdmin";
 import { CHAMPS_RESERVES_GESTION, colonnesArticle } from "@/src/lib/boutiqueLogique";
-import { entreesVisibles } from "@/app/(admin)/boutique/NavBoutique";
+import { entreesEspace, droitsNav } from "@/src/lib/espaces";
+
+/**
+ * La barre secondaire de la boutique est devenue celle des huit espaces :
+ * `entreesEspace("boutique", …)`. Le comportement attendu n'a pas changé.
+ */
+const entreesVisibles = (gestion: boolean) =>
+  entreesEspace("boutique", droitsNav({
+    perm_boutique_vente: true,
+    perm_boutique_gestion: gestion,
+    // La fiche fournisseur relève des dépenses : elle apparaît quand on y a
+    // droit, ce que la gestion boutique n'implique pas.
+    perm_depenses: gestion,
+  }));
 
 /**
  * Vendre et gérer sont deux métiers. Ces tests couvrent les quatre

@@ -25,7 +25,11 @@ const bordure = "1px solid rgba(27,43,94,0.2)";
 export default async function RecapitulatifStockPage() {
   await exigerAccesAdmin("perm_boutique_gestion");
 
-  const articles = (await listerArticles({ actifsSeulement: true })).filter(
+  // Uniquement les MARCHANDISES : ce document justifie le compte 1200, dont la
+  // contrepartie d'achat est le 4200. Les fournitures de fabrication sont
+  // achetées sur le 4000 et n'ont jamais eu leur place dans cette pièce ; leur
+  // stock se compte à l'atelier.
+  const articles = (await listerArticles({ actifsSeulement: true, perimetre: "boutique" })).filter(
     (a) =>
       a.type_article !== "personnalisable" &&
       (Number(a.stock_actuel) !== 0 || Number(a.prix_achat ?? 0) !== 0)

@@ -50,8 +50,8 @@ export default function BoutonsCheckinDashboard({
         <button
           onClick={() => callAction("checkin")}
           disabled={loading}
-          className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
-          style={{ backgroundColor: "#4AAEA0" }}>
+          className="px-4 rounded-lg text-xs font-semibold text-white disabled:opacity-50 inline-flex items-center justify-center"
+          style={{ backgroundColor: "#4AAEA0", minHeight: 44 }}>
           {loading ? "…" : "✅ Valider l'arrivée"}
         </button>
       );
@@ -64,8 +64,8 @@ export default function BoutonsCheckinDashboard({
             callAction("annuler_checkin");
           }}
           disabled={loading}
-          className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-          style={{ backgroundColor: "#F3F4F6", color: "#6B7280", border: "1px solid #E5E7EB" }}>
+          className="px-4 rounded-lg text-xs font-semibold disabled:opacity-50 inline-flex items-center justify-center"
+          style={{ backgroundColor: "#F3F4F6", color: "#6B7280", border: "1px solid #E5E7EB", minHeight: 44 }}>
           {loading ? "…" : "↩️ Annuler l'arrivée"}
         </button>
       );
@@ -79,8 +79,8 @@ export default function BoutonsCheckinDashboard({
           <button
             onClick={() => (est_essai ? setDialogueOuvert(true) : callAction("checkout"))}
             disabled={loading}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
-            style={{ backgroundColor: "#E8847A" }}>
+            className="px-4 rounded-lg text-xs font-semibold text-white disabled:opacity-50 inline-flex items-center justify-center"
+            style={{ backgroundColor: "#E8847A", minHeight: 44 }}>
             {loading ? "…" : "🚪 Valider le départ"}
           </button>
           {dialogueOuvert && (
@@ -102,8 +102,8 @@ export default function BoutonsCheckinDashboard({
             callAction("annuler_checkout");
           }}
           disabled={loading}
-          className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-          style={{ backgroundColor: "#F3F4F6", color: "#6B7280", border: "1px solid #E5E7EB" }}>
+          className="px-4 rounded-lg text-xs font-semibold disabled:opacity-50 inline-flex items-center justify-center"
+          style={{ backgroundColor: "#F3F4F6", color: "#6B7280", border: "1px solid #E5E7EB", minHeight: 44 }}>
           {loading ? "…" : "↩️ Annuler le départ"}
         </button>
       );

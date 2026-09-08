@@ -10,6 +10,7 @@ import {
   type LigneInventaire,
   type TypeMouvement,
 } from "@/src/lib/boutiqueLogique";
+import { PERIMETRES, type PerimetreStock } from "@/src/lib/perimetreStock";
 
 /**
  * Boutique — couche base. Elle ne décide rien : les règles viennent de
@@ -96,10 +97,27 @@ export async function lireArticleVente(id: string): Promise<ArticleVente | null>
   return (data as ArticleVente | null) ?? null;
 }
 
+export type OptionsListe = {
+  actifsSeulement?: boolean;
+  /**
+   * Le périmètre de l'écran. « boutique » ne rend QUE ce qui se vend,
+   * « atelier » QUE les fournitures de fabrication. Le filtre est dans la
+   * requête, pas à l'affichage : une fourniture ne doit pas partir vers un
+   * écran de magasin, même pour y être cachée ensuite.
+   *
+   * Omis, la liste est complète — c'est ce qu'il faut à la reprise d'une
+   * dépense, où l'on peut avoir acheté des deux sur la même facture.
+   */
+  perimetre?: PerimetreStock;
+};
+
 /** Tous les articles, du plus récent au plus ancien nom : la liste est courte. */
-export async function listerArticles(options?: { actifsSeulement?: boolean }): Promise<Article[]> {
+export async function listerArticles(options?: OptionsListe): Promise<Article[]> {
   let requete = supabaseAdmin.from("articles").select(COLONNES_ARTICLE).order("nom");
   if (options?.actifsSeulement) requete = requete.eq("actif", true);
+  if (options?.perimetre) {
+    requete = requete.eq("composant", PERIMETRES[options.perimetre].composant);
+  }
   const { data } = await requete;
   return (data ?? []) as unknown as Article[];
 }
@@ -110,10 +128,13 @@ export async function listerArticles(options?: { actifsSeulement?: boolean }): P
  */
 export async function listerArticlesSelonNiveau(
   niveau: NiveauCatalogue,
-  options?: { actifsSeulement?: boolean }
+  options?: OptionsListe
 ): Promise<(Article | ArticleVente)[]> {
   let requete = supabaseAdmin.from("articles").select(colonnesArticle(niveau)).order("nom");
   if (options?.actifsSeulement) requete = requete.eq("actif", true);
+  if (options?.perimetre) {
+    requete = requete.eq("composant", PERIMETRES[options.perimetre].composant);
+  }
   const { data } = await requete;
   return (data ?? []) as unknown as (Article | ArticleVente)[];
 }

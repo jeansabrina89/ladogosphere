@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClientLike = any;
 import { createClient } from "../utils/supabase/server";
+import type { PerimetreStock, NiveauStock } from "./perimetreStock";
 
 // ── API Routes ──────────────────────────────────────────────────────────────
 
@@ -108,6 +109,8 @@ export type ProfilePerms = {
   perm_depenses: boolean;
   perm_boutique_vente: boolean;
   perm_boutique_gestion: boolean;
+  /** L'atelier : les fournitures de fabrication. Indépendante de la boutique. */
+  perm_atelier: boolean;
   perm_reservations_creer: boolean;
   perm_reservations_modifier: boolean;
   perm_reservations_annuler: boolean;
@@ -131,7 +134,7 @@ export async function getProfilePerms(): Promise<ProfilePerms> {
     .select(`role,
       perm_chiens_creer, perm_chiens_modifier,
       perm_clients_creer, perm_clients_modifier, perm_depenses,
-      perm_boutique_vente, perm_boutique_gestion,
+      perm_boutique_vente, perm_boutique_gestion, perm_atelier,
       perm_reservations_creer, perm_reservations_modifier, perm_reservations_annuler,
       perm_journee_essai, perm_encaissements, perm_tarifs_urgence,
       perm_checkin, perm_box, perm_planning,
@@ -152,6 +155,9 @@ export async function getProfilePerms(): Promise<ProfilePerms> {
     // La gestion emporte la vente : voir permissionsBoutique.
     perm_boutique_vente: isAdmin || !!profile.perm_boutique_vente || !!profile.perm_boutique_gestion,
     perm_boutique_gestion: isAdmin || !!profile.perm_boutique_gestion,
+    // L'atelier ne découle d'aucune permission boutique : on peut tenir le
+    // magasin sans toucher aux fournitures de fabrication, et l'inverse.
+    perm_atelier: isAdmin || !!profile.perm_atelier,
     perm_reservations_creer: isAdmin || !!profile.perm_reservations_creer,
     perm_reservations_modifier: isAdmin || !!profile.perm_reservations_modifier,
     perm_reservations_annuler: isAdmin || !!profile.perm_reservations_annuler,
@@ -176,6 +182,7 @@ function falsePerms(): ProfilePerms {
     perm_depenses: false,
     perm_boutique_vente: false,
     perm_boutique_gestion: false,
+    perm_atelier: false,
     perm_reservations_creer: false,
     perm_reservations_modifier: false,
     perm_reservations_annuler: false,
@@ -229,6 +236,31 @@ export async function verifierPermissionBoutique(
           ? "Cette action demande la permission « Boutique — gestion »."
           : "Cette action demande la permission « Boutique — vente ».",
       };
+}
+
+/**
+ * Garde des actions de stock, boutique OU atelier.
+ *
+ * Elle n'ajoute aucune règle : sur la boutique elle appelle la garde des deux
+ * niveaux posée en APP 13b, sur l'atelier elle exige `perm_atelier`. C'est le
+ * périmètre de la DONNÉE qui décide, jamais le formulaire — une fourniture se
+ * modifie depuis l'atelier, quel que soit l'écran d'où part la requête.
+ */
+export async function verifierPermissionStock(
+  perimetre: PerimetreStock,
+  niveau: NiveauStock
+): Promise<{ error?: string; userId?: string; isAdmin?: boolean }> {
+  if (perimetre === "boutique") return verifierPermissionBoutique(niveau);
+
+  const verif = await verifierPermission("perm_atelier");
+  if (verif.error) {
+    return {
+      error: verif.error === "Accès réservé à l'admin"
+        ? "Cette action demande la permission « Atelier »."
+        : verif.error,
+    };
+  }
+  return verif;
 }
 
 /** La même garde, pour une route d'API : 403 plutôt qu'une redirection. */

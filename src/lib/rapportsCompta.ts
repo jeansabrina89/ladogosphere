@@ -149,3 +149,17 @@ export function construireRapport(params: {
     grandLivre,
   };
 }
+
+/**
+ * Le controle qui doit rester a zero : total des debits moins total des
+ * credits, sur tout le grand-livre.
+ *
+ * Ce n est pas une statistique, c est une alarme. En partie double, un ecart
+ * non nul veut dire qu une ecriture est passee de travers — et il vaut mieux
+ * l apprendre sur le tableau de bord que six mois plus tard, a la cloture.
+ */
+export type LigneEquilibre = { debit: number | string | null; credit: number | string | null };
+
+export function ecartEquilibre(lignes: LigneEquilibre[]): number {
+  return r2(lignes.reduce((acc, l) => acc + Number(l.debit ?? 0) - Number(l.credit ?? 0), 0));
+}

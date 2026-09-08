@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-import NavBarAdmin from "./NavBarAdmin";
-import NavBarEmploye from "./NavBarEmploye";
+import NavBarPersonnel from "./NavBarPersonnel";
 import NavBarClient from "./NavBarClient";
 
 export default async function NavBarServeur() {
@@ -31,7 +30,8 @@ export default async function NavBarServeur() {
     role = profile?.role ?? "client";
   }
 
-  if (role === "admin") return <NavBarAdmin />;
-  if (role === "employe") return <NavBarEmploye />;
+  // Admin et employée partagent la même barre : ce qui les distingue, ce sont
+  // leurs permissions, pas un menu écrit deux fois.
+  if (role === "admin" || role === "employe") return <NavBarPersonnel />;
   return <NavBarClient />;
 }

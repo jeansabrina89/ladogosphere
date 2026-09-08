@@ -69,9 +69,12 @@ const aide: React.CSSProperties = { fontSize: 12, color: SOUS, marginTop: 6, mar
 export default function FormArticle({
   article,
   fournisseurs,
+  composantParDefaut = false,
 }: {
   article?: ArticleFormulaire;
   fournisseurs: { id: string; nom: string }[];
+  /** Créer depuis l'atelier : la case « fourniture » arrive cochée. */
+  composantParDefaut?: boolean;
 }) {
   const [etat, action, enCours] = useActionState<EtatBoutique, FormData>(
     enregistrerArticle.bind(null, article?.id ?? null),
@@ -305,7 +308,7 @@ export default function FormArticle({
         <label htmlFor="composant" style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 15, color: MARINE }}>
           <input
             type="checkbox" name="composant" id="composant"
-            defaultChecked={caseCochee(v, "composant", article?.composant ?? false)}
+            defaultChecked={caseCochee(v, "composant", article?.composant ?? composantParDefaut)}
             style={{ width: 20, height: 20, marginTop: 2, flexShrink: 0 }}
           />
           <span>
