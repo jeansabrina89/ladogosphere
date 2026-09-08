@@ -89,7 +89,7 @@ export default async function BoutiquePage() {
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <Bouton href="/boutique/caisse" variante="principal">💳 Ouvrir la caisse</Bouton>
               {gestion && (
-                <Bouton href="/boutique/articles/nouveau" variante="secondaire">+ Article</Bouton>
+                <Bouton href="/boutique/articles/nouveau" variante="secondaire">+ Nouvel article</Bouton>
               )}
             </div>
           }
@@ -172,7 +172,6 @@ export default async function BoutiquePage() {
             {gestion && (
               <>
                 <Raccourci href="/boutique/inventaire" titre="📦 Inventaire" note="Comptage et écarts" />
-                <Raccourci href="/boutique/modeles" titre="🧩 Modèles d&apos;options" note="Les questions posées sur plusieurs articles" />
               </>
             )}
             <Raccourci href="/boutique/commandes-en-ligne" titre="🌐 Commandes en ligne" note="À préparer, à remettre, à expédier" />

@@ -60,7 +60,7 @@ export default async function FournituresPage({
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {/* Un seul écran de création, deux portes : la case « fourniture »
               arrive cochée quand on vient de l'atelier. */}
-          <Bouton href="/boutique/articles/nouveau?composant=1" variante="principal">+ Fourniture</Bouton>
+          <Bouton href="/atelier/fournitures/nouvelle" variante="principal">+ Fourniture</Bouton>
           <Bouton href="/atelier/inventaire" variante="secondaire">📦 Inventaire</Bouton>
         </div>
       }

@@ -130,7 +130,6 @@ export default async function ClientelePage() {
           <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", minWidth: 0 }}>
             <Raccourci href="/clients" titre="👤 Clients" note="Fiches, contacts et adhésions" />
             <Raccourci href="/chiens" titre="🐶 Chiens" note="Fiches, ententes et journées d'essai" />
-            <Raccourci href="/reservations" titre="📅 Réservations" note="Toutes les réservations, filtrables" />
             {encaisse && (
               <Raccourci href="/abonnements" titre="🎟️ Abonnements" note="Cartes de journées et soldes" />
             )}

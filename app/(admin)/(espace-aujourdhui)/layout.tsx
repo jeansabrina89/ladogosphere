@@ -2,7 +2,7 @@ import LayoutEspace from "@/app/components/LayoutEspace";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <LayoutEspace cle="aujourdhui" nom="Aujourd'hui">
+    <LayoutEspace cle="aujourdhui">
       {children}
     </LayoutEspace>
   );

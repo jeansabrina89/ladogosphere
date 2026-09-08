@@ -1,5 +1,5 @@
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
-import { droitsNav, entreesEspace } from "@/src/lib/espaces";
+import { droitsNav } from "@/src/lib/espaces";
 import NavEspace from "@/app/components/NavEspace";
 
 /**
@@ -22,11 +22,10 @@ export default async function BoutiqueLayout({
   children: React.ReactNode;
 }) {
   const acces = await exigerAccesAdmin("perm_boutique_vente");
-  const entrees = entreesEspace("boutique", droitsNav(acces.permissions, acces.isAdmin));
 
   return (
     <div style={{ "--nav-boutique": "61px" } as React.CSSProperties}>
-      <NavEspace nom="Boutique" entrees={entrees} />
+      <NavEspace cleParDefaut="boutique" droits={droitsNav(acces.permissions, acces.isAdmin)} />
       {children}
     </div>
   );

@@ -13,6 +13,7 @@ import {
   margeArticle,
   lireNombre,
 } from "@/src/lib/boutiqueLogique";
+import { COMPTE_MATIERES_FABRICATION, type PerimetreStock } from "@/src/lib/perimetreStock";
 
 export type ArticleFormulaire = {
   id: string;
@@ -69,13 +70,19 @@ const aide: React.CSSProperties = { fontSize: 12, color: SOUS, marginTop: 6, mar
 export default function FormArticle({
   article,
   fournisseurs,
-  composantParDefaut = false,
+  perimetre = "boutique",
 }: {
   article?: ArticleFormulaire;
   fournisseurs: { id: string; nom: string }[];
-  /** Créer depuis l'atelier : la case « fourniture » arrive cochée. */
-  composantParDefaut?: boolean;
+  /**
+   * « atelier » : on saisit une FOURNITURE. Ni prix de vente, ni catégorie de
+   * vente, ni vitrine — rien de ce qui ne concerne que ce qui se vend. Les
+   * champs masqués partent quand même, à leur valeur actuelle : on cache, on
+   * n'efface pas.
+   */
+  perimetre?: PerimetreStock;
 }) {
+  const atelier = perimetre === "atelier";
   const [etat, action, enCours] = useActionState<EtatBoutique, FormData>(
     enregistrerArticle.bind(null, article?.id ?? null),
     ETAT_FORMULAIRE_VIDE
@@ -128,6 +135,11 @@ export default function FormArticle({
         />
       </div>
 
+      {atelier ? (
+        /* Une fourniture n'a pas de catégorie de VENTE : elle ne se vend pas.
+           Le champ part quand même, à sa valeur actuelle ou « divers ». */
+        <input type="hidden" name="categorie" value={categorie || "divers"} />
+      ) : (
       <div>
         <label htmlFor="categorie" style={etiquette}>Catégorie</label>
         <select
@@ -142,6 +154,7 @@ export default function FormArticle({
         </select>
         {aideCategorie(categorie) && <p style={aide}>{aideCategorie(categorie)}</p>}
       </div>
+      )}
 
       <div>
         <label htmlFor="taux_tva" style={etiquette}>Taux de TVA (%)</label>
@@ -156,6 +169,11 @@ export default function FormArticle({
       </div>
 
       <div style={{ display: "grid", gap: 18, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+        {atelier ? (
+          /* On n'achète pas une sangle pour la revendre au mètre : seul le
+             prix d'ACHAT compte, et c'est lui qui valorise le stock. */
+          <input type="hidden" name="prix_vente" value={prixVente || "0"} />
+        ) : (
         <div>
           <label htmlFor="prix_vente" style={etiquette}>Prix TTC de vente (CHF)</label>
           <input
@@ -168,6 +186,7 @@ export default function FormArticle({
             placeholder="0.00"
           />
         </div>
+        )}
 
         <div>
           <label htmlFor="prix_achat" style={etiquette}>Prix d&apos;achat (CHF, facultatif)</label>
@@ -272,7 +291,21 @@ export default function FormArticle({
         />
       </div>
 
+      {atelier && (
+        <p style={{
+          margin: 0, padding: "10px 12px", borderRadius: 12, fontSize: 13,
+          backgroundColor: "#FBF9F5", border: BORDURE, color: SOUS,
+        }}>
+          Ses achats se saisissent en dépense sur la catégorie « Matières de
+          fabrication » — compte {COMPTE_MATIERES_FABRICATION}. C&apos;est de là que
+          les entrées en stock partent.
+        </p>
+      )}
+
       <div style={{ display: "grid", gap: 12, borderTop: BORDURE, paddingTop: 16 }}>
+        {atelier ? (
+          <input type="hidden" name="type_article" value="standard" />
+        ) : (
         <div>
           <label htmlFor="type_article" style={etiquette}>Type d&apos;article</label>
           <select
@@ -289,6 +322,7 @@ export default function FormArticle({
               : "Son stock se décompte à chaque vente."}
           </p>
         </div>
+        )}
 
         {typeArticle === "personnalisable" && (
           <div>
@@ -305,10 +339,14 @@ export default function FormArticle({
           </div>
         )}
 
+        {atelier ? (
+          /* Ici, tout est fourniture : la case n'a rien à demander. */
+          <input type="hidden" name="composant" value="on" />
+        ) : (
         <label htmlFor="composant" style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 15, color: MARINE }}>
           <input
             type="checkbox" name="composant" id="composant"
-            defaultChecked={caseCochee(v, "composant", article?.composant ?? composantParDefaut)}
+            defaultChecked={caseCochee(v, "composant", article?.composant ?? false)}
             style={{ width: 20, height: 20, marginTop: 2, flexShrink: 0 }}
           />
           <span>
@@ -319,6 +357,7 @@ export default function FormArticle({
             </span>
           </span>
         </label>
+        )}
 
         <label htmlFor="actif" style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 15, color: MARINE }}>
           <input
@@ -326,8 +365,11 @@ export default function FormArticle({
             defaultChecked={caseCochee(v, "actif", article?.actif ?? true)}
             style={{ width: 20, height: 20 }}
           />
-          Article actif (proposé à la vente)
+          {atelier ? "Fourniture active (utilisable en fabrication)" : "Article actif (proposé à la vente)"}
         </label>
+        {atelier ? (
+          <input type="hidden" name="vendable_en_ligne" value="" />
+        ) : (
         <label htmlFor="vendable_en_ligne" style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 15, color: MARINE }}>
           <input
             type="checkbox" name="vendable_en_ligne" id="vendable_en_ligne"
@@ -336,6 +378,7 @@ export default function FormArticle({
           />
           Visible sur le site vitrine
         </label>
+        )}
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", borderTop: BORDURE, paddingTop: 16 }}>
@@ -351,7 +394,7 @@ export default function FormArticle({
           {enCours ? "Enregistrement…" : "💾 Enregistrer"}
         </button>
         <Link
-          href={article ? `/boutique/articles/${article.id}` : "/boutique/articles"}
+          href={article ? `/boutique/articles/${article.id}` : (atelier ? "/atelier/fournitures" : "/boutique/articles")}
           style={{
             minHeight: 48, padding: "0 22px", borderRadius: 14, border: BORDURE,
             display: "inline-flex", alignItems: "center", backgroundColor: "#FFFFFF",

@@ -13,7 +13,7 @@ type ResaImpayee = {
 };
 
 export default async function NouvelleFacturePage() {
-  await exigerAccesAdmin("perm_encaissements");
+  await exigerAccesAdmin("perm_factures");
 
   const { data: clients } = await supabaseAdmin
     .from("clients")

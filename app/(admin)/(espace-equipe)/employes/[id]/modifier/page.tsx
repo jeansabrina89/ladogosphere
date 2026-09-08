@@ -199,7 +199,14 @@ export default async function ModifierEmployePage({
                   {
                     titre: "Encaissements",
                     items: [
-                      { key: "perm_encaissements", label: "Encaissements (enregistrer un paiement, marquer payé, avoirs)" },
+                      {
+                        key: "perm_encaissements",
+                        label: "Encaissements — le geste au comptoir : encaisser un paiement, créer un avoir, enregistrer une adhésion ou un abonnement. Depuis la fiche de réservation, l'écran de départ et la caisse.",
+                      },
+                      {
+                        key: "perm_factures",
+                        label: "Factures — le travail administratif : la liste des factures, les relances, l'émission d'une facture libre. Distincte de l'encaissement, et volontairement rare.",
+                      },
                       { key: "perm_depenses", label: "Dépenses (saisir, valider et payer, carnet de fournisseurs)" },
                       {
                         key: "perm_boutique_vente",

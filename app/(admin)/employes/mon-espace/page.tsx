@@ -207,11 +207,25 @@ export default async function MonEspaceRHPage() {
         {/* Stats annee */}
         <h2 className="font-bold mb-3 text-sm uppercase tracking-wide" style={{ color: "rgba(27,43,94,0.45)" }}>Cette année</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {/* Ce qu'on a FAIT, d'abord et en grand.
+              Cette case affichait le solde restant : un employé qui ouvrait son
+              espace lisait d'abord ce qu'il n'avait pas encore fait, en rouge et
+              en négatif. On lit maintenant son travail ; l'écart au contrat
+              reste juste à côté, en plus discret. */}
           <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
-            <p className={soldeAnnee >= 0 ? "text-2xl font-bold" : "text-xl font-semibold"} style={{ color: soldeAnnee >= 0 ? "#4AAEA0" : "#D97706" }}>
-              {soldeAnnee >= 0 ? "+" : ""}{soldeAnnee.toFixed(1)}h
+            <p className="text-2xl font-bold" style={{ color: "#1B2B5E" }}>
+              {decompteAnnee.heuresFaites.toFixed(1)}h
             </p>
-            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.5)" }}>Solde h.sup annuel</p>
+            <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.5)" }}>Heures faites cette année</p>
+            <p className="text-xs mt-2" style={{ color: soldeAnnee >= 0 ? "#1F6E5B" : "rgba(27,43,94,0.55)" }}>
+              {/* Un solde favorable se dit « en plus » ; un solde défavorable se
+                  dit « à faire », jamais avec un signe moins collé au front. */}
+              {soldeAnnee >= 0.05
+                ? `${soldeAnnee.toFixed(1)}h en plus du contrat`
+                : soldeAnnee <= -0.05
+                  ? `${Math.abs(soldeAnnee).toFixed(1)}h à faire d'ici la fin de l'année`
+                  : "Exactement au contrat"}
+            </p>
           </div>
           <div className="text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "16px" }}>
             <p className="text-2xl font-bold" style={{ color: "#C9A84C" }}>{joursVacancesRestants.toFixed(1)}j</p>

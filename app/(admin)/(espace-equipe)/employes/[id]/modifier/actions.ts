@@ -103,6 +103,7 @@ export async function modifierEmploye(
         perm_reservations_annuler: formData.get("perm_reservations_annuler") === "on",
         perm_journee_essai: formData.get("perm_journee_essai") === "on",
         perm_encaissements: formData.get("perm_encaissements") === "on",
+        perm_factures: formData.get("perm_factures") === "on",
         perm_depenses: formData.get("perm_depenses") === "on",
         perm_boutique_vente: formData.get("perm_boutique_vente") === "on",
         perm_boutique_gestion: formData.get("perm_boutique_gestion") === "on",

@@ -27,7 +27,8 @@ export default async function ModifierArticlePage({
   ]);
   if (!article) notFound();
 
-  const refus = refusStock(acces, perimetreDeArticle(article), "gestion");
+  const perimetre = perimetreDeArticle(article);
+  const refus = refusStock(acces, perimetre, "gestion");
   if (refus) redirect(refus);
 
   return (
@@ -42,6 +43,7 @@ export default async function ModifierArticlePage({
           <FormArticle
             article={article as unknown as ArticleFormulaire}
             fournisseurs={(fournisseurs ?? []) as { id: string; nom: string }[]}
+            perimetre={perimetre}
           />
         </Carte>
       </div>

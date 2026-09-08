@@ -27,7 +27,7 @@ export default async function FacturesListePage({
 }: {
   searchParams: Promise<{ vues?: string; q?: string; du?: string; au?: string }>;
 }) {
-  await exigerAccesAdmin("perm_encaissements");
+  await exigerAccesAdmin("perm_factures");
 
   const params = await searchParams;
   const selection = new Set((params.vues || "").split(",").filter(Boolean));

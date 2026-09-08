@@ -116,6 +116,8 @@ export type ProfilePerms = {
   perm_reservations_annuler: boolean;
   perm_journee_essai: boolean;
   perm_encaissements: boolean;
+  /** Le travail administratif de facturation, distinct du geste au comptoir. */
+  perm_factures: boolean;
   perm_tarifs_urgence: boolean;
   perm_checkin: boolean;
   perm_box: boolean;
@@ -136,7 +138,7 @@ export async function getProfilePerms(): Promise<ProfilePerms> {
       perm_clients_creer, perm_clients_modifier, perm_depenses,
       perm_boutique_vente, perm_boutique_gestion, perm_atelier,
       perm_reservations_creer, perm_reservations_modifier, perm_reservations_annuler,
-      perm_journee_essai, perm_encaissements, perm_tarifs_urgence,
+      perm_journee_essai, perm_encaissements, perm_factures, perm_tarifs_urgence,
       perm_checkin, perm_box, perm_planning,
       perm_timbrage_equipe, perm_vacances_equipe`)
     .eq("id", user.id)
@@ -163,6 +165,7 @@ export async function getProfilePerms(): Promise<ProfilePerms> {
     perm_reservations_annuler: isAdmin || !!profile.perm_reservations_annuler,
     perm_journee_essai: isAdmin || !!profile.perm_journee_essai,
     perm_encaissements: isAdmin || !!profile.perm_encaissements,
+    perm_factures: isAdmin || !!profile.perm_factures,
     perm_tarifs_urgence: isAdmin || !!profile.perm_tarifs_urgence,
     perm_checkin: isAdmin || !!profile.perm_checkin,
     perm_box: isAdmin || !!profile.perm_box,
@@ -188,6 +191,7 @@ function falsePerms(): ProfilePerms {
     perm_reservations_annuler: false,
     perm_journee_essai: false,
     perm_encaissements: false,
+    perm_factures: false,
     perm_tarifs_urgence: false,
     perm_checkin: false,
     perm_box: false,

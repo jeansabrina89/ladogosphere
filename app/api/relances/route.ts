@@ -10,7 +10,7 @@ import { niveauRelanceDu } from "@/src/lib/relances";
 
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient();
-  const garde = await exigerPermissionApi(supabase, "perm_encaissements");
+  const garde = await exigerPermissionApi(supabase, "perm_factures");
   if (garde) return garde;
 
   let body: { reservation_id?: string };

@@ -29,7 +29,7 @@ export default async function FacturePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const acces = await exigerAccesAdmin("perm_encaissements");
+  const acces = await exigerAccesAdmin("perm_factures");
   const peutEncaisser = acces.isAdmin || acces.permissions.perm_encaissements;
 
   const { id } = await params;

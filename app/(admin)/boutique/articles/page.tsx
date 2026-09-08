@@ -62,7 +62,7 @@ export default async function ArticlesPage({
       actions={
         gestion ? (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Bouton href="/boutique/articles/nouveau" variante="principal">+ Article</Bouton>
+            <Bouton href="/boutique/articles/nouveau" variante="principal">+ Nouvel article</Bouton>
             <Bouton href="/boutique/inventaire" variante="secondaire">📦 Inventaire</Bouton>
           </div>
         ) : undefined

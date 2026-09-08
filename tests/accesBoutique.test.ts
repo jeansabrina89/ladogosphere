@@ -112,8 +112,15 @@ describe("navigation secondaire", () => {
   it("montre tout à la gestion", () => {
     const labels = entreesVisibles(true).map((e) => e.label);
     expect(labels).toContain("📦 Inventaire");
-    expect(labels).toContain("🧩 Modèles");
     expect(labels).toContain("🏢 Fournisseurs");
+  });
+
+  it("les modèles et le sur-mesure ont quitté la boutique pour l'atelier", () => {
+    // Ce sont des outils de FABRICATION. Leur adresse n'a pas bougé — c'est le
+    // menu qui les range ailleurs.
+    const labels = entreesVisibles(true).map((e) => e.label);
+    expect(labels).not.toContain("🧩 Modèles");
+    expect(labels).not.toContain("🎁 Commandes sur mesure");
   });
 });
 

@@ -7,6 +7,7 @@ import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import BoutonSupprimerEmploye from "./BoutonSupprimerEmploye";
 import { BoutonCreerAcces, BoutonReinitialiserMdp } from "./BoutonAccesEmploye";
+import { DOMAINES, compterPermissions } from "@/src/lib/permissionsCatalogue";
 
 const pill = (bg: string, fg: string): CSSProperties => ({
   display: "inline-block", backgroundColor: bg, color: fg,
@@ -90,28 +91,54 @@ export default async function EmployesPage() {
                   </div>
                 </div>
 
-                {profil && profil.role === "employe" && (
-                  <div style={{ marginTop: "16px", borderTop: "1px solid rgba(27,43,94,0.08)", paddingTop: "16px" }}>
-                    <p style={{ fontSize: "14px", fontWeight: 600, marginBottom: "8px", color: "rgba(27,43,94,0.6)" }}>Permissions :</p>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                      {[
-                        { key: "perm_checkin", label: "Check-in/out" },
-                        { key: "perm_reservations_creer", label: "Créer résa" },
-                        { key: "perm_reservations_modifier", label: "Modifier résa" },
-                        { key: "perm_reservations_annuler", label: "Annuler résa" },
-                        { key: "perm_clients_creer", label: "Créer clients" },
-                        { key: "perm_clients_modifier", label: "Modifier clients" },
-                        { key: "perm_chiens_modifier", label: "Modifier chiens" },
-                        { key: "perm_planning", label: "Planning" },
-                        { key: "perm_tarifs_urgence", label: "Tarifs urgence" },
-                      ].map(({ key, label }) => (
-                        <span key={key} style={pill(profil[key] ? "#DBEFEA" : "#EDE8DF", profil[key] ? "#1F6E5B" : "rgba(27,43,94,0.6)")}>
-                          {profil[key] ? "✅" : "○"} {label}
+                {/* TOUTES les permissions, rangées par domaine.
+                    Cet écran n'en montrait que neuf : cocher « Boutique »
+                    fonctionnait mais ne se voyait nulle part, et on croyait que
+                    la coche n'avait pas pris. Une liste partielle ment sans le
+                    dire. Le compteur donne l'ampleur d'un coup d'œil. */}
+                {profil && profil.role === "employe" && (() => {
+                  const compte = compterPermissions(profil);
+                  return (
+                    <div style={{ marginTop: "16px", borderTop: "1px solid rgba(27,43,94,0.08)", paddingTop: "16px" }}>
+                      <p style={{ fontSize: "14px", fontWeight: 600, marginBottom: "10px", color: "rgba(27,43,94,0.6)" }}>
+                        Permissions :{" "}
+                        <span style={{ color: "#1B2B5E" }}>
+                          {compte.accordees} sur {compte.total}
                         </span>
-                      ))}
+                      </p>
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                        {DOMAINES.map((domaine) => {
+                          const accordees = domaine.entrees.filter((e) => profil[e.cle]).length;
+                          return (
+                            <div key={domaine.nom}>
+                              <p style={{
+                                fontSize: "11px", fontWeight: 700, letterSpacing: ".06em",
+                                textTransform: "uppercase", color: "rgba(27,43,94,0.45)",
+                                margin: "0 0 6px",
+                              }}>
+                                {domaine.nom} — {accordees}/{domaine.entrees.length}
+                              </p>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                                {domaine.entrees.map(({ cle, court }) => (
+                                  <span
+                                    key={cle}
+                                    style={pill(
+                                      profil[cle] ? "#DBEFEA" : "#EDE8DF",
+                                      profil[cle] ? "#1F6E5B" : "rgba(27,43,94,0.6)"
+                                    )}
+                                  >
+                                    {profil[cle] ? "✅" : "○"} {court}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </Carte>
             );
           })}

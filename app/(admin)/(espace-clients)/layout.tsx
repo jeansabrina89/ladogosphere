@@ -2,7 +2,7 @@ import LayoutEspace from "@/app/components/LayoutEspace";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <LayoutEspace cle="clients" nom="Clients">
+    <LayoutEspace cle="clients">
       {children}
     </LayoutEspace>
   );

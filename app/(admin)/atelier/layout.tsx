@@ -1,5 +1,5 @@
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
-import { droitsNav, entreesEspace } from "@/src/lib/espaces";
+import { droitsNav } from "@/src/lib/espaces";
 import NavEspace from "@/app/components/NavEspace";
 
 /**
@@ -15,11 +15,10 @@ export default async function AtelierLayout({
   children: React.ReactNode;
 }) {
   const acces = await exigerAccesAdmin("perm_atelier");
-  const entrees = entreesEspace("atelier", droitsNav(acces.permissions, acces.isAdmin));
 
   return (
     <div>
-      <NavEspace nom="Atelier" entrees={entrees} />
+      <NavEspace cleParDefaut="atelier" droits={droitsNav(acces.permissions, acces.isAdmin)} />
       {children}
     </div>
   );

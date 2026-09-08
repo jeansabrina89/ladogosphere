@@ -21,6 +21,7 @@ import {
 const droits = (p: Partial<DroitsNav> = {}): DroitsNav => ({
   isAdmin: false,
   perm_encaissements: false,
+  perm_factures: false,
   perm_depenses: false,
   perm_boutique_vente: false,
   perm_boutique_gestion: false,
@@ -57,12 +58,14 @@ describe("les huit espaces", () => {
 
 describe("ce que voit chaque profil", () => {
   it("une employée complète voit tout sauf ce qui est réservé à l'admin", () => {
-    // Équipe et Réglages sont entièrement admin : ils n'apparaissent pas.
+    // Comptabilité, Équipe et Réglages sont réservés à l'admin par la porte de
+    // l'ESPACE : aucune permission d'employée ne les ouvre.
     expect(cles(COMPLETE)).toEqual([
-      "aujourdhui", "pension", "clients", "boutique", "atelier", "comptabilite",
+      "aujourdhui", "pension", "clients", "boutique", "atelier",
     ]);
-    expect(cles(COMPLETE)).not.toContain("equipe");
-    expect(cles(COMPLETE)).not.toContain("reglages");
+    for (const ferme of ["comptabilite", "equipe", "reglages"]) {
+      expect(cles(COMPLETE), ferme).not.toContain(ferme);
+    }
   });
 
   it("une employée au comptoir : quatre entrées, jamais vingt-deux", () => {
@@ -123,12 +126,23 @@ describe("une entrée de menu ne mène jamais à une redirection", () => {
     }
   });
 
-  it("une employée aux dépenses entre en Comptabilité par les dépenses, pas par l'accueil", () => {
-    // L'accueil /comptabilite est réservé à l'admin : l'entrée mène ailleurs.
-    const depenses = droits({ perm_depenses: true });
-    const compta = espacesVisibles(depenses).find((e) => e.cle === "comptabilite");
-    expect(compta?.href).toBe("/comptabilite/depenses");
-    expect(compta?.entrees.map((e) => e.label)).toEqual(["💸 Dépenses", "🏢 Fournisseurs"]);
+  it("aucune permission d'employée n'ouvre l'espace Comptabilité", () => {
+    // C'était le défaut : perm_encaissements suffisait à le faire apparaître,
+    // pour la seule liste des factures. La porte est maintenant sur l'espace.
+    for (const d of [
+      droits({ perm_encaissements: true }),
+      droits({ perm_factures: true }),
+      droits({ perm_depenses: true }),
+      COMPLETE,
+    ]) {
+      expect(cles(d)).not.toContain("comptabilite");
+      expect(entreesEspace("comptabilite", d)).toEqual([]);
+    }
+  });
+
+  it("mais les fournisseurs restent atteignables par la Boutique", () => {
+    const depenses = droits({ perm_depenses: true, perm_boutique_vente: true });
+    expect(labels("boutique", depenses)).toContain("🏢 Fournisseurs");
   });
 
   it("l'admin, elle, entre par l'accueil de l'espace", () => {
@@ -166,8 +180,8 @@ describe("les trois déplacements décidés", () => {
 
 describe("un fournisseur, un écran, deux chemins", () => {
   it("la même adresse apparaît dans Boutique et dans Comptabilité", () => {
-    expect(labels("boutique", COMPLETE)).toContain("🏢 Fournisseurs");
-    expect(labels("comptabilite", COMPLETE)).toContain("🏢 Fournisseurs");
+    expect(labels("boutique", ADMIN)).toContain("🏢 Fournisseurs");
+    expect(labels("comptabilite", ADMIN)).toContain("🏢 Fournisseurs");
     const hrefs = ESPACES
       .flatMap((e) => e.ecrans)
       .filter((e) => e.label === "🏢 Fournisseurs")
@@ -235,6 +249,7 @@ describe("droitsNav", () => {
     expect(droitsNav({}, true)).toEqual({
       isAdmin: true,
       perm_encaissements: true,
+      perm_factures: true,
       perm_depenses: true,
       perm_boutique_vente: true,
       perm_boutique_gestion: true,
@@ -246,5 +261,111 @@ describe("droitsNav", () => {
     expect(droitsNav({ perm_atelier: "oui" }).perm_atelier).toBe(false);
     expect(droitsNav(null).perm_depenses).toBe(false);
     expect(droitsNav(undefined).isAdmin).toBe(false);
+  });
+});
+
+// ── APP 14c : ce que chaque profil voit, après les corrections ──────────────
+
+describe("la composition corrigée", () => {
+  it("la Pension a repris les réservations", () => {
+    expect(labels("pension", ADMIN)).toEqual([
+      "🏠 Pension", "🐾 Chiens du jour", "✅ Check-in", "📅 Réservations",
+      "🗂️ Planning", "🏠 Box", "🚫 Essais fermés",
+    ]);
+  });
+
+  it("et les Clients ne gardent que la clientèle", () => {
+    expect(labels("clients", ADMIN)).toEqual([
+      "🏠 Clients", "👤 Clients", "🐶 Chiens", "🎫 Adhésions", "🎟️ Abonnements",
+    ]);
+    expect(labels("clients", ADMIN)).not.toContain("📅 Réservations");
+  });
+
+  it("l'Atelier a repris les modèles et le sur-mesure", () => {
+    expect(labels("atelier", ADMIN)).toEqual([
+      "🏠 Atelier", "🧵 Fournitures", "📦 Inventaire", "📥 Entrées de stock",
+      "🧩 Modèles", "🎁 Commandes sur mesure",
+    ]);
+  });
+
+  it("et la Boutique ne garde que la vente", () => {
+    expect(labels("boutique", ADMIN)).toEqual([
+      "🏠 Boutique", "💳 Caisse", "🧾 Ventes", "🌐 En ligne",
+      "🛒 Articles", "📦 Inventaire", "🏢 Fournisseurs",
+    ]);
+  });
+
+  it("aucune adresse n'a changé en déménageant de menu", () => {
+    const tous = ESPACES.flatMap((e) => [e.accueil, ...e.ecrans]).map((e) => e.href);
+    for (const inchangee of [
+      "/reservations", "/boutique/modeles", "/boutique/commandes",
+      "/factures", "/comptabilite/relances",
+    ]) {
+      expect(tous, inchangee).toContain(inchangee);
+    }
+  });
+});
+
+describe("les quatre profils du parcours", () => {
+  const VENDEUSE_SANS_ATELIER = droits({
+    perm_checkin: true, perm_encaissements: true, perm_boutique_vente: true,
+  } as Partial<DroitsNav>);
+
+  it("l'admin voit les huit espaces", () => {
+    expect(cles(ADMIN)).toHaveLength(8);
+  });
+
+  it("une employée qui encaisse ne voit AUCUNE entrée Comptabilité", () => {
+    const encaisse = droits({ perm_encaissements: true });
+    expect(cles(encaisse)).toEqual(["aujourdhui", "pension", "clients"]);
+    // Ni l'espace, ni un seul de ses écrans, où que ce soit.
+    const vus = espacesVisibles(encaisse).flatMap((e) => e.entrees.map((x) => x.href));
+    for (const compta of [
+      "/comptabilite", "/factures", "/comptabilite/relances",
+      "/comptabilite/depenses", "/comptabilite/journal", "/comptabilite/rapports",
+      "/comptabilite/a-regulariser", "/comptabilite/fournisseurs",
+    ]) {
+      expect(vus, compta).not.toContain(compta);
+    }
+  });
+
+  it("mais elle garde adhésions et abonnements : c'est le geste de comptoir", () => {
+    const encaisse = droits({ perm_encaissements: true });
+    expect(labels("clients", encaisse)).toContain("🎫 Adhésions");
+    expect(labels("clients", encaisse)).toContain("🎟️ Abonnements");
+  });
+
+  it("une vendeuse sans atelier vend, mais ne voit ni Atelier ni sur-mesure", () => {
+    expect(cles(VENDEUSE_SANS_ATELIER)).toEqual([
+      "aujourdhui", "pension", "clients", "boutique",
+    ]);
+    expect(cles(VENDEUSE_SANS_ATELIER)).not.toContain("atelier");
+
+    const vus = espacesVisibles(VENDEUSE_SANS_ATELIER)
+      .flatMap((e) => e.entrees.map((x) => x.href));
+    expect(vus).not.toContain("/boutique/modeles");
+    expect(vus).not.toContain("/boutique/commandes");
+    // La caisse, elle, est bien là : c'est de là qu'elle vend un sur-mesure.
+    expect(vus).toContain("/boutique/caisse");
+  });
+
+  it("une employée sans aucune permission garde le quotidien, et rien d'autre", () => {
+    expect(cles(droits())).toEqual(["aujourdhui", "pension", "clients"]);
+    expect(labels("clients", droits())).toEqual(["🏠 Clients", "👤 Clients", "🐶 Chiens"]);
+  });
+});
+
+describe("l'espace d'une adresse prêtée", () => {
+  it("« Modèles » et « Sur mesure » comptent pour l'atelier, pas pour la boutique", () => {
+    expect(espaceDuChemin("/boutique/modeles")).toBe("atelier");
+    expect(espaceDuChemin("/boutique/commandes")).toBe("atelier");
+    // Et la caisse reste bien à la boutique.
+    expect(espaceDuChemin("/boutique/caisse")).toBe("boutique");
+    expect(espaceDuChemin("/boutique/commandes-en-ligne")).toBe("boutique");
+  });
+
+  it("les réservations comptent désormais pour la pension", () => {
+    expect(espaceDuChemin("/reservations")).toBe("pension");
+    expect(espaceDuChemin("/reservations/abc-123")).toBe("pension");
   });
 });

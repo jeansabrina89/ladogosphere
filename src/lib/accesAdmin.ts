@@ -21,29 +21,14 @@ import {
  * à elle seule : les colonnes `perm_*` ne veulent rien dire sur un profil client.
  */
 
-export const PERMISSIONS_PERSONNEL = [
-  "perm_atelier",
-  "perm_boutique_vente",
-  "perm_boutique_gestion",
-  "perm_box",
-  "perm_checkin",
-  "perm_chiens_creer",
-  "perm_chiens_modifier",
-  "perm_clients_creer",
-  "perm_clients_modifier",
-  "perm_depenses",
-  "perm_encaissements",
-  "perm_journee_essai",
-  "perm_planning",
-  "perm_reservations_annuler",
-  "perm_reservations_creer",
-  "perm_reservations_modifier",
-  "perm_tarifs_urgence",
-  "perm_timbrage_equipe",
-  "perm_vacances_equipe",
-] as const;
+// La liste de référence vit dans permissionsCatalogue : un composant client
+// doit pouvoir la lire sans entraîner `next/headers` dans le navigateur.
+export {
+  PERMISSIONS_PERSONNEL,
+  type PermissionPersonnel,
+} from "./permissionsCatalogue";
+import { PERMISSIONS_PERSONNEL, type PermissionPersonnel } from "./permissionsCatalogue";
 
-export type PermissionPersonnel = (typeof PERMISSIONS_PERSONNEL)[number];
 
 /**
  * La gestion IMPLIQUE la vente.

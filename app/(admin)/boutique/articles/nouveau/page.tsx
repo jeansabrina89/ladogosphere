@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { exigerAccesAdmin, refusStock } from "@/src/lib/accesAdmin";
+import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { configPerimetre, type PerimetreStock } from "@/src/lib/perimetreStock";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
@@ -10,25 +9,24 @@ import FormArticle from "../FormArticle";
 export const dynamic = "force-dynamic";
 
 /**
- * Création d'un article — ou d'une fourniture.
+ * Création d'un ARTICLE — ce qui se vend.
  *
- * Un seul écran, deux portes : `?composant=1` arrive de l'atelier et coche la
- * case. Le paramètre choisit ce qu'on crée, pas le droit de le créer : la
- * permission exigée en découle, et l'action serveur la revérifie de son côté.
+ * Le mot « fourniture » n'apparaît pas sur cet écran : une fourniture se
+ * saisit à l'atelier, sur le même formulaire mais paramétré autrement. Un
+ * seul formulaire, deux portes, jamais deux saisies qui divergeraient.
+ *
+ * L'ancienne adresse `?composant=1` mène désormais là-bas : un lien gardé en
+ * favori continue d'arriver au bon endroit.
  */
 export default async function NouvelArticlePage({
   searchParams,
 }: {
   searchParams: Promise<{ composant?: string }>;
 }) {
-  const acces = await exigerAccesAdmin();
   const params = await searchParams;
+  if (params.composant === "1") redirect("/atelier/fournitures/nouvelle");
 
-  const perimetre: PerimetreStock = params.composant === "1" ? "atelier" : "boutique";
-  const refus = refusStock(acces, perimetre, "gestion");
-  if (refus) redirect(refus);
-
-  const config = configPerimetre(perimetre);
+  await exigerAccesAdmin("perm_boutique_gestion");
 
   const { data: fournisseurs } = await supabaseAdmin
     .from("fournisseurs")
@@ -40,15 +38,12 @@ export default async function NouvelArticlePage({
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-2xl mx-auto">
         <EnTete
-          titre={perimetre === "atelier" ? "🧵 Nouvelle fourniture" : "🛒 Nouvel article"}
+          titre="🛒 Nouvel article"
           sousTitre="La photo se dépose ensuite, sur la fiche."
-          action={<Bouton href={config.liste} variante="secondaire">← Retour</Bouton>}
+          action={<Bouton href="/boutique/articles" variante="secondaire">← Articles</Bouton>}
         />
         <Carte>
-          <FormArticle
-            fournisseurs={(fournisseurs ?? []) as { id: string; nom: string }[]}
-            composantParDefaut={perimetre === "atelier"}
-          />
+          <FormArticle fournisseurs={(fournisseurs ?? []) as { id: string; nom: string }[]} />
         </Carte>
       </div>
     </main>

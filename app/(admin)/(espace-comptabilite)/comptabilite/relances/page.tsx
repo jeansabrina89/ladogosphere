@@ -9,7 +9,7 @@ import RelancesClient from "./RelancesClient";
 export const dynamic = "force-dynamic";
 
 export default async function RelancesPage() {
-  await exigerAccesAdmin("perm_encaissements");
+  await exigerAccesAdmin("perm_factures");
 
   const { data: resasRaw } = await supabaseAdmin
     .from("reservations")

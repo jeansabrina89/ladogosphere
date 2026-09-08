@@ -222,7 +222,9 @@ function lignesValides(brut: string): { lignes: LigneSaisie[]; error?: string } 
  * « facture groupée ».
  */
 export async function creerFactureLibre(formData: FormData): Promise<{ error?: string; factureId?: string }> {
-  const verif = await verifierPermission("perm_encaissements");
+  // Émettre une facture libre est du travail administratif, pas un geste de
+  // comptoir : c'est perm_factures, pas perm_encaissements.
+  const verif = await verifierPermission("perm_factures");
   if (verif.error) return { error: verif.error };
 
   const clientId = ((formData.get("client_id") as string) || "").trim();

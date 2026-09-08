@@ -69,7 +69,7 @@ export default async function AtelierPage() {
           sousTitre={`Les fournitures de fabrication au ${formatDateFR(jour)}`}
           action={
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <Bouton href="/atelier/fournitures" variante="principal">🧵 Fournitures</Bouton>
+              <Bouton href="/atelier/fournitures/nouvelle" variante="principal">+ Fourniture</Bouton>
               <Bouton href="/comptabilite/depenses/nouvelle" variante="secondaire">+ Dépense</Bouton>
             </div>
           }
@@ -157,7 +157,9 @@ export default async function AtelierPage() {
           <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", minWidth: 0 }}>
             <Raccourci href="/atelier/fournitures" titre="🧵 Fournitures" note="Catalogue, seuils et prix d'achat" />
             <Raccourci href="/atelier/inventaire" titre="📦 Inventaire" note="Comptage et écarts" />
-            <Raccourci href="/atelier/entrees" titre="📥 Entrées de stock" note="D'où vient ce qu'il y a en réserve" />
+            <Raccourci href="/atelier/entrees" titre="📥 Entrées de stock" note="D&apos;où vient ce qu&apos;il y a en réserve" />
+            <Raccourci href="/boutique/modeles" titre="🧩 Modèles d&apos;options" note="Les questions posées sur plusieurs articles" />
+            <Raccourci href="/boutique/commandes" titre="🎁 Commandes sur mesure" note="À faire, en cours, prêtes" />
           </div>
         </section>
       </div>

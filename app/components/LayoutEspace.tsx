@@ -1,5 +1,5 @@
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
-import { droitsNav, entreesEspace, type CleEspace } from "@/src/lib/espaces";
+import { droitsNav, type CleEspace } from "@/src/lib/espaces";
 import NavEspace from "./NavEspace";
 
 /**
@@ -11,24 +11,25 @@ import NavEspace from "./NavEspace";
  * côté client, il ne peut donc pas tenir lieu de verrou. Il vérifie seulement
  * le rôle, comme le layout du groupe (admin).
  *
+ * Il passe les DROITS à la barre plutôt qu'une liste d'entrées toute faite :
+ * c'est elle qui sait quelle adresse est affichée, et donc quel espace la
+ * possède réellement.
+ *
  * Aucune adresse ne change : les espaces sont des groupes de routes entre
  * parenthèses, invisibles dans l'URL.
  */
 export default async function LayoutEspace({
   cle,
-  nom,
   children,
 }: {
   cle: CleEspace;
-  nom: string;
   children: React.ReactNode;
 }) {
   const acces = await exigerAccesAdmin();
-  const entrees = entreesEspace(cle, droitsNav(acces.permissions, acces.isAdmin));
 
   return (
     <div>
-      <NavEspace nom={nom} entrees={entrees} />
+      <NavEspace cleParDefaut={cle} droits={droitsNav(acces.permissions, acces.isAdmin)} />
       {children}
     </div>
   );

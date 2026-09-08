@@ -118,6 +118,7 @@ export default async function PensionPage() {
             Le reste de la pension
           </h2>
           <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", minWidth: 0 }}>
+            <Raccourci href="/reservations" titre="📅 Réservations" note="Toutes les réservations, filtrables" />
             <Raccourci href="/planning" titre="🗂️ Planning" note="Vue semaine et mois des box" />
             <Raccourci href="/boxes" titre="🏠 Box" note="Capacités et indisponibilités" />
             <Raccourci href="/calendrier-essais" titre="🚫 Essais fermés" note="Les dates où l'on n'accueille pas d'essai" />
