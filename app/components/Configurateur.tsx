@@ -31,6 +31,7 @@ import {
   supplementApplique,
   formatMesure,
   uniteMesure,
+  motsIllustration,
   valeurRetenue,
   valeursActives,
   type ChoixParGroupe,
@@ -68,6 +69,9 @@ const SEUIL_RECHERCHE = 10;
 const CLE_AFFICHAGE = "boutique.configurateur.affichage";
 
 export type Affichage = "grille" | "liste";
+
+/** Ce que la loupe sait montrer : une image, ou à défaut un aplat de couleur. */
+type ImageAgrandie = { url: string | null; libelle: string; couleur?: string | null };
 
 export type ArticleConfigurable = {
   id: string;
@@ -110,7 +114,15 @@ export default function Configurateur({
     return recalculerTailles(ordonnes, depart, dependances).choix;
   });
   const [messages, setMessages] = useState<string[]>([]);
-  const [agrandie, setAgrandie] = useState<OptionValeur | null>(null);
+  // La loupe sert à deux choses : une vignette de coloris, et l'illustration
+  // d'un groupe. Elle ne connaît donc plus qu'une image et son libellé.
+  const [agrandie, setAgrandie] = useState<ImageAgrandie | null>(null);
+  const agrandirValeur = (v: OptionValeur) =>
+    setAgrandie({
+      url: urlPhotoArticle(v.image_path),
+      libelle: v.libelle,
+      couleur: v.code_couleur,
+    });
   const [recherches, setRecherches] = useState<Record<string, string>>({});
 
   // Préférence d'affichage du poste : sans conséquence, donc localStorage.
@@ -211,11 +223,27 @@ export default function Configurateur({
                 disabled={!etat.actif}
                 style={{ border: "none", padding: 0, margin: 0, opacity: etat.actif ? 1 : 0.55 }}
               >
-                <legend style={{ padding: 0, marginBottom: 6 }}>
-                  <span style={{ color: MARINE, fontSize: 17, fontWeight: 700 }}>{g.nom}</span>
-                  {!g.obligatoire && (
-                    <span style={{ color: SOUS, fontSize: 14, fontWeight: 400 }}> — facultatif</span>
-                  )}
+                {/* L'illustration se tient À CÔTÉ du titre, avant les choix :
+                    on comprend de quelle partie on parle avant de choisir, pas
+                    après. Sans image, la rangée n'a qu'un enfant et le titre
+                    s'affiche exactement comme avant — aucun cadre vide. */}
+                <legend style={{ padding: 0, marginBottom: 6, width: "100%" }}>
+                  <span
+                    className="flex flex-col sm:flex-row sm:items-center"
+                    style={{ gap: 12, width: "100%" }}
+                  >
+                    <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                      <span style={{ color: MARINE, fontSize: 17, fontWeight: 700 }}>{g.nom}</span>
+                      {!g.obligatoire && (
+                        <span style={{ color: SOUS, fontSize: 14, fontWeight: 400 }}> — facultatif</span>
+                      )}
+                    </span>
+                    <VignetteIllustration
+                      groupe={g}
+                      dense={mode === "liste"}
+                      onAgrandir={setAgrandie}
+                    />
+                  </span>
                 </legend>
 
                 {/* Le groupe reste visible : on dit seulement ce qui l'ouvre. */}
@@ -261,7 +289,7 @@ export default function Configurateur({
                       valeurs={visibles}
                       choisie={valeurRetenue(g, choix)}
                       onChoisir={(v) => poser(g.id, { valeur_id: v.id })}
-                      onAgrandir={setAgrandie}
+                      onAgrandir={agrandirValeur}
                       onBasculer={basculerVers}
                       avecVignette
                     />
@@ -270,7 +298,7 @@ export default function Configurateur({
                       valeurs={visibles}
                       choisie={valeurRetenue(g, choix)}
                       onChoisir={(v) => poser(g.id, { valeur_id: v.id })}
-                      onAgrandir={setAgrandie}
+                      onAgrandir={agrandirValeur}
                       onBasculer={basculerVers}
                     />
                   )
@@ -503,7 +531,7 @@ export default function Configurateur({
         </div>
       )}
 
-      {agrandie && <Loupe valeur={agrandie} onFermer={() => setAgrandie(null)} />}
+      {agrandie && <Loupe image={agrandie} onFermer={() => setAgrandie(null)} />}
     </div>
   );
 }
@@ -778,12 +806,73 @@ function GrilleCouleurs({
   );
 }
 
-function Loupe({ valeur, onFermer }: { valeur: OptionValeur; onFermer: () => void }) {
-  const url = urlPhotoArticle(valeur.image_path);
+/**
+ * L'illustration d'un groupe, dans le configurateur.
+ *
+ * Elle vaut pour tous les types SAUF la mesure, dont le schéma garde sa place
+ * propre — juste au-dessus du champ, en grand : à 120 px, on ne lirait plus où
+ * poser le mètre, et c'est précisément ce que ce dessin-là doit éviter.
+ *
+ * Sur grand écran, une vignette à gauche du titre : 120 px côté client, 84 px
+ * au comptoir — Sabrina connaît ses produits, mais elle doit pouvoir tourner
+ * l'écran vers le client. Sur mobile, pleine largeur au-dessus des choix,
+ * plafonnée à 200 px de haut. Dans les deux cas, on peut l'agrandir.
+ *
+ * Sans image : rien du tout. Ni cadre, ni place réservée.
+ */
+function VignetteIllustration({
+  groupe,
+  dense,
+  onAgrandir,
+}: {
+  groupe: OptionGroupe;
+  /** Le comptoir : la même chose, en plus petit. */
+  dense: boolean;
+  onAgrandir: (image: ImageAgrandie) => void;
+}) {
+  const url = urlPhotoArticle(groupe.guide_image_path ?? null);
+  if (!url || groupe.type === "mesure") return null;
+
+  const mots = motsIllustration(groupe.type);
+
+  return (
+    <button
+      type="button"
+      onClick={() => onAgrandir({ url, libelle: groupe.nom })}
+      aria-label={mots.agrandir(groupe.nom)}
+      className="w-full sm:w-auto sm:order-first"
+      style={{
+        flex: "0 0 auto", padding: 0, border: "none", background: "none",
+        cursor: "zoom-in", lineHeight: 0, borderRadius: 12,
+      }}
+    >
+      {/* La hauteur est bornée elle aussi : sans elle, une photo en portrait
+          donnerait une « vignette » de 360 px qui repousserait les choix hors
+          de l'écran. `contain` la met en boîte sans jamais la déformer. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={mots.alt(groupe.nom)}
+        className={
+          `w-full max-h-[200px] ${dense
+            ? "sm:w-[84px] sm:max-h-[84px]"
+            : "sm:w-[120px] sm:max-h-[120px]"}`
+        }
+        style={{
+          height: "auto", objectFit: "contain", display: "block",
+          borderRadius: 12, border: BORDURE, backgroundColor: "#FFFFFF",
+        }}
+      />
+    </button>
+  );
+}
+
+function Loupe({ image, onFermer }: { image: ImageAgrandie; onFermer: () => void }) {
+  const { url, libelle, couleur } = image;
   return (
     <div
       role="dialog"
-      aria-label={valeur.libelle}
+      aria-label={libelle}
       onClick={onFermer}
       style={{
         position: "fixed", inset: 0, zIndex: 70, backgroundColor: "rgba(27,43,94,0.7)",
@@ -793,15 +882,15 @@ function Loupe({ valeur, onFermer }: { valeur: OptionValeur; onFermer: () => voi
       <div style={{ maxWidth: 480, width: "100%", display: "grid", gap: 12 }}>
         {url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt={valeur.libelle} style={{ width: "100%", borderRadius: 16, display: "block" }} />
+          <img src={url} alt={libelle} style={{ width: "100%", borderRadius: 16, display: "block" }} />
         ) : (
           <div style={{
             width: "100%", aspectRatio: "1 / 1", borderRadius: 16,
-            backgroundColor: valeur.code_couleur ?? "#EDE8DF",
+            backgroundColor: couleur ?? "#EDE8DF",
           }} />
         )}
         <p style={{ color: "#FFFFFF", fontSize: 20, fontWeight: 700, textAlign: "center", margin: 0 }}>
-          {valeur.libelle}
+          {libelle}
         </p>
         <button
           type="button"

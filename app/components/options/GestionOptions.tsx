@@ -17,6 +17,7 @@ import {
   TYPES_GROUPE,
   libelleTypeGroupe,
   uniteMesure,
+  motsIllustration,
   type OptionGroupe,
   type OptionValeur,
   type TypeGroupe,
@@ -224,6 +225,20 @@ export default function GestionOptions({
               onClick={async () => suite(await deplacerGroupe(porteur, g.id, "bas"))}
               style={{ ...carreOrdre, opacity: i === groupes.length - 1 ? 0.4 : 1 }}>↓</button>
 
+            {/* La vignette dit d'un coup d'œil lesquels ont une image et
+                lesquels n'en ont pas. Sans image, aucune place n'est réservée. */}
+            {g.guide_image_path && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={urlPhotoArticle(g.guide_image_path) ?? ""}
+                alt={motsIllustration(g.type).alt(g.nom)}
+                style={{
+                  width: 40, height: 40, objectFit: "cover", flex: "0 0 auto",
+                  borderRadius: 8, border: BORDURE, backgroundColor: "#FFFFFF",
+                }}
+              />
+            )}
+
             <button
               type="button"
               onClick={() => setOuverts({ ...ouverts, [g.id]: !ouverts[g.id] })}
@@ -292,18 +307,11 @@ export default function GestionOptions({
                   onRetour={suite}
                 />
               ) : g.type === "mesure" ? (
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
-                  {g.guide_image_path && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={urlPhotoArticle(g.guide_image_path) ?? ""} alt={`Schéma : ${g.nom}`}
-                      style={{ width: 140, borderRadius: 10, border: BORDURE }} />
-                  )}
-                  <p style={{ color: SOUS, fontSize: 14, margin: 0, flex: "1 1 220px" }}>
-                    Ce groupe est une mesure : le client saisit un nombre en {uniteMesure(g)}, il n&apos;y a
-                    pas d&apos;options à lister. Les bornes se règlent avec le crayon ✏️.
-                    {!g.guide_image_path && " Aucun schéma de mesure n'est encore déposé."}
-                  </p>
-                </div>
+                <p style={{ color: SOUS, fontSize: 14, margin: 0 }}>
+                  Ce groupe est une mesure : le client saisit un nombre en {uniteMesure(g)}, il n&apos;y a
+                  pas d&apos;options à lister. Les bornes se règlent avec le crayon ✏️.
+                  {!g.guide_image_path && ` ${motsIllustration(g.type).absente}`}
+                </p>
               ) : g.type === "texte" ? (
                 <p style={{ color: SOUS, fontSize: 14, margin: 0 }}>
                   Ce groupe est un champ de texte : il n&apos;a pas d&apos;options à lister.
@@ -645,15 +653,17 @@ function FormGroupe({
             </div>
           </div>
 
-          {groupe ? (
-            <SchemaMesure groupe={groupe} onFini={onFini} />
-          ) : (
-            <p style={{ fontSize: 13, color: SOUS, margin: 0 }}>
-              Le schéma de mesure — le dessin qui montre où poser le mètre — se dépose
-              après l&apos;enregistrement du groupe.
-            </p>
-          )}
         </div>
+      )}
+
+      {/* L'image et la phrase se complètent : elles se règlent au même endroit,
+          juste sous le titre, et pour TOUS les types de groupe. */}
+      {groupe ? (
+        <IllustrationGroupe groupe={groupe} onFini={onFini} />
+      ) : (
+        <p style={{ fontSize: 13, color: SOUS, margin: 0 }}>
+          {motsIllustration(type).titre} : elle se dépose après l&apos;enregistrement du groupe.
+        </p>
       )}
 
       <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 15, color: MARINE }}>
@@ -692,10 +702,15 @@ function FormGroupe({
 }
 
 /**
- * Le schéma de mesure : le dessin qui montre où poser le mètre. Il compte plus
- * qu'une phrase — c'est lui qui évite le tour de cou pris sur le poitrail.
+ * L'image d'un groupe, quel que soit son type.
+ *
+ * Sur une mesure, c'est le schéma qui montre où poser le mètre — c'est lui qui
+ * évite le tour de cou pris sur le poitrail. Partout ailleurs, c'est
+ * l'illustration qui montre de quelle partie de l'objet on parle : la boucle,
+ * la poignée, l'endroit gravé. Même colonne, même route, deux usages — et deux
+ * vocabulaires, qui viennent de `motsIllustration`.
  */
-function SchemaMesure({
+function IllustrationGroupe({
   groupe,
   onFini,
 }: {
@@ -705,6 +720,7 @@ function SchemaMesure({
   const fichier = useRef<HTMLInputElement>(null);
   const [chemin, setChemin] = useState(groupe.guide_image_path ?? null);
   const [enCours, setEnCours] = useState(false);
+  const mots = motsIllustration(groupe.type);
 
   async function envoyer(f: File) {
     setEnCours(true);
@@ -713,9 +729,11 @@ function SchemaMesure({
     const r = await fetch(`/api/options/groupes/${groupe.id}/guide`, { method: "POST", body: corps });
     const res = await r.json().catch(() => ({}));
     setEnCours(false);
-    if (!r.ok) return onFini({ error: res.error ?? "Le dépôt du schéma a échoué." });
+    // Le refus vient du serveur, en français : c'est lui qu'on montre, jamais
+    // un message générique qui laisserait deviner ce qui a déplu.
+    if (!r.ok) return onFini({ error: res.error ?? mots.echecDepot });
     setChemin(res.guide_image_path ?? null);
-    onFini({ message: "Schéma de mesure enregistré." });
+    onFini({ message: mots.succesDepot });
   }
 
   async function retirer() {
@@ -724,35 +742,32 @@ function SchemaMesure({
     setEnCours(false);
     if (!r.ok) return onFini({ error: "Le retrait a échoué." });
     setChemin(null);
-    onFini({ message: "Schéma retiré." });
+    onFini({ message: mots.succesRetrait });
   }
 
   return (
     <div>
       <h4 style={{ color: MARINE, fontSize: 15, fontWeight: 700, margin: "0 0 2px" }}>
-        Schéma de mesure
+        {mots.titre} (facultative)
       </h4>
-      <p style={{ fontSize: 13, color: SOUS, margin: "0 0 8px" }}>
-        Il s&apos;affiche AU-DESSUS du champ, avant la saisie : c&apos;est ce qui évite
-        un tour de cou pris sur le poitrail.
-      </p>
+      <p style={{ fontSize: 13, color: SOUS, margin: "0 0 8px" }}>{mots.aide}</p>
 
       {chemin ? (
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={urlPhotoArticle(chemin) ?? ""} alt={`Schéma : ${groupe.nom}`}
+          <img src={urlPhotoArticle(chemin) ?? ""} alt={mots.alt(groupe.nom)}
             style={{ width: 160, borderRadius: 10, border: BORDURE }} />
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button type="button" style={bouton} disabled={enCours}
-              onClick={() => fichier.current?.click()}>🖼️ Remplacer</button>
-            <button type="button" style={bouton} disabled={enCours}
-              onClick={retirer}>Retirer</button>
+              onClick={() => fichier.current?.click()}>{mots.remplacer}</button>
+            <button type="button" style={boutonSupprimer} disabled={enCours}
+              onClick={retirer}>{mots.retirer}</button>
           </div>
         </div>
       ) : (
         <button type="button" style={bouton} disabled={enCours}
           onClick={() => fichier.current?.click()}>
-          {enCours ? "Envoi…" : "🖼️ Déposer un schéma"}
+          {enCours ? "Envoi…" : mots.deposer}
         </button>
       )}
 

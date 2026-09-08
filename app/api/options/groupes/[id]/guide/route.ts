@@ -10,11 +10,18 @@ import {
   convertirEnWebp,
   refusFichierImage,
 } from "@/src/lib/imageBoutique";
+import { motsIllustration } from "@/src/lib/personnalisationLogique";
 
 /**
- * Schéma de mesure d'un groupe « mesure » : le dessin qui montre OÙ poser le
- * mètre. Il garde ses proportions — un schéma recadré au carré perdrait la
- * flèche qui dit tout.
+ * L'image d'un groupe d'options — quel que soit son type.
+ *
+ * Sur une mesure, c'est le schéma qui montre OÙ poser le mètre ; partout
+ * ailleurs, l'illustration qui montre DE QUELLE PARTIE de l'objet on parle.
+ * Même colonne, même route, même traitement : seuls les mots changent, et ils
+ * viennent de `motsIllustration` pour que l'écran et la réponse s'accordent.
+ *
+ * Elle garde ses proportions — une image recadrée au carré perdrait la flèche
+ * qui dit tout, ou la boucle qu'on voulait montrer.
  *
  * Comme partout dans la boutique, ce qui entre ressort en WebP : le bucket
  * n'accepte rien d'autre, et un SVG y serait du script chez le visiteur.
@@ -35,12 +42,10 @@ export async function POST(
     .eq("id", id)
     .maybeSingle();
   if (!groupe) return NextResponse.json({ error: "Groupe introuvable." }, { status: 404 });
-  if (groupe.type !== "mesure") {
-    return NextResponse.json(
-      { error: "Un schéma de mesure ne se pose que sur un groupe de type « mesure »." },
-      { status: 400 }
-    );
-  }
+
+  // Tous les types en portent une : la liste comme la couleur, le texte comme
+  // la mesure. Seul le vocabulaire des messages suit le type.
+  const mots = motsIllustration(groupe.type as string);
 
   const lecture = await lireCorpsFormulaire(req);
   if (!lecture.ok) return lecture.reponse;
@@ -64,7 +69,7 @@ export async function POST(
     .from(BUCKET_PHOTOS)
     .upload(chemin, conversion.octets, { contentType: "image/webp", upsert: false });
   if (erreurDepot) {
-    return NextResponse.json({ error: "Le dépôt du schéma a échoué." }, { status: 500 });
+    return NextResponse.json({ error: mots.echecDepot }, { status: 500 });
   }
 
   const { error } = await supabaseAdmin
@@ -73,7 +78,7 @@ export async function POST(
     .eq("id", id);
   if (error) {
     await supabaseAdmin.storage.from(BUCKET_PHOTOS).remove([chemin]);
-    return NextResponse.json({ error: "L'enregistrement du schéma a échoué." }, { status: 500 });
+    return NextResponse.json({ error: mots.echecEnregistrement }, { status: 500 });
   }
 
   const ancien = groupe.guide_image_path as string | null;
@@ -84,7 +89,7 @@ export async function POST(
   return NextResponse.json({ ok: true, guide_image_path: chemin });
 }
 
-/** Retirer le schéma : le champ de mesure reste, seul le dessin s'en va. */
+/** Retirer l'image : le groupe et ses options restent, seule l'image s'en va. */
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

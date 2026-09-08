@@ -21,6 +21,77 @@ export function libelleTypeGroupe(type: string | null | undefined): string {
   return TYPES_GROUPE.find((t) => t.valeur === type)?.libelle ?? "—";
 }
 
+// ── L'image d'un groupe ─────────────────────────────────────────────────────
+
+/**
+ * Le vocabulaire de l'image d'un groupe — une seule colonne, deux usages.
+ *
+ * Sur une MESURE, le dessin dit où poser le mètre : c'est un guide, et
+ * l'appeler « illustration » le ferait prendre pour une décoration qu'on peut
+ * ignorer. Sur tous les AUTRES types, l'image montre de quelle partie de
+ * l'objet on parle — la boucle, la poignée, l'endroit gravé : c'est une
+ * illustration, et parler de « schéma de mesure » n'aurait aucun sens.
+ *
+ * Les mots vivent ici, une fois, pour que le formulaire, la route d'envoi et
+ * le configurateur disent tous la même chose.
+ */
+export type MotsIllustration = {
+  /** L'en-tête du bloc, dans le formulaire d'administration. */
+  titre: string;
+  /** La phrase qui dit à quoi elle sert, sous le titre. */
+  aide: string;
+  deposer: string;
+  remplacer: string;
+  retirer: string;
+  /** Ce qu'on affiche quand le groupe n'en a pas encore. */
+  absente: string;
+  succesDepot: string;
+  succesRetrait: string;
+  echecDepot: string;
+  echecEnregistrement: string;
+  /** Le texte de remplacement de l'image, qui doit dire ce qu'elle montre. */
+  alt: (nomGroupe: string) => string;
+  agrandir: (nomGroupe: string) => string;
+};
+
+const MOTS_MESURE: MotsIllustration = {
+  titre: "Guide de mesure",
+  aide:
+    "Le dessin qui montre OÙ poser le mètre. Il s'affiche avant la saisie : " +
+    "c'est ce qui évite un tour de cou pris sur le poitrail.",
+  deposer: "🖼️ Déposer un schéma",
+  remplacer: "🖼️ Remplacer le schéma",
+  retirer: "Retirer le schéma",
+  absente: "Aucun schéma de mesure n'est encore déposé.",
+  succesDepot: "Schéma de mesure enregistré.",
+  succesRetrait: "Schéma de mesure retiré.",
+  echecDepot: "Le dépôt du schéma a échoué.",
+  echecEnregistrement: "L'enregistrement du schéma a échoué.",
+  alt: (nom) => `Où mesurer : ${nom}`,
+  agrandir: (nom) => `Agrandir le schéma de mesure : ${nom}`,
+};
+
+const MOTS_ILLUSTRATION: MotsIllustration = {
+  titre: "Illustration",
+  aide:
+    "L'image qui montre DE QUELLE PARTIE de l'objet on parle. Elle s'affiche " +
+    "à côté du titre, avant les choix : le client comprend la question avant d'y répondre.",
+  deposer: "🖼️ Déposer une illustration",
+  remplacer: "🖼️ Remplacer l'illustration",
+  retirer: "Retirer l'illustration",
+  absente: "Aucune illustration n'est encore déposée.",
+  succesDepot: "Illustration enregistrée.",
+  succesRetrait: "Illustration retirée.",
+  echecDepot: "Le dépôt de l'illustration a échoué.",
+  echecEnregistrement: "L'enregistrement de l'illustration a échoué.",
+  alt: (nom) => `Illustration : ${nom}`,
+  agrandir: (nom) => `Agrandir l'illustration : ${nom}`,
+};
+
+export function motsIllustration(type: string | null | undefined): MotsIllustration {
+  return type === "mesure" ? MOTS_MESURE : MOTS_ILLUSTRATION;
+}
+
 export type OptionValeur = {
   id: string;
   libelle: string;
