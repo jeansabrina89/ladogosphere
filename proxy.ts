@@ -12,6 +12,13 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/desinscription') ||
     // Retrait d'une alerte de retour en stock : même raison, même porte.
     pathname.startsWith('/alerte-stock') ||
+    // Le catalogue en ligne se parcourt sans compte : liste, fiche produit et
+    // panier. La CONNEXION reste exigée pour valider — c'est la page du panier
+    // qui la demande, au moment de commander, et pas avant.
+    //
+    // Rien d'autre ne s'ouvre : tout /mon-compte reste derrière la session.
+    pathname === '/catalogue' ||
+    pathname.startsWith('/catalogue/') ||
     pathname.startsWith('/auth/confirm') ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||

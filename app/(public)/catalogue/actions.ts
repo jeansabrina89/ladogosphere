@@ -35,6 +35,12 @@ import {
   type ChoixParGroupe,
 } from "@/src/lib/personnalisationLogique";
 import { lireCatalogueOptions } from "@/src/lib/personnalisation";
+import { articlesVendables } from "@/src/lib/vitrine";
+import {
+  messageRecalcul,
+  recalculerPanier,
+  type LigneAValider,
+} from "@/src/lib/panierLocalLogique";
 
 /**
  * Le panier et la commande, côté client.
@@ -47,7 +53,14 @@ import { lireCatalogueOptions } from "@/src/lib/personnalisation";
  * moteur d'APP 11.
  */
 
-export type Retour = { error?: string; message?: string; id?: string; numero?: string };
+export type Retour = {
+  error?: string;
+  message?: string;
+  id?: string;
+  numero?: string;
+  /** Vrai quand le panier a changé sous les yeux du client : il faut le relire. */
+  recalcule?: boolean;
+};
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -62,8 +75,8 @@ async function moi(): Promise<{ id: string; email: string | null; prenom: string
 }
 
 function rafraichir() {
-  revalidatePath("/mon-compte/boutique");
-  revalidatePath("/mon-compte/boutique/panier");
+  revalidatePath("/catalogue");
+  revalidatePath("/catalogue/panier");
   revalidatePath("/mon-compte/commandes");
 }
 
@@ -250,6 +263,14 @@ export async function confirmerCommande(entree: EntreeConfirmation): Promise<Ret
   const panier = await panierDuClient(client.id);
   if (!panier) return { error: "Votre panier est vide." };
 
+  // Un panier peut dormir trois semaines. On relit les prix D'AUJOURD'HUI
+  // avant tout le reste : jamais de validation silencieuse à un autre prix.
+  const bouge = await recalculerAvantValidation(panier.id);
+  if (bouge) {
+    rafraichir();
+    return { error: bouge, recalcule: true };
+  }
+
   const [lignes, params, membre, resas] = await Promise.all([
     lignesPanier(panier.id),
     lireParametresEnLigne(),
@@ -334,6 +355,77 @@ export async function confirmerCommande(entree: EntreeConfirmation): Promise<Ret
 
   rafraichir();
   return { id: res.id, numero: res.numero, message: `Commande ${res.numero} confirmée.` };
+}
+
+/**
+ * Relire les prix du panier, juste avant de valider.
+ *
+ * Le prix facturé est celui de la BASE, aujourd'hui. Si un article a changé de
+ * tarif ou n'est plus proposé, on corrige le panier et on renvoie la phrase à
+ * montrer : le client revalide en connaissance de cause. Un article devenu
+ * indisponible ne bloque pas la commande — il en sort, le reste passe.
+ *
+ * Le sur-mesure garde le prix figé de sa configuration : il dépend des choix
+ * faits, pas du seul tarif de base.
+ *
+ * Retourne null quand rien n'a bougé — le cas ordinaire.
+ */
+async function recalculerAvantValidation(panierId: string): Promise<string | null> {
+  const { data: brutes } = await supabaseAdmin
+    .from("commandes_lignes")
+    .select("id, article_id, libelle, quantite, prix_unitaire, configuration")
+    .eq("commande_id", panierId);
+
+  const lignes: LigneAValider[] = ((brutes ?? []) as unknown as {
+    id: string; article_id: string; libelle: string;
+    quantite: number | string; prix_unitaire: number | string; configuration: unknown[] | null;
+  }[]).map((l) => ({
+    id: l.id,
+    article_id: l.article_id,
+    libelle: l.libelle,
+    quantite: Number(l.quantite),
+    prix_unitaire: Number(l.prix_unitaire),
+    configuration: l.configuration,
+  }));
+  if (lignes.length === 0) return null;
+
+  // La vitrine décide de ce qui est encore proposé : ce qui n'y est plus n'est
+  // plus vendable, quelle qu'en soit la raison.
+  const vendables = await articlesVendables(lignes.map((l) => l.article_id));
+  const parId = new Map(vendables.map((a) => [a.id, a]));
+
+  const recalcul = recalculerPanier(
+    lignes,
+    lignes.map((l) => {
+      const a = parId.get(l.article_id);
+      return {
+        id: l.article_id,
+        nom: a?.nom ?? l.libelle,
+        prix_vente: Number(a?.prix_vente ?? 0),
+        disponible: !!a,
+      };
+    })
+  );
+  if (!recalcul.aSignaler) return null;
+
+  // Le panier est mis à jour AVANT de répondre : la page qui se rafraîchit
+  // montre déjà les prix corrigés et le panier allégé.
+  for (const l of recalcul.lignes) {
+    if (r2(l.prix_actuel) === r2(l.prix_unitaire)) continue;
+    await supabaseAdmin
+      .from("commandes_lignes")
+      .update({ prix_unitaire: l.prix_actuel, montant: r2(l.quantite * l.prix_actuel) })
+      .eq("id", l.id);
+  }
+
+  const sortis = lignes
+    .filter((l) => !recalcul.lignes.some((r) => r.id === l.id))
+    .map((l) => l.id);
+  if (sortis.length > 0) {
+    await supabaseAdmin.from("commandes_lignes").delete().in("id", sortis);
+  }
+
+  return messageRecalcul(recalcul);
 }
 
 /** Le refus du RPC est déjà écrit en français : on le laisse passer. */

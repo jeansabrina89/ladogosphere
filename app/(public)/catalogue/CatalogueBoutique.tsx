@@ -4,8 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { urlPhotoArticle, libelleCategorieArticle, ordreCategorie } from "@/src/lib/boutiqueLogique";
-import { disponibilite } from "@/src/lib/venteEnLigneLogique";
+import { disponibilite, disponibiliteVitrine } from "@/src/lib/venteEnLigneLogique";
 import { ajouterAuPanier } from "./actions";
+import { ajouter as ajouterLocalement } from "./panierNavigateur";
 
 const MARINE = "#1B2B5E";
 const SOUS = "rgba(27,43,94,0.55)";
@@ -24,7 +25,14 @@ export type ArticleVitrine = {
   photo_path: string | null;
   type_article: string;
   delai_fabrication_jours: number | null;
-  stock_disponible: number;
+  /**
+   * Renseigné pour un client CONNECTÉ seulement : il a droit au « Plus que 2 »
+   * qui l'aide à se décider. Un visiteur n'a que le booléen — le nombre ne
+   * quitte pas la base pour lui.
+   */
+  stock_disponible?: number | null;
+  /** La disponibilité en deux mots, pour un visiteur sans compte. */
+  en_stock?: boolean;
 };
 
 const champ: React.CSSProperties = {
@@ -67,8 +75,13 @@ export default function CatalogueBoutique({
     .sort((a, b) => ordreCategorie(a.categorie) - ordreCategorie(b.categorie) || a.nom.localeCompare(b.nom));
 
   async function ajouter(a: ArticleVitrine) {
+    // Sans compte, le panier vit dans le navigateur : rien ne part en base,
+    // et surtout aucun stock n'est réservé. La connexion viendra à la
+    // validation, pas avant.
     if (!connecte) {
-      router.push("/login?suite=/mon-compte/boutique");
+      ajouterLocalement({ article_id: a.id, quantite: 1 });
+      setErreur(null);
+      setAvis(`« ${a.nom} » ajouté à votre panier.`);
       return;
     }
     setEnCours(a.id);
@@ -118,7 +131,10 @@ export default function CatalogueBoutique({
         <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
           {visibles.map((a) => {
             const url = urlPhotoArticle(a.photo_path);
-            const dispo = disponibilite(a.stock_disponible, a.type_article);
+            // Connecté : le compte exact. Visiteur : deux mots, pas un chiffre.
+            const dispo = connecte
+              ? disponibilite(a.stock_disponible, a.type_article)
+              : disponibiliteVitrine(a.en_stock, a.type_article);
             const surMesure = a.type_article === "personnalisable";
             const couleurDispo =
               dispo.etat === "epuise" ? SOUS : dispo.etat === "dernier" ? "#8A5A1F" : VERT;
@@ -131,7 +147,7 @@ export default function CatalogueBoutique({
                   padding: 14, display: "flex", flexDirection: "column", gap: 8,
                 }}
               >
-                <Link href={`/mon-compte/boutique/${a.id}`} style={{ textDecoration: "none" }}>
+                <Link href={`/catalogue/${a.id}`} style={{ textDecoration: "none" }}>
                   {url ? (
                     /* Photo du bucket public de la boutique. */
                     /* eslint-disable-next-line @next/next/no-img-element */
@@ -151,7 +167,7 @@ export default function CatalogueBoutique({
                 </Link>
 
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <Link href={`/mon-compte/boutique/${a.id}`}
+                  <Link href={`/catalogue/${a.id}`}
                     style={{
                       color: MARINE, fontSize: 17, fontWeight: 700,
                       textDecoration: "none", overflowWrap: "anywhere",
@@ -175,7 +191,7 @@ export default function CatalogueBoutique({
 
                 {surMesure ? (
                   <Link
-                    href={`/mon-compte/boutique/${a.id}`}
+                    href={`/catalogue/${a.id}`}
                     style={{
                       minHeight: CIBLE, display: "flex", alignItems: "center",
                       justifyContent: "center", borderRadius: 12, border: "none",

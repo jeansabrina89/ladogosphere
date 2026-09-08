@@ -53,7 +53,7 @@ export async function sInscrireAlerte(
   });
   if (res.error) return { erreur: res.error };
 
-  revalidatePath(`/mon-compte/boutique/${articleId}`);
+  revalidatePath(`/catalogue/${articleId}`);
   return {
     erreur: null,
     email: res.email ?? email,
@@ -77,6 +77,6 @@ export async function annulerMonAlerte(
   const res = await annulerAlerte({ articleId, email: cible });
   if (res.error) return { erreur: res.error };
 
-  revalidatePath(`/mon-compte/boutique/${articleId}`);
+  revalidatePath(`/catalogue/${articleId}`);
   return { erreur: null, email: null, message: "Vous ne serez pas prévenu." };
 }

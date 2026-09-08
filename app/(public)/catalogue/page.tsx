@@ -6,8 +6,20 @@ import Carte from "@/app/components/ui/Carte";
 import EtatVide from "@/app/components/ui/EtatVide";
 import CatalogueBoutique, { type ArticleVitrine } from "./CatalogueBoutique";
 import BarrePanier from "./BarrePanier";
+import FusionPanier from "./FusionPanier";
+import { catalogueVitrine } from "@/src/lib/vitrine";
+import { lireParametresEnLigne } from "@/src/lib/venteEnLigne";
+import { mentionRemiseMembre } from "@/src/lib/venteEnLigneLogique";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Pas d'indexation : la vitrine, c'est le site — ladogosphere.ch/boutique.
+ * Ici, c'est la caisse. Deux catalogues indexés feraient double emploi et se
+ * disputeraient les mêmes recherches. Une ligne à retirer le jour où Sabrina
+ * en décide autrement.
+ */
+export const metadata = { robots: { index: false, follow: false } };
 
 /**
  * La boutique en ligne.
@@ -27,9 +39,13 @@ export default async function BoutiqueClientPage() {
     clientId = (data?.id as string) ?? null;
   }
 
-  const [articles, nombre] = await Promise.all([
-    catalogueEnLigne(),
+  // Un VISITEUR ne lit que la vitrine : ni prix d'achat, ni marge, ni
+  // fournisseur, ni stock chiffré — ces colonnes n'existent pas dans la vue.
+  // Un client connecté garde le catalogue complet, avec son « Plus que 2 ».
+  const [articles, nombre, params] = await Promise.all([
+    clientId ? catalogueEnLigne() : catalogueVitrine(),
     clientId ? nombreArticlesPanier(clientId) : Promise.resolve(0),
+    lireParametresEnLigne(),
   ]);
 
   const liste: ArticleVitrine[] = articles.map((a) => ({
@@ -42,8 +58,14 @@ export default async function BoutiqueClientPage() {
     photo_path: a.photo_path,
     type_article: a.type_article,
     delai_fabrication_jours: a.delai_fabrication_jours,
-    stock_disponible: a.stock_disponible,
+    // L'un ou l'autre, jamais les deux : le chiffre n'est calculé que pour
+    // qui y a droit.
+    ...(clientId
+      ? { stock_disponible: (a as { stock_disponible: number }).stock_disponible }
+      : { en_stock: (a as { en_stock: boolean }).en_stock }),
   }));
+
+  const mentionMembre = mentionRemiseMembre(params.remisePourcent);
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8", paddingBottom: 96 }}>
@@ -53,15 +75,27 @@ export default async function BoutiqueClientPage() {
           sousTitre="Croquettes, accessoires et sur-mesure. Retrait à la pension, au départ de votre chien, ou par la poste."
         />
 
+        {/* Connecté : le panier du navigateur rejoint le compte, et on le dit. */}
+        {clientId && <FusionPanier />}
+
         {!user && (
           <Carte>
             <p style={{ color: "#1B2B5E", fontSize: 15, margin: 0 }}>
-              Vous pouvez parcourir la boutique librement.{" "}
-              <Link href="/login?suite=/mon-compte/boutique" style={{ color: "#1F6E5B", fontWeight: 700 }}>
-                Connectez-vous
-              </Link>{" "}
-              pour commander — ce que vous aurez mis au panier vous attendra.
+              Parcourez la boutique et remplissez votre panier librement. La
+              connexion ne vous sera demandée qu&apos;au moment de valider — votre
+              panier vous y suivra.
             </p>
+            {mentionMembre && (
+              /* On n'applique PAS la remise à un visiteur : la montrer puis la
+                 retirer à la validation serait une petite trahison. On dit ce
+                 qui est vrai, et c'est une raison d'adhérer. */
+              <p style={{ color: "#6E5410", fontSize: 15, fontWeight: 600, margin: "10px 0 0" }}>
+                🎫 {mentionMembre}{" "}
+                <Link href="/inscription" style={{ color: "#1F6E5B", fontWeight: 700 }}>
+                  Devenir membre
+                </Link>
+              </p>
+            )}
           </Carte>
         )}
 
@@ -78,7 +112,7 @@ export default async function BoutiqueClientPage() {
         )}
       </div>
 
-      <BarrePanier nombre={nombre} />
+      <BarrePanier nombre={nombre} local={!clientId} />
     </main>
   );
 }

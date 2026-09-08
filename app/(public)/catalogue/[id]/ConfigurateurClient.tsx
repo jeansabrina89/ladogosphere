@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Configurateur, { type ArticleConfigurable } from "@/app/components/Configurateur";
 import { ajouterConfigurationAuPanier } from "../actions";
+import { ajouter as ajouterLocalement } from "../panierNavigateur";
+import { figerChoix } from "@/src/lib/personnalisationLogique";
 import type { ChoixParGroupe, Dependance, OptionGroupe } from "@/src/lib/personnalisationLogique";
 
 /**
@@ -27,8 +29,16 @@ export default function ConfigurateurClient({
   const [erreur, setErreur] = useState<string | null>(null);
 
   async function valider(choix: ChoixParGroupe) {
+    // Sans compte, la configuration part dans le panier du navigateur. Les
+    // choix y dorment tels quels ; le prix, lui, sera RELU à la validation —
+    // on ne facture jamais un montant venu du navigateur.
     if (!connecte) {
-      router.push(`/login?suite=/mon-compte/boutique/${article.id}`);
+      ajouterLocalement({
+        article_id: article.id,
+        quantite: 1,
+        configuration: figerChoix(groupes, choix, dependances) as unknown[],
+      });
+      router.push("/catalogue/panier");
       return;
     }
     setEnCours(true);
@@ -39,7 +49,7 @@ export default function ConfigurateurClient({
       setErreur(res.error);
       return;
     }
-    router.push("/mon-compte/boutique/panier");
+    router.push("/catalogue/panier");
   }
 
   return (
@@ -59,7 +69,7 @@ export default function ConfigurateurClient({
         dependances={dependances}
         affichage="grille"
         onValider={(choix) => void valider(choix)}
-        libelleValidation={connecte ? "🛒 Ajouter au panier" : "Se connecter pour commander"}
+        libelleValidation="🛒 Ajouter au panier"
         enCours={enCours}
         noteFin="Votre configuration est figée au moment où vous l'ajoutez : le prix et les coloris retenus ne bougeront plus, quoi qu'il arrive au catalogue ensuite."
       />

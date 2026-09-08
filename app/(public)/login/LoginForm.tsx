@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/src/lib/supabase-browser";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
+import { adresseDeRetour } from "@/src/lib/retourApresConnexion";
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
@@ -46,7 +47,15 @@ export default function LoginForm() {
       .eq("id", data.user.id)
       .single();
 
-    if (profile?.role === "client") {
+    // « suite » ramène là où l'on était : un visiteur qui remplit son panier
+    // puis clique « Valider ma commande » revient à son panier, pas sur un
+    // tableau de bord où il devrait le retrouver tout seul.
+    //
+    // Une adresse INTERNE, et rien d'autre : jamais « // » ni un autre site.
+    const suite = adresseDeRetour(window.location.search);
+    if (suite) {
+      router.push(suite);
+    } else if (profile?.role === "client") {
       router.push("/mon-compte");
     } else {
       router.push("/");

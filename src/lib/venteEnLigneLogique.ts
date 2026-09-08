@@ -414,3 +414,38 @@ export function formatAdresse(a: Partial<Adresse> | null | undefined): string {
   if (a!.pays && a!.pays.trim() && a!.pays.trim().toLowerCase() !== "suisse") parts.push(a!.pays.trim());
   return parts.join("\n");
 }
+
+// ── Ce qu'un visiteur SANS COMPTE lit ──────────────────────────────────────
+
+/**
+ * La disponibilité pour un visiteur : deux mots, jamais un compte à rebours.
+ *
+ * Un client connecté voit « Plus que 2 » — c'est un service, il peut décider
+ * vite. Un visiteur anonyme n'a que `en_stock` : le nombre ne quitte pas la
+ * base pour lui, et « En stock » suffit à savoir qu'on peut l'avoir.
+ */
+export function disponibiliteVitrine(
+  enStock: boolean | null | undefined,
+  typeArticle?: string | null
+): Disponibilite {
+  if (typeArticle === "personnalisable") {
+    return { etat: "en_stock", libelle: "Sur commande" };
+  }
+  return enStock === true
+    ? { etat: "en_stock", libelle: "En stock" }
+    : { etat: "epuise", libelle: "Épuisé" };
+}
+
+/**
+ * La mention faite au visiteur à propos de la remise membre.
+ *
+ * On ne lui applique PAS la remise — il n'est pas membre, et la lui montrer
+ * puis la retirer à la validation serait une petite trahison. On dit ce qui
+ * est vrai : elle existe, elle vaut tant, et voilà une raison d'adhérer.
+ */
+export function mentionRemiseMembre(remisePourcent: number | string | null | undefined): string | null {
+  const p = Number(remisePourcent ?? 0);
+  if (!Number.isFinite(p) || p <= 0) return null;
+  const propre = Math.round(p * 10) / 10;
+  return `Membres : −${String(propre).replace(".", ",")} % sur la boutique`;
+}

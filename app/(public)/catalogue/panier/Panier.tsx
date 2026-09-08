@@ -116,7 +116,7 @@ export default function Panier({
     return (
       <p style={{ color: SOUS, fontSize: 16, margin: 0 }}>
         Votre panier est vide.{" "}
-        <Link href="/mon-compte/boutique" style={{ color: VERT, fontWeight: 700 }}>
+        <Link href="/catalogue" style={{ color: VERT, fontWeight: 700 }}>
           Voir la boutique
         </Link>
       </p>
@@ -362,7 +362,13 @@ export default function Panier({
                 cle_idempotence: cle,
               });
               setEnCours(false);
-              if (res.error) { setErreur(res.error); return; }
+              if (res.error) {
+                setErreur(res.error);
+                // Les prix ont bougé : le panier corrigé doit apparaître avant
+                // que le client ne revalide.
+                if (res.recalcule) router.refresh();
+                return;
+              }
               router.push("/mon-compte/commandes");
             }}
             style={{

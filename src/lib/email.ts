@@ -1332,7 +1332,7 @@ export async function envoyerEmailRetourEnStock(p: {
   const prix = chfEmail(Number(p.prix ?? 0));
   const m = await modeleEmail("retour_en_stock", { article: p.article, prix });
 
-  const lienArticle = `${SITE_URL}/mon-compte/boutique/${p.articleId}`;
+  const lienArticle = `${SITE_URL}/catalogue/${p.articleId}`;
   const lienDesinscription =
     `${SITE_URL}/alerte-stock?t=${encodeURIComponent(p.token)}`;
 

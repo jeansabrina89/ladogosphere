@@ -10,18 +10,34 @@ import {
   panierDuClient,
   reservationsAVenir,
 } from "@/src/lib/venteEnLigne";
+import { catalogueVitrine } from "@/src/lib/vitrine";
+import { mentionRemiseMembre } from "@/src/lib/venteEnLigneLogique";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import Panier, { type LigneAffichee } from "./Panier";
+import PanierVisiteur, { type ArticlePanier } from "../PanierVisiteur";
+import FusionPanier from "../FusionPanier";
 
 export const dynamic = "force-dynamic";
 
-/** Le panier du client. Il faut un compte : c'est ici qu'on commande. */
+/** Pas d'indexation : la vitrine, c'est le site ; ici, c'est la caisse. */
+export const metadata = { robots: { index: false, follow: false } };
+
+/**
+ * Le panier.
+ *
+ * Sans compte, il se regarde et se modifie : il vit dans le navigateur, rien
+ * n'est réservé, et le bouton de validation mène à la connexion. C'est là — et
+ * seulement là — que le compte devient nécessaire.
+ *
+ * Avec un compte, c'est le tunnel de commande complet : remise, port, paiement.
+ */
 export default async function PanierPage() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login?suite=/mon-compte/boutique/panier");
+
+  if (!user) return <PanierSansCompte />;
 
   const { data: fiche } = await supabase
     .from("clients").select("id, nom, prenom, adresse").eq("auth_user_id", user.id).maybeSingle();
@@ -49,8 +65,11 @@ export default async function PanierPage() {
         <EnTete
           titre="🛒 Mon panier"
           sousTitre="Vérifiez, choisissez comment le recevoir, et validez."
-          action={<Bouton href="/mon-compte/boutique" variante="secondaire">← Boutique</Bouton>}
+          action={<Bouton href="/catalogue" variante="secondaire">← Boutique</Bouton>}
         />
+
+        {/* Le panier du navigateur rejoint le compte, ici comme ailleurs. */}
+        <FusionPanier />
 
         <Carte>
           <Panier
@@ -72,6 +91,52 @@ export default async function PanierPage() {
                 : { nom: `${fiche.prenom ?? ""} ${fiche.nom ?? ""}`.trim() }
             }
           />
+        </Carte>
+      </div>
+    </main>
+  );
+}
+
+/**
+ * Le panier d'un visiteur.
+ *
+ * Le serveur ne sait pas ce qu'il contient — c'est le navigateur qui le garde.
+ * On lui envoie donc la vitrine entière, et le composant y retrouve ses
+ * articles. Les prix affichés viennent d'ici, de la base, jamais du navigateur.
+ */
+async function PanierSansCompte() {
+  const [catalogue, params] = await Promise.all([
+    catalogueVitrine(),
+    lireParametresEnLigne(),
+  ]);
+
+  const articles: ArticlePanier[] = catalogue.map((a) => ({
+    id: a.id,
+    nom: a.nom,
+    prix_vente: Number(a.prix_vente),
+    photo_path: a.photo_path,
+    type_article: a.type_article,
+    en_stock: a.en_stock,
+  }));
+
+  const mentionMembre = mentionRemiseMembre(params.remisePourcent);
+
+  return (
+    <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
+      <div className="max-w-3xl mx-auto">
+        <EnTete
+          titre="🛒 Mon panier"
+          sousTitre="Vérifiez votre sélection. La connexion vous sera demandée pour valider."
+          action={<Bouton href="/catalogue" variante="secondaire">← Boutique</Bouton>}
+        />
+
+        <Carte>
+          <PanierVisiteur articles={articles} />
+          {mentionMembre && (
+            <p style={{ color: "#6E5410", fontSize: 14.5, fontWeight: 600, margin: "16px 0 0" }}>
+              🎫 {mentionMembre}
+            </p>
+          )}
         </Carte>
       </div>
     </main>

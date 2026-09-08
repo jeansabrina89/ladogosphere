@@ -59,7 +59,7 @@ export default async function MesCommandesPage() {
         <EnTete
           titre="📦 Mes commandes"
           sousTitre="Où en est chacune, et ce qu'elle contient."
-          action={<Bouton href="/mon-compte/boutique" variante="secondaire">← Boutique</Bouton>}
+          action={<Bouton href="/catalogue" variante="secondaire">← Boutique</Bouton>}
         />
 
         {commandes.length === 0 ? (

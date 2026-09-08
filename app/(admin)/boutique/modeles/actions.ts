@@ -146,7 +146,7 @@ function rafraichirArticle(articleId: string) {
   revalidatePath(`/boutique/articles/${articleId}/options`);
   revalidatePath(`/boutique/articles/${articleId}`);
   revalidatePath(`/boutique/caisse/sur-mesure/${articleId}`);
-  revalidatePath(`/mon-compte/boutique/${articleId}`);
+  revalidatePath(`/catalogue/${articleId}`);
 }
 
 /**

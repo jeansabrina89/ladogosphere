@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ajouterAuPanier } from "../actions";
+import { ajouter as ajouterLocalement } from "../panierNavigateur";
 
 const VERT = "#1F6E5B";
 const GRENAT = "#8A1F1F";
@@ -62,15 +63,18 @@ export default function BoutonAjouter({
         type="button"
         disabled={enCours}
         onClick={async () => {
+          // Sans compte, le panier vit dans le navigateur : rien en base,
+          // aucun stock réservé. La connexion viendra à la validation.
           if (!connecte) {
-            router.push(`/login?suite=/mon-compte/boutique/${articleId}`);
+            ajouterLocalement({ article_id: articleId, quantite });
+            router.push("/catalogue/panier");
             return;
           }
           setEnCours(true);
           const res = await ajouterAuPanier(articleId, quantite);
           setEnCours(false);
           setErreur(res.error ?? null);
-          if (!res.error) router.push("/mon-compte/boutique/panier");
+          if (!res.error) router.push("/catalogue/panier");
         }}
         style={{
           minHeight: CIBLE + 8, borderRadius: 14, border: "none",
@@ -78,7 +82,7 @@ export default function BoutonAjouter({
           fontFamily: "inherit", cursor: "pointer",
         }}
       >
-        {enCours ? "…" : connecte ? "🛒 Ajouter au panier" : "Se connecter pour commander"}
+        {enCours ? "…" : "🛒 Ajouter au panier"}
       </button>
     </div>
   );

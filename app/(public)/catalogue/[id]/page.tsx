@@ -1,10 +1,12 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { articleEnLigne, nombreArticlesPanier } from "@/src/lib/venteEnLigne";
 import { lireCatalogueOptions } from "@/src/lib/personnalisation";
 import { urlPhotoArticle, libelleCategorieArticle } from "@/src/lib/boutiqueLogique";
-import { disponibilite } from "@/src/lib/venteEnLigneLogique";
+import { disponibilite, disponibiliteVitrine, mentionRemiseMembre } from "@/src/lib/venteEnLigneLogique";
+import { articleVitrine } from "@/src/lib/vitrine";
+import { lireParametresEnLigne } from "@/src/lib/venteEnLigne";
+import FusionPanier from "../FusionPanier";
 import { alerteProposable, normaliserEmail } from "@/src/lib/alertesStockLogique";
 import { alerteEnCours } from "@/src/lib/alertesStock";
 import AlerteStock from "./AlerteStock";
@@ -16,6 +18,9 @@ import BoutonAjouter from "./BoutonAjouter";
 import BarrePanier from "../BarrePanier";
 
 export const dynamic = "force-dynamic";
+
+/** Pas d'indexation : la vitrine, c'est le site ; ici, c'est la caisse. */
+export const metadata = { robots: { index: false, follow: false } };
 
 const MARINE = "#1B2B5E";
 const SOUS = "rgba(27,43,94,0.55)";
@@ -46,7 +51,10 @@ export default async function ArticlePage({
   }
 
   const { id } = await params;
-  const article = await articleEnLigne(id);
+
+  // Un VISITEUR ne lit que la vitrine : la vue ne porte ni prix d'achat, ni
+  // marge, ni fournisseur, et on ne lui demande pas le stock chiffré.
+  const article = clientId ? await articleEnLigne(id) : await articleVitrine(id);
   if (!article) notFound();
 
   const surMesure = article.type_article === "personnalisable";
@@ -55,19 +63,23 @@ export default async function ArticlePage({
     clientId ? nombreArticlesPanier(clientId) : Promise.resolve(0),
   ]);
 
-  const dispo = disponibilite(article.stock_disponible, article.type_article);
+  const dispo = clientId
+    ? disponibilite((article as { stock_disponible: number }).stock_disponible, article.type_article)
+    : disponibiliteVitrine((article as { en_stock: boolean }).en_stock, article.type_article);
   const url = urlPhotoArticle(article.photo_path);
+  const params2 = await lireParametresEnLigne();
+  const mentionMembre = mentionRemiseMembre(params2.remisePourcent);
 
   // L'alerte ne se propose que là où elle a un sens : un article à stock,
   // vendu en ligne, et réellement épuisé. Un article sur mesure se fabrique —
   // il n'est jamais en rupture, et n'a rien à annoncer.
+  // Les deux sources ne rendent que l'actif et le vendable en ligne : être
+  // ici les prouve tous les deux. L'alerte se propose sur ce qui est épuisé.
   const proposerAlerte = alerteProposable({
     type_article: article.type_article,
-    // `articleEnLigne` ne rend que l'actif et le vendable en ligne : être ici
-    // les prouve tous les deux.
     vendable_en_ligne: true,
     actif: true,
-    stock_disponible: article.stock_disponible,
+    stock_disponible: dispo.etat === "epuise" ? 0 : 1,
   });
   // Relue à chaque affichage : le même écran rechargé montre le même état.
   const dejaInscrit = proposerAlerte && emailConnu
@@ -80,16 +92,18 @@ export default async function ArticlePage({
         <EnTete
           titre={`${surMesure ? "🎨" : "🛍️"} ${article.nom}`}
           sousTitre={libelleCategorieArticle(article.categorie) + (article.marque ? ` · ${article.marque}` : "")}
-          action={<Bouton href="/mon-compte/boutique" variante="secondaire">← Boutique</Bouton>}
+          action={<Bouton href="/catalogue" variante="secondaire">← Boutique</Bouton>}
         />
 
-        {!user && (
+        {clientId && <FusionPanier />}
+
+        {!user && mentionMembre && (
           <Carte>
-            <p style={{ color: MARINE, fontSize: 15, margin: 0 }}>
-              <Link href={`/login?suite=/mon-compte/boutique/${id}`} style={{ color: "#1F6E5B", fontWeight: 700 }}>
-                Connectez-vous
-              </Link>{" "}
-              pour commander cet article.
+            <p style={{ color: "#6E5410", fontSize: 15, fontWeight: 600, margin: 0 }}>
+              🎫 {mentionMembre}
+            </p>
+            <p style={{ color: SOUS, fontSize: 14, margin: "6px 0 0" }}>
+              La connexion ne vous sera demandée qu&apos;au moment de valider votre panier.
             </p>
           </Carte>
         )}
@@ -178,7 +192,7 @@ export default async function ArticlePage({
         )}
       </div>
 
-      <BarrePanier nombre={nombre} />
+      <BarrePanier nombre={nombre} local={!clientId} auDessusDe={surMesure ? 84 : 0} />
     </main>
   );
 }
