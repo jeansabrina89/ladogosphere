@@ -25,6 +25,8 @@ import {
 } from "@/src/lib/personnalisationLogique";
 import { urlPhotoArticle } from "@/src/lib/boutiqueLogique";
 import MatriceDependances from "./MatriceDependances";
+import GrilleTailles from "./GrilleTailles";
+import { taillesTriees, type GroupeTaille } from "@/src/lib/taillesLogique";
 
 /**
  * Catalogue d'options d'un article personnalisable.
@@ -247,6 +249,7 @@ export default function GestionOptions({
                   ? ` · ${g.valeurs.length} option${g.valeurs.length > 1 ? "s" : ""}`
                   : ""}
                 {g.type === "mesure" ? ` · en ${uniteMesure(g)}${resumeBornes(g)}` : ""}
+                {g.type === "taille" ? resumeGrille(g, [...groupes, ...herites]) : ""}
                 {g.max_caracteres ? ` · ${g.max_caracteres} caractères` : ""}
               </span>
             </button>
@@ -268,6 +271,7 @@ export default function GestionOptions({
             <FormGroupe
               porteur={porteur}
               groupe={g}
+              mesures={[...herites, ...groupes].filter((x) => x.type === "mesure" && x.id !== g.id)}
               onFini={(res) => { if (suite(res)) setGroupeModifie(null); }}
               onAnnuler={() => setGroupeModifie(null)}
             />
@@ -279,7 +283,15 @@ export default function GestionOptions({
                 <p style={{ color: SOUS, fontSize: 14, margin: "0 0 12px" }}>{g.aide}</p>
               )}
 
-              {g.type === "mesure" ? (
+              {g.type === "taille" ? (
+                <GrilleTailles
+                  porteur={porteur}
+                  groupe={g as GroupeTaille}
+                  largeurs={groupes.find((x) => x.depend_de_groupe_id === g.id) ?? null}
+                  dependances={dependances}
+                  onRetour={suite}
+                />
+              ) : g.type === "mesure" ? (
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
                   {g.guide_image_path && (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -328,6 +340,7 @@ export default function GestionOptions({
           </h3>
           <FormGroupe
             porteur={porteur}
+            mesures={[...herites, ...groupes].filter((x) => x.type === "mesure")}
             onFini={(res) => { if (suite(res)) setNouveauGroupe(false); }}
             onAnnuler={() => setNouveauGroupe(false)}
           />
@@ -370,6 +383,15 @@ export default function GestionOptions({
   );
 }
 
+/** « · 7 tailles, sur mesure, d'après Tour de cou » — le sous-titre d'une grille. */
+function resumeGrille(g: OptionGroupe, tous: OptionGroupe[]): string {
+  const grille = g as GroupeTaille;
+  const n = taillesTriees(grille).length;
+  const mode = grille.mode_taille === "plages" ? "réglable" : "sur mesure";
+  const mesure = tous.find((x) => x.id === grille.mesure_groupe_id);
+  return ` · ${n} taille${n > 1 ? "s" : ""}, ${mode}${mesure ? `, d'après ${mesure.nom}` : ", sans mesure rattachée"}`;
+}
+
 /** « , de 15 à 80 » — ce qui tient sur une ligne de sous-titre. */
 function resumeBornes(g: OptionGroupe): string {
   const min = g.valeur_min ?? null;
@@ -385,11 +407,14 @@ function resumeBornes(g: OptionGroupe): string {
 function FormGroupe({
   porteur,
   groupe,
+  mesures,
   onFini,
   onAnnuler,
 }: {
   porteur: Porteur;
   groupe?: OptionGroupe;
+  /** Les groupes de mesure posés avant : ceux dont une grille peut se déduire. */
+  mesures: OptionGroupe[];
   onFini: (res: { error?: string; message?: string }) => void;
   onAnnuler: () => void;
 }) {
@@ -410,6 +435,13 @@ function FormGroupe({
   const [pas, setPas] = useState(texte(groupe?.pas));
   const [seuil, setSeuil] = useState(texte(groupe?.seuil_supplement));
   const [auDela, setAuDela] = useState(texte(groupe?.supplement_au_dela));
+
+  // Réglages d'une grille de tailles.
+  const grille = groupe as GroupeTaille | undefined;
+  const [modeTaille, setModeTaille] = useState<"seuils" | "plages">(grille?.mode_taille ?? "seuils");
+  const [mesureId, setMesureId] = useState(grille?.mesure_groupe_id ?? "");
+  const [parCm, setParCm] = useState(texte(grille?.supplement_par_cm));
+  const [borneCm, setBorneCm] = useState(texte(grille?.borne_supplement_cm));
 
   return (
     <div style={{ display: "grid", gap: 12, marginTop: 12, paddingTop: 12, borderTop: BORDURE }}>
@@ -451,6 +483,83 @@ function FormGroupe({
           <input id={`max-${groupe?.id ?? "neuf"}`} type="text" inputMode="numeric" value={max}
             onChange={(e) => setMax(e.target.value)} style={{ ...champ, maxWidth: 160 }}
             placeholder="20" />
+        </div>
+      )}
+
+      {type === "taille" && (
+        <div style={{ border: BORDURE, borderRadius: 14, backgroundColor: "#FBF9F5", padding: 14, display: "grid", gap: 14 }}>
+          <p style={{ fontSize: 13, color: SOUS, margin: 0 }}>
+            Une taille n&apos;est pas une question posée au client : elle se DÉDUIT d&apos;une
+            mesure. Une fois déterminée, elle se comporte comme n&apos;importe quelle autre
+            valeur choisie — elle peut commander les largeurs et porter un supplément.
+          </p>
+
+          <div>
+            <label htmlFor={`mesure-de-${groupe?.id ?? "neuf"}`} style={etiquette}>
+              Se déduit de la mesure
+            </label>
+            <select id={`mesure-de-${groupe?.id ?? "neuf"}`} value={mesureId} style={champ}
+              onChange={(e) => setMesureId(e.target.value)}>
+              <option value="">— Choisir la mesure —</option>
+              {mesures.map((m) => (
+                <option key={m.id} value={m.id}>{m.nom}</option>
+              ))}
+            </select>
+            <p style={{ fontSize: 12, color: SOUS, margin: "4px 0 0" }}>
+              {mesures.length === 0
+                ? "Créez d'abord un groupe de type « Mesure », posé avant celui-ci."
+                : "Elle doit être posée AVANT cette grille : sans elle, la taille ne se calcule pas."}
+            </p>
+          </div>
+
+          <div>
+            <span style={etiquette}>Mode</span>
+            <div style={{ display: "grid", gap: 8 }}>
+              {([
+                ["seuils", "Sur mesure — chaque taille part d'un seuil", "Vous saisissez « à partir de », la borne haute se déduit de la taille suivante. Ni trou ni chevauchement possible."],
+                ["plages", "Réglable — chaque taille couvre une plage", "Vous saisissez les deux bornes. Les chevauchements sont normaux : un chien peut convenir à deux tailles, et c'est lui qui choisit."],
+              ] as const).map(([valeur, titre, aide]) => (
+                <button key={valeur} type="button" onClick={() => setModeTaille(valeur)}
+                  aria-pressed={modeTaille === valeur}
+                  style={{
+                    ...bouton, textAlign: "left", minHeight: 0, padding: "10px 12px",
+                    border: modeTaille === valeur ? `2px solid ${VERT}` : BORDURE,
+                    backgroundColor: modeTaille === valeur ? "#F1F8F6" : "#FFFFFF",
+                  }}>
+                  <span style={{ display: "block", fontWeight: 700 }}>
+                    {modeTaille === valeur ? "✓ " : ""}{titre}
+                  </span>
+                  <span style={{ display: "block", fontSize: 12, color: SOUS, fontWeight: 400 }}>
+                    {aide}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h4 style={{ color: MARINE, fontSize: 15, fontWeight: 700, margin: "0 0 2px" }}>
+              Supplément au centimètre (facultatif)
+            </h4>
+            <p style={{ fontSize: 13, color: SOUS, margin: "0 0 8px" }}>
+              De quoi facturer une laisse de 3 m sans créer une taille par longueur.
+              Laissez vide pour les colliers.
+            </p>
+            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
+              <div>
+                <label htmlFor={`bornecm-${groupe?.id ?? "neuf"}`} style={etiquette}>Au-delà de</label>
+                <input id={`bornecm-${groupe?.id ?? "neuf"}`} type="text" inputMode="decimal"
+                  value={borneCm} onChange={(e) => setBorneCm(e.target.value)}
+                  style={champ} placeholder="200" />
+              </div>
+              <div>
+                <label htmlFor={`parcm-${groupe?.id ?? "neuf"}`} style={etiquette}>Par centimètre (CHF)</label>
+                <input id={`parcm-${groupe?.id ?? "neuf"}`} type="text" inputMode="decimal"
+                  value={parCm} onChange={(e) => setParCm(e.target.value)}
+                  style={champ} placeholder="0.20" />
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -566,6 +675,9 @@ function FormGroupe({
               unite, valeur_min: vMin, valeur_max: vMax,
               alerte_min: aMin, alerte_max: aMax, pas,
               seuil_supplement: seuil, supplement_au_dela: auDela,
+              mesure_groupe_id: mesureId || null,
+              mode_taille: modeTaille,
+              supplement_par_cm: parCm, borne_supplement_cm: borneCm,
             });
             setEnCours(false);
             onFini(res);

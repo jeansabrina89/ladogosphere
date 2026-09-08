@@ -21,11 +21,13 @@ import {
 const COLONNES_GROUPE = `
   id, article_id, modele_id, nom, type, obligatoire, ordre, aide, max_caracteres,
   depend_de_groupe_id, unite, valeur_min, valeur_max, pas, guide_image_path,
-  alerte_min, alerte_max, seuil_supplement, supplement_au_dela
+  alerte_min, alerte_max, seuil_supplement, supplement_au_dela,
+  mesure_groupe_id, mode_taille, supplement_par_cm, borne_supplement_cm
 `;
 const COLONNES_VALEUR = `
   id, groupe_id, libelle, image_path, code_couleur, supplement_prix,
-  supplement_delai_jours, composant_article_id, composant_quantite, actif, ordre, defaut
+  supplement_delai_jours, composant_article_id, composant_quantite, actif, ordre, defaut,
+  borne_min, borne_max
 `;
 
 export type Commande = {

@@ -6,7 +6,7 @@
  * TVA : pas calculée. Le taux est porté par l'article, il servira en APP 13.
  */
 
-export type TypeGroupe = "liste" | "couleur" | "texte" | "booleen" | "mesure";
+export type TypeGroupe = "liste" | "couleur" | "texte" | "booleen" | "mesure" | "taille";
 
 export const TYPES_GROUPE: { valeur: TypeGroupe; libelle: string; aide: string }[] = [
   { valeur: "liste",   libelle: "Liste",   aide: "Un choix parmi plusieurs, en boutons." },
@@ -14,6 +14,7 @@ export const TYPES_GROUPE: { valeur: TypeGroupe; libelle: string; aide: string }
   { valeur: "texte",   libelle: "Texte",   aide: "Un texte à graver ou à broder." },
   { valeur: "booleen", libelle: "Oui / non", aide: "Un interrupteur, par exemple « Avec puce NFC »." },
   { valeur: "mesure", libelle: "Mesure", aide: "Un nombre pris sur le chien : tour de cou, longueur de dos." },
+  { valeur: "taille", libelle: "Taille", aide: "Une taille (XS, S, M…) déduite d'une mesure. Elle se comporte ensuite comme n'importe quelle autre valeur choisie." },
 ];
 
 export function libelleTypeGroupe(type: string | null | undefined): string {
@@ -32,6 +33,12 @@ export type OptionValeur = {
   actif: boolean;
   ordre: number;
   defaut: boolean;
+
+  // ── Valeur d'un groupe « taille » ──
+  /** Début de l'intervalle. En mode seuils, la seule borne stockée. */
+  borne_min?: number | string | null;
+  /** Fin de l'intervalle, en mode plages seulement. */
+  borne_max?: number | string | null;
 };
 
 export type OptionGroupe = {
@@ -61,6 +68,15 @@ export type OptionGroupe = {
   seuil_supplement?: number | string | null;
   supplement_au_dela?: number | string | null;
 
+  // ── Groupe de type « taille » ──
+  /** Le groupe de mesure, posé avant, dont cette grille se déduit. */
+  mesure_groupe_id?: string | null;
+  /** « seuils » : sur mesure, la borne haute se déduit. « plages » : réglable. */
+  mode_taille?: "seuils" | "plages" | null;
+  /** Facultatif : de quoi facturer une laisse de 3 m sans taille par longueur. */
+  supplement_par_cm?: number | string | null;
+  borne_supplement_cm?: number | string | null;
+
   valeurs: OptionValeur[];
 };
 
@@ -73,6 +89,11 @@ export type Choix = {
   nombre?: number | null;
   /** L'alerte de vraisemblance a été levée à la main (« Oui, c'est correct »). */
   alerte_acceptee?: boolean;
+  /**
+   * Groupe de taille : la taille a été posée à la main, pas déduite d'une
+   * mesure. Un recalcul ne l'écrase jamais — c'est une décision du client.
+   */
+  taille_choisie_directement?: boolean;
 };
 
 export type ChoixParGroupe = Record<string, Choix>;

@@ -4,6 +4,14 @@ import { useMemo, useState } from "react";
 import ApercuPersonnalisation from "@/app/components/ApercuPersonnalisation";
 import { urlPhotoArticle } from "@/src/lib/boutiqueLogique";
 import {
+  determinerTaille,
+  recalculerTailles,
+  taillesTriees,
+  libelleDeduction,
+  type GroupeTaille,
+  type Taille,
+} from "@/src/lib/taillesLogique";
+import {
   bornerTexte,
   caracteresRestants,
   choixParDefaut,
@@ -16,7 +24,6 @@ import {
   mesuresAConfirmer,
   refusConfiguration,
   enumererFr,
-  nettoyerChoixInvalides,
   prixTotal,
   refusMesure,
   alerteMesure,
@@ -99,7 +106,8 @@ export default function Configurateur({
   const [choix, setChoix] = useState<ChoixParGroupe>(() => {
     // Une valeur par défaut peut être indisponible d'entrée : on nettoie.
     const depart = choixParDefaut(ordonnes);
-    return nettoyerChoixInvalides(ordonnes, depart, dependances).choix;
+    // Une taille se déduit d'une mesure : le recalcul englobe le nettoyage.
+    return recalculerTailles(ordonnes, depart, dependances).choix;
   });
   const [messages, setMessages] = useState<string[]>([]);
   const [agrandie, setAgrandie] = useState<OptionValeur | null>(null);
@@ -145,7 +153,9 @@ export default function Configurateur({
   /** Un choix en pose un autre : on rejoue les dépendances à chaque fois. */
   function poser(groupeId: string, valeur: Partial<ChoixParGroupe[string]>) {
     const suivant: ChoixParGroupe = { ...choix, [groupeId]: { ...choix[groupeId], ...valeur } };
-    const nettoye = nettoyerChoixInvalides(ordonnes, suivant, dependances);
+    // Changer une mesure recalcule la taille, qui recalcule ce qui en dépend.
+    // Une largeur ou un coloris devenu impossible s'efface, en le disant.
+    const nettoye = recalculerTailles(ordonnes, suivant, dependances);
     setChoix(nettoye.choix);
     setMessages(nettoye.messages);
   }
@@ -328,6 +338,24 @@ export default function Configurateur({
                   />
                 )}
 
+                {g.type === "taille" && (
+                  <ChoixDeTaille
+                    groupe={g as GroupeTaille}
+                    mesureGroupe={ordonnes.find((x) => x.id === (g as GroupeTaille).mesure_groupe_id) ?? null}
+                    mesure={
+                      (g as GroupeTaille).mesure_groupe_id
+                        ? choix[(g as GroupeTaille).mesure_groupe_id!]?.nombre ?? null
+                        : null
+                    }
+                    retenue={valeurRetenue(g, choix) as Taille | null}
+                    choisieDirectement={choix[g.id]?.taille_choisie_directement === true}
+                    dense={mode === "liste"}
+                    onChoisir={(t, directement) =>
+                      poser(g.id, { valeur_id: t?.id ?? null, taille_choisie_directement: directement })
+                    }
+                  />
+                )}
+
                 {g.type === "mesure" && (
                   <ChampMesure
                     groupe={g}
@@ -371,6 +399,8 @@ export default function Configurateur({
                             ? (choix[g.id]?.nombre === null || choix[g.id]?.nombre === undefined
                                 ? (manque ? "À indiquer" : "—")
                                 : formatMesure(choix[g.id]?.nombre, uniteMesure(g)))
+                            : g.type === "taille"
+                              ? (v?.libelle ?? (manque ? "À déterminer" : "—"))
                             : g.type === "texte"
                               ? (texte || (manque ? "À choisir" : "—"))
                               : g.type === "booleen"
@@ -949,6 +979,217 @@ function ChampMesure({
           {supplement.toFixed(2)} CHF s&apos;applique.
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Le choix d'une taille — DEUX chemins, côte à côte, sans que l'un ait l'air
+ * du vrai et l'autre d'un repli.
+ *
+ * Beaucoup de clients connaissent la taille de leur chien ; beaucoup d'autres
+ * non. Celui qui sait choisit dans la liste et n'a rien à mesurer ; celui qui
+ * ne sait pas saisit le tour de cou et lit la taille en clair. Les deux
+ * commandes sont valables.
+ */
+function ChoixDeTaille({
+  groupe,
+  mesureGroupe,
+  mesure,
+  retenue,
+  choisieDirectement,
+  dense = false,
+  onChoisir,
+}: {
+  groupe: GroupeTaille;
+  mesureGroupe: OptionGroupe | null;
+  mesure: number | null;
+  retenue: Taille | null;
+  choisieDirectement: boolean;
+  /**
+   * Le comptoir, où l'on connaît la gamme et où l'on va vite : une ligne au
+   * lieu d'un encadré, pas de phrase d'accompagnement, les tailles côte à
+   * côte. Le parcours client, lui, rassure un débutant — ce n'est pas le même
+   * métier, et ce n'est donc pas le même écran.
+   */
+  dense?: boolean;
+  onChoisir: (taille: Taille | null, directement: boolean) => void;
+}) {
+  const determination = determinerTaille(groupe, mesure);
+  const tailles = taillesTriees(groupe);
+  const deduction = libelleDeduction(groupe, mesureGroupe, mesure, retenue);
+
+  if (dense) {
+    return (
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", minWidth: 0 }}>
+        {determination.etat === "trouvee" && !choisieDirectement && (
+          <span style={{
+            backgroundColor: "#F1F8F6", border: `1px solid ${VERT}`, borderRadius: 10,
+            padding: "6px 10px", color: MARINE, fontSize: 15, fontWeight: 700, whiteSpace: "nowrap",
+          }}>
+            → {retenue?.libelle ?? "—"}
+          </span>
+        )}
+        {determination.etat === "hors_grille" && (
+          <span style={{ color: "#6E5410", fontSize: 14, fontWeight: 600 }}>
+            {determination.message}
+          </span>
+        )}
+        {tailles.map((t) => {
+          const active = retenue?.id === t.id;
+          return (
+            <button key={t.id} type="button" aria-pressed={active}
+              onClick={() => onChoisir(t, true)}
+              style={{
+                minHeight: CIBLE, padding: "0 14px", borderRadius: 10,
+                border: active ? `2px solid ${VERT}` : BORDURE,
+                backgroundColor: active ? "#F1F8F6" : "#FFFFFF",
+                color: MARINE, fontSize: 15, fontWeight: active ? 700 : 500,
+                fontFamily: "inherit", cursor: "pointer", whiteSpace: "nowrap",
+              }}>
+              {t.libelle}
+              {Number(t.supplement_prix) > 0 && (
+                <span style={{ color: SOUS, fontWeight: 400 }}>
+                  {" "}+{Number(t.supplement_prix).toFixed(0)}
+                </span>
+              )}
+            </button>
+          );
+        })}
+        {/* Plusieurs plages : au comptoir on les montre en une ligne. */}
+        {!choisieDirectement && determination.etat === "trouvee" && determination.propositions.length > 1 && (
+          <span style={{ color: SOUS, fontSize: 13, flex: "1 1 200px", minWidth: 0 }}>
+            {determination.propositions.map((p) => p.taille.libelle).join(" ou ")} conviennent
+            — {determination.propositions[0].taille.libelle} est la mieux réglée.
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 12 }}>
+      {/* Ce que la mesure a donné, écrit en clair. */}
+      {!choisieDirectement && determination.etat === "trouvee" && deduction && (
+        <p style={{
+          backgroundColor: "#F1F8F6", border: `1px solid ${VERT}`, borderRadius: 12,
+          padding: "10px 12px", margin: 0, color: MARINE, fontSize: 16, fontWeight: 700,
+        }}>
+          {deduction}
+          <span style={{ display: "block", color: SOUS, fontSize: 14, fontWeight: 400, marginTop: 2 }}>
+            {determination.propositions[0].raison}
+          </span>
+        </p>
+      )}
+
+      {/* Plusieurs plages conviennent : on les propose TOUTES, la mieux
+          ajustée en tête. On ne choisit pas à la place du client. */}
+      {!choisieDirectement && determination.etat === "trouvee" && determination.propositions.length > 1 && (
+        <div style={{ display: "grid", gap: 8 }}>
+          <p style={{ color: SOUS, fontSize: 14, margin: 0 }}>
+            Deux tailles conviennent à votre chien. La première est celle où il est le mieux
+            réglé — c&apos;est celle que nous recommandons.
+          </p>
+          {determination.propositions.map((prop, rang) => {
+            const active = retenue?.id === prop.taille.id;
+            return (
+              <button
+                key={prop.taille.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onChoisir(prop.taille, false)}
+                style={{
+                  width: "100%", minHeight: CIBLE + 12, padding: "10px 14px", textAlign: "left",
+                  borderRadius: 14, border: active ? `2px solid ${VERT}` : BORDURE,
+                  backgroundColor: active ? "#F1F8F6" : "#FFFFFF",
+                  color: MARINE, fontSize: 16, fontFamily: "inherit", cursor: "pointer",
+                }}
+              >
+                <span style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                  <span style={{ fontWeight: 700 }}>{active ? "✓ " : ""}Taille {prop.taille.libelle}</span>
+                  {rang === 0 && (
+                    <span style={{
+                      backgroundColor: VERT, color: "#FFFFFF", borderRadius: 999,
+                      padding: "2px 10px", fontSize: 12, fontWeight: 700,
+                    }}>
+                      Recommandé
+                    </span>
+                  )}
+                  {Number(prop.taille.supplement_prix) > 0 && (
+                    <span style={{ color: SOUS, fontSize: 14 }}>
+                      +{Number(prop.taille.supplement_prix).toFixed(2)}
+                    </span>
+                  )}
+                </span>
+                <span style={{ display: "block", color: SOUS, fontSize: 14, marginTop: 2 }}>
+                  {prop.raison}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Hors grille : on le dit, et on propose le sur-mesure. */}
+      {!choisieDirectement && determination.etat === "hors_grille" && (
+        <p role="alert" style={{
+          backgroundColor: "#F4EAC9", border: "1px solid #C9A84C", borderRadius: 12,
+          padding: "10px 12px", margin: 0, color: "#6E5410", fontSize: 15, fontWeight: 600,
+        }}>
+          {determination.message}
+        </p>
+      )}
+
+      {/* L'autre chemin : choisir la taille soi-même. */}
+      <div>
+        <p style={{ color: SOUS, fontSize: 14, margin: "0 0 8px" }}>
+          {choisieDirectement
+            ? "Vous avez choisi la taille vous-même. Vous pouvez revenir à la mesure à tout moment."
+            : mesure === null
+              ? "Vous connaissez déjà la taille de votre chien ? Choisissez-la directement."
+              : "Ou choisissez une autre taille vous-même :"}
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {tailles.map((t) => {
+            const active = retenue?.id === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onChoisir(t, true)}
+                style={{
+                  minHeight: CIBLE, padding: "0 16px", borderRadius: 12,
+                  border: active ? `2px solid ${VERT}` : BORDURE,
+                  backgroundColor: active ? "#F1F8F6" : "#FFFFFF",
+                  color: MARINE, fontSize: 16, fontWeight: active ? 700 : 500,
+                  fontFamily: "inherit", cursor: "pointer",
+                }}
+              >
+                {active && "✓ "}{t.libelle}
+                {Number(t.supplement_prix) > 0 && (
+                  <span style={{ color: SOUS, fontWeight: 400 }}>
+                    {" "}+{Number(t.supplement_prix).toFixed(2)}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {choisieDirectement && (
+          <button
+            type="button"
+            onClick={() => onChoisir(null, false)}
+            style={{
+              minHeight: CIBLE, marginTop: 10, padding: "0 14px", borderRadius: 12,
+              border: BORDURE, backgroundColor: "#FFFFFF", color: MARINE,
+              fontSize: 15, fontFamily: "inherit", cursor: "pointer",
+            }}
+          >
+            ↩︎ Revenir à la taille déduite de la mesure
+          </button>
+        )}
+      </div>
     </div>
   );
 }

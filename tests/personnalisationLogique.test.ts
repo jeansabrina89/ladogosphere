@@ -84,11 +84,12 @@ const complet: ChoixParGroupe = {
 };
 
 describe("catalogue d'options", () => {
-  it("nomme les cinq types de groupe", () => {
-    expect(TYPES_GROUPE).toHaveLength(5);
+  it("nomme les six types de groupe", () => {
+    expect(TYPES_GROUPE).toHaveLength(6);
     expect(libelleTypeGroupe("couleur")).toBe("Couleur");
     expect(libelleTypeGroupe("booleen")).toBe("Oui / non");
     expect(libelleTypeGroupe("mesure")).toBe("Mesure");
+    expect(libelleTypeGroupe("taille")).toBe("Taille");
     expect(libelleTypeGroupe("autre")).toBe("—");
   });
 

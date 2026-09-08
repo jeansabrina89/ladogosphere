@@ -20,7 +20,7 @@ import { BUCKET_PHOTOS } from "@/src/lib/imageBoutique";
 
 export type Retour = { error?: string; message?: string; id?: string };
 
-const TYPES: TypeGroupe[] = ["liste", "couleur", "texte", "booleen", "mesure"];
+const TYPES: TypeGroupe[] = ["liste", "couleur", "texte", "booleen", "mesure", "taille"];
 
 async function garde(): Promise<{ userId?: string; erreur?: string }> {
   const verif = await verifierPermissionBoutique("gestion");
@@ -83,6 +83,11 @@ export async function enregistrerGroupe(entree: {
   alerte_max?: string | number | null;
   seuil_supplement?: string | number | null;
   supplement_au_dela?: string | number | null;
+  // ── Groupe de type « taille » ──
+  mesure_groupe_id?: string | null;
+  mode_taille?: "seuils" | "plages" | null;
+  supplement_par_cm?: string | number | null;
+  borne_supplement_cm?: string | number | null;
 }): Promise<Retour> {
   const g = await garde();
   if (g.erreur) return { error: g.erreur };
@@ -92,6 +97,7 @@ export async function enregistrerGroupe(entree: {
   if (!TYPES.includes(entree.type)) return { error: "Choisissez le type d'options." };
 
   const mesure = entree.type === "mesure";
+  const grille = entree.type === "taille";
   const optionnel = (v: unknown): number | null => {
     const brut = String(v ?? "").replace(",", ".").trim();
     if (!brut) return null;
@@ -148,11 +154,18 @@ export async function enregistrerGroupe(entree: {
     seuil_supplement: seuil,
     // La colonne ne veut pas de null : zéro, c'est « pas de supplément ».
     supplement_au_dela: auDela ?? 0,
+    // Une grille de tailles dit de quelle mesure elle se déduit et comment.
+    // Changer de type efface ces réglages : le trigger le fait aussi, mais
+    // autant ne pas envoyer des valeurs qui n'auraient plus de sens.
+    mesure_groupe_id: grille ? entree.mesure_groupe_id || null : null,
+    mode_taille: grille ? (entree.mode_taille ?? "seuils") : null,
+    supplement_par_cm: grille ? optionnel(entree.supplement_par_cm) : null,
+    borne_supplement_cm: grille ? optionnel(entree.borne_supplement_cm) : null,
   };
 
   if (entree.id) {
     const { error } = await supabaseAdmin.from("options_groupes").update(champs).eq("id", entree.id);
-    if (error) return { error: "La modification a été refusée." };
+    if (error) return { error: messageGroupe(error.message) };
     rafraichir(entree.porteur);
     return { message: "Groupe enregistré.", id: entree.id };
   }
@@ -171,7 +184,7 @@ export async function enregistrerGroupe(entree: {
     })
     .select("id")
     .single();
-  if (error || !data) return { error: "La création a été refusée." };
+  if (error || !data) return { error: messageGroupe(error?.message ?? "") };
 
   rafraichir(entree.porteur);
   return { message: "Groupe créé.", id: data.id as string };
@@ -229,14 +242,33 @@ export async function ordonnerGroupes(porteur: Porteur, ids: string[]): Promise<
   return { message: "Ordre enregistré." };
 }
 
+/**
+ * Le refus d'un trigger sur un groupe est déjà écrit en français, et il dit
+ * exactement quoi corriger : « la mesure doit être posée avant ». Le remplacer
+ * par « refusé » ferait perdre à Sabrina la seule information utile.
+ */
+function messageGroupe(message: string): string {
+  const m = message ?? "";
+  if (/posée avant|se déduit|type « mesure »|même catalogue|doit dire son mode|n'existe pas/.test(m)) return m;
+  return "L'enregistrement du groupe a été refusé.";
+}
+
 /** Le refus du trigger est déjà écrit en français : on le laisse passer. */
 function messageOrdre(message: string): string {
   const m = message ?? "";
-  if (/dépend de|dépendraient|même article|lui-même/.test(m)) return m;
+  if (/dépend de|dépendraient|même article|lui-même|se déduit de|posée avant/.test(m)) return m;
   return "Cet ordre n'est pas possible : un groupe doit rester après celui dont il dépend.";
 }
 
 // ── Valeurs ─────────────────────────────────────────────────────────────────
+
+/** Une borne de taille : vide veut dire « pas de borne », pas « zéro ». */
+function borne(v: unknown): number | null {
+  const brut = String(v ?? "").replace(",", ".").trim();
+  if (!brut) return null;
+  const n = Number(brut);
+  return Number.isFinite(n) ? n : null;
+}
 
 export async function enregistrerValeur(entree: {
   porteur: Porteur;
@@ -249,6 +281,9 @@ export async function enregistrerValeur(entree: {
   composant_article_id?: string | null;
   composant_quantite?: string | number | null;
   defaut?: boolean;
+  /** Valeur d'un groupe « taille » : ses bornes. */
+  borne_min?: string | number | null;
+  borne_max?: string | number | null;
 }): Promise<Retour> {
   const g = await garde();
   if (g.erreur) return { error: g.erreur };
@@ -275,6 +310,8 @@ export async function enregistrerValeur(entree: {
     composant_article_id: composant,
     composant_quantite: composant ? quantite : null,
     defaut: entree.defaut === true,
+    borne_min: borne(entree.borne_min),
+    borne_max: borne(entree.borne_max),
   };
 
   // Une seule valeur par défaut par groupe : la dernière posée l'emporte.
