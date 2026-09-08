@@ -93,7 +93,7 @@ export default function MatriceDependances({
   }
 
   return (
-    <div style={{ marginTop: 14, paddingTop: 12, borderTop: BORDURE }}>
+    <div style={{ marginTop: 14, paddingTop: 12, borderTop: BORDURE, minWidth: 0 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <label htmlFor={`parent-${groupe.id}`} style={{ fontSize: 14, fontWeight: 600, color: MARINE }}>
           Dépend du groupe
@@ -132,7 +132,7 @@ export default function MatriceDependances({
       )}
 
       {parent && lignes.length > 0 && colonnes.length > 0 && (
-        <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: 12, minWidth: 0 }}>
           <p style={{ color: SOUS, fontSize: 13, margin: "0 0 8px" }}>
             Cochez, pour chaque {groupe.nom.toLowerCase()}, les {parent.nom.toLowerCase()} où
             elle existe. Une ligne sans aucune case cochée reste disponible partout.

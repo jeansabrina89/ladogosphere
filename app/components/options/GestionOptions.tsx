@@ -71,13 +71,17 @@ const carreOrdre: React.CSSProperties = {
  * La rangée d'actions d'une ligne.
  *
  * Elle forme UN SEUL élément souple : quand la place manque, elle passe à la
- * ligne d'un bloc, sous le libellé, au lieu de se disloquer bouton par bouton
- * ou de déborder de la carte. `flexShrink: 0` la protège de la compression —
- * on ne rétrécit pas une cible tactile pour gagner deux pixels.
+ * ligne d'un bloc, sous le libellé, au lieu de se disloquer bouton par bouton.
+ *
+ * `minWidth: 0` — et NON `flexShrink: 0` : à 375 px, les cinq boutons font
+ * 333 px pour 293 px disponibles, et un bloc qui refuse de rétrécir sort de la
+ * carte, emportant la corbeille hors de portée. En le laissant rétrécir, son
+ * `flexWrap` fait ce pour quoi il est là : les boutons passent sur deux lignes,
+ * chacun gardant sa cible de 44 px.
  */
 const rangeeActions: React.CSSProperties = {
   display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
-  flexShrink: 0, marginLeft: "auto",
+  minWidth: 0, marginLeft: "auto",
 };
 
 /**
@@ -160,7 +164,16 @@ export default function GestionOptions({
   }
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
+    /**
+     * `minWidth: 0` sur les éléments de cette grille (voir carteGroupe).
+     *
+     * Un élément de grille porte `min-width: auto` : il refuse de descendre
+     * sous la largeur minimale de son contenu. La matrice de dépendances d'un
+     * modèle à 7 largeurs et 140 coloris demandait 1147 px ; la carte du groupe
+     * s'y étirait, débordait la grille de 718 px, et `Carte` la coupait — les
+     * actions de chaque ligne se retrouvaient hors de l'écran, inatteignables.
+     */
+    <div style={{ display: "grid", gap: 16, minWidth: 0 }}>
       {erreur && (
         <p role="alert" style={{
           backgroundColor: "#FDECEC", color: "#8A1F1F", border: "1px solid #F0C2C2",
@@ -194,6 +207,11 @@ export default function GestionOptions({
           style={{
             border: glisse === g.id ? `2px dashed ${VERT}` : BORDURE,
             borderRadius: 16, backgroundColor: "#FFFFFF", padding: 14,
+            // Sans ceci, la carte s'étire à la largeur de la matrice qu'elle
+            // contient et sort de la grille. C'est la cause du débordement,
+            // pas le symptôme : on lève le plancher, on n'ajoute pas un
+            // défilement qui le cacherait.
+            minWidth: 0,
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
