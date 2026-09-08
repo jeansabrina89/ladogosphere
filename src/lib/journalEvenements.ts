@@ -10,7 +10,9 @@ export type EntiteJournal =
   // APP 15 : les alertes de retour en stock et l'article qu'elles visent.
   | "alerte_stock" | "article"
   // APP 14 : le régime de TVA et les décomptes déclarés.
-  | "parametres_tva" | "decompte_tva";
+  | "parametres_tva" | "decompte_tva"
+  // APP 15 : les cartes prépayées, leur facture et leur expiration.
+  | "abonnement";
 
 export type EvenementJournal = {
   entite: EntiteJournal;
@@ -120,6 +122,10 @@ const LIBELLES: Record<string, string> = {
   tva_categorie: "Taux d'une catégorie d'articles",
   decompte_tva: "Décompte TVA déclaré",
   decompte_tva_paye: "Décompte TVA payé",
+  abonnement_facture: "Carte facturée",
+  abonnement_porte_sur_facture: "Carte portée sur une facture en cours",
+  abonnement_expire: "Carte expirée — journées non consommées",
+  abonnement_avoir: "Carte annulée par avoir",
 };
 
 export function libelleEvenement(evenement: string): string {

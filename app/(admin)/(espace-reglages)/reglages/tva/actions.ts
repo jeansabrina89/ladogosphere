@@ -17,7 +17,7 @@ import {
   secteurValide,
   tauxDansLaListe,
 } from "@/src/lib/tvaLogique";
-import type { MethodeTva, Periodicite } from "@/src/lib/decompteTvaLogique";
+import type { BaseDecompte, MethodeTva, Periodicite } from "@/src/lib/decompteTvaLogique";
 
 /**
  * Le régime de TVA se règle ici, et nulle part ailleurs.
@@ -49,6 +49,7 @@ export async function enregistrerRegimeTva(formData: FormData): Promise<RetourTv
   const dateAssujettissement = txt(formData.get("date_assujettissement")) || null;
   const methode = txt(formData.get("methode")) as MethodeTva;
   const periodicite = txt(formData.get("periodicite")) as Periodicite;
+  const baseDecompte = txt(formData.get("base_decompte")) as BaseDecompte;
   const libelle1 = txt(formData.get("libelle_secteur_1"));
   const libelle2 = txt(formData.get("libelle_secteur_2"));
   const taux1 = nb(formData.get("taux_tdfn_1"));
@@ -99,6 +100,7 @@ export async function enregistrerRegimeTva(formData: FormData): Promise<RetourTv
     numero_tva: numero,
     methode,
     periodicite,
+    base_decompte: baseDecompte,
     // Les taux de dette fiscale nette sont SAISIS. Zéro n'est pas un taux :
     // c'est un champ vide, et le décompte refusera de calculer tant qu'il
     // le reste.
@@ -125,6 +127,7 @@ export async function enregistrerRegimeTva(formData: FormData): Promise<RetourTv
       numero: avant.numero,
       methode: avant.methode,
       periodicite: avant.periodicite,
+      base_decompte: avant.baseDecompte,
       taux_tdfn_1: avant.tauxTdfn1,
       libelle_secteur_1: avant.libelleSecteur1,
       taux_tdfn_2: avant.tauxTdfn2,

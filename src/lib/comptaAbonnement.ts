@@ -19,10 +19,19 @@ export async function synchroniserComptaAbonnement(abonnementId: string, dateOpe
   try {
     const { data: abo } = await supabaseAdmin
       .from("abonnements")
-      .select("statut, mode_paiement, prix_paye, jours_total, date_paiement, date_expiration")
+      .select("statut, mode_paiement, prix_paye, jours_total, date_paiement, date_expiration, facture_id")
       .eq("id", abonnementId)
       .maybeSingle();
     if (!abo) {
+      await marquer(abonnementId, true);
+      return;
+    }
+
+    // Depuis APP 15, une carte porte une FACTURE : c'est elle qui crédite 2031
+    // et débite 1100, et ce sont les journées consommées qui font le produit
+    // (abonnementCompta). Cette fonction ne concerne plus que les cartes
+    // d'avant — sans quoi le même produit serait reconnu deux fois.
+    if (abo.facture_id) {
       await marquer(abonnementId, true);
       return;
     }

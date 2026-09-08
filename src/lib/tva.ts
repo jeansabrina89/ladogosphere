@@ -10,7 +10,7 @@ import {
   type CodePrestation,
   type Secteur,
 } from "@/src/lib/tvaLogique";
-import type { MethodeTva, ParametresTva, Periodicite, CaSecteur } from "@/src/lib/decompteTvaLogique";
+import type { BaseDecompte, MethodeTva, ParametresTva, Periodicite, CaSecteur } from "@/src/lib/decompteTvaLogique";
 
 /**
  * L'accès à la TVA : les paramètres du régime, la ventilation d'une pièce et
@@ -27,6 +27,7 @@ type LigneParametres = {
   numero_tva: string | null;
   methode: string;
   periodicite: string;
+  base_decompte: string;
   taux_tdfn_1: number | string;
   libelle_secteur_1: string | null;
   taux_tdfn_2: number | string | null;
@@ -40,6 +41,7 @@ export const REGIME_VIERGE: ParametresTva = {
   numero: null,
   methode: "tdfn",
   periodicite: "semestrielle",
+  baseDecompte: "recues",
   tauxTdfn1: 0,
   libelleSecteur1: "",
   tauxTdfn2: null,
@@ -54,6 +56,7 @@ function depuisLigne(l: LigneParametres): ParametresTva {
     numero: (l.numero_tva ?? "").trim() || null,
     methode: (l.methode as MethodeTva) ?? "tdfn",
     periodicite: (l.periodicite as Periodicite) ?? "semestrielle",
+    baseDecompte: (l.base_decompte as BaseDecompte) ?? "recues",
     tauxTdfn1: Number(l.taux_tdfn_1 ?? 0),
     libelleSecteur1: (l.libelle_secteur_1 ?? "").trim(),
     tauxTdfn2: taux2,
@@ -72,7 +75,7 @@ export async function lireParametresTva(dateISO?: string | null): Promise<Parame
   const date = dateISO ?? new Date().toISOString().slice(0, 10);
   const { data } = await supabaseAdmin
     .from("parametres_tva")
-    .select("date_debut, assujettie, date_assujettissement, numero_tva, methode, periodicite, taux_tdfn_1, libelle_secteur_1, taux_tdfn_2, libelle_secteur_2")
+    .select("date_debut, assujettie, date_assujettissement, numero_tva, methode, periodicite, base_decompte, taux_tdfn_1, libelle_secteur_1, taux_tdfn_2, libelle_secteur_2")
     .lte("date_debut", date)
     .order("date_debut", { ascending: false })
     .limit(1)
@@ -85,7 +88,7 @@ export async function lireParametresTva(dateISO?: string | null): Promise<Parame
 export async function historiqueParametresTva(): Promise<(ParametresTva & { dateDebut: string })[]> {
   const { data } = await supabaseAdmin
     .from("parametres_tva")
-    .select("date_debut, assujettie, date_assujettissement, numero_tva, methode, periodicite, taux_tdfn_1, libelle_secteur_1, taux_tdfn_2, libelle_secteur_2")
+    .select("date_debut, assujettie, date_assujettissement, numero_tva, methode, periodicite, base_decompte, taux_tdfn_1, libelle_secteur_1, taux_tdfn_2, libelle_secteur_2")
     .order("date_debut", { ascending: false });
 
   return ((data ?? []) as unknown as LigneParametres[]).map((l) => ({

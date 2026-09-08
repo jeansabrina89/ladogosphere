@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { calculerSolde } from "@/src/lib/abonnementSolde";
 import { categorieJourneePourChiens, type ChienSociabilite } from "@/src/lib/abonnementsTypes";
 import { synchroniserComptaAbonnement } from "@/src/lib/comptaAbonnement";
+import { synchroniserProduitAbonnement } from "@/src/lib/abonnementCompta";
 
 export async function trouverAbonnementUtilisable(clientId: string, categorie: string) {
   const today = new Date().toISOString().split("T")[0];
@@ -84,6 +85,10 @@ export async function consommerAbonnementResa(
     await supabaseAdmin.from("abonnements").update({ statut: "epuise" }).eq("id", abo.id);
   }
 
+  // La journée consommée transfère sa part de 2031 vers le produit de la
+  // pension : sans cela, la nuitée aurait eu lieu sans jamais apparaître au
+  // chiffre d'affaires.
+  await synchroniserProduitAbonnement(abo.id);
   await synchroniserComptaAbonnement(abo.id);
   return { ok: true };
 }
@@ -124,5 +129,7 @@ export async function recrediterAbonnementResa(reservationId: string): Promise<v
       .eq("id", resa.abonnement_id);
   }
 
+  // La journée rendue rend son produit : le transfert s'inverse.
+  await synchroniserProduitAbonnement(resa.abonnement_id);
   await synchroniserComptaAbonnement(resa.abonnement_id);
 }

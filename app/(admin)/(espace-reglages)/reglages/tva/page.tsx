@@ -121,6 +121,7 @@ export default async function ReglagesTvaPage() {
               numero: regime.numero ?? "",
               methode: regime.methode,
               periodicite: regime.periodicite,
+              baseDecompte: regime.baseDecompte,
               tauxTdfn1: regime.tauxTdfn1 > 0 ? String(regime.tauxTdfn1) : "",
               libelleSecteur1: regime.libelleSecteur1,
               tauxTdfn2: regime.tauxTdfn2 && regime.tauxTdfn2 > 0 ? String(regime.tauxTdfn2) : "",

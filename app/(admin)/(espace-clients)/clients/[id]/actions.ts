@@ -8,6 +8,11 @@ import { getSoldeAvoir } from "@/src/lib/avoirs";
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { labelAbonnement } from "@/src/lib/abonnementsTypes";
 import { synchroniserComptaAbonnement } from "@/src/lib/comptaAbonnement";
+import { porterAbonnementSurFacture } from "@/src/lib/abonnementFacture";
+import { synchroniserProduitAbonnement } from "@/src/lib/abonnementCompta";
+import { encaisser } from "@/app/(admin)/(espace-comptabilite)/factures/actions";
+import { creerAvoir } from "@/app/(admin)/(espace-comptabilite)/factures/actionsCreation";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { synchroniserComptaAvoir, contrePasserComptaAvoir } from "@/src/lib/comptaAvoir";
 
 // Types crédit (montant positif) vs débit (montant négatif)
@@ -212,7 +217,7 @@ export async function confirmerPaiementAbonnement(
 
   const { data: abo } = await supabaseAdmin
     .from("abonnements")
-    .select("id, client_id, statut, jours_total, categorie")
+    .select("id, client_id, statut, jours_total, categorie, prix_paye")
     .eq("id", abonnementId)
     .maybeSingle();
   if (!abo) return { error: "Abonnement introuvable." };
@@ -241,9 +246,36 @@ export async function confirmerPaiementAbonnement(
   });
   if (mvErr) return { error: mvErr.message };
 
-  await synchroniserComptaAbonnement(abonnementId, undefined, verif.userId ?? null);
+  /*
+   * La carte est une PIÈCE : elle part sur une facture, par le moteur habituel.
+   * La ligne va en 2031 — produit perçu d'avance — et non sur un compte de
+   * produit : la prestation n'est pas encore rendue.
+   *
+   * S'il existe déjà une facture en brouillon pour ce client, la ligne l'y
+   * rejoint (une seule facture plutôt que deux le même jour) ; sinon une
+   * facture libre est créée et émise.
+   */
+  const facture = await porterAbonnementSurFacture(abonnementId, {
+    creerSiAbsente: true,
+    userId: verif.userId ?? null,
+  });
+  if (facture.error) return { error: facture.error };
+
+  // Le versement se pose sur la facture émise, comme n'importe quel autre :
+  // D liquidité / C 1100. Un brouillon attend son émission.
+  if (facture.emise && facture.factureId) {
+    const fd = new FormData();
+    fd.set("facture_id", facture.factureId);
+    fd.set("mode", mode);
+    fd.set("date_paiement", datePaiement);
+    fd.set("montant", String(Number(abo.prix_paye ?? 0)));
+    fd.set("cle_idempotence", `abonnement-${abonnementId}`);
+    const encaisse = await encaisser(fd);
+    if (encaisse.error) return { error: encaisse.error };
+  }
 
   revalidatePath(`/clients/${abo.client_id}`);
+  revalidatePath("/factures");
   return { ok: true };
 }
 
@@ -340,11 +372,16 @@ export async function supprimerAbonnement(
 
   const { data: abo } = await supabaseAdmin
     .from("abonnements")
-    .select("id, client_id, statut")
+    .select("id, client_id, statut, facture_id")
     .eq("id", abonnementId)
     .maybeSingle();
   if (!abo) return { error: "Abonnement introuvable." };
   if (abo.statut === "annule") return { ok: true };
+  if (abo.facture_id) {
+    return {
+      error: "Cette carte porte une facture : elle s'annule par un avoir, jamais par une suppression.",
+    };
+  }
 
   const { count: nbResa } = await supabaseAdmin
     .from("reservations")
@@ -411,9 +448,97 @@ export async function cloturerAbonnement(
     .eq("id", abonnementId);
   if (upErr) return { error: upErr.message };
 
-  // Reconnaissance du montant non consommé en produit (statut 'expire' => rec = prix).
+  // Ce qui restait en 2031 devient un produit, à la date de l'expiration : le
+  // client a payé, il n'a pas utilisé, la prestation n'est plus due. Aucun
+  // remboursement — s'il y en a un, il passe par un avoir décidé à la main.
+  await synchroniserProduitAbonnement(abonnementId, verif.userId ?? null);
+  // Les cartes d'avant APP 15, sans facture, gardent leur ancienne mécanique.
   await synchroniserComptaAbonnement(abonnementId, undefined, verif.userId ?? null);
 
   revalidatePath(`/clients/${abo.client_id}`);
   return { ok: true };
+}
+
+/**
+ * Annuler une carte facturée : par AVOIR, jamais par suppression.
+ *
+ * L'avoir défait exactement ce que la facture a fait — il redébite 2031 et
+ * efface la créance ou crédite le client. Les journées restantes tombent à
+ * zéro, et le mouvement le dit.
+ */
+export async function annulerAbonnementParAvoir(
+  abonnementId: string,
+  motif: string,
+): Promise<{ ok?: boolean; error?: string; numero?: string }> {
+  const verif = await verifierPermission("perm_encaissements");
+  if (verif.error) return verif;
+
+  const raison = (motif ?? "").trim();
+  if (!raison) return { error: "Indiquez le motif de l'annulation." };
+
+  const { data: abo } = await supabaseAdmin
+    .from("abonnements")
+    .select("id, client_id, statut, facture_id, abonnements_mouvements(delta)")
+    .eq("id", abonnementId)
+    .maybeSingle();
+  if (!abo) return { error: "Abonnement introuvable." };
+  if (!abo.facture_id) {
+    return { error: "Cette carte n'a pas de facture : utilisez la suppression, réservée aux cartes d'avant." };
+  }
+  if (abo.statut === "annule") return { ok: true };
+
+  const { data: facture } = await supabaseAdmin
+    .from("factures").select("id, numero, statut").eq("id", abo.facture_id).maybeSingle();
+  if (!facture?.numero) {
+    return { error: "La facture de cette carte n'est pas encore émise : annulez le brouillon." };
+  }
+
+  // Les journées consommées sont déjà des produits : elles ne se reprennent
+  // pas. On ne crédite que la part encore en 2031.
+  const { data: lignes } = await supabaseAdmin
+    .from("facture_lignes")
+    .select("id, quantite")
+    .eq("facture_id", abo.facture_id)
+    .eq("abonnement_id", abonnementId);
+  if (!lignes || lignes.length === 0) {
+    return { error: "La ligne d'abonnement est introuvable sur la facture." };
+  }
+
+  const fd = new FormData();
+  fd.set("facture_id", abo.facture_id as string);
+  fd.set("motif", raison);
+  fd.set("destination", "credit");
+  fd.set("lignes", JSON.stringify(
+    lignes.map((l) => ({ ligne_id: l.id as string, quantite: Number(l.quantite) }))
+  ));
+  const avoir = await creerAvoir(fd);
+  if (avoir.error) return { error: avoir.error };
+
+  // Les journées restantes tombent à zéro, et le mouvement le dit.
+  const solde = ((abo.abonnements_mouvements ?? []) as { delta: number | string }[])
+    .reduce((s, m) => s + Number(m.delta), 0);
+  if (solde !== 0) {
+    await supabaseAdmin.from("abonnements_mouvements").insert({
+      abonnement_id: abonnementId,
+      client_id: abo.client_id,
+      delta: -solde,
+      type: "annulation",
+      motif: `Carte annulée par avoir : ${raison}`,
+    });
+  }
+
+  await supabaseAdmin
+    .from("abonnements")
+    .update({ statut: "annule" })
+    .eq("id", abonnementId);
+
+  await tracerEvenement({
+    entite: "abonnement", entiteId: abonnementId, evenement: "abonnement_avoir",
+    apres: { avoir: avoir.numero ?? null, jours_annules: solde }, motif: raison,
+    userId: verif.userId ?? null,
+  });
+
+  revalidatePath(`/clients/${abo.client_id}`);
+  revalidatePath("/factures");
+  return { ok: true, numero: avoir.numero };
 }

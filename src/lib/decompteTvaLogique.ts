@@ -29,6 +29,16 @@ export const COMPTE_BANQUE = "1020";
 // ── Paramètres ─────────────────────────────────────────────────────────────
 
 export type MethodeTva = "tdfn" | "effective";
+/**
+ * Sur quelle base la TVA est due.
+ *
+ * « reçues » : à l'ENCAISSEMENT — le régime usuel avec la dette fiscale
+ * nette. « convenues » : dès l'émission de la facture.
+ *
+ * Le choix décide du moment où un abonnement payé d'avance entre dans le
+ * décompte : à la facture, ou au versement.
+ */
+export type BaseDecompte = "convenues" | "recues";
 export type Periodicite = "semestrielle" | "trimestrielle";
 
 export type ParametresTva = {
@@ -37,6 +47,7 @@ export type ParametresTva = {
   numero: string | null;
   methode: MethodeTva;
   periodicite: Periodicite;
+  baseDecompte: BaseDecompte;
   /** Taux de dette fiscale nette du secteur principal, en %. SAISI, jamais deviné. */
   tauxTdfn1: number;
   libelleSecteur1: string;
@@ -55,6 +66,19 @@ export const METHODES: { valeur: MethodeTva; libelle: string; aide: string }[] =
     valeur: "effective",
     libelle: "Méthode effective",
     aide: "La TVA facturée moins l'impôt préalable sur les achats. Un décompte par trimestre.",
+  },
+];
+
+export const BASES_DECOMPTE: { valeur: BaseDecompte; libelle: string; aide: string }[] = [
+  {
+    valeur: "recues",
+    libelle: "Contre-prestations reçues",
+    aide: "La TVA est due à l'encaissement. C'est le régime usuel avec la dette fiscale nette : un abonnement payé d'avance entre au décompte quand le client paie.",
+  },
+  {
+    valeur: "convenues",
+    libelle: "Contre-prestations convenues",
+    aide: "La TVA est due dès l'émission de la facture, même impayée.",
   },
 ];
 

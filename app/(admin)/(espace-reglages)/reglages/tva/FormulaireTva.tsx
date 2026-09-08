@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { enregistrerRegimeTva } from "./actions";
 import { GARDE_FOU_TAUX_TDFN, TDFN_MAXIMUM, TDFN_MINIMUM } from "@/src/lib/tvaLogique";
 import {
+  BASES_DECOMPTE,
   METHODES,
   PERIODICITES,
   periodiciteInhabituelle,
   periodiciteProposee,
+  type BaseDecompte,
   type MethodeTva,
   type Periodicite,
 } from "@/src/lib/decompteTvaLogique";
@@ -38,6 +40,7 @@ export type RegimeInitial = {
   numero: string;
   methode: MethodeTva;
   periodicite: Periodicite;
+  baseDecompte: BaseDecompte;
   tauxTdfn1: string;
   libelleSecteur1: string;
   tauxTdfn2: string;
@@ -57,6 +60,7 @@ export default function FormulaireTva({ initial }: { initial: RegimeInitial }) {
   const [assujettie, setAssujettie] = useState(initial.assujettie);
   const [methode, setMethode] = useState<MethodeTva>(initial.methode);
   const [periodicite, setPeriodicite] = useState<Periodicite>(initial.periodicite);
+  const [base, setBase] = useState<BaseDecompte>(initial.baseDecompte);
   const [taux2, setTaux2] = useState(initial.tauxTdfn2);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -187,6 +191,18 @@ export default function FormulaireTva({ initial }: { initial: RegimeInitial }) {
               ℹ️ {avisPeriodicite}
             </p>
           )}
+        </div>
+        <div>
+          <label htmlFor="base_decompte" style={etiquette}>La TVA est due</label>
+          <select id="base_decompte" name="base_decompte" value={base}
+            onChange={(e) => setBase(e.target.value as BaseDecompte)} style={champ}>
+            {BASES_DECOMPTE.map((b) => (
+              <option key={b.valeur} value={b.valeur}>{b.libelle}</option>
+            ))}
+          </select>
+          <p style={aide}>
+            {BASES_DECOMPTE.find((b) => b.valeur === base)?.aide}
+          </p>
         </div>
       </section>
 
