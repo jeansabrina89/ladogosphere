@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { exigerAccesAdmin, refusStock } from "@/src/lib/accesAdmin";
 import { perimetreDeArticle, accesStockAccorde, configPerimetre } from "@/src/lib/perimetreStock";
+import { compterAttentes } from "@/src/lib/alertesStock";
+import { libelleAttentes } from "@/src/lib/alertesStockLogique";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { formatDateFR } from "@/src/lib/dates";
 import { lireArticle, lireArticleVente, historiqueMouvements, type Article } from "@/src/lib/boutique";
@@ -114,6 +116,10 @@ export default async function ArticlePage({
     : null;
   const alerte = sousLeSeuil(article);
 
+  // Combien de monde attend cet article. C'est une information d'ACHAT :
+  // elle dit quoi racheter, et en quelle quantité.
+  const attentes = gestion ? await compterAttentes(id) : 0;
+
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-2xl mx-auto" style={{ display: "grid", gap: 16 }}>
@@ -151,6 +157,16 @@ export default async function ArticlePage({
             </p>
           )}
 
+          {attentes > 0 && (
+            <Ligne
+              cle="Attentes"
+              valeur={
+                <Link href={`/boutique/attentes?article=${id}`} style={{ color: "#8A5A1F", fontWeight: 700 }}>
+                  🔔 {libelleAttentes(attentes)}
+                </Link>
+              }
+            />
+          )}
           <Ligne cle="Catégorie" valeur={libelleCategorieArticle(article.categorie)} />
           <Ligne
             cle="Type"

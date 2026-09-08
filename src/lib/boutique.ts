@@ -11,6 +11,7 @@ import {
   type TypeMouvement,
 } from "@/src/lib/boutiqueLogique";
 import { PERIMETRES, type PerimetreStock } from "@/src/lib/perimetreStock";
+import { disponibleDe } from "@/src/lib/alertesStockLogique";
 
 /**
  * Boutique — couche base. Elle ne décide rien : les règles viennent de
@@ -185,6 +186,13 @@ export async function enregistrerMouvement(m: {
   });
   if (refus) return { error: refus };
 
+  // La disponibilité AVANT l'écriture : c'est elle qui dira si l'article
+  // « revient ». On la prend ici, pendant qu'on tient encore la fiche.
+  const disponibleAvant = disponibleDe(
+    article.stock_actuel,
+    (article as unknown as { stock_reserve?: number | string | null }).stock_reserve
+  );
+
   const { data, error } = await supabaseAdmin
     .from("mouvements_stock")
     .insert({
@@ -200,6 +208,25 @@ export async function enregistrerMouvement(m: {
     .single();
 
   if (error) return { error: error.message };
+
+  // Le RETOUR EN STOCK se constate ici, et nulle part ailleurs : c'est le seul
+  // endroit où le stock d'un article augmente. La condition n'est pas « une
+  // entrée a eu lieu » mais « il n'y en avait plus, il y en a » — une livraison
+  // sur un article encore disponible ne réveille personne.
+  //
+  // L'envoi ne peut jamais faire échouer le mouvement : il est déjà écrit, et
+  // `notifierSiRetourEnStock` ne lève pas.
+  const disponibleApres = disponibleDe(
+    data.quantite_apres,
+    (article as unknown as { stock_reserve?: number | string | null }).stock_reserve
+  );
+  const { notifierSiRetourEnStock } = await import("@/src/lib/alertesStock");
+  await notifierSiRetourEnStock({
+    articleId: m.article_id,
+    disponibleAvant,
+    disponibleApres,
+  });
+
   return { id: data.id as string, stock: Number(data.quantite_apres) };
 }
 

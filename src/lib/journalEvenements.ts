@@ -5,7 +5,10 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 // Il répond à « qui a fait quoi, quand, et pourquoi » sur les pièces sensibles :
 // factures, paiements, avoirs. Il ne remplace pas le grand livre — il l'explique.
 
-export type EntiteJournal = "facture" | "paiement" | "avoir" | "reservation" | "depense" | "vente";
+export type EntiteJournal =
+  | "facture" | "paiement" | "avoir" | "reservation" | "depense" | "vente"
+  // APP 15 : les alertes de retour en stock et l'article qu'elles visent.
+  | "alerte_stock" | "article";
 
 export type EvenementJournal = {
   entite: EntiteJournal;

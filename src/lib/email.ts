@@ -1,6 +1,11 @@
 import * as Sentry from "@sentry/nextjs";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import {
+  MENTION_SANS_RESERVATION,
+  MODELE_RETOUR_EN_STOCK,
+  META_RETOUR_EN_STOCK,
+} from "@/src/lib/alertesStockLogique";
 import { ajouterJoursISO } from "@/src/lib/cotisationPeriode";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -113,6 +118,8 @@ export type ChampsModele = {
 };
 
 export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
+  // Les textes vivent avec la règle qu'ils servent, dans alertesStockLogique.
+  retour_en_stock: { ...MODELE_RETOUR_EN_STOCK },
   commande_confirmee: {
     sujet: "🛍️ Votre commande {numero} est enregistrée",
     titre: "Merci {prenom} ! 🛍️",
@@ -231,6 +238,7 @@ export const MODELES_META: { type: string; label: string; variables: string[] }[
   { type: "facture_emise", label: "Facture émise", variables: ["prenom", "numero", "date", "echeance", "montant"] },
   { type: "rappel_cotisation", label: "Rappel adhésion", variables: ["prenom", "nom", "date_fin", "montant"] },
   { type: "commande_prete", label: "Commande sur mesure prête", variables: ["prenom", "numero", "article", "recapitulatif"] },
+  { ...META_RETOUR_EN_STOCK, variables: [...META_RETOUR_EN_STOCK.variables] },
   { type: "relance_paiement", label: "Relance paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
   { type: "rappel_paiement_1", label: "1er rappel paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
   { type: "rappel_paiement_2", label: "2ème rappel paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
@@ -1295,6 +1303,101 @@ export async function envoyerEmailCommandeExpediee(commandeId: string): Promise<
         : ""}
 
       <p style="color:#6B7280; font-size:14px; margin:0;">${m.message_final}</p>
+    `),
+  });
+}
+
+// ===========================================================================
+// ALERTE DE RETOUR EN STOCK (APP 15)
+// ===========================================================================
+
+/**
+ * « L'article que vous attendiez est revenu. »
+ *
+ * Message TRANSACTIONNEL : il est sollicité, pour un article précis, par la
+ * personne qui le reçoit. Il ne dépend donc pas de `emails_info_ok`, qui ne
+ * gouverne que les messages libres — quelqu'un qui s'est désabonné de toute
+ * communication garde ses alertes, et ne reçoit rien d'autre.
+ *
+ * Le lien de désinscription qu'il porte n'ouvre QUE cette alerte-ci.
+ */
+export async function envoyerEmailRetourEnStock(p: {
+  email: string;
+  article: string;
+  prix: number | string;
+  articleId: string;
+  token: string;
+  photoUrl?: string | null;
+}): Promise<void> {
+  const prix = chfEmail(Number(p.prix ?? 0));
+  const m = await modeleEmail("retour_en_stock", { article: p.article, prix });
+
+  const lienArticle = `${SITE_URL}/mon-compte/boutique/${p.articleId}`;
+  const lienDesinscription =
+    `${SITE_URL}/alerte-stock?t=${encodeURIComponent(p.token)}`;
+
+  const photo = p.photoUrl
+    ? `<tr><td style="padding:0 0 16px 0;">
+         <img src="${p.photoUrl}" alt="${echapper(p.article)}"
+              style="width:100%; max-width:320px; border-radius:12px; display:block;" />
+       </td></tr>`
+    : "";
+
+  await envoyerEmail({
+    destinataire: p.email,
+    type: "retour_en_stock",
+    sujet: m.sujet,
+    html: emailTemplate(`
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
+      <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
+
+      <table cellpadding="0" cellspacing="0" style="width:100%;">
+        ${photo}
+        <tr>
+          <td style="padding:0 0 6px 0; color:#1B2B5E; font-size:18px; font-weight:bold;">
+            ${echapper(p.article)}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 0 20px 0; color:#1B2B5E; font-size:22px; font-weight:bold;">
+            ${prix} CHF <span style="color:#6B7280; font-size:14px; font-weight:normal;">TTC</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 0 20px 0;">
+            <a href="${lienArticle}"
+               style="display:inline-block; background-color:#1F6E5B; color:#FFFFFF;
+                      padding:14px 24px; border-radius:12px; text-decoration:none;
+                      font-weight:bold; font-size:15px;">
+              Voir l'article
+            </a>
+          </td>
+        </tr>
+      </table>
+
+      <p style="color:#8A5A1F; background-color:#F4EAC9; border:1px solid #C9A84C;
+                border-radius:10px; padding:10px 12px; font-size:14px; margin:0 0 20px 0;">
+        ${MENTION_SANS_RESERVATION}
+      </p>
+
+      <p style="color:#6B7280; font-size:14px; margin:0;">${m.message_final}</p>
+
+      <table cellpadding="0" cellspacing="0" style="width:100%; margin-top:28px; border-top:1px solid #F5F0E8;">
+        <tr>
+          <td style="padding-top:16px;">
+            <p style="margin:0 0 4px 0; color:#9CA3AF; font-size:12px; line-height:1.6;">
+              Vous recevez cet e-mail parce que vous avez demandé à être prévenu du retour
+              de cet article. Il ne s'agit pas d'une lettre d'information.
+            </p>
+            <p style="margin:0; font-size:12px;">
+              <a href="${lienDesinscription}" style="color:#9CA3AF; text-decoration:underline;">
+                Ne plus être prévenu pour cet article
+              </a>
+              <span style="color:#9CA3AF;"> — cela n'affecte aucun autre e-mail.</span>
+            </p>
+          </td>
+        </tr>
+      </table>
     `),
   });
 }

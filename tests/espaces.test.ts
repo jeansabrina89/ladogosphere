@@ -291,7 +291,7 @@ describe("la composition corrigée", () => {
   it("et la Boutique ne garde que la vente", () => {
     expect(labels("boutique", ADMIN)).toEqual([
       "🏠 Boutique", "💳 Caisse", "🧾 Ventes", "🌐 En ligne",
-      "🛒 Articles", "📦 Inventaire", "🏢 Fournisseurs",
+      "🛒 Articles", "📦 Inventaire", "🔔 Attentes", "🏢 Fournisseurs",
     ]);
   });
 

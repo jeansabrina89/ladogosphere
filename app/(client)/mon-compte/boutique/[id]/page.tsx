@@ -5,6 +5,9 @@ import { articleEnLigne, nombreArticlesPanier } from "@/src/lib/venteEnLigne";
 import { lireCatalogueOptions } from "@/src/lib/personnalisation";
 import { urlPhotoArticle, libelleCategorieArticle } from "@/src/lib/boutiqueLogique";
 import { disponibilite } from "@/src/lib/venteEnLigneLogique";
+import { alerteProposable, normaliserEmail } from "@/src/lib/alertesStockLogique";
+import { alerteEnCours } from "@/src/lib/alertesStock";
+import AlerteStock from "./AlerteStock";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
@@ -34,10 +37,12 @@ export default async function ArticlePage({
   const { data: { user } } = await supabase.auth.getUser();
 
   let clientId: string | null = null;
+  let emailConnu: string | null = null;
   if (user) {
     const { data } = await supabase
-      .from("clients").select("id").eq("auth_user_id", user.id).maybeSingle();
+      .from("clients").select("id, email").eq("auth_user_id", user.id).maybeSingle();
     clientId = (data?.id as string) ?? null;
+    emailConnu = normaliserEmail((data?.email as string) ?? user.email) || null;
   }
 
   const { id } = await params;
@@ -52,6 +57,22 @@ export default async function ArticlePage({
 
   const dispo = disponibilite(article.stock_disponible, article.type_article);
   const url = urlPhotoArticle(article.photo_path);
+
+  // L'alerte ne se propose que là où elle a un sens : un article à stock,
+  // vendu en ligne, et réellement épuisé. Un article sur mesure se fabrique —
+  // il n'est jamais en rupture, et n'a rien à annoncer.
+  const proposerAlerte = alerteProposable({
+    type_article: article.type_article,
+    // `articleEnLigne` ne rend que l'actif et le vendable en ligne : être ici
+    // les prouve tous les deux.
+    vendable_en_ligne: true,
+    actif: true,
+    stock_disponible: article.stock_disponible,
+  });
+  // Relue à chaque affichage : le même écran rechargé montre le même état.
+  const dejaInscrit = proposerAlerte && emailConnu
+    ? (await alerteEnCours(article.id, emailConnu))?.email ?? null
+    : null;
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8", paddingBottom: 110 }}>
@@ -142,6 +163,15 @@ export default async function ArticlePage({
                   epuise={dispo.etat === "epuise"}
                   connecte={!!clientId}
                 />
+
+                {/* SOUS le bouton, jamais à sa place. */}
+                {proposerAlerte && (
+                  <AlerteStock
+                    articleId={article.id}
+                    emailConnu={emailConnu}
+                    dejaInscrit={dejaInscrit}
+                  />
+                )}
               </div>
             </div>
           </Carte>

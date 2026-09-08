@@ -156,6 +156,7 @@ export const ESPACES: Espace[] = [
       { href: "/boutique/commandes-en-ligne", label: "🌐 En ligne", exigence: perm("perm_boutique_vente") },
       { href: "/boutique/articles", label: "🛒 Articles", exigence: perm("perm_boutique_vente") },
       { href: "/boutique/inventaire", label: "📦 Inventaire", exigence: perm("perm_boutique_gestion") },
+      { href: "/boutique/attentes", label: "🔔 Attentes", exigence: perm("perm_boutique_gestion") },
       // Un seul écran, deux chemins d'accès : la fiche fournisseur sert aussi
       // bien aux dépenses qu'à la boutique. Sa garde est « Dépenses » — la
       // barre se conforme à la garde de l'écran, pas à celle de l'espace.
