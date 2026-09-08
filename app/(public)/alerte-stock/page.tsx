@@ -1,4 +1,5 @@
 import { lireAlerte } from "./actions";
+import { MESSAGE_RETRAIT } from "@/src/lib/alertesStockLogique";
 import BoutonRetrait from "./BoutonRetrait";
 
 /**
@@ -70,10 +71,11 @@ export default async function DesinscriptionAlertePage({
             <h1 className="text-2xl font-bold mb-3" style={{ color: MARINE }}>
               C&apos;est fait
             </h1>
+            {/* Rien de plus que cette phrase. On ne parle pas de la ligne
+                conservée : elle ne contient plus rien de la personne, et le
+                dire ne ferait qu'inquiéter sur ce qu'elle contient. */}
             <p className="text-sm" style={{ color: "rgba(27,43,94,0.65)", lineHeight: 1.7 }}>
-              Vous ne serez plus prévenu du retour de
-              «&nbsp;<strong style={{ color: MARINE }}>{etat.article}</strong>&nbsp;».
-              Vos autres e-mails et vos préférences n&apos;ont pas changé.
+              {MESSAGE_RETRAIT}
             </p>
           </>
         )}

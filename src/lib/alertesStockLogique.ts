@@ -111,26 +111,63 @@ export function disponibleDe(
 export type LigneAlerte = {
   id: string;
   article_id: string;
-  email: string;
+  /** Null sur une ligne retirée : l'adresse a été effacée. */
+  email: string | null;
   cree_le: string;
   notifie_le: string | null;
+  /**
+   * Renseigné quand la personne s'est retirée. La demande reste — elle dit ce
+   * qui manquait — mais il n'y a plus personne derrière.
+   */
+  retire_le?: string | null;
 };
+
+/**
+ * Une ligne retirée n'attend plus rien et ne reçoit plus rien.
+ *
+ * C'est LE point sensible de l'anonymisation : elle a toujours `notifie_le`
+ * à null, et sans cette fonction elle repasserait pour une personne en attente.
+ */
+export function estRetiree(ligne: { retire_le?: string | null }): boolean {
+  return ligne.retire_le != null;
+}
 
 export type FiltreAttentes = "toutes" | "en_attente" | "notifiees";
 
-export function filtrerAttentes<T extends { notifie_le: string | null }>(
+/**
+ * Le filtre de la liste NOMINATIVE : elle ne montre jamais une ligne retirée.
+ * Ce n'est plus un contact — il n'y a plus d'adresse à montrer. Leur nombre
+ * s'affiche à part, sous la liste.
+ */
+export function filtrerAttentes<T extends { notifie_le: string | null; retire_le?: string | null }>(
   lignes: T[],
   filtre: FiltreAttentes
 ): T[] {
-  if (filtre === "en_attente") return lignes.filter((l) => l.notifie_le === null);
-  if (filtre === "notifiees") return lignes.filter((l) => l.notifie_le !== null);
-  return lignes;
+  const vivantes = lignes.filter((l) => !estRetiree(l));
+  if (filtre === "en_attente") return vivantes.filter((l) => l.notifie_le === null);
+  if (filtre === "notifiees") return vivantes.filter((l) => l.notifie_le !== null);
+  return vivantes;
+}
+
+/** Combien de demandes ont été retirées — un nombre, jamais une liste de gens. */
+export function compterRetirees(lignes: { retire_le?: string | null }[]): number {
+  return lignes.filter(estRetiree).length;
+}
+
+/** « 3 demandes retirées » — au singulier quand il n'y en a qu'une. */
+export function libelleRetirees(nombre: number): string {
+  if (nombre <= 0) return "";
+  return nombre === 1 ? "1 demande retirée" : `${nombre} demandes retirées`;
 }
 
 export type ResumeArticle = {
   article_id: string;
+  /** Les gens qui attendent vraiment : ni prévenus, ni retirés. */
   enAttente: number;
   notifiees: number;
+  /** Les demandes dont l'adresse a été effacée. Elles comptent quand même. */
+  retirees: number;
+  /** Tout ce qui a été demandé, retraits compris : c'est l'information d'achat. */
   total: number;
   /** La demande la plus ancienne encore en attente. */
   depuis: string | null;
@@ -148,10 +185,14 @@ export function resumeParArticle(lignes: LigneAlerte[]): ResumeArticle[] {
 
   for (const l of lignes) {
     const r = parArticle.get(l.article_id) ?? {
-      article_id: l.article_id, enAttente: 0, notifiees: 0, total: 0, depuis: null,
+      article_id: l.article_id, enAttente: 0, notifiees: 0, retirees: 0, total: 0, depuis: null,
     };
+    // Le total compte TOUT, retraits compris : la demande a existé, et c'est
+    // elle qui dit ce qui manquait.
     r.total += 1;
-    if (l.notifie_le === null) {
+    if (estRetiree(l)) {
+      r.retirees += 1;
+    } else if (l.notifie_le === null) {
       r.enAttente += 1;
       if (!r.depuis || l.cree_le < r.depuis) r.depuis = l.cree_le;
     } else {
@@ -180,7 +221,8 @@ export function libelleAttentes(nombre: number): string {
  */
 export function ordreDeNotification(lignes: LigneAlerte[]): LigneAlerte[] {
   return lignes
-    .filter((l) => l.notifie_le === null)
+    // Ni déjà prévenue, ni retirée, et il faut encore une adresse pour écrire.
+    .filter((l) => l.notifie_le === null && !estRetiree(l) && !!l.email)
     .slice()
     .sort((a, b) => (a.cree_le < b.cree_le ? -1 : a.cree_le > b.cree_le ? 1 : a.id.localeCompare(b.id)));
 }
@@ -214,3 +256,24 @@ export const META_RETOUR_EN_STOCK = {
   label: "Retour en stock",
   variables: ["article", "prix"],
 } as const;
+
+// ── Le retrait ──────────────────────────────────────────────────────────────
+
+/**
+ * Pourquoi on ne peut pas renvoyer un e-mail sur une demande retirée.
+ *
+ * Le bouton reste visible mais grisé, avec cette phrase : cacher le bouton
+ * laisserait croire à un bogue, l'afficher actif mentirait.
+ */
+export const RAISON_RETIREE =
+  "Adresse effacée à la demande de la personne : plus rien à envoyer.";
+
+/**
+ * Ce que voit quelqu'un qui vient de se retirer.
+ *
+ * On ne lui parle PAS de la trace conservée : elle ne contient plus rien de
+ * lui. Lui dire « nous gardons une ligne » ne ferait qu'inquiéter sur ce
+ * qu'elle contient.
+ */
+export const MESSAGE_RETRAIT =
+  "Votre adresse a été effacée. Vous ne recevrez plus d'alerte pour cet article.";

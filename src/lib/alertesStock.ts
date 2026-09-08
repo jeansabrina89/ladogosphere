@@ -10,6 +10,7 @@ import {
   ordreDeNotification,
   refusInscription,
   resumeParArticle,
+  RAISON_RETIREE,
   type LigneAlerte,
   type ResumeArticle,
 } from "@/src/lib/alertesStockLogique";
@@ -21,16 +22,21 @@ import {
  * elle écrit, et elle envoie — sans jamais faire échouer ce qui l'a appelée.
  */
 
-const COLONNES = "id, article_id, client_id, email, cree_le, notifie_le, token, source";
+const COLONNES =
+  "id, article_id, client_id, email, cree_le, notifie_le, retire_le, token, source";
 
 export type Alerte = {
   id: string;
   article_id: string;
   client_id: string | null;
-  email: string;
+  /** Null sur une ligne retirée : l'adresse a été effacée. */
+  email: string | null;
   cree_le: string;
   notifie_le: string | null;
-  token: string;
+  /** Renseigné au retrait. La demande reste, la personne n'y est plus. */
+  retire_le: string | null;
+  /** Null sur une ligne retirée : le lien de l'e-mail cesse d'ouvrir quoi que ce soit. */
+  token: string | null;
   source: string;
 };
 
@@ -101,22 +107,42 @@ export async function alerteEnCours(
     .eq("article_id", articleId)
     .eq("email", propre)
     .is("notifie_le", null)
+    // Une ligne retirée n'a plus d'adresse : elle ne peut pas correspondre.
+    // On le dit quand même, plutôt que de s'en remettre au hasard des null.
+    .is("retire_le", null)
     .maybeSingle();
   return (data as Alerte | null) ?? null;
 }
 
 /**
- * Annuler : la ligne s'efface.
+ * Se retirer : on efface la PERSONNE, on garde la DEMANDE.
  *
- * C'est la seule suppression permise. La notification, elle, ne supprime
- * jamais rien — mais quelqu'un qui se retire a le droit d'être oublié.
+ * L'adresse, le client et le jeton partent — il ne reste rien qui désigne
+ * quelqu'un. L'article, la date d'inscription et la date de notification
+ * restent : c'est ce qui dit « quelqu'un a attendu cet article », et cette
+ * information-là n'appartient plus à personne.
+ *
+ * Le jeton mis à null rend le lien de l'e-mail inopérant : c'est exactement
+ * l'effet voulu. Une contrainte en base refuse d'ailleurs qu'une ligne retirée
+ * garde l'un des trois champs.
+ *
+ * Une ligne déjà retirée ne l'est pas deux fois : la date du premier retrait
+ * ne bouge plus.
  */
 export async function annulerAlerte(p: {
   articleId?: string;
   email?: string | null;
   token?: string | null;
 }): Promise<{ error?: string; annulee: boolean }> {
-  let requete = supabaseAdmin.from("alertes_stock").delete();
+  let requete = supabaseAdmin
+    .from("alertes_stock")
+    .update({
+      email: null,
+      client_id: null,
+      token: null,
+      retire_le: new Date().toISOString(),
+    })
+    .is("retire_le", null);
 
   if (p.token) {
     requete = requete.eq("token", p.token);
@@ -127,7 +153,7 @@ export async function annulerAlerte(p: {
   }
 
   const { data, error } = await requete.select("id");
-  if (error) return { error: "L'annulation n'a pas pu être enregistrée.", annulee: false };
+  if (error) return { error: "Le retrait n'a pas pu être enregistré.", annulee: false };
   return { annulee: (data ?? []).length > 0 };
 }
 
@@ -182,7 +208,12 @@ export async function notifierRetourEnStock(articleId: string): Promise<Resultat
       .from("alertes_stock")
       .select(COLONNES)
       .eq("article_id", articleId)
-      .is("notifie_le", null);
+      // Ni prévenue, ni RETIRÉE. Une ligne retirée garde notifie_le à null :
+      // sans cette seconde condition, elle repasserait pour une personne en
+      // attente et l'on écrirait à une adresse qu'on a promis d'effacer.
+      // La requête l'exclut, et ordreDeNotification le revérifie.
+      .is("notifie_le", null)
+      .is("retire_le", null);
 
     const aPrevenir = ordreDeNotification((lignes ?? []) as unknown as LigneAlerte[]);
     if (aPrevenir.length === 0) return resultat;
@@ -193,6 +224,11 @@ export async function notifierRetourEnStock(articleId: string): Promise<Resultat
       const alerte = (lignes ?? []).find((l) => (l as unknown as Alerte).id === ligne.id) as
         | unknown as Alerte | undefined;
       if (!alerte) continue;
+
+      // Sans adresse ni jeton, il n'y a personne à qui écrire : la ligne a été
+      // retirée. `ordreDeNotification` l'a déjà écartée — ceci est la ceinture
+      // qui double la bretelle, et le type nous force à la dire.
+      if (!alerte.email || !alerte.token || alerte.retire_le) continue;
 
       try {
         await envoyerEmailRetourEnStock({
@@ -209,7 +245,8 @@ export async function notifierRetourEnStock(articleId: string): Promise<Resultat
           .from("alertes_stock")
           .update({ notifie_le: new Date().toISOString() })
           .eq("id", alerte.id)
-          .is("notifie_le", null);
+          .is("notifie_le", null)
+          .is("retire_le", null);
 
         resultat.envoyees += 1;
       } catch (err) {
@@ -257,13 +294,20 @@ export async function notifierSiRetourEnStock(p: {
 
 // ── Côté pension ────────────────────────────────────────────────────────────
 
-/** Combien de personnes attendent cet article, sans compter celles déjà prévenues. */
+/**
+ * Combien de personnes attendent VRAIMENT cet article.
+ *
+ * Ni les prévenues, ni les retirées : ce compteur annonce des gens en
+ * attente, il ne compte donc que des gens en attente. Le classement de
+ * réassort, lui, compte aussi les retraits — ce n'est pas la même question.
+ */
 export async function compterAttentes(articleId: string): Promise<number> {
   const { count } = await supabaseAdmin
     .from("alertes_stock")
     .select("id", { count: "exact", head: true })
     .eq("article_id", articleId)
-    .is("notifie_le", null);
+    .is("notifie_le", null)
+    .is("retire_le", null);
   return count ?? 0;
 }
 
@@ -289,7 +333,7 @@ export async function listerAttentes(articleId?: string | null): Promise<AlerteA
 export async function resumeAttentes(): Promise<ResumeArticle[]> {
   const { data } = await supabaseAdmin
     .from("alertes_stock")
-    .select("id, article_id, email, cree_le, notifie_le");
+    .select("id, article_id, email, cree_le, notifie_le, retire_le");
   return resumeParArticle((data ?? []) as unknown as LigneAlerte[]);
 }
 
@@ -311,6 +355,10 @@ export async function renvoyerAlerte(
   if (!alerte) return { error: "Alerte introuvable." };
 
   const a = alerte as unknown as Alerte;
+
+  // Un renvoi est impossible sur une ligne retirée : il n'y a plus d'adresse.
+  // On le dit, plutôt que d'échouer à l'envoi trois lignes plus bas.
+  if (a.retire_le) return { error: RAISON_RETIREE };
 
   const { error } = await supabaseAdmin
     .from("alertes_stock")

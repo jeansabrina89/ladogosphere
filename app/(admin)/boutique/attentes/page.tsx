@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { listerAttentes, resumeAttentes } from "@/src/lib/alertesStock";
-import { filtrerAttentes, libelleAttentes, type FiltreAttentes } from "@/src/lib/alertesStockLogique";
+import {
+  filtrerAttentes,
+  libelleAttentes,
+  libelleRetirees,
+  estRetiree,
+  RAISON_RETIREE,
+  type FiltreAttentes,
+} from "@/src/lib/alertesStockLogique";
 import { formatDateFR } from "@/src/lib/dates";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
@@ -40,7 +47,10 @@ export default async function AttentesPage({
     listerAttentes(articleId),
     resumeAttentes(),
   ]);
+  // La liste NOMINATIVE ne montre jamais une demande retirée : il n'y a plus
+  // de contact derrière. Elles se comptent à part, plus bas.
   const lignes = filtrerAttentes(toutes, filtre);
+  const retirees = toutes.filter(estRetiree);
 
   // Le classement de réassort, limité à ce qui attend encore.
   const rang = new Map(resume.map((r, i) => [r.article_id, i]));
@@ -127,6 +137,14 @@ export default async function AttentesPage({
                     <span style={{ color: "#8A5A1F", fontWeight: 700, flex: "0 0 auto" }}>
                       {libelleAttentes(r.enAttente)}
                     </span>
+                    {/* Le total dit ce qui a été DEMANDÉ, retraits compris :
+                        c'est cela, l'information d'achat. */}
+                    {r.total > r.enAttente && (
+                      <span style={{ color: SOUS, fontSize: 13.5, flex: "0 0 auto" }}>
+                        {r.total} demande{r.total > 1 ? "s" : ""} en tout
+                        {r.retirees > 0 ? ` · ${libelleRetirees(r.retirees)}` : ""}
+                      </span>
+                    )}
                     {r.depuis && (
                       <span style={{ color: SOUS, fontSize: 13.5, flex: "0 0 auto" }}>
                         depuis le {formatDateFR(r.depuis)}
@@ -204,6 +222,44 @@ export default async function AttentesPage({
               </table>
             </div>
           </Carte>
+        )}
+
+        {/* Les demandes retirées, À PART.
+            Elles comptent dans le réassort — quelqu'un a bien attendu cet
+            article — mais ce ne sont plus des contacts : ni adresse, ni lien.
+            Le bouton de renvoi reste visible et grisé, avec sa raison. */}
+        {retirees.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <Carte>
+              <h2 style={{
+                fontFamily: "Georgia, 'Times New Roman', serif", color: MARINE,
+                fontSize: 17, fontWeight: 700, margin: "0 0 4px",
+              }}>
+                {libelleRetirees(retirees.length)}
+              </h2>
+              <p style={{ color: SOUS, fontSize: 13.5, margin: "0 0 12px" }}>
+                L&apos;adresse a été effacée à la demande de la personne. La demande
+                reste : elle dit ce qui manquait.
+              </p>
+              <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10 }}>
+                {retirees.map((l) => (
+                  <li key={l.id} style={{
+                    display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+                    minWidth: 0, borderTop: BORDURE, paddingTop: 10,
+                  }}>
+                    <span style={{ color: MARINE, fontWeight: 600, flex: "1 1 200px", minWidth: 0, overflowWrap: "anywhere" }}>
+                      {l.article?.nom ?? "Article retiré"}
+                    </span>
+                    <span style={{ color: SOUS, fontSize: 13.5, flex: "0 0 auto" }}>
+                      demandée le {formatDateFR(l.cree_le)}
+                      {l.retire_le ? ` · retirée le ${formatDateFR(l.retire_le)}` : ""}
+                    </span>
+                    <BoutonRenvoyer alerteId={l.id} raisonIndisponible={RAISON_RETIREE} />
+                  </li>
+                ))}
+              </ul>
+            </Carte>
+          </div>
         )}
       </div>
     </main>
