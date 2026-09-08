@@ -1,10 +1,15 @@
 import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { lireParametresTva, historiqueParametresTva } from "@/src/lib/tva";
 import {
-  ADHESION_A_QUALIFIER,
+  lireParametresTva,
+  historiqueParametresTva,
+  tauxDesPrestations,
+  tauxLegauxEnVigueur,
+} from "@/src/lib/tva";
+import {
+  ADHESION_CONTRE_PRESTATION,
+  PRESTATIONS_TVA,
   libelleSecteur,
-  libelleTaux,
   tauxParDefautCategorie,
 } from "@/src/lib/tvaLogique";
 import { CATEGORIES_ARTICLE } from "@/src/lib/boutiqueLogique";
@@ -13,7 +18,7 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import FormulaireTva from "./FormulaireTva";
-import CategoriesTva, { type LigneCategorie } from "./CategoriesTva";
+import CategoriesTva, { type LigneCategorie, type LignePrestation } from "./CategoriesTva";
 
 export const dynamic = "force-dynamic";
 
@@ -31,19 +36,33 @@ const BORDURE = "1px solid rgba(27,43,94,0.12)";
 export default async function ReglagesTvaPage() {
   await exigerAdminPage();
 
-  const [regime, historique, { data: articles }] = await Promise.all([
+  const [regime, historique, { data: articles }, tauxPrest, tauxLegaux] = await Promise.all([
     lireParametresTva(),
     historiqueParametresTva(),
-    supabaseAdmin.from("articles").select("categorie, taux_tva, secteur_tdfn").eq("actif", true),
+    supabaseAdmin.from("articles").select("categorie, taux_tva, secteur_tdfn, motif_tva").eq("actif", true),
+    tauxDesPrestations(),
+    tauxLegauxEnVigueur(),
   ]);
+
+  const prestations: LignePrestation[] = PRESTATIONS_TVA.map((p) => ({
+    code: p.code,
+    libelle: p.libelle,
+    aide: p.aide,
+    taux: tauxPrest[p.code]?.taux ?? 8.1,
+    motif: tauxPrest[p.code]?.motif ?? null,
+    dateDebut: tauxPrest[p.code]?.dateDebut ?? null,
+  }));
 
   // L'état réel des articles, catégorie par catégorie : ce qui est saisi, et
   // ce que la catégorie appellerait.
-  const parCategorie = new Map<string, { taux: Set<number>; secteur: Set<string>; n: number }>();
-  for (const a of (articles ?? []) as { categorie: string; taux_tva: number | string; secteur_tdfn: string | null }[]) {
-    const e = parCategorie.get(a.categorie) ?? { taux: new Set<number>(), secteur: new Set<string>(), n: 0 };
+  const parCategorie = new Map<string, { taux: Set<number>; secteur: Set<string>; motif: string | null; n: number }>();
+  for (const a of (articles ?? []) as {
+    categorie: string; taux_tva: number | string; secteur_tdfn: string | null; motif_tva: string | null;
+  }[]) {
+    const e = parCategorie.get(a.categorie) ?? { taux: new Set<number>(), secteur: new Set<string>(), motif: null, n: 0 };
     e.taux.add(Number(a.taux_tva));
     e.secteur.add(a.secteur_tdfn ?? "commerce");
+    e.motif = e.motif ?? a.motif_tva ?? null;
     e.n += 1;
     parCategorie.set(a.categorie, e);
   }
@@ -56,6 +75,7 @@ export default async function ReglagesTvaPage() {
       articles: e?.n ?? 0,
       taux: e && e.taux.size === 1 ? [...e.taux][0] : e ? null : tauxParDefautCategorie(c.valeur),
       secteur: e && e.secteur.size === 1 ? [...e.secteur][0] : e ? null : "commerce",
+      motif: e?.motif ?? null,
       tauxAttendu: tauxParDefautCategorie(c.valeur),
     };
   });
@@ -111,32 +131,32 @@ export default async function ReglagesTvaPage() {
 
         <Carte>
           <h2 style={{ color: MARINE, fontSize: 18, fontWeight: 700, margin: "0 0 4px" }}>
-            Taux par catégorie d&apos;articles
+            Taux facturés
           </h2>
           <p style={{ color: SOUS, fontSize: 14.5, margin: "0 0 14px" }}>
-            Ce qui se mange est au taux réduit ; le reste au taux normal. Ces
-            réglages posent le taux de tous les articles d&apos;une catégorie d&apos;un
-            coup — chaque fiche article garde ensuite le sien, modifiable.
-            Aucune pièce déjà émise n&apos;est touchée : elle a figé son taux.
+            Le taux se <strong>choisit dans la liste</strong>, il ne se tape pas :
+            un taux inventé sur une facture est une faute. Ce qui se mange est au
+            taux réduit ; le reste au taux normal. Un changement vaut à partir
+            d&apos;aujourd&apos;hui et <strong>jamais rétroactivement</strong> — les pièces
+            déjà émises ont figé le leur.
           </p>
-          <CategoriesTva lignes={lignes} />
+          <CategoriesTva prestations={prestations} lignes={lignes} tauxLegaux={tauxLegaux} />
         </Carte>
 
         <Carte>
           <h2 style={{ color: MARINE, fontSize: 18, fontWeight: 700, margin: "0 0 10px" }}>
-            Les prestations
+            Ce qui va avec le secteur
           </h2>
           <ul style={{ margin: 0, paddingLeft: 20, color: SOUS, fontSize: 14.5, lineHeight: 1.8 }}>
             <li>
               <strong>Pension, garderie, journée d&apos;essai, frais et prestations
-              annexes</strong> : {libelleTaux(8.1)}, secteur {libelleSecteur("pension").toLowerCase()}.
+              annexes</strong> : secteur {libelleSecteur("pension").toLowerCase()}.
             </li>
             <li>
-              <strong>Boutique et atelier</strong> : le taux de l&apos;article,
-              secteur {libelleSecteur("commerce").toLowerCase()}.
+              <strong>Boutique et atelier</strong> : secteur {libelleSecteur("commerce").toLowerCase()}.
             </li>
             <li>
-              <strong>Adhésion annuelle</strong> : {ADHESION_A_QUALIFIER}
+              <strong>Adhésion annuelle</strong> : {ADHESION_CONTRE_PRESTATION}
             </li>
           </ul>
         </Carte>

@@ -52,7 +52,7 @@ export default async function FacturePage({
 
   const [{ data: lignesDb }, coords, paramsTV, historique] = await Promise.all([
     supabaseAdmin.from("facture_lignes")
-      .select("id, ordre, libelle, quantite, prix_unitaire, montant, compte_produit, taux_tva")
+      .select("id, ordre, libelle, quantite, prix_unitaire, montant, compte_produit, taux_tva, motif_tva")
       .eq("facture_id", id).order("ordre"),
     getCoordonneesPaiement(supabaseAdmin),
     lireParametresTva(facture.date_facture ? String(facture.date_facture).split("T")[0] : null),
@@ -103,7 +103,8 @@ export default async function FacturePage({
   const tvaData = piedTva(
     affichage(paramsTV),
     ventilerPanier({ lignes: (lignesDb ?? []) as unknown as LigneVentilable[] }),
-    dateISO
+    dateISO,
+    ((lignesDb ?? []) as unknown as { motif_tva: string | null }[]).map((l) => l.motif_tva)
   );
   const membreAJour = client?.id ? await estMembreActif(supabaseAdmin, client.id, dateISO ?? undefined) : false;
 
@@ -227,6 +228,13 @@ export default async function FacturePage({
                       <td colSpan={3} className="px-4 py-2 text-right text-sm" style={{ color: GRIS }}>Total HT</td>
                       <td className="px-4 py-2 text-right text-sm font-semibold">{chf(tvaData.totalHt)}</td>
                     </tr>
+                    {tvaData.motifs.map((m) => (
+                      <tr key={m}>
+                        <td colSpan={4} className="px-4 py-2 text-right text-sm" style={{ color: GRIS }}>
+                          {m}
+                        </td>
+                      </tr>
+                    ))}
                     {tvaData.lignes.map((t) => (
                       <tr key={t.taux}>
                         <td colSpan={3} className="px-4 py-2 text-right text-sm" style={{ color: GRIS }}>

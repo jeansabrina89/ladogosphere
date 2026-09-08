@@ -65,6 +65,7 @@ export type TicketProps = {
     totalHt: number;
     totalTtc: number;
     lignes: { taux: number; etiquette: string; base: number; tva: number }[];
+    motifs?: string[];
   } | null;
   /** Achat porté sur une facture : rien n'a été encaissé au comptoir. */
   surFacture: boolean;
@@ -78,8 +79,8 @@ const chf = (n: number) =>
  * Hauteur du rouleau : il s'allonge avec le nombre de lignes, et avec le bloc
  * de ventilation quand il y en a un.
  */
-export function hauteurTicket(nbLignes: number, nbLignesTva = 0): number {
-  return 300 + nbLignes * 22 + (nbLignesTva > 0 ? 40 + nbLignesTva * 14 : 0);
+export function hauteurTicket(nbLignes: number, nbLignesTva = 0, nbMotifs = 0): number {
+  return 300 + nbLignes * 22 + (nbLignesTva > 0 ? 40 + nbLignesTva * 14 : 0) + nbMotifs * 12;
 }
 
 export function TicketPdf(p: TicketProps) {
@@ -93,7 +94,7 @@ export function TicketPdf(p: TicketProps) {
       creator="La Dogosphère"
       producer="La Dogosphère"
     >
-      <Page size={[LARGEUR_80MM, hauteurTicket(p.lignes.length, p.tva?.lignes.length ?? 0)]} style={s.page}>
+      <Page size={[LARGEUR_80MM, hauteurTicket(p.lignes.length, p.tva?.lignes.length ?? 0, p.tva?.motifs?.length ?? 0)]} style={s.page}>
         <Text style={s.nom}>{p.emetteur.nom}</Text>
         <Text style={s.entreprise}>
           {p.emetteur.adresse.join("\n")}
@@ -178,7 +179,7 @@ export function TicketPdf(p: TicketProps) {
 
           Rien ne s'affiche si l'entreprise n'est pas assujettie.
         */}
-        {p.tva && p.tva.lignes.length > 0 && (
+        {p.tva && (p.tva.lignes.length > 0 || (p.tva.motifs?.length ?? 0) > 0) && (
           <>
             <View style={s.filet} />
             <View style={s.totalLigne}>
@@ -195,6 +196,9 @@ export function TicketPdf(p: TicketProps) {
               <Text style={s.gras}>Total TTC</Text>
               <Text style={s.gras}>{chf(p.tva.totalTtc)}</Text>
             </View>
+            {(p.tva.motifs ?? []).map((m, i) => (
+              <Text key={i} style={s.detail}>{m}</Text>
+            ))}
           </>
         )}
         {p.tva?.numero && <Text style={[s.detail, s.centre, { marginTop: 6 }]}>{p.tva.numero}</Text>}

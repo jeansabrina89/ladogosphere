@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { enregistrerRegimeTva } from "./actions";
+import { GARDE_FOU_TAUX_TDFN, TDFN_MAXIMUM, TDFN_MINIMUM } from "@/src/lib/tvaLogique";
 import {
   METHODES,
   PERIODICITES,
@@ -197,6 +198,7 @@ export default function FormulaireTva({ initial }: { initial: RegimeInitial }) {
               Taux de dette fiscale nette
             </h3>
             <p style={aide}>
+              <strong>{GARDE_FOU_TAUX_TDFN}</strong>{" "}
               Ces taux ne se devinent pas et ne se calculent pas : l&apos;AFC les attribue
               à votre entreprise, secteur par secteur, dans sa décision d&apos;autorisation.
               Recopiez-les tels quels. Tant qu&apos;un taux est vide, l&apos;écran de décompte
@@ -213,8 +215,12 @@ export default function FormulaireTva({ initial }: { initial: RegimeInitial }) {
             </div>
             <div>
               <label htmlFor="taux_tdfn_1" style={etiquette}>Secteur 1 — taux (%)</label>
-              <input id="taux_tdfn_1" name="taux_tdfn_1" type="number" step="0.1" min="0" max="100"
+              <input id="taux_tdfn_1" name="taux_tdfn_1" type="number" step="0.1"
                 defaultValue={initial.tauxTdfn1} inputMode="decimal" style={champ} />
+              <p style={aide}>
+                {GARDE_FOU_TAUX_TDFN} Entre {String(TDFN_MINIMUM).replace(".", ",")} %
+                {" "}et {String(TDFN_MAXIMUM).replace(".", ",")} %.
+              </p>
             </div>
           </div>
 
@@ -229,9 +235,13 @@ export default function FormulaireTva({ initial }: { initial: RegimeInitial }) {
             </div>
             <div>
               <label htmlFor="taux_tdfn_2" style={etiquette}>Secteur 2 — taux (%)</label>
-              <input id="taux_tdfn_2" name="taux_tdfn_2" type="number" step="0.1" min="0" max="100"
+              <input id="taux_tdfn_2" name="taux_tdfn_2" type="number" step="0.1"
                 value={taux2} onChange={(e) => setTaux2(e.target.value)}
                 inputMode="decimal" style={champ} />
+              <p style={aide}>
+                {GARDE_FOU_TAUX_TDFN} Entre {String(TDFN_MINIMUM).replace(".", ",")} %
+                {" "}et {String(TDFN_MAXIMUM).replace(".", ",")} %.
+              </p>
             </div>
           </div>
 

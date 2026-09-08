@@ -14,7 +14,7 @@ import {
   lireNombre,
 } from "@/src/lib/boutiqueLogique";
 import { COMPTE_MATIERES_FABRICATION, type PerimetreStock } from "@/src/lib/perimetreStock";
-import { SECTEURS } from "@/src/lib/tvaLogique";
+import { SECTEURS, libelleTaux } from "@/src/lib/tvaLogique";
 
 export type ArticleFormulaire = {
   id: string;
@@ -25,6 +25,7 @@ export type ArticleFormulaire = {
   marque: string | null;
   fournisseur_id: string | null;
   taux_tva: number | string;
+  motif_tva: string | null;
   secteur_tdfn: string | null;
   type_article: string;
   delai_fabrication_jours: number | null;
@@ -72,10 +73,13 @@ const aide: React.CSSProperties = { fontSize: 12, color: SOUS, marginTop: 6, mar
 export default function FormArticle({
   article,
   fournisseurs,
+  tauxLegaux,
   perimetre = "boutique",
 }: {
   article?: ArticleFormulaire;
   fournisseurs: { id: string; nom: string }[];
+  /** Les taux EN VIGUEUR, lus de la table : la liste ne se code pas ici. */
+  tauxLegaux: number[];
   /**
    * « atelier » : on saisit une FOURNITURE. Ni prix de vente, ni catégorie de
    * vente, ni vitrine — rien de ce qui ne concerne que ce qui se vend. Les
@@ -159,16 +163,37 @@ export default function FormArticle({
       )}
 
       <div>
-        <label htmlFor="taux_tva" style={etiquette}>Taux de TVA (%)</label>
-        <input
-          {...marqueChamp(etat, "taux_tva", { ...champ, maxWidth: 180 })}
-          type="text"
-          inputMode="decimal"
+        <label htmlFor="taux_tva" style={etiquette}>Taux de TVA</label>
+        {/* Une LISTE, jamais un champ libre : un taux inventé sur une facture
+            est une faute, et un champ où l'on tape finit par en produire un. */}
+        <select
+          {...marqueChamp(etat, "taux_tva", { ...champ, maxWidth: 280 })}
           value={taux}
           onChange={(e) => { setTaux(e.target.value); setTauxTouche(true); }}
-        />
+        >
+          {tauxLegaux.map((t) => (
+            <option key={t} value={t}>{libelleTaux(t)}</option>
+          ))}
+        </select>
         <p style={aide}>{MENTION_TAUX}</p>
       </div>
+
+      {Number(taux) === 0 && (
+        <div>
+          <label htmlFor="motif_tva" style={etiquette}>Motif du 0 %</label>
+          <input
+            {...marqueChamp(etat, "motif_tva", champ)}
+            type="text"
+            maxLength={120}
+            defaultValue={article?.motif_tva ?? ""}
+            placeholder="TVA non applicable (art. 21 LTVA)"
+          />
+          <p style={aide}>
+            Repris tel quel sur la facture. Une ligne à 0 % sans explication est
+            incompréhensible — pour le client comme pour un contrôle.
+          </p>
+        </div>
+      )}
 
       <div>
         <label htmlFor="secteur_tdfn" style={etiquette}>Secteur de dette fiscale nette</label>

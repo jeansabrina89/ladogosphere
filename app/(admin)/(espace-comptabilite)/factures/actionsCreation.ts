@@ -10,7 +10,8 @@ import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { genererPdfFacture, finaliserEmission } from "@/src/lib/factureDocument";
 import { lignesDepuisReservation } from "@/src/lib/factureResa";
 import { COMPTES_PRODUIT } from "@/src/lib/factureStatut";
-import { secteurParDefautCompte, tauxParDefautCompte } from "@/src/lib/tvaLogique";
+import { secteurParDefautCompte, prestationDuCompte } from "@/src/lib/tvaLogique";
+import { tvaDeLaPrestation } from "@/src/lib/tva";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const COMPTES = COMPTES_PRODUIT.map((c) => c.numero) as readonly string[];
@@ -60,13 +61,13 @@ export async function creerAvoir(formData: FormData): Promise<{ error?: string; 
 
   const { data: lignesOrigine } = await supabaseAdmin
     .from("facture_lignes")
-    .select("id, libelle, quantite, prix_unitaire, montant, compte_produit, taux_tva, secteur_tdfn, reservation_id, cotisation_id")
+    .select("id, libelle, quantite, prix_unitaire, montant, compte_produit, taux_tva, motif_tva, secteur_tdfn, reservation_id, cotisation_id")
     .eq("facture_id", factureId)
     .order("ordre");
 
   type LigneOrigine = {
     id: string; libelle: string; quantite: number | string; prix_unitaire: number | string;
-    compte_produit: string; taux_tva: number | string; secteur_tdfn: string | null;
+    compte_produit: string; taux_tva: number | string; motif_tva: string | null; secteur_tdfn: string | null;
     reservation_id: string | null; cotisation_id: string | null;
   };
 
@@ -120,6 +121,7 @@ export async function creerAvoir(formData: FormData): Promise<{ error?: string; 
       // ceux d'aujourd'hui : on rend ce qui a été facturé, à ce qui a été
       // facturé. Un changement de taux entre-temps ne s'invite pas ici.
       taux_tva: Number(l.taux_tva ?? 0),
+      motif_tva: l.motif_tva ?? null,
       secteur_tdfn: l.secteur_tdfn ?? null,
       reservation_id: l.reservation_id ?? null,
       cotisation_id: l.cotisation_id ?? null,
@@ -270,20 +272,25 @@ export async function creerFactureLibre(formData: FormData): Promise<{ error?: s
   let ordre = 0;
   const aInserer: Record<string, unknown>[] = [];
   for (const l of saisie.lignes) {
+    // Taux, motif et secteur figés à l'écriture de la ligne, comme le prix.
+    // Une ligne libre suit la prestation de son compte de produit.
+    const tva = await tvaDeLaPrestation(prestationDuCompte(l.compte_produit) ?? "sejour", dateFacture);
     aInserer.push({
       facture_id: facture.id, ordre: ++ordre, libelle: l.libelle,
       quantite: l.quantite, prix_unitaire: l.prix_unitaire, compte_produit: l.compte_produit,
-      // Taux et secteur figés à l'écriture de la ligne, comme le prix.
-      taux_tva: tauxParDefautCompte(l.compte_produit),
+      taux_tva: tva.taux,
+      motif_tva: tva.motif,
       secteur_tdfn: secteurParDefautCompte(l.compte_produit),
     });
   }
   for (const resaId of reservations) {
     for (const l of await lignesDepuisReservation(resaId)) {
+      const tva = await tvaDeLaPrestation(l.prestation, dateFacture);
       aInserer.push({
         facture_id: facture.id, ordre: ++ordre, libelle: l.libelle,
         quantite: l.quantite, prix_unitaire: l.prix_unitaire, compte_produit: l.compte_produit,
-        taux_tva: tauxParDefautCompte(l.compte_produit),
+        taux_tva: tva.taux,
+        motif_tva: tva.motif,
         secteur_tdfn: secteurParDefautCompte(l.compte_produit),
         reservation_id: l.reservation_id ?? null, cotisation_id: l.cotisation_id ?? null,
       });

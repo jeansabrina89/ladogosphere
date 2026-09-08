@@ -73,7 +73,7 @@ export async function genererPdfFacture(factureId: string): Promise<DonneesFactu
 
   const { data: lignesDb } = await supabaseAdmin
     .from("facture_lignes")
-    .select("libelle, quantite, prix_unitaire, montant, taux_tva")
+    .select("libelle, quantite, prix_unitaire, montant, taux_tva, motif_tva")
     .eq("facture_id", factureId)
     .order("ordre");
 
@@ -101,7 +101,8 @@ export async function genererPdfFacture(factureId: string): Promise<DonneesFactu
   const tva = piedTva(
     affichage(regime),
     ventilerPanier({ lignes: (lignesDb ?? []) as unknown as LigneVentilable[] }),
-    dateFacture
+    dateFacture,
+    ((lignesDb ?? []) as unknown as { motif_tva: string | null }[]).map((l) => l.motif_tva)
   );
 
   // Acomptes imputés : la même règle que la comptabilité, pour que le document

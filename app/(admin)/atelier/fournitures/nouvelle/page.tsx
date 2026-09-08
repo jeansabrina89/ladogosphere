@@ -1,5 +1,6 @@
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { tauxLegauxEnVigueur } from "@/src/lib/tva";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
@@ -21,11 +22,10 @@ export const dynamic = "force-dynamic";
 export default async function NouvelleFournituraPage() {
   await exigerAccesAdmin("perm_atelier");
 
-  const { data: fournisseurs } = await supabaseAdmin
-    .from("fournisseurs")
-    .select("id, nom")
-    .eq("actif", true)
-    .order("nom");
+  const [{ data: fournisseurs }, tauxLegaux] = await Promise.all([
+    supabaseAdmin.from("fournisseurs").select("id, nom").eq("actif", true).order("nom"),
+    tauxLegauxEnVigueur(),
+  ]);
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -38,6 +38,7 @@ export default async function NouvelleFournituraPage() {
         <Carte>
           <FormArticle
             fournisseurs={(fournisseurs ?? []) as { id: string; nom: string }[]}
+            tauxLegaux={tauxLegaux}
             perimetre="atelier"
           />
         </Carte>

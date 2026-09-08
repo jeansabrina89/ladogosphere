@@ -12,7 +12,7 @@
 // Réexportés depuis la source unique, pour que les écrans de la boutique
 // n'aient pas deux endroits où lire le même chiffre.
 export { TAUX_REDUIT, TAUX_NORMAL } from "@/src/lib/tvaLogique";
-import { TAUX_NORMAL, TAUX_REDUIT, tauxParDefautCategorie } from "@/src/lib/tvaLogique";
+import { TAUX_LEGAUX, TAUX_NORMAL, TAUX_REDUIT, refusTauxLegal, tauxParDefautCategorie } from "@/src/lib/tvaLogique";
 
 export type CategorieArticle =
   | "alimentation_seche"
@@ -308,6 +308,10 @@ export function validerChampsArticle(champs: {
   nom?: string | null;
   categorie?: string | null;
   taux_tva?: number | null;
+  /** La liste FERMÉE des taux acceptés, lue de taux_tva selon la date. */
+  taux_autorises?: readonly number[];
+  /** Obligatoire à 0 % : il part tel quel sur la facture. */
+  motif_tva?: string | null;
   prix_vente?: number | null;
   prix_achat?: number | null;
   stock_alerte?: number | null;
@@ -319,11 +323,14 @@ export function validerChampsArticle(champs: {
     return { champ: "categorie", message: "Choisissez une catégorie." };
   }
 
-  const taux = Number(champs.taux_tva);
-  if (champs.taux_tva === null || champs.taux_tva === undefined ||
-      !Number.isFinite(taux) || taux < 0 || taux > 100) {
-    return { champ: "taux_tva", message: "Le taux de TVA doit être compris entre 0 et 100 %." };
-  }
+  // Le taux se CHOISIT dans la liste légale, il ne se saisit pas : un taux
+  // inventé sur une facture est une faute, et un champ libre finit toujours
+  // par en produire un. À 0 %, le motif part sur la pièce.
+  const refusTaux = refusTauxLegal(champs.taux_tva, {
+    autorises: champs.taux_autorises ?? TAUX_LEGAUX,
+    motif: champs.motif_tva,
+  });
+  if (refusTaux) return { champ: "taux_tva", message: refusTaux };
 
   const vente = Number(champs.prix_vente);
   if (champs.prix_vente === null || champs.prix_vente === undefined ||

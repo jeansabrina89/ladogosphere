@@ -31,6 +31,7 @@ const s = StyleSheet.create({
   ligneTotal: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 },
   ligneTotalFort: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderTopWidth: 1, borderTopColor: MARINE, marginTop: 4 },
   ventilation: { marginTop: 10, alignSelf: "flex-end", width: 250, paddingTop: 8, borderTopWidth: 0.5, borderTopColor: "#CBD5E1" },
+  motifTva: { marginTop: 4, fontSize: 8, color: GRIS },
   gras: { fontFamily: "Helvetica-Bold" },
   mention: { marginTop: 16, fontSize: 8, color: GRIS },
   motif: { marginTop: 12, padding: 8, backgroundColor: SABLE, fontSize: 8.5 },
@@ -71,6 +72,8 @@ export type FacturePdfProps = {
     totalHt: number;
     totalTtc: number;
     lignes: { taux: number; etiquette: string; base: number; tva: number }[];
+    /** Pourquoi certaines lignes sont à 0 %. Repris tel quel. */
+    motifs?: string[];
   } | null;
   logo?: string | null;
   /** SVG du bulletin de versement, quand les coordonnées le permettent. */
@@ -192,7 +195,7 @@ export function FacturePdf(p: FacturePdfProps) {
 
           Rien de tout cela ne s'affiche si l'entreprise n'est pas assujettie.
         */}
-        {p.tva && p.tva.lignes.length > 0 && (
+        {p.tva && (p.tva.lignes.length > 0 || (p.tva.motifs?.length ?? 0) > 0) && (
           <View style={s.ventilation} wrap={false}>
             <View style={s.ligneTotal}>
               <Text>Total HT</Text><Text>{chf(p.tva.totalHt)} CHF</Text>
@@ -207,6 +210,11 @@ export function FacturePdf(p: FacturePdfProps) {
               <Text style={s.gras}>Total TTC</Text>
               <Text style={s.gras}>{chf(p.tva.totalTtc)} CHF</Text>
             </View>
+            {/* Une ligne à 0 % sans explication est incompréhensible : le motif
+                saisi dans les réglages est repris ici, mot pour mot. */}
+            {(p.tva.motifs ?? []).map((m, i) => (
+              <Text key={i} style={s.motifTva}>{m}</Text>
+            ))}
           </View>
         )}
 

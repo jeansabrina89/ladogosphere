@@ -11,7 +11,8 @@ import {
   type PerimetreStock,
 } from "@/src/lib/perimetreStock";
 import { aujourdhuiISO } from "@/src/lib/dates";
-import { secteurValide } from "@/src/lib/tvaLogique";
+import { motifTvaPropre, secteurValide } from "@/src/lib/tvaLogique";
+import { tauxLegauxEnVigueur } from "@/src/lib/tva";
 import {
   enregistrerMouvement,
   validerInventaire,
@@ -114,7 +115,11 @@ export async function enregistrerArticle(
 
   const nom = String(formData.get("nom") ?? "").trim();
   const categorie = String(formData.get("categorie") ?? "").trim();
+  // Le taux ne se tape pas : il se choisit dans la liste en vigueur, et
+  // c'est cette liste qui arbitre — pas une borne 0–100.
+  const autorises = await tauxLegauxEnVigueur(aujourdhuiISO());
   const taux_tva = lireNombre(formData.get("taux_tva")) ?? tauxPropose(categorie);
+  const motif_tva = motifTvaPropre(formData.get("motif_tva"), taux_tva ?? -1);
   // Le secteur ne sert qu'au décompte TVA, jamais à la facture. Par défaut
   // le commerce : la pension ne se vend pas au comptoir.
   const secteur_tdfn = secteurValide(formData.get("secteur_tdfn")) ?? "commerce";
@@ -126,6 +131,8 @@ export async function enregistrerArticle(
     nom,
     categorie,
     taux_tva,
+    taux_autorises: autorises,
+    motif_tva,
     prix_vente,
     prix_achat,
     stock_alerte,
@@ -139,6 +146,7 @@ export async function enregistrerArticle(
     marque: String(formData.get("marque") ?? "").trim() || null,
     fournisseur_id: (formData.get("fournisseur_id") as string) || null,
     taux_tva,
+    motif_tva,
     secteur_tdfn,
     prix_vente,
     prix_achat,

@@ -4,8 +4,19 @@ import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierAdmin } from "@/src/lib/permissions";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
-import { lireParametresTva } from "@/src/lib/tva";
-import { normaliserNumeroTva, numeroTvaValide, secteurValide, tauxValide } from "@/src/lib/tvaLogique";
+import { lireParametresTva, tauxLegauxEnVigueur, tauxPrestation } from "@/src/lib/tva";
+import { aujourdhuiISO } from "@/src/lib/dates";
+import {
+  codePrestationValide,
+  libellePrestation,
+  motifTvaPropre,
+  normaliserNumeroTva,
+  numeroTvaValide,
+  refusTauxLegal,
+  refusTauxTdfn,
+  secteurValide,
+  tauxDansLaListe,
+} from "@/src/lib/tvaLogique";
 import type { MethodeTva, Periodicite } from "@/src/lib/decompteTvaLogique";
 
 /**
@@ -19,6 +30,9 @@ import type { MethodeTva, Periodicite } from "@/src/lib/decompteTvaLogique";
  */
 
 export type RetourTva = { error?: string; message?: string };
+
+/** Faute de session lisible, la trace reste attribuable à personne. */
+const UTILISATEUR_INCONNU = "00000000-0000-0000-0000-000000000000";
 
 const nb = (v: FormDataEntryValue | null): number => {
   const n = Number(String(v ?? "").replace(",", ".").trim());
@@ -64,10 +78,14 @@ export async function enregistrerRegimeTva(formData: FormData): Promise<RetourTv
     return { error: "Indiquez le numéro de TVA : il figure sur toutes les factures d'une entreprise assujettie." };
   }
 
-  if (taux1 < 0 || taux1 > 100) return { error: "Le taux du secteur 1 doit être un pourcentage." };
-  if (taux2 !== null && (taux2 < 0 || taux2 > 100)) {
-    return { error: "Le taux du secteur 2 doit être un pourcentage." };
-  }
+  // Le garde-fou qui compte : recopier 8,1 % dans le champ du forfait. Les
+  // deux chiffres n'ont aucun rapport, et l'erreur ne se voit qu'au décompte —
+  // des mois plus tard, quand le montant dû est faux.
+  const legaux = await tauxLegauxEnVigueur(dateDebut);
+  const refus1 = refusTauxTdfn(txt(formData.get("taux_tdfn_1")), { legauxEnVigueur: legaux });
+  if (refus1) return { error: refus1 };
+  const refus2 = refusTauxTdfn(taux2brut, { legauxEnVigueur: legaux });
+  if (refus2) return { error: refus2 };
   if (taux2 !== null && taux2 > 0 && !libelle2) {
     return { error: "Nommez le secteur 2 : un taux sans secteur ne sait pas à quoi s'appliquer." };
   }
@@ -134,31 +152,93 @@ export async function appliquerCategorie(formData: FormData): Promise<RetourTva>
   if (acces.error) return { error: "Réservé à l'administratrice." };
 
   const categorie = txt(formData.get("categorie"));
-  const taux = tauxValide(formData.get("taux_tva"));
   const secteur = secteurValide(formData.get("secteur_tdfn"));
-
   if (!categorie) return { error: "Catégorie inconnue." };
-  if (taux === null) return { error: "Choisissez un taux légal : 8,1 %, 2,6 % ou 0 %." };
   if (!secteur) return { error: "Choisissez le secteur." };
 
+  const autorises = await tauxLegauxEnVigueur(aujourdhuiISO());
+  const brut = formData.get("taux_tva");
+  const motif = motifTvaPropre(formData.get("motif_tva"), Number(brut));
+
+  // La liste fermée décide, et le 0 % réclame son motif.
+  const refus = refusTauxLegal(brut, { autorises, motif });
+  if (refus) return { error: refus };
+  const taux = tauxDansLaListe(brut, autorises)!;
+
   const { data: avant } = await supabaseAdmin
-    .from("articles").select("id").eq("categorie", categorie);
+    .from("articles").select("id, taux_tva, secteur_tdfn, motif_tva").eq("categorie", categorie);
 
   const { error } = await supabaseAdmin
     .from("articles")
-    .update({ taux_tva: taux, secteur_tdfn: secteur })
+    .update({ taux_tva: taux, motif_tva: motif, secteur_tdfn: secteur })
     .eq("categorie", categorie);
   if (error) return { error: "La catégorie n'a pas pu être mise à jour." };
 
+  const anciens = [...new Set(((avant ?? []) as { taux_tva: number | string }[]).map((a) => Number(a.taux_tva)))];
+
   await tracerEvenement({
     entite: "article",
-    entiteId: acces.userId ?? "00000000-0000-0000-0000-000000000000",
+    entiteId: acces.userId ?? UTILISATEUR_INCONNU,
     evenement: "tva_categorie",
-    apres: { categorie, taux_tva: taux, secteur_tdfn: secteur, articles: (avant ?? []).length },
+    avant: { categorie, taux_tva: anciens },
+    apres: { categorie, taux_tva: taux, motif_tva: motif, secteur_tdfn: secteur, articles: (avant ?? []).length },
     userId: acces.userId ?? null,
   });
 
   revalidatePath("/reglages/tva");
   revalidatePath("/boutique/articles");
   return { message: `${(avant ?? []).length} article(s) mis à jour.` };
+}
+
+/**
+ * Le taux d'une PRESTATION : adhésion, abonnement, séjour, journée d'essai…
+ *
+ * Il s'écrit avec une DATE D'EFFET — aujourd'hui — et l'ancienne ligne reste :
+ * les pièces déjà émises gardent leur taux, et une facture de l'an dernier se
+ * relit avec le taux de l'an dernier. Un changement ne vaut jamais pour le
+ * passé.
+ */
+export async function appliquerPrestation(formData: FormData): Promise<RetourTva> {
+  const acces = await verifierAdmin();
+  if (acces.error) return { error: "Réservé à l'administratrice." };
+
+  const code = codePrestationValide(formData.get("code"));
+  if (!code) return { error: "Prestation inconnue." };
+
+  const aujourdhui = aujourdhuiISO();
+  const autorises = await tauxLegauxEnVigueur(aujourdhui);
+  const brut = formData.get("taux_tva");
+  const motif = motifTvaPropre(formData.get("motif_tva"), Number(brut));
+
+  const refus = refusTauxLegal(brut, { autorises, motif });
+  if (refus) return { error: refus };
+  const taux = tauxDansLaListe(brut, autorises)!;
+
+  const avant = await tauxPrestation(code, aujourdhui);
+  if (avant.taux === taux && (avant.motif ?? "") === (motif ?? "")) {
+    return { message: "Ce taux est déjà celui en vigueur." };
+  }
+
+  // Une seule ligne par date d'effet : rechanger d'avis le même jour corrige
+  // la saisie du jour plutôt que d'empiler des versions.
+  const { error } = await supabaseAdmin.from("taux_prestation").upsert(
+    { code, date_debut: aujourdhui, taux, motif_exonere: motif, created_by: acces.userId ?? null },
+    { onConflict: "code,date_debut" }
+  );
+  if (error) return { error: "Le taux n'a pas pu être enregistré." };
+
+  await tracerEvenement({
+    entite: "parametres_tva",
+    entiteId: acces.userId ?? UTILISATEUR_INCONNU,
+    evenement: "tva_prestation",
+    avant: { code, taux: avant.taux, motif: avant.motif, depuis: avant.dateDebut },
+    apres: { code, taux, motif, depuis: aujourdhui },
+    userId: acces.userId ?? null,
+  });
+
+  revalidatePath("/reglages/tva");
+  return {
+    message: `${libellePrestation(code)} : ${String(taux).replace(".", ",")} % à partir du ${aujourdhui}. ` +
+      "Les pièces déjà émises ne bougent pas.",
+  };
 }

@@ -83,7 +83,8 @@ export async function genererTicket(
     ventilerPanier({
       lignes: lignesDb.map((l) => ({ montant: l.montant, taux_tva: l.taux_tva })),
     }),
-    dateVente
+    dateVente,
+    lignesDb.map((l) => l.motif_tva)
   );
 
   const total = Number(vente.montant_total);

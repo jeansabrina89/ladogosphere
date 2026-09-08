@@ -3,7 +3,8 @@ import { montantDuReservation } from "@/src/lib/montants";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { synchroniserComptaFacture } from "@/src/lib/comptaFacture";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
-import { secteurParDefautCompte, tauxParDefautCompte } from "@/src/lib/tvaLogique";
+import { secteurParDefautCompte, type CodePrestation } from "@/src/lib/tvaLogique";
+import { tvaDeLaPrestation } from "@/src/lib/tva";
 
 // La facture est la pièce pivot : elle porte des LIGNES, et c'est l'émission
 // (RPC emettre_facture) qui lui donne son numéro, son échéance et ses écritures.
@@ -69,6 +70,12 @@ export type LigneAInserer = {
   quantite: number;
   prix_unitaire: number;
   compte_produit: string;
+  /**
+   * De quelle prestation il s'agit — c'est elle qui porte le taux, pas le
+   * compte : le séjour et la journée d'essai partagent le même compte et
+   * peuvent pourtant avoir des taux différents.
+   */
+  prestation: CodePrestation;
   reservation_id?: string | null;
   cotisation_id?: string | null;
 };
@@ -111,6 +118,8 @@ export async function lignesDepuisReservation(reservationId: string): Promise<Li
       quantite: 1,
       prix_unitaire: base,
       compte_produit: estSejour ? "3000" : "3001",
+      // La journée d'essai a son propre taux, réglable à part du séjour.
+      prestation: resa.type_reservation === "essai" ? "essai" : "sejour",
       reservation_id: reservationId,
     });
   }
@@ -121,6 +130,7 @@ export async function lignesDepuisReservation(reservationId: string): Promise<Li
       quantite: 1,
       prix_unitaire: arrondi(Number(e.montant)),
       compte_produit: "3010",
+      prestation: "frais_annulation",
       reservation_id: reservationId,
     });
   }
@@ -130,6 +140,7 @@ export async function lignesDepuisReservation(reservationId: string): Promise<Li
       quantite: 1,
       prix_unitaire: montantAdhesion,
       compte_produit: "3005",
+      prestation: "adhesion",
       reservation_id: reservationId,
       cotisation_id: cotis.id as string,
     });
@@ -145,6 +156,12 @@ export async function remplacerLignesBrouillon(
   await supabaseAdmin.from("facture_lignes").delete().eq("facture_id", factureId);
 
   if (lignes.length > 0) {
+    // Le taux, son motif et le secteur sont FIGÉS ici, à l'écriture de la
+    // ligne. C'est le taux EN VIGUEUR aujourd'hui : le changer demain ne
+    // touchera pas cette facture.
+    const aujourdhui = new Date().toISOString().slice(0, 10);
+    const tva = await Promise.all(lignes.map((l) => tvaDeLaPrestation(l.prestation, aujourdhui)));
+
     await supabaseAdmin.from("facture_lignes").insert(
       lignes.map((l, i) => ({
         facture_id: factureId,
@@ -153,8 +170,8 @@ export async function remplacerLignesBrouillon(
         quantite: l.quantite,
         prix_unitaire: l.prix_unitaire,
         compte_produit: l.compte_produit,
-        // Le taux et le secteur sont FIGÉS ici, à l'écriture de la ligne.
-        taux_tva: tauxParDefautCompte(l.compte_produit),
+        taux_tva: tva[i].taux,
+        motif_tva: tva[i].motif,
         secteur_tdfn: secteurParDefautCompte(l.compte_produit),
         reservation_id: l.reservation_id ?? null,
         cotisation_id: l.cotisation_id ?? null,

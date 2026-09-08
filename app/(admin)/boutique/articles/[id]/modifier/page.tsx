@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { exigerAccesAdmin, refusStock } from "@/src/lib/accesAdmin";
 import { perimetreDeArticle } from "@/src/lib/perimetreStock";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { tauxLegauxEnVigueur } from "@/src/lib/tva";
 import { lireArticle } from "@/src/lib/boutique";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
@@ -21,9 +22,10 @@ export default async function ModifierArticlePage({
   const acces = await exigerAccesAdmin();
   const { id } = await params;
 
-  const [article, { data: fournisseurs }] = await Promise.all([
+  const [article, { data: fournisseurs }, tauxLegaux] = await Promise.all([
     lireArticle(id),
     supabaseAdmin.from("fournisseurs").select("id, nom").eq("actif", true).order("nom"),
+    tauxLegauxEnVigueur(),
   ]);
   if (!article) notFound();
 
@@ -43,6 +45,7 @@ export default async function ModifierArticlePage({
           <FormArticle
             article={article as unknown as ArticleFormulaire}
             fournisseurs={(fournisseurs ?? []) as { id: string; nom: string }[]}
+            tauxLegaux={tauxLegaux}
             perimetre={perimetre}
           />
         </Carte>

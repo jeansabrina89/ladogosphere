@@ -57,6 +57,7 @@ export type ArticleVendable = {
   code_barres: string | null;
   prix_vente: number | string;
   taux_tva: number | string;
+  motif_tva?: string | null;
   /** Secteur de dette fiscale nette de l'article : il voyage avec la ligne. */
   secteur_tdfn?: string | null;
   stock_actuel: number | string;
@@ -80,6 +81,8 @@ export type LignePanier = {
   prix_unitaire: number;
   /** Copie du taux légal, figée à la vente. */
   taux_tva: number;
+  /** Pourquoi cette ligne est à 0 %, le cas échéant. */
+  motif_tva?: string | null;
   /** Copie du secteur, pour le décompte TVA. */
   secteur_tdfn: string;
   montant: number;
@@ -100,6 +103,7 @@ export function ligneDepuisArticle(article: ArticleVendable, quantite = 1): Lign
     quantite: q,
     prix_unitaire: prix,
     taux_tva: Number(article.taux_tva),
+    motif_tva: article.motif_tva ?? null,
     secteur_tdfn: article.secteur_tdfn === "pension" ? "pension" : "commerce",
     montant: r2(prix * q),
     unite: article.unite,
@@ -261,6 +265,7 @@ export type LigneVendue = {
   quantite: number | string;
   prix_unitaire: number | string;
   taux_tva: number | string;
+  motif_tva?: string | null;
   secteur_tdfn?: string | null;
   montant: number | string;
 };
@@ -290,6 +295,7 @@ export type LigneRetour = {
   quantite: number;
   prix_unitaire: number;
   taux_tva: number;
+  motif_tva: string | null;
   secteur_tdfn: string;
   montant: number;
 };
@@ -321,6 +327,7 @@ export function construireRetour(
       quantite: -q,
       prix_unitaire: prix,
       taux_tva: Number(l.taux_tva),
+      motif_tva: l.motif_tva ?? null,
       secteur_tdfn: l.secteur_tdfn === "pension" ? "pension" : "commerce",
       montant: r2(-prix * q),
     });

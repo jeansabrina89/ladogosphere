@@ -5,6 +5,9 @@ import {
   type Ventilation,
   type ParametresTvaAffichage,
   tauxApplicable,
+  TAUX_LEGAUX,
+  TAUX_NORMAL,
+  type CodePrestation,
   type Secteur,
 } from "@/src/lib/tvaLogique";
 import type { MethodeTva, ParametresTva, Periodicite, CaSecteur } from "@/src/lib/decompteTvaLogique";
@@ -98,6 +101,105 @@ export function affichage(p: ParametresTva): ParametresTvaAffichage {
     numero: p.numero,
     dateAssujettissement: p.dateAssujettissement,
   };
+}
+
+// ── Les taux légaux en vigueur, et ceux des prestations ────────────────────
+
+/**
+ * La liste FERMÉE des taux qu'on a le droit de choisir à une date donnée.
+ *
+ * Elle vient de la table `taux_tva`, filtrée sur la validité : 7,7 % et 2,5 %
+ * restent lisibles sur les pièces d'avant 2024 sans pouvoir être ressaisis
+ * aujourd'hui. Les écrans en font une liste déroulante, les actions y
+ * confrontent la saisie — un taux ne se tape jamais.
+ */
+export async function tauxLegauxEnVigueur(dateISO?: string | null): Promise<number[]> {
+  const date = dateISO ?? new Date().toISOString().slice(0, 10);
+  const { data } = await supabaseAdmin
+    .from("taux_tva")
+    .select("taux, date_debut, date_fin")
+    .lte("date_debut", date);
+
+  const valides = ((data ?? []) as unknown as {
+    taux: number | string; date_fin: string | null;
+  }[])
+    .filter((t) => !t.date_fin || t.date_fin >= date)
+    .map((t) => Number(t.taux));
+
+  const uniques = [...new Set(valides)].sort((a, b) => b - a);
+  // Une base vide ne doit pas ouvrir la porte : on retombe sur les taux du code.
+  return uniques.length > 0 ? uniques : [...TAUX_LEGAUX];
+}
+
+export type TauxPrestation = { taux: number; motif: string | null; dateDebut: string | null };
+
+/**
+ * Le taux d'une prestation, EN VIGUEUR à la date de la pièce.
+ *
+ * Un changement de taux ne vaut que pour les pièces suivantes : c'est la date
+ * d'effet qui décide, et une facture émise garde le taux qu'elle a figé.
+ */
+export async function tauxPrestation(
+  code: CodePrestation,
+  dateISO?: string | null
+): Promise<TauxPrestation> {
+  const date = dateISO ?? new Date().toISOString().slice(0, 10);
+  const { data } = await supabaseAdmin
+    .from("taux_prestation")
+    .select("taux, motif_exonere, date_debut")
+    .eq("code", code)
+    .lte("date_debut", date)
+    .order("date_debut", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data) return { taux: TAUX_NORMAL, motif: null, dateDebut: null };
+  const l = data as unknown as { taux: number | string; motif_exonere: string | null; date_debut: string };
+  return {
+    taux: Number(l.taux),
+    motif: (l.motif_exonere ?? "").trim() || null,
+    dateDebut: l.date_debut,
+  };
+}
+
+/** Les six prestations et leur taux en vigueur, pour l'écran des réglages. */
+export async function tauxDesPrestations(
+  dateISO?: string | null
+): Promise<Record<string, TauxPrestation>> {
+  const date = dateISO ?? new Date().toISOString().slice(0, 10);
+  const { data } = await supabaseAdmin
+    .from("taux_prestation")
+    .select("code, taux, motif_exonere, date_debut")
+    .lte("date_debut", date)
+    .order("date_debut", { ascending: true });
+
+  const parCode: Record<string, TauxPrestation> = {};
+  for (const l of (data ?? []) as unknown as {
+    code: string; taux: number | string; motif_exonere: string | null; date_debut: string;
+  }[]) {
+    // Trié par date croissante : la dernière écrasée est la plus récente.
+    parCode[l.code] = {
+      taux: Number(l.taux),
+      motif: (l.motif_exonere ?? "").trim() || null,
+      dateDebut: l.date_debut,
+    };
+  }
+  return parCode;
+}
+
+/**
+ * Le taux ET le motif à figer sur une ligne de prestation.
+ *
+ * Zéro sans motif ne peut pas sortir d'ici : la contrainte de base l'interdit
+ * à la saisie, et le motif suit la ligne jusqu'à la facture.
+ */
+export async function tvaDeLaPrestation(
+  code: CodePrestation,
+  dateISO: string | null
+): Promise<{ taux: number; motif: string | null }> {
+  const p = await tauxPrestation(code, dateISO);
+  const taux = await tauxAFiger(dateISO, p.taux);
+  return { taux, motif: taux === 0 ? p.motif : null };
 }
 
 /**
