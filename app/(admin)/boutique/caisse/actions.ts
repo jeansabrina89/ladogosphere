@@ -14,6 +14,7 @@ import {
   type ResultatVente,
 } from "@/src/lib/caisse";
 import type { ModeReglementVente } from "@/src/lib/caisseLogique";
+import { estMembreActif } from "@/src/lib/membre";
 
 /**
  * Caisse — actions d'écran. Ouvrir la caisse demande « Boutique — vente » ; porter un
@@ -109,6 +110,8 @@ export type ClientCaisse = {
   /** Ce que la caisse pourra faire de cet achat, dit en français. */
   etat: string;
   prete: boolean;
+  /** Son adhésion est-elle en cours ? C'est elle qui ouvre la remise membre. */
+  estMembre: boolean;
 };
 
 /**
@@ -136,9 +139,15 @@ export async function chercherClients(q: string): Promise<ClientCaisse[]> {
   for (const c of data ?? []) {
     const cible = await factureCibleClient(c.id as string);
     const nom = `${c.prenom ?? ""} ${c.nom ?? ""}`.trim();
+    // L'adhésion décide de la remise membre : elle voyage avec le client, pour
+    // que le panier se recalcule dès qu'on le choisit.
+    const estMembre = await estMembreActif(supabaseAdmin, c.id as string);
 
     if (cible.factureId !== null) {
-      clients.push({ id: c.id as string, nom, factureId: cible.factureId, etat: "Facture en brouillon", prete: true });
+      clients.push({
+        id: c.id as string, nom, factureId: cible.factureId,
+        etat: "Facture en brouillon", prete: true, estMembre,
+      });
       continue;
     }
     const sejour = await sejourEnCours(c.id as string);
@@ -148,6 +157,7 @@ export async function chercherClients(q: string): Promise<ClientCaisse[]> {
       factureId: null,
       etat: sejour ? "Séjour en cours — une facture sera créée" : cible.erreur,
       prete: sejour,
+      estMembre,
     });
   }
   return clients;

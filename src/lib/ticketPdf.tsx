@@ -1,3 +1,4 @@
+import { pourPdf } from "@/src/lib/texteWinAnsi";
 import React from "react";
 import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 
@@ -39,6 +40,13 @@ export type LigneTicket = {
   quantite: number;
   prix_unitaire: number;
   montant: number;
+  /**
+   * La remise figée à la vente, quand il y en a une. Trois chiffres se lisent
+   * alors sur la ligne : le prix de base réel, la remise avec son origine
+   * nommée, et le prix payé. Une remise anonyme n'apprend rien au client.
+   */
+  prix_base?: number | null;
+  remise_libelle?: string | null;
 };
 
 export type TicketProps = {
@@ -79,8 +87,17 @@ const chf = (n: number) =>
  * Hauteur du rouleau : il s'allonge avec le nombre de lignes, et avec le bloc
  * de ventilation quand il y en a un.
  */
-export function hauteurTicket(nbLignes: number, nbLignesTva = 0, nbMotifs = 0): number {
-  return 300 + nbLignes * 22 + (nbLignesTva > 0 ? 40 + nbLignesTva * 14 : 0) + nbMotifs * 12;
+export function hauteurTicket(
+  nbLignes: number,
+  nbLignesTva = 0,
+  nbMotifs = 0,
+  /** Les lignes qui portent une remise : elles prennent une ligne de plus. */
+  nbLignesRemisees = 0
+): number {
+  return (
+    300 + nbLignes * 22 + nbLignesRemisees * 10 +
+    (nbLignesTva > 0 ? 40 + nbLignesTva * 14 : 0) + nbMotifs * 12
+  );
 }
 
 export function TicketPdf(p: TicketProps) {
@@ -94,7 +111,18 @@ export function TicketPdf(p: TicketProps) {
       creator="La Dogosphère"
       producer="La Dogosphère"
     >
-      <Page size={[LARGEUR_80MM, hauteurTicket(p.lignes.length, p.tva?.lignes.length ?? 0, p.tva?.motifs?.length ?? 0)]} style={s.page}>
+      <Page
+        size={[
+          LARGEUR_80MM,
+          hauteurTicket(
+            p.lignes.length,
+            p.tva?.lignes.length ?? 0,
+            p.tva?.motifs?.length ?? 0,
+            p.lignes.filter((l) => l.remise_libelle).length
+          ),
+        ]}
+        style={s.page}
+      >
         <Text style={s.nom}>{p.emetteur.nom}</Text>
         <Text style={s.entreprise}>
           {p.emetteur.adresse.join("\n")}
@@ -116,10 +144,16 @@ export function TicketPdf(p: TicketProps) {
         {p.lignes.map((l, i) => (
           <View key={i} style={s.ligne}>
             <View style={s.libelle}>
-              <Text>{l.libelle}</Text>
+              <Text>{pourPdf(l.libelle)}</Text>
               <Text style={s.detail}>
                 {l.quantite} × {chf(l.prix_unitaire)}
+                {l.prix_base != null && l.prix_base !== l.prix_unitaire
+                  ? ` (au lieu de ${chf(Number(l.prix_base))})`
+                  : ""}
               </Text>
+              {l.remise_libelle ? (
+                <Text style={s.detail}>{pourPdf(l.remise_libelle)}</Text>
+              ) : null}
             </View>
             <Text style={s.montant}>{chf(l.montant)}</Text>
           </View>
@@ -188,7 +222,7 @@ export function TicketPdf(p: TicketProps) {
             </View>
             {p.tva.lignes.map((l, i) => (
               <View key={i} style={s.totalLigne}>
-                <Text>{l.etiquette} sur {chf(l.base)}</Text>
+                <Text>{pourPdf(l.etiquette)} sur {chf(l.base)}</Text>
                 <Text>{chf(l.tva)}</Text>
               </View>
             ))}
@@ -197,13 +231,13 @@ export function TicketPdf(p: TicketProps) {
               <Text style={s.gras}>{chf(p.tva.totalTtc)}</Text>
             </View>
             {(p.tva.motifs ?? []).map((m, i) => (
-              <Text key={i} style={s.detail}>{m}</Text>
+              <Text key={i} style={s.detail}>{pourPdf(m)}</Text>
             ))}
           </>
         )}
         {p.tva?.numero && <Text style={[s.detail, s.centre, { marginTop: 6 }]}>{p.tva.numero}</Text>}
 
-        {p.motif && <Text style={s.motif}>Motif : {p.motif}</Text>}
+        {p.motif && <Text style={s.motif}>Motif : {pourPdf(p.motif)}</Text>}
         {p.vendeur && <Text style={s.motif}>Servi par {p.vendeur}</Text>}
 
         <Text style={s.mention}>Merci de votre visite</Text>

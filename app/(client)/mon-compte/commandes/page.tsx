@@ -109,7 +109,7 @@ export default async function MesCommandesPage() {
                 <div style={{ borderTop: BORDURE, paddingTop: 10, marginTop: 4, display: "grid", gap: 4 }}>
                   {Number(c.remise_membre) > 0 && (
                     <p style={{ color: VERT, fontSize: 14, margin: 0, display: "flex", justifyContent: "space-between" }}>
-                      <span>Remise membre</span><span>−{chf(Number(c.remise_membre))}</span>
+                      <span>Remises</span><span>−{chf(Number(c.remise_membre))}</span>
                     </p>
                   )}
                   {Number(c.frais_port) > 0 && (

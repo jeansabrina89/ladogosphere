@@ -16,6 +16,10 @@ import Bouton from "@/app/components/ui/Bouton";
 import ConfigurateurClient from "./ConfigurateurClient";
 import BoutonAjouter from "./BoutonAjouter";
 import BarrePanier from "../BarrePanier";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { estMembreActif } from "@/src/lib/membre";
+import { contextePrix, prixDe } from "@/src/lib/prix";
+import { mentionDateLimite } from "@/src/lib/prixLogique";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +72,16 @@ export default async function ArticlePage({
     : disponibiliteVitrine((article as { en_stock: boolean }).en_stock, article.type_article);
   const url = urlPhotoArticle(article.photo_path);
   const params2 = await lireParametresEnLigne();
-  const mentionMembre = mentionRemiseMembre(params2.remisePourcent);
+
+  // Le prix vient de la fonction unique — la même qu'à la caisse, au panier et
+  // à la facture. Un article exclu de la remise membre n'en montre AUCUNE
+  // mention : annoncer une remise qui ne s'applique pas est pire que rien.
+  const ctx = await contextePrix();
+  const membre = clientId ? await estMembreActif(supabaseAdmin, clientId) : false;
+  const prix = prixDe(ctx, article, { estMembre: membre });
+  const mentionMembre = article.remise_membre_exclue === true
+    ? null
+    : mentionRemiseMembre(params2.remisePourcent);
 
   // L'alerte ne se propose que là où elle a un sens : un article à stock,
   // vendu en ligne, et réellement épuisé. Un article sur mesure se fabrique —
@@ -156,9 +169,30 @@ export default async function ArticlePage({
                   </p>
                 )}
                 <p style={{ color: MARINE, fontSize: 26, fontWeight: 700, margin: 0 }}>
-                  {Number(article.prix_vente).toFixed(2)} CHF
+                  {/* Le prix barré est le prix de base RÉEL de l'article, celui
+                      pratiqué hors action. On n'en fabrique jamais un plus
+                      élevé pour grossir la remise. */}
+                  {prix.remise > 0 && (
+                    <span style={{
+                      color: SOUS, fontSize: 19, fontWeight: 500,
+                      textDecoration: "line-through", marginRight: 10,
+                    }}>
+                      {prix.prixBase.toFixed(2)}
+                    </span>
+                  )}
+                  {prix.prixFinal.toFixed(2)} CHF
                   <span style={{ color: SOUS, fontSize: 15, fontWeight: 400 }}> TTC</span>
                 </p>
+                {prix.libelle && (
+                  <p style={{ color: "#1F6E5B", fontSize: 16, fontWeight: 700, margin: 0 }}>
+                    {prix.libelle}
+                  </p>
+                )}
+                {prix.origine === "anti_gaspillage" && mentionDateLimite(article.date_limite) && (
+                  <p style={{ color: "#8A5A1F", fontSize: 15, fontWeight: 600, margin: 0 }}>
+                    ⏳ {mentionDateLimite(article.date_limite)}
+                  </p>
+                )}
                 <p style={{
                   color: dispo.etat === "epuise" ? SOUS : dispo.etat === "dernier" ? "#8A5A1F" : "#1F6E5B",
                   fontSize: 16, fontWeight: 600, margin: 0,

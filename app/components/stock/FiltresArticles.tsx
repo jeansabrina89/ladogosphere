@@ -3,6 +3,7 @@
 import { useState, type CSSProperties } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CATEGORIES_ARTICLE } from "@/src/lib/boutiqueLogique";
+import { STATUTS_VITRINE } from "@/src/lib/statutVitrineLogique";
 
 /**
  * Filtres du catalogue : catégorie, fournisseur, sous le seuil, actif, et une
@@ -48,14 +49,17 @@ export default function FiltresArticles({
   const [fournisseur, setFournisseur] = useState(params.get("fournisseur") ?? "");
   const [seuil, setSeuil] = useState(params.get("seuil") === "1");
   const [inactifs, setInactifs] = useState(params.get("inactifs") === "1");
+  const [statut, setStatut] = useState(params.get("statut") ?? "");
 
-  function appliquer(sur?: { seuil?: boolean; inactifs?: boolean }) {
+  function appliquer(sur?: { seuil?: boolean; inactifs?: boolean; statut?: string }) {
     const p = new URLSearchParams();
     if (q.trim()) p.set("q", q.trim());
     if (categorie) p.set("categorie", categorie);
     if (fournisseur) p.set("fournisseur", fournisseur);
     if (sur?.seuil ?? seuil) p.set("seuil", "1");
     if (sur?.inactifs ?? inactifs) p.set("inactifs", "1");
+    const s = sur?.statut ?? statut;
+    if (s) p.set("statut", s);
     const qs = p.toString();
     router.push(qs ? `${pathname}?${qs}` : pathname);
   }
@@ -84,6 +88,21 @@ export default function FiltresArticles({
           <option value="">Tous les fournisseurs</option>
           {fournisseurs.map((f) => (
             <option key={f.id} value={f.id}>{f.nom}</option>
+          ))}
+        </select>
+
+        {/* Le statut de VITRINE — ce que l'article montre. À ne pas confondre
+            avec « Voir les articles retirés », qui parle de ceux qui n'existent
+            plus. */}
+        <select
+          value={statut}
+          onChange={(e) => { setStatut(e.target.value); appliquer({ statut: e.target.value }); }}
+          style={sChamp}
+          aria-label="Statut en vitrine"
+        >
+          <option value="">Tous les statuts</option>
+          {STATUTS_VITRINE.map((s) => (
+            <option key={s.valeur} value={s.valeur}>{s.libelle}</option>
           ))}
         </select>
 
@@ -118,7 +137,7 @@ export default function FiltresArticles({
           type="button"
           style={{ ...sChamp, cursor: "pointer" }}
           onClick={() => {
-            setQ(""); setCategorie(""); setFournisseur(""); setSeuil(false); setInactifs(false);
+            setQ(""); setCategorie(""); setFournisseur(""); setSeuil(false); setInactifs(false); setStatut("");
             router.push(pathname);
           }}
         >

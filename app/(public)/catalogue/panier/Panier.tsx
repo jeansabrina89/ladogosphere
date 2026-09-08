@@ -7,7 +7,8 @@ import {
   optionsRemise,
   totalCommande,
   refusConfirmation,
-  libelleRemiseMembre,
+  remisesParOrigine,
+  prixBaseLigne,
   formatPoids,
   poidsTotal,
   MODES_PAIEMENT_LIGNE,
@@ -60,8 +61,6 @@ const chf = (n: number) => `${n.toFixed(2)} CHF`;
  */
 export default function Panier({
   lignes,
-  estMembre,
-  remisePourcent,
   grillePort,
   poidsMaxGrammes,
   delaiJours,
@@ -69,8 +68,6 @@ export default function Panier({
   adresseClient,
 }: {
   lignes: LigneAffichee[];
-  estMembre: boolean;
-  remisePourcent: number;
   grillePort: PalierPort[];
   poidsMaxGrammes: number;
   delaiJours: number;
@@ -95,9 +92,9 @@ export default function Panier({
   };
   const options = optionsRemise(contexte);
   const choisie = options.find((o) => o.valeur === mode) ?? null;
-  const total = totalCommande({
-    lignes, estMembre, remisePourcent, fraisPort: choisie?.frais ?? 0,
-  });
+  // Les remises sont déjà DANS les lignes : le total ne fait que les
+  // additionner pour les montrer, il ne les retire pas une seconde fois.
+  const total = totalCommande({ lignes, fraisPort: choisie?.frais ?? 0 });
 
   const refus = refusConfirmation({
     lignes, mode, contexte, modePaiement: paiement,
@@ -153,9 +150,21 @@ export default function Panier({
                   {l.libelle}
                 </span>
                 <span style={{ display: "block", color: SOUS, fontSize: 14 }}>
+                  {/* Le prix barré est le prix de base RÉEL de l'article, celui
+                      pratiqué hors action — jamais un « prix habituel » gonflé. */}
+                  {prixBaseLigne(l) > Number(l.prix_unitaire) && (
+                    <span style={{ textDecoration: "line-through", marginRight: 6 }}>
+                      {chf(prixBaseLigne(l))}
+                    </span>
+                  )}
                   {chf(Number(l.prix_unitaire))} l&apos;unité
                   {l.expediable === false ? " · non expédiable" : ""}
                 </span>
+                {l.remise_libelle && (
+                  <span style={{ display: "block", color: VERT, fontSize: 14, fontWeight: 700 }}>
+                    {l.remise_libelle}
+                  </span>
+                )}
                 {manque && (
                   <span style={{ display: "block", color: GRENAT, fontSize: 14, fontWeight: 600 }}>
                     Il n&apos;en reste que {l.stock_disponible} : ajustez la quantité ou retirez-le.
@@ -316,12 +325,16 @@ export default function Panier({
         <div style={{ display: "flex", justifyContent: "space-between", color: SOUS, fontSize: 15 }}>
           <span>Articles</span><span>{chf(total.sousTotal)}</span>
         </div>
-        {estMembre && total.remise > 0 && (
-          <div style={{ display: "flex", justifyContent: "space-between", color: VERT, fontSize: 15, fontWeight: 600 }}>
-            <span>{libelleRemiseMembre(remisePourcent)}</span>
-            <span>−{chf(total.remise)}</span>
+        {/* Chaque remise est nommée par son ORIGINE : « Action du mois −20 % »
+            n'est pas « Remise membre −10 % », et le client doit savoir laquelle
+            il a eue. Les lignes qui partagent une même origine se regroupent. */}
+        {remisesParOrigine(lignes).map((r) => (
+          <div key={r.libelle}
+            style={{ display: "flex", justifyContent: "space-between", color: VERT, fontSize: 15, fontWeight: 600 }}>
+            <span>{r.libelle}</span>
+            <span>−{chf(r.montant)}</span>
           </div>
-        )}
+        ))}
         {total.port > 0 && (
           <div style={{ display: "flex", justifyContent: "space-between", color: SOUS, fontSize: 15 }}>
             <span>Frais de port</span><span>{chf(total.port)}</span>

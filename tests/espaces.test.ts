@@ -154,7 +154,7 @@ describe("une entrée de menu ne mène jamais à une redirection", () => {
 describe("les trois déplacements décidés", () => {
   it("Tarifs, Modèles d'e-mails et TVA sont dans Réglages", () => {
     expect(labels("reglages", ADMIN)).toEqual([
-      "🏠 Réglages", "💰 Tarifs", "✉️ Modèles d'e-mails", "🧾 TVA",
+      "🏠 Réglages", "💰 Tarifs", "✉️ Modèles d'e-mails", "🧾 TVA", "🎫 Remise membre",
     ]);
   });
 
@@ -291,7 +291,7 @@ describe("la composition corrigée", () => {
   it("et la Boutique ne garde que la vente", () => {
     expect(labels("boutique", ADMIN)).toEqual([
       "🏠 Boutique", "💳 Caisse", "🧾 Ventes", "🌐 En ligne",
-      "🛒 Articles", "📦 Inventaire", "🔔 Attentes", "🏢 Fournisseurs",
+      "🛒 Articles", "🏷️ Actions", "📦 Inventaire", "🔔 Attentes", "🏢 Fournisseurs",
     ]);
   });
 

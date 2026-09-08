@@ -14,7 +14,9 @@ export type EntiteJournal =
   // APP 15 : les cartes prépayées, leur facture et leur expiration.
   | "abonnement"
   // Une écriture saisie à la main : le journal en porte la raison.
-  | "ecriture";
+  | "ecriture"
+  // APP 16 : les rubriques de la boutique et la remise d'adhésion.
+  | "promotion" | "remise_membre";
 
 export type EvenementJournal = {
   entite: EntiteJournal;
@@ -129,6 +131,13 @@ const LIBELLES: Record<string, string> = {
   abonnement_expire: "Carte expirée — journées non consommées",
   abonnement_avoir: "Carte annulée par avoir",
   ecriture_manuelle: "Écriture saisie à la main",
+  publication_auto_date: "Publié automatiquement à la date prévue",
+  publication_auto_stock: "Publié automatiquement à l'entrée de stock",
+  promotion_creee: "Rubrique créée",
+  promotion_modifiee: "Rubrique modifiée",
+  promotion_desactivee: "Rubrique désactivée",
+  promotion_reactivee: "Rubrique réactivée",
+  remise_membre_categorie: "Remise membre d'une catégorie",
 };
 
 export function libelleEvenement(evenement: string): string {

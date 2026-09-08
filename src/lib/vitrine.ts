@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { COLONNES_VITRINE } from "@/src/lib/vitrineColonnes";
+import { publierCeQuiEstDu } from "@/src/lib/publicationArticle";
 
 /**
  * Le catalogue tel qu'un VISITEUR SANS COMPTE peut le voir.
@@ -35,10 +36,17 @@ export type ArticleVitrine = {
   poids_grammes: number | null;
   /** La disponibilité EN MOTS se déduit d'ici : vrai ou faux, rien de chiffré. */
   en_stock: boolean;
+  /** Anti-gaspillage : « À écouler avant le 12 octobre ». */
+  date_limite: string | null;
+  remise_membre_exclue: boolean;
 };
 
 /** Le catalogue public, rangé par catégorie puis par nom. */
 export async function catalogueVitrine(): Promise<ArticleVitrine[]> {
+  // Les brouillons dont la date est arrivée basculent AVANT la lecture. La vue
+  // refuse déjà de servir un article dont la date n'est pas passée : ce rattrapage
+  // met le statut à jour, il ne décide pas de ce qui se voit.
+  await publierCeQuiEstDu();
   const { data } = await supabaseAdmin
     .from("articles_vitrine")
     .select(COLONNES_VITRINE)
@@ -50,6 +58,7 @@ export async function catalogueVitrine(): Promise<ArticleVitrine[]> {
 /** Une fiche produit publique. Null si l'article n'est pas (ou plus) en vitrine. */
 export async function articleVitrine(id: string): Promise<ArticleVitrine | null> {
   if (!/^[0-9a-f-]{36}$/i.test(String(id ?? "").trim())) return null;
+  await publierCeQuiEstDu();
   const { data } = await supabaseAdmin
     .from("articles_vitrine")
     .select(COLONNES_VITRINE)
@@ -63,18 +72,28 @@ export async function articleVitrine(id: string): Promise<ArticleVitrine | null>
  * et le recalcul des prix. La vitrine décide : ce qui n'y est plus n'est plus
  * proposé, quelle qu'en soit la raison.
  */
-export async function articlesVendables(
-  ids: string[]
-): Promise<{ id: string; nom: string; prix_vente: number; type_article: string; en_stock: boolean }[]> {
+export type ArticleVendableVitrine = {
+  id: string;
+  nom: string;
+  prix_vente: number;
+  categorie: string;
+  type_article: string;
+  en_stock: boolean;
+  remise_membre_exclue: boolean;
+  date_limite: string | null;
+};
+
+export async function articlesVendables(ids: string[]): Promise<ArticleVendableVitrine[]> {
   const propres = [...new Set(ids.filter((i) => /^[0-9a-f-]{36}$/i.test(i)))];
   if (propres.length === 0) return [];
 
   const { data } = await supabaseAdmin
     .from("articles_vitrine")
-    .select("id, nom, prix_vente, type_article, en_stock")
+    .select("id, nom, prix_vente, categorie, type_article, en_stock, remise_membre_exclue, date_limite")
     .in("id", propres);
 
-  return ((data ?? []) as unknown as {
-    id: string; nom: string; prix_vente: number | string; type_article: string; en_stock: boolean;
-  }[]).map((a) => ({ ...a, prix_vente: Number(a.prix_vente) }));
+  return ((data ?? []) as unknown as ArticleVendableVitrine[]).map((a) => ({
+    ...a,
+    prix_vente: Number(a.prix_vente),
+  }));
 }

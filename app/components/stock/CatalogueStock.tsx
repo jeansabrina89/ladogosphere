@@ -8,6 +8,12 @@ import {
   urlPhotoArticle,
 } from "@/src/lib/boutiqueLogique";
 import { configPerimetre, type PerimetreStock } from "@/src/lib/perimetreStock";
+import {
+  compterParStatut,
+  infoStatutVitrine,
+  libelleCompteBrouillons,
+  mentionPublicationProgrammee,
+} from "@/src/lib/statutVitrineLogique";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import EtatVide from "@/app/components/ui/EtatVide";
@@ -74,6 +80,25 @@ function Vignette({ article }: { article: Article }) {
   );
 }
 
+/**
+ * La pastille de statut. « Publié » ne se marque pas : c'est le cas ordinaire,
+ * et une liste où chaque ligne porte un badge ne se lit plus.
+ */
+function Pastille({ statut, actif }: { statut?: string | null; actif?: boolean | null }) {
+  if (actif === false) return null;
+  const info = infoStatutVitrine(statut);
+  if (info.valeur === "publie") return null;
+  return (
+    <span style={{
+      display: "inline-block", marginLeft: 8, padding: "1px 8px", borderRadius: 999,
+      fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap",
+      color: info.couleur, backgroundColor: info.fond,
+    }}>
+      {info.pastille}
+    </span>
+  );
+}
+
 export default function CatalogueStock({
   perimetre,
   articles,
@@ -100,6 +125,10 @@ export default function CatalogueStock({
   const actifs = tous.filter((a) => a.actif);
   const nbSousSeuil = actifs.filter(sousLeSeuil).length;
   const valeur = gestion ? valeurStock(actifs) : 0;
+  // Un brouillon prêt qu'on a oublié de publier ne se voit nulle part : la
+  // tuile le rappelle, et un clic ouvre la liste filtrée.
+  const parStatut = compterParStatut(actifs);
+  const brouillons = libelleCompteBrouillons(parStatut.brouillon);
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -121,6 +150,14 @@ export default function CatalogueStock({
             couleur={nbSousSeuil > 0 ? "#A8453A" : "#1F6E5B"}
             href={`${config.liste}?seuil=1`}
           />
+          {brouillons && (
+            <Tuile
+              titre="En préparation"
+              valeur={brouillons}
+              couleur="#6E5410"
+              href={`${config.liste}?statut=brouillon`}
+            />
+          )}
           {/* La valeur du stock se calcule au prix d'achat : elle n'est même
               pas calculée sans la gestion. */}
           {gestion && (
@@ -170,12 +207,21 @@ export default function CatalogueStock({
                           >
                             {a.nom}
                           </Link>
+                          {/* La pastille dit ce que l'article MONTRE ; la
+                              mention « retiré » dit s'il existe encore. Deux
+                              questions différentes, deux marques différentes. */}
+                          <Pastille statut={a.statut_vitrine} actif={a.actif} />
                           <span style={{ display: "block", fontSize: 12, color: sousTexte }}>
                             {a.marque ?? ""}
                             {a.marque && a.fournisseur_id ? " · " : ""}
                             {a.fournisseur_id ? (nomFournisseur.get(a.fournisseur_id) ?? "") : ""}
                             {!a.actif && config.mentionRetire}
                           </span>
+                          {mentionPublicationProgrammee(a) && (
+                            <span style={{ display: "block", fontSize: 12, color: "#6E5410" }}>
+                              {mentionPublicationProgrammee(a)}
+                            </span>
+                          )}
                         </td>
                         <td className="py-2" style={{ color: sousTexte }}>
                           {libelleCategorieArticle(a.categorie)}

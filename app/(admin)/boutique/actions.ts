@@ -33,6 +33,17 @@ import {
   valeursFormulaire,
   type EtatFormulaire,
 } from "@/src/lib/etatFormulaire";
+import { statutVitrine } from "@/src/lib/statutVitrineLogique";
+
+/**
+ * Un champ `datetime-local` rend « 2026-10-12T08:00 » — sans fuseau. On le
+ * laisse tel quel : Postgres l'interprète dans le fuseau de la session, et une
+ * chaîne vide vaut « aucune date », pas « maintenant ».
+ */
+function instantOuNull(brut: FormDataEntryValue | null): string | null {
+  const v = String(brut ?? "").trim();
+  return v === "" ? null : v;
+}
 
 /**
  * Actions de stock — magasin et atelier. Le stock n'est jamais écrit ici : on
@@ -164,6 +175,13 @@ export async function enregistrerArticle(
         : null,
     // Une fourniture se stocke mais ne se vend pas seule : ni caisse, ni vitrine.
     composant: formData.get("composant") === "on",
+    // « actif » dit qu'il EXISTE ; « statut_vitrine » dit s'il SE MONTRE. Les
+    // deux ne se remplacent pas : un article masqué se vend encore au comptoir.
+    statut_vitrine: statutVitrine(String(formData.get("statut_vitrine") ?? "")),
+    date_publication: instantOuNull(formData.get("date_publication")),
+    publier_a_l_entree_stock: formData.get("publier_a_l_entree_stock") === "on",
+    date_limite: String(formData.get("date_limite") ?? "").trim() || null,
+    remise_membre_exclue: formData.get("remise_membre_exclue") === "on",
   };
 
   // Référence laissée vide : la base l'attribue elle-même, sous la forme ART-0001.

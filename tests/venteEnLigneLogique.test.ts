@@ -4,7 +4,11 @@ import {
   estCommandable,
   sousTotal,
   nombreArticles,
-  remiseMembre,
+  sousTotalBase,
+  remiseTotale,
+  remiseLigne,
+  prixBaseLigne,
+  remisesParOrigine,
   libelleRemiseMembre,
   poidsTotal,
   lignesSansPoids,
@@ -84,44 +88,67 @@ describe("disponibilité affichée au client", () => {
 
 // ── Remise membre ──────────────────────────────────────────────────────────
 
-describe("remise membre", () => {
-  const panier = [COLLIER, ligne({ libelle: "Jouet", prix_unitaire: 15 })];
+describe("remise de ligne", () => {
+  // Depuis APP 16, la remise est POSÉE SUR LA LIGNE : `prix_unitaire` est ce
+  // qui se paie, `prix_base` reste le prix pratiqué hors action. Le total ne
+  // fait que les additionner pour les montrer.
+  const remise = (l: Record<string, unknown>) => ligne(l);
+  const panier = [
+    remise({ libelle: "Collier", prix_unitaire: 40.5, prix_base: 45, remise_libelle: "Remise membre −10 %" }),
+    remise({ libelle: "Jouet", prix_unitaire: 12, prix_base: 15, remise_libelle: "Action du mois −20 %" }),
+  ];
 
-  it("porte sur les articles, à 10 %", () => {
-    expect(sousTotal(panier)).toBe(60);
-    expect(remiseMembre(panier, true, 10)).toBe(6);
+  it("le sous-total se lit au prix de base, la remise à côté", () => {
+    expect(sousTotalBase(panier)).toBe(60);
+    expect(sousTotal(panier)).toBe(52.5);
+    expect(remiseTotale(panier)).toBe(7.5);
   });
 
-  it("ne s'applique pas à un non-membre", () => {
-    expect(remiseMembre(panier, false, 10)).toBe(0);
+  it("une ligne sans remise vaut son propre prix", () => {
+    const sans = [ligne({ libelle: "Jouet", prix_unitaire: 15 })];
+    expect(prixBaseLigne(sans[0])).toBe(15);
+    expect(remiseLigne(sans[0])).toBe(0);
+    expect(remiseTotale(sans)).toBe(0);
   });
 
-  it("ne s'applique pas si le taux est nul ou absent", () => {
-    expect(remiseMembre(panier, true, 0)).toBe(0);
-    expect(remiseMembre(panier, true, null)).toBe(0);
-  });
-
-  it("s'affiche sur une ligne à elle, jamais fondue dans les prix", () => {
-    const total = totalCommande({
-      lignes: panier, estMembre: true, remisePourcent: 10, fraisPort: 9,
-    });
-    expect(total).toEqual({ sousTotal: 60, remise: 6, port: 9, aPayer: 63 });
-    // Le prix unitaire du collier n'a pas bougé : la remise est une ligne.
-    expect(Number(panier[0].prix_unitaire)).toBe(45);
-    expect(libelleRemiseMembre(10)).toBe("Remise membre −10 %");
+  it("le total montre les trois chiffres sans rien retirer deux fois", () => {
+    const total = totalCommande({ lignes: panier, fraisPort: 9 });
+    expect(total).toEqual({ sousTotal: 60, remise: 7.5, port: 9, aPayer: 61.5 });
   });
 
   it("ne remise pas le port : la Poste ne connaît pas nos membres", () => {
-    const avec = totalCommande({ lignes: panier, estMembre: true, remisePourcent: 10, fraisPort: 20 });
-    const sans = totalCommande({ lignes: panier, estMembre: false, remisePourcent: 10, fraisPort: 20 });
+    const avec = totalCommande({ lignes: panier, fraisPort: 20 });
+    const sans = totalCommande({
+      lignes: [ligne({ libelle: "Collier", prix_unitaire: 45 }), ligne({ libelle: "Jouet", prix_unitaire: 15 })],
+      fraisPort: 20,
+    });
     expect(avec.port).toBe(20);
     expect(sans.port).toBe(20);
-    expect(sans.aPayer - avec.aPayer).toBe(6);
+    expect(sans.aPayer - avec.aPayer).toBe(7.5);
+  });
+
+  it("chaque remise est nommée par son origine, jamais fondue avec l'autre", () => {
+    expect(remisesParOrigine(panier)).toEqual([
+      { libelle: "Remise membre −10 %", montant: 4.5 },
+      { libelle: "Action du mois −20 %", montant: 3 },
+    ]);
+  });
+
+  it("regroupe les lignes qui partagent une même origine", () => {
+    const deux = [
+      remise({ libelle: "A", prix_unitaire: 9, prix_base: 10, remise_libelle: "Remise membre −10 %" }),
+      remise({ libelle: "B", prix_unitaire: 18, prix_base: 20, remise_libelle: "Remise membre −10 %" }),
+    ];
+    expect(remisesParOrigine(deux)).toEqual([{ libelle: "Remise membre −10 %", montant: 3 }]);
   });
 
   it("arrondit au centime", () => {
-    const impair = [ligne({ libelle: "Article", prix_unitaire: 33.33 })];
-    expect(remiseMembre(impair, true, 10)).toBe(3.33);
+    const impair = [remise({ libelle: "Article", prix_unitaire: 30, prix_base: 33.33 })];
+    expect(remiseTotale(impair)).toBe(3.33);
+  });
+
+  it("la mention faite au visiteur reste celle du taux annoncé", () => {
+    expect(libelleRemiseMembre(10)).toBe("Remise membre −10 %");
   });
 });
 

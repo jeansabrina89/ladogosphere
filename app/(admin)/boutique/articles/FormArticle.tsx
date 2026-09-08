@@ -15,6 +15,12 @@ import {
 } from "@/src/lib/boutiqueLogique";
 import { COMPTE_MATIERES_FABRICATION, type PerimetreStock } from "@/src/lib/perimetreStock";
 import { SECTEURS, libelleTaux } from "@/src/lib/tvaLogique";
+import {
+  ARTICULATION_ACTIF_VITRINE,
+  STATUTS_VITRINE,
+  STATUT_VITRINE_PAR_DEFAUT,
+  infoStatutVitrine,
+} from "@/src/lib/statutVitrineLogique";
 
 export type ArticleFormulaire = {
   id: string;
@@ -37,7 +43,20 @@ export type ArticleFormulaire = {
   code_barres: string | null;
   actif: boolean;
   vendable_en_ligne: boolean;
+  /** APP 16 : ce qu'il MONTRE, distinct de `actif` qui dit s'il existe. */
+  statut_vitrine?: string | null;
+  date_publication?: string | null;
+  publier_a_l_entree_stock?: boolean | null;
+  date_limite?: string | null;
+  remise_membre_exclue?: boolean | null;
 };
+
+/** « 2026-10-12T08:00 », ce qu'attend un champ datetime-local. */
+function pourChampInstant(valeur: string | null | undefined): string {
+  const v = String(valeur ?? "").trim();
+  if (!v) return "";
+  return v.slice(0, 16).replace(" ", "T");
+}
 
 /**
  * Fiche article, en création comme en modification.
@@ -105,6 +124,9 @@ export default function FormArticle({
   const [prixVente, setPrixVente] = useState(texte("prix_vente", article?.prix_vente));
   const [prixAchat, setPrixAchat] = useState(texte("prix_achat", article?.prix_achat));
   const [typeArticle, setTypeArticle] = useState(texte("type_article", article?.type_article ?? "standard"));
+  const [statut, setStatut] = useState(
+    texte("statut_vitrine", article?.statut_vitrine ?? STATUT_VITRINE_PAR_DEFAUT)
+  );
 
   // Après un refus, les champs pilotés reprennent la saisie renvoyée par
   // l'action : ce qui a été tapé ne se perd pas parce qu'il est contrôlé.
@@ -116,6 +138,7 @@ export default function FormArticle({
     setPrixVente(texte("prix_vente", article?.prix_vente));
     setPrixAchat(texte("prix_achat", article?.prix_achat));
     setTypeArticle(texte("type_article", article?.type_article ?? "standard"));
+    setStatut(texte("statut_vitrine", article?.statut_vitrine ?? STATUT_VITRINE_PAR_DEFAUT));
   }
 
   function choisirCategorie(valeur: string) {
@@ -421,6 +444,96 @@ export default function FormArticle({
           />
           Visible sur le site vitrine
         </label>
+        )}
+      </div>
+
+      {/* ── Ce qu'il MONTRE ──────────────────────────────────────────────── */}
+      <div style={{ display: "grid", gap: 12, borderTop: BORDURE, paddingTop: 16 }}>
+        <div>
+          <label htmlFor="statut_vitrine" style={etiquette}>Statut en vitrine</label>
+          <select
+            {...marqueChamp(etat, "statut_vitrine", { ...champ, maxWidth: 320 })}
+            value={statut}
+            onChange={(e) => setStatut(e.target.value)}
+          >
+            {STATUTS_VITRINE.map((s) => (
+              <option key={s.valeur} value={s.valeur}>{s.libelle}</option>
+            ))}
+          </select>
+          <p style={aide}>{infoStatutVitrine(statut).aide}</p>
+          {/* La confusion entre les deux drapeaux est ce qui coûte cher : la
+              phrase qui les articule est écrite une fois, et lue ici. */}
+          <p style={{ ...aide, fontWeight: 600 }}>{ARTICULATION_ACTIF_VITRINE}</p>
+        </div>
+
+        {statut === "brouillon" && (
+          <div style={{
+            display: "grid", gap: 12, padding: 12, borderRadius: 12,
+            backgroundColor: "#FBF9F5", border: BORDURE,
+          }}>
+            <p style={{ margin: 0, fontSize: 13, color: SOUS }}>
+              Un brouillon peut se publier tout seul. Les deux chemins se
+              cumulent : le premier qui se présente publie, l&apos;autre ne fait
+              plus rien.
+            </p>
+            <div>
+              <label htmlFor="date_publication" style={etiquette}>Publier à partir du…</label>
+              <input
+                {...marqueChamp(etat, "date_publication", { ...champ, maxWidth: 280 })}
+                type="datetime-local"
+                defaultValue={pourChampInstant(article?.date_publication)}
+              />
+              <p style={aide}>Laissez vide pour publier à la main.</p>
+            </div>
+            <label htmlFor="publier_a_l_entree_stock"
+              style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 15, color: MARINE }}>
+              <input
+                type="checkbox" name="publier_a_l_entree_stock" id="publier_a_l_entree_stock"
+                defaultChecked={caseCochee(v, "publier_a_l_entree_stock", article?.publier_a_l_entree_stock ?? false)}
+                style={{ width: 20, height: 20, marginTop: 2, flexShrink: 0 }}
+              />
+              <span>
+                Publier à la première entrée de stock
+                <span style={{ display: "block", fontSize: 12, color: SOUS }}>
+                  Dès qu&apos;une livraison le rend disponible. Un réassort sur un
+                  article déjà disponible ne publie rien.
+                </span>
+              </span>
+            </label>
+          </div>
+        )}
+
+        {!atelier && (
+          <>
+            <div>
+              <label htmlFor="date_limite" style={etiquette}>Date limite (anti-gaspillage)</label>
+              <input
+                {...marqueChamp(etat, "date_limite", { ...champ, maxWidth: 220 })}
+                type="date"
+                defaultValue={texte("date_limite", article?.date_limite)}
+              />
+              <p style={aide}>
+                Affichée « À écouler avant le … » sur la fiche, quand l&apos;article
+                est dans une rubrique Anti-gaspillage.
+              </p>
+            </div>
+
+            <label htmlFor="remise_membre_exclue"
+              style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 15, color: MARINE }}>
+              <input
+                type="checkbox" name="remise_membre_exclue" id="remise_membre_exclue"
+                defaultChecked={caseCochee(v, "remise_membre_exclue", article?.remise_membre_exclue ?? false)}
+                style={{ width: 20, height: 20, marginTop: 2, flexShrink: 0 }}
+              />
+              <span>
+                Exclu de la remise membre
+                <span style={{ display: "block", fontSize: 12, color: SOUS }}>
+                  Aucune mention de remise ne sera faite sur cet article : annoncer
+                  une remise qui ne s&apos;applique pas est pire que ne rien annoncer.
+                </span>
+              </span>
+            </label>
+          </>
         )}
       </div>
 

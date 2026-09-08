@@ -4,12 +4,16 @@ import { catalogueEnLigne, nombreArticlesPanier } from "@/src/lib/venteEnLigne";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import EtatVide from "@/app/components/ui/EtatVide";
-import CatalogueBoutique, { type ArticleVitrine } from "./CatalogueBoutique";
+import CatalogueBoutique, { type ArticleVitrine, type RubriqueAffichee } from "./CatalogueBoutique";
 import BarrePanier from "./BarrePanier";
 import FusionPanier from "./FusionPanier";
 import { catalogueVitrine } from "@/src/lib/vitrine";
 import { lireParametresEnLigne } from "@/src/lib/venteEnLigne";
 import { mentionRemiseMembre } from "@/src/lib/venteEnLigneLogique";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { estMembreActif } from "@/src/lib/membre";
+import { contextePrix, prixDe } from "@/src/lib/prix";
+import { mentionDateLimite, rubriquesBoutique } from "@/src/lib/prixLogique";
 
 export const dynamic = "force-dynamic";
 
@@ -42,27 +46,71 @@ export default async function BoutiqueClientPage() {
   // Un VISITEUR ne lit que la vitrine : ni prix d'achat, ni marge, ni
   // fournisseur, ni stock chiffré — ces colonnes n'existent pas dans la vue.
   // Un client connecté garde le catalogue complet, avec son « Plus que 2 ».
-  const [articles, nombre, params] = await Promise.all([
+  const [articles, nombre, params, ctx, membre] = await Promise.all([
     clientId ? catalogueEnLigne() : catalogueVitrine(),
     clientId ? nombreArticlesPanier(clientId) : Promise.resolve(0),
     lireParametresEnLigne(),
+    contextePrix(),
+    clientId ? estMembreActif(supabaseAdmin, clientId) : Promise.resolve(false),
   ]);
 
-  const liste: ArticleVitrine[] = articles.map((a) => ({
-    id: a.id,
-    nom: a.nom,
-    description: a.description,
-    categorie: a.categorie,
-    marque: a.marque,
-    prix_vente: Number(a.prix_vente),
-    photo_path: a.photo_path,
-    type_article: a.type_article,
-    delai_fabrication_jours: a.delai_fabrication_jours,
-    // L'un ou l'autre, jamais les deux : le chiffre n'est calculé que pour
-    // qui y a droit.
-    ...(clientId
-      ? { stock_disponible: (a as { stock_disponible: number }).stock_disponible }
-      : { en_stock: (a as { en_stock: boolean }).en_stock }),
+  // Un visiteur non connecté n'est PAS membre : une action « membres » ne le
+  // concerne pas, et il n'en verra ni le prix barré ni la mention.
+  const client = { estMembre: membre };
+
+  const liste: ArticleVitrine[] = articles.map((a) => {
+    const prix = prixDe(ctx, a, client);
+    return {
+      id: a.id,
+      nom: a.nom,
+      description: a.description,
+      categorie: a.categorie,
+      marque: a.marque,
+      // Le prix BARRÉ est le prix de base réel de l'article, jamais gonflé.
+      prix_vente: prix.prixBase,
+      prix_final: prix.prixFinal,
+      remise_libelle: prix.libelle,
+      photo_path: a.photo_path,
+      type_article: a.type_article,
+      delai_fabrication_jours: a.delai_fabrication_jours,
+      // La date limite ne s'annonce que dans une rubrique anti-gaspillage :
+      // ailleurs, elle ne regarde pas le client.
+      mention_date_limite:
+        prix.origine === "anti_gaspillage" ? mentionDateLimite(a.date_limite) : null,
+      // L'un ou l'autre, jamais les deux : le chiffre n'est calculé que pour
+      // qui y a droit.
+      ...(clientId
+        ? { stock_disponible: (a as { stock_disponible: number }).stock_disponible }
+        : { en_stock: (a as { en_stock: boolean }).en_stock }),
+    };
+  });
+
+  // Les rubriques ne montrent QUE des articles servis à cette personne : une
+  // rubrique dont rien n'est visible n'apparaît pas, et une rubrique
+  // « membres » n'existe pas pour qui ne l'est pas.
+  const parId = new Map(liste.map((a) => [a.id, a]));
+  const articlesParRubrique = new Map<string, ArticleVitrine[]>();
+  for (const [articleId, promos] of ctx.parArticle) {
+    const article = parId.get(articleId);
+    if (!article) continue;
+    for (const p of promos) {
+      const deja = articlesParRubrique.get(p.id);
+      if (deja) deja.push(article);
+      else articlesParRubrique.set(p.id, [article]);
+    }
+  }
+
+  const rubriques: RubriqueAffichee[] = rubriquesBoutique(
+    ctx.promotions,
+    articlesParRubrique,
+    client,
+    ctx.date
+  ).map((r) => ({
+    id: r.promotion.id,
+    nom: r.promotion.nom,
+    type: String(r.promotion.type),
+    texte: r.promotion.texte ?? null,
+    articles: r.articles,
   }));
 
   const mentionMembre = mentionRemiseMembre(params.remisePourcent);
@@ -108,7 +156,7 @@ export default async function BoutiqueClientPage() {
             />
           </Carte>
         ) : (
-          <CatalogueBoutique articles={liste} connecte={!!clientId} />
+          <CatalogueBoutique articles={liste} rubriques={rubriques} connecte={!!clientId} />
         )}
       </div>
 

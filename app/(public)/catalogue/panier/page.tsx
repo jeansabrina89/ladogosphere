@@ -71,11 +71,19 @@ export default async function PanierPage() {
         {/* Le panier du navigateur rejoint le compte, ici comme ailleurs. */}
         <FusionPanier />
 
+        {/* Un client connecté SANS adhésion : on lui dit ce qu'elle vaut, sans
+            la lui appliquer. Les remises de ligne, elles, sont déjà dedans. */}
+        {!membre && mentionRemiseMembre(params.remisePourcent) && (
+          <Carte>
+            <p style={{ color: "#6E5410", fontSize: 15, fontWeight: 600, margin: 0 }}>
+              🎫 {mentionRemiseMembre(params.remisePourcent)}
+            </p>
+          </Carte>
+        )}
+
         <Carte>
           <Panier
             lignes={lignes}
-            estMembre={membre}
-            remisePourcent={params.remisePourcent}
             grillePort={params.grillePort}
             poidsMaxGrammes={params.poidsMaxGrammes}
             delaiJours={params.delaiPreparationJours}

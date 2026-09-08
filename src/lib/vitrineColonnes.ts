@@ -10,7 +10,7 @@
 export const COLONNES_VITRINE = `
   id, reference, nom, description, categorie, ordre_categorie, marque,
   prix_vente, unite, photo_path, type_article, delai_fabrication_jours,
-  expediable, poids_grammes, en_stock
+  expediable, poids_grammes, en_stock, date_limite, remise_membre_exclue
 `;
 
 /** Ce qui ne doit JAMAIS partir vers un visiteur. Les tests lisent cette liste. */

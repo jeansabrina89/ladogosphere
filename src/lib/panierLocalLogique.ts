@@ -224,17 +224,31 @@ export type LigneAValider = {
   configuration?: unknown[] | null;
 };
 
+/** La remise retenue sur une ligne, telle qu'elle se fige à la validation. */
+export type RemiseAFiger = {
+  prix_base: number;
+  remise_pourcentage: number;
+  remise_origine: string;
+  remise_libelle: string;
+};
+
 export type ArticleAJour = {
   id: string;
   nom: string;
+  /**
+   * Le prix APPLICABLE aujourd'hui — remise de ligne comprise. Il vient de
+   * `prixApplicable`, jamais d'un calcul refait ici.
+   */
   prix_vente: number;
   /** Faux quand l'article a été retiré de la vente entre-temps. */
   disponible: boolean;
+  /** La remise qui explique ce prix. Null : le prix de base s'applique. */
+  remise?: RemiseAFiger | null;
 };
 
 export type Recalcul = {
   /** Les lignes qui restent, à leur prix D'AUJOURD'HUI. */
-  lignes: (LigneAValider & { prix_actuel: number })[];
+  lignes: (LigneAValider & { prix_actuel: number; remise: RemiseAFiger | null })[];
   /** Ce qui a changé de prix, avec l'ancien et le nouveau. */
   prixChanges: { libelle: string; avant: number; apres: number }[];
   /** Ce qui est sorti du panier faute d'être encore proposé. */
@@ -274,7 +288,8 @@ export function recalculerPanier(
     if (!surMesure && actuel !== arrondi(l.prix_unitaire)) {
       res.prixChanges.push({ libelle: l.libelle, avant: arrondi(l.prix_unitaire), apres: actuel });
     }
-    res.lignes.push({ ...l, prix_actuel: actuel });
+    // Un sur-mesure garde son prix figé : aucune rubrique ne s'y applique.
+    res.lignes.push({ ...l, prix_actuel: actuel, remise: surMesure ? null : a.remise ?? null });
   }
 
   res.aSignaler = res.prixChanges.length > 0 || res.retires.length > 0;

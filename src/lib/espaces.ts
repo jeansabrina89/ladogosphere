@@ -155,6 +155,7 @@ export const ESPACES: Espace[] = [
       { href: "/boutique/ventes", label: "🧾 Ventes", exigence: perm("perm_boutique_vente") },
       { href: "/boutique/commandes-en-ligne", label: "🌐 En ligne", exigence: perm("perm_boutique_vente") },
       { href: "/boutique/articles", label: "🛒 Articles", exigence: perm("perm_boutique_vente") },
+      { href: "/boutique/actions", label: "🏷️ Actions", exigence: perm("perm_boutique_gestion") },
       { href: "/boutique/inventaire", label: "📦 Inventaire", exigence: perm("perm_boutique_gestion") },
       { href: "/boutique/attentes", label: "🔔 Attentes", exigence: perm("perm_boutique_gestion") },
       // Un seul écran, deux chemins d'accès : la fiche fournisseur sert aussi
@@ -229,6 +230,7 @@ export const ESPACES: Espace[] = [
       { href: "/tarifs", label: "💰 Tarifs", exigence: ADMIN },
       { href: "/emails", label: "✉️ Modèles d'e-mails", exigence: ADMIN },
       { href: "/reglages/tva", label: "🧾 TVA", exigence: ADMIN },
+      { href: "/reglages/remise-membre", label: "🎫 Remise membre", exigence: ADMIN },
     ],
   },
 ];

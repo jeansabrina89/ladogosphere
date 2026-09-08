@@ -13,7 +13,15 @@ import { tracerEvenement } from "@/src/lib/journalEvenements";
 
 export const BUCKET_FACTURES = "factures";
 
-type LigneBase = { libelle: string; quantite: number | string; prix_unitaire: number | string; montant: number | string };
+type LigneBase = {
+  libelle: string;
+  quantite: number | string;
+  prix_unitaire: number | string;
+  montant: number | string;
+  /** La remise figée à la ligne (APP 16). Absente : la ligne est au prix plein. */
+  prix_base?: number | string | null;
+  remise_libelle?: string | null;
+};
 
 async function lireParametres(cles: string[]): Promise<Record<string, string>> {
   const { data } = await supabaseAdmin.from("parametres").select("cle, valeur").in("cle", cles);
@@ -73,7 +81,7 @@ export async function genererPdfFacture(factureId: string): Promise<DonneesFactu
 
   const { data: lignesDb } = await supabaseAdmin
     .from("facture_lignes")
-    .select("libelle, quantite, prix_unitaire, montant, taux_tva, motif_tva")
+    .select("libelle, quantite, prix_unitaire, montant, taux_tva, motif_tva, prix_base, remise_libelle")
     .eq("facture_id", factureId)
     .order("ordre");
 
@@ -82,6 +90,10 @@ export async function genererPdfFacture(factureId: string): Promise<DonneesFactu
     quantite: Number(l.quantite),
     prix_unitaire: Number(l.prix_unitaire),
     montant: Number(l.montant),
+    // Relue, jamais recalculée : une action terminée depuis ne change rien à
+    // une facture déjà émise.
+    prix_base: l.prix_base === null || l.prix_base === undefined ? null : Number(l.prix_base),
+    remise_libelle: l.remise_libelle ?? null,
   }));
 
   const dateFacture = (f.date_facture as string) ?? null;

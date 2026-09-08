@@ -1236,7 +1236,7 @@ export async function envoyerEmailCommandeConfirmee(commandeId: string): Promise
         <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">🛍️ Commande ${cmd.numero ?? ""}</h3>
         <table cellpadding="0" cellspacing="0" style="width:100%;">
           ${lignesHtml}
-          ${remise > 0 ? `<tr><td style="padding:6px 0; color:#1F6E5B; font-size:14px;">Remise membre</td><td style="padding:6px 0; color:#1F6E5B; font-size:14px; text-align:right;">−${chfEmail(remise)} CHF</td></tr>` : ""}
+          ${remise > 0 ? `<tr><td style="padding:6px 0; color:#1F6E5B; font-size:14px;">Remises</td><td style="padding:6px 0; color:#1F6E5B; font-size:14px; text-align:right;">−${chfEmail(remise)} CHF</td></tr>` : ""}
           ${port > 0 ? `<tr><td style="padding:6px 0; color:#6B7280; font-size:14px;">Frais de port</td><td style="padding:6px 0; color:#6B7280; font-size:14px; text-align:right;">${chfEmail(port)} CHF</td></tr>` : ""}
           <tr>
             <td style="padding:12px 0 0 0; border-top:2px solid #FFFFFF; color:#1B2B5E; font-weight:bold; font-size:16px;">Prix TTC</td>

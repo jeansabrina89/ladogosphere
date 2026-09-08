@@ -2,6 +2,7 @@ import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { listerArticlesSelonNiveau, type Article } from "@/src/lib/boutique";
 import { sousLeSeuil } from "@/src/lib/boutiqueLogique";
+import { statutVitrine } from "@/src/lib/statutVitrineLogique";
 import Bouton from "@/app/components/ui/Bouton";
 import CatalogueStock from "@/app/components/stock/CatalogueStock";
 
@@ -22,6 +23,7 @@ export default async function FournituresPage({
 }: {
   searchParams: Promise<{
     q?: string; categorie?: string; fournisseur?: string; seuil?: string; inactifs?: string;
+    statut?: string;
   }>;
 }) {
   await exigerAccesAdmin("perm_atelier");
@@ -32,6 +34,9 @@ export default async function FournituresPage({
   const fournisseur = (params.fournisseur ?? "").trim();
   const seulementSousSeuil = params.seuil === "1";
   const avecInactifs = params.inactifs === "1";
+  // Le statut de vitrine se filtre comme le reste : « 4 brouillons » en tête
+  // du tableau mène ici d’un clic.
+  const statut = (params.statut ?? "").trim();
 
   const [tousBruts, { data: fournisseurs }] = await Promise.all([
     listerArticlesSelonNiveau("gestion", { perimetre: "atelier" }),
@@ -44,6 +49,7 @@ export default async function FournituresPage({
     if (categorie && a.categorie !== categorie) return false;
     if (fournisseur && a.fournisseur_id !== fournisseur) return false;
     if (seulementSousSeuil && !sousLeSeuil(a)) return false;
+    if (statut && statutVitrine(a.statut_vitrine) !== statut) return false;
     if (!recherche) return true;
     const cible = `${a.nom} ${a.reference} ${a.marque ?? ""} ${a.code_barres ?? ""}`.toLowerCase();
     return cible.includes(recherche);

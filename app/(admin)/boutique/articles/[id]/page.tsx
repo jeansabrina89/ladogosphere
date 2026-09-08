@@ -17,6 +17,8 @@ import {
   urlPhotoArticle,
 } from "@/src/lib/boutiqueLogique";
 import EnTete from "@/app/components/ui/EnTete";
+import { libelleStatutVitrine, mentionPublicationProgrammee } from "@/src/lib/statutVitrineLogique";
+import { mentionDateLimite } from "@/src/lib/prixLogique";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import ActionsMouvement from "./ActionsMouvement";
@@ -213,7 +215,32 @@ export default async function ArticlePage({
             />
           )}
           <Ligne cle="Code-barres" valeur={article.code_barres ?? "—"} />
-          <Ligne cle="Site vitrine" valeur={article.vendable_en_ligne && article.actif ? "Visible" : "Masqué"} />
+          {/* Deux lignes, deux questions : `actif` dit s'il existe encore,
+              `statut_vitrine` s'il se montre. On ne les fond pas en une. */}
+          <Ligne
+            cle="Au catalogue"
+            valeur={article.actif ? "Actif" : "Retiré de la vente"}
+          />
+          <Ligne
+            cle="Statut en vitrine"
+            valeur={
+              <>
+                {libelleStatutVitrine(article.statut_vitrine)}
+                {!article.vendable_en_ligne && " · non proposé en ligne"}
+                {mentionPublicationProgrammee(article) && (
+                  <span style={{ display: "block", fontSize: 13, color: "#6E5410" }}>
+                    {mentionPublicationProgrammee(article)}
+                  </span>
+                )}
+              </>
+            }
+          />
+          {article.date_limite && (
+            <Ligne cle="Date limite" valeur={mentionDateLimite(article.date_limite) ?? "—"} />
+          )}
+          {article.remise_membre_exclue && (
+            <Ligne cle="Remise membre" valeur="Exclu — aucune mention n'en est faite au client" />
+          )}
           {article.description && <BlocTexte cle="Description" valeur={article.description} />}
         </Carte>
 

@@ -65,6 +65,27 @@ export type ArticleVendable = {
   photo_path?: string | null;
   /** 'personnalisable' : pas de stock de produit fini, il se configure. */
   type_article?: string | null;
+  /** APP 16 : ce qu'il faut pour que `prixApplicable` puisse trancher. */
+  categorie?: string | null;
+  remise_membre_exclue?: boolean | null;
+  date_limite?: string | null;
+  statut_vitrine?: string | null;
+};
+
+/**
+ * La remise retenue sur une ligne, telle qu'elle se fige à la vente.
+ *
+ * Elle n'est jamais recalculée après coup : un ticket passé garde le prix de
+ * base, le taux et l'origine du jour où il a été imprimé, même si l'action a
+ * pris fin depuis.
+ */
+export type RemiseLigne = {
+  /** Le prix de base RÉEL, celui pratiqué hors action. Jamais un prix gonflé. */
+  prix_base: number;
+  remise_pourcentage: number;
+  remise_origine: "action" | "anti_gaspillage" | "membre";
+  /** « Action du mois −20 % », tel que la facture l'affichera. */
+  remise_libelle: string;
 };
 
 /** Un article sur mesure n'a pas de stock : il ouvre le configurateur. */
@@ -91,11 +112,28 @@ export type LignePanier = {
   stock_disponible: number;
   /** Un article sur mesure se fabrique : il n'a pas de stock à contrôler. */
   sans_stock?: boolean;
+  /** Le prix de base réel, quand une remise s'applique à cette ligne. */
+  prix_base?: number | null;
+  remise_pourcentage?: number | null;
+  remise_origine?: string | null;
+  remise_libelle?: string | null;
 };
 
-/** Ligne figée à partir d'une fiche article : libellé, prix et taux sont copiés. */
-export function ligneDepuisArticle(article: ArticleVendable, quantite = 1): LignePanier {
-  const prix = r2(Number(article.prix_vente));
+/**
+ * Ligne figée à partir d'une fiche article : libellé, prix et taux sont copiés.
+ *
+ * `remise` vient de `prixApplicable` — la fonction unique — et jamais d'un
+ * calcul refait ici. `prix_unitaire` est ce qui est RÉELLEMENT payé : c'est lui
+ * qui fait le montant, l'écriture et la ventilation de TVA. Le prix de base
+ * l'accompagne pour que le ticket puisse dire les trois chiffres.
+ */
+export function ligneDepuisArticle(
+  article: ArticleVendable,
+  quantite = 1,
+  remise?: RemiseLigne | null
+): LignePanier {
+  const prixBase = r2(Number(article.prix_vente));
+  const prix = remise ? r2(prixBase - r2((prixBase * remise.remise_pourcentage) / 100)) : prixBase;
   const q = arrondiQuantiteVente(quantite);
   return {
     article_id: article.id,
@@ -109,6 +147,10 @@ export function ligneDepuisArticle(article: ArticleVendable, quantite = 1): Lign
     unite: article.unite,
     stock_disponible: Number(article.stock_actuel),
     sans_stock: estPersonnalisable(article),
+    prix_base: remise ? remise.prix_base : null,
+    remise_pourcentage: remise ? remise.remise_pourcentage : null,
+    remise_origine: remise ? remise.remise_origine : null,
+    remise_libelle: remise ? remise.remise_libelle : null,
   };
 }
 
@@ -268,6 +310,11 @@ export type LigneVendue = {
   motif_tva?: string | null;
   secteur_tdfn?: string | null;
   montant: number | string;
+  /** La remise figée à la vente. Un retour la reprend telle quelle. */
+  prix_base?: number | string | null;
+  remise_pourcentage?: number | string | null;
+  remise_origine?: string | null;
+  remise_libelle?: string | null;
 };
 
 /**
@@ -298,6 +345,11 @@ export type LigneRetour = {
   motif_tva: string | null;
   secteur_tdfn: string;
   montant: number;
+  /** Reprise telle quelle : on rend ce qui a été payé, pas le prix du jour. */
+  prix_base: number | null;
+  remise_pourcentage: number | null;
+  remise_origine: string | null;
+  remise_libelle: string | null;
 };
 
 export type Retour = { lignes: LigneRetour[]; total: number };
@@ -330,6 +382,15 @@ export function construireRetour(
       motif_tva: l.motif_tva ?? null,
       secteur_tdfn: l.secteur_tdfn === "pension" ? "pension" : "commerce",
       montant: r2(-prix * q),
+      // La remise d'origine voyage avec le retour : l'avoir doit dire la même
+      // chose que le ticket, sans quoi les deux pièces ne se répondraient plus.
+      prix_base: l.prix_base === null || l.prix_base === undefined ? null : r2(Number(l.prix_base)),
+      remise_pourcentage:
+        l.remise_pourcentage === null || l.remise_pourcentage === undefined
+          ? null
+          : Number(l.remise_pourcentage),
+      remise_origine: l.remise_origine ?? null,
+      remise_libelle: l.remise_libelle ?? null,
     });
   }
 

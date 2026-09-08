@@ -33,6 +33,23 @@ export type ArticleVitrine = {
   stock_disponible?: number | null;
   /** La disponibilité en deux mots, pour un visiteur sans compte. */
   en_stock?: boolean;
+  /**
+   * Ce qu'il paie vraiment, calculé au serveur par la fonction unique. Le prix
+   * BARRÉ est `prix_vente`, le prix de base réel de l'article — jamais un
+   * « prix habituel » fabriqué pour grossir la remise.
+   */
+  prix_final: number;
+  remise_libelle: string | null;
+  /** « À écouler avant le 12 octobre », quand la rubrique le justifie. */
+  mention_date_limite?: string | null;
+};
+
+export type RubriqueAffichee = {
+  id: string;
+  nom: string;
+  type: string;
+  texte: string | null;
+  articles: ArticleVitrine[];
 };
 
 const champ: React.CSSProperties = {
@@ -53,9 +70,16 @@ const champ: React.CSSProperties = {
  */
 export default function CatalogueBoutique({
   articles,
+  rubriques = [],
   connecte,
 }: {
   articles: ArticleVitrine[];
+  /**
+   * Les rubriques à montrer, déjà filtrées au serveur : actives, en période,
+   * et qui portent au moins un article publié. Une rubrique vide n'arrive pas
+   * jusqu'ici — un rayon vide ne se met pas en vitrine.
+   */
+  rubriques?: RubriqueAffichee[];
   connecte: boolean;
 }) {
   const router = useRouter();
@@ -92,6 +116,113 @@ export default function CatalogueBoutique({
     if (!res.error) router.refresh();
   }
 
+  /** Une carte d'article. La même partout : grille et rubriques. */
+  function Carte({ a }: { a: ArticleVitrine }) {
+    const url = urlPhotoArticle(a.photo_path);
+    // Connecté : le compte exact. Visiteur : deux mots, pas un chiffre.
+    const dispo = connecte
+      ? disponibilite(a.stock_disponible, a.type_article)
+      : disponibiliteVitrine(a.en_stock, a.type_article);
+    const surMesure = a.type_article === "personnalisable";
+    const couleurDispo =
+      dispo.etat === "epuise" ? SOUS : dispo.etat === "dernier" ? "#8A5A1F" : VERT;
+    // Le prix barré est le prix de base RÉEL, celui pratiqué hors action.
+    const remise = !surMesure && a.prix_final < Number(a.prix_vente);
+
+    return (
+      <article
+        style={{
+          border: BORDURE, borderRadius: 16, backgroundColor: "#FFFFFF",
+          padding: 14, display: "flex", flexDirection: "column", gap: 8,
+        }}
+      >
+        <Link href={`/catalogue/${a.id}`} style={{ textDecoration: "none" }}>
+          {url ? (
+            /* Photo du bucket public de la boutique. */
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={url} alt={a.nom} style={{
+              width: "100%", height: 160, objectFit: "cover",
+              borderRadius: 12, border: BORDURE,
+            }} />
+          ) : (
+            <div style={{
+              width: "100%", height: 160, borderRadius: 12,
+              backgroundColor: "#EDE8DF", display: "flex",
+              alignItems: "center", justifyContent: "center", color: SOUS, fontSize: 14,
+            }}>
+              Pas encore de photo
+            </div>
+          )}
+        </Link>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Link href={`/catalogue/${a.id}`}
+            style={{
+              color: MARINE, fontSize: 17, fontWeight: 700,
+              textDecoration: "none", overflowWrap: "anywhere",
+            }}>
+            {a.nom}
+          </Link>
+          <p style={{ color: SOUS, fontSize: 13, margin: "2px 0 0" }}>
+            {libelleCategorieArticle(a.categorie)}
+            {a.marque ? ` · ${a.marque}` : ""}
+          </p>
+        </div>
+
+        <p style={{ color: MARINE, fontSize: 18, fontWeight: 700, margin: 0 }}>
+          {remise && (
+            <span style={{ color: SOUS, fontSize: 15, fontWeight: 500, textDecoration: "line-through", marginRight: 8 }}>
+              {Number(a.prix_vente).toFixed(2)}
+            </span>
+          )}
+          {surMesure ? "dès " : ""}{(surMesure ? Number(a.prix_vente) : a.prix_final).toFixed(2)} CHF
+          <span style={{ color: SOUS, fontSize: 13, fontWeight: 400 }}> TTC</span>
+        </p>
+
+        {a.remise_libelle && (
+          <p style={{ color: VERT, fontSize: 14, fontWeight: 700, margin: 0 }}>{a.remise_libelle}</p>
+        )}
+        {a.mention_date_limite && (
+          <p style={{ color: "#8A5A1F", fontSize: 13.5, fontWeight: 600, margin: 0 }}>
+            {a.mention_date_limite}
+          </p>
+        )}
+
+        <p style={{ color: couleurDispo, fontSize: 14, fontWeight: 600, margin: 0 }}>
+          {dispo.libelle}
+        </p>
+
+        {surMesure ? (
+          <Link
+            href={`/catalogue/${a.id}`}
+            style={{
+              minHeight: CIBLE, display: "flex", alignItems: "center",
+              justifyContent: "center", borderRadius: 12, border: "none",
+              backgroundColor: VERT, color: "#FFFFFF", fontSize: 16, fontWeight: 700,
+              textDecoration: "none",
+            }}
+          >
+            🎨 Composer
+          </Link>
+        ) : (
+          <button
+            type="button"
+            disabled={dispo.etat === "epuise" || enCours === a.id}
+            onClick={() => ajouter(a)}
+            style={{
+              minHeight: CIBLE, borderRadius: 12, border: "none",
+              backgroundColor: dispo.etat === "epuise" ? "#C9CEDB" : VERT,
+              color: "#FFFFFF", fontSize: 16, fontWeight: 700, fontFamily: "inherit",
+              cursor: dispo.etat === "epuise" ? "not-allowed" : "pointer",
+            }}
+          >
+            {enCours === a.id ? "…" : dispo.etat === "epuise" ? "Épuisé" : "🛒 Ajouter"}
+          </button>
+        )}
+      </article>
+    );
+  }
+
   return (
     <div style={{ display: "grid", gap: 16 }}>
       {erreur && (
@@ -100,6 +231,22 @@ export default function CatalogueBoutique({
       {avis && (
         <p role="status" style={{ color: VERT, fontSize: 15, margin: 0, fontWeight: 600 }}>{avis}</p>
       )}
+
+      {/* Les rubriques d'abord : c'est ce qu'on met en vitrine. Elles ne
+          filtrent rien — la grille complète reste dessous. */}
+      {rubriques.map((r) => (
+        <section key={r.id} style={{ display: "grid", gap: 10 }}>
+          <div>
+            <h2 style={{ color: MARINE, fontSize: 20, fontWeight: 700, margin: 0 }}>{r.nom}</h2>
+            {r.texte && (
+              <p style={{ color: SOUS, fontSize: 14.5, margin: "2px 0 0" }}>{r.texte}</p>
+            )}
+          </div>
+          <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
+            {r.articles.map((a) => <Carte key={`${r.id}-${a.id}`} a={a} />)}
+          </div>
+        </section>
+      ))}
 
       <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
         <input
@@ -129,96 +276,7 @@ export default function CatalogueBoutique({
         </p>
       ) : (
         <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
-          {visibles.map((a) => {
-            const url = urlPhotoArticle(a.photo_path);
-            // Connecté : le compte exact. Visiteur : deux mots, pas un chiffre.
-            const dispo = connecte
-              ? disponibilite(a.stock_disponible, a.type_article)
-              : disponibiliteVitrine(a.en_stock, a.type_article);
-            const surMesure = a.type_article === "personnalisable";
-            const couleurDispo =
-              dispo.etat === "epuise" ? SOUS : dispo.etat === "dernier" ? "#8A5A1F" : VERT;
-
-            return (
-              <article
-                key={a.id}
-                style={{
-                  border: BORDURE, borderRadius: 16, backgroundColor: "#FFFFFF",
-                  padding: 14, display: "flex", flexDirection: "column", gap: 8,
-                }}
-              >
-                <Link href={`/catalogue/${a.id}`} style={{ textDecoration: "none" }}>
-                  {url ? (
-                    /* Photo du bucket public de la boutique. */
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={url} alt={a.nom} style={{
-                      width: "100%", height: 160, objectFit: "cover",
-                      borderRadius: 12, border: BORDURE,
-                    }} />
-                  ) : (
-                    <div style={{
-                      width: "100%", height: 160, borderRadius: 12,
-                      backgroundColor: "#EDE8DF", display: "flex",
-                      alignItems: "center", justifyContent: "center", color: SOUS, fontSize: 14,
-                    }}>
-                      Pas encore de photo
-                    </div>
-                  )}
-                </Link>
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <Link href={`/catalogue/${a.id}`}
-                    style={{
-                      color: MARINE, fontSize: 17, fontWeight: 700,
-                      textDecoration: "none", overflowWrap: "anywhere",
-                    }}>
-                    {a.nom}
-                  </Link>
-                  <p style={{ color: SOUS, fontSize: 13, margin: "2px 0 0" }}>
-                    {libelleCategorieArticle(a.categorie)}
-                    {a.marque ? ` · ${a.marque}` : ""}
-                  </p>
-                </div>
-
-                <p style={{ color: MARINE, fontSize: 18, fontWeight: 700, margin: 0 }}>
-                  {surMesure ? "dès " : ""}{Number(a.prix_vente).toFixed(2)} CHF
-                  <span style={{ color: SOUS, fontSize: 13, fontWeight: 400 }}> TTC</span>
-                </p>
-
-                <p style={{ color: couleurDispo, fontSize: 14, fontWeight: 600, margin: 0 }}>
-                  {dispo.libelle}
-                </p>
-
-                {surMesure ? (
-                  <Link
-                    href={`/catalogue/${a.id}`}
-                    style={{
-                      minHeight: CIBLE, display: "flex", alignItems: "center",
-                      justifyContent: "center", borderRadius: 12, border: "none",
-                      backgroundColor: VERT, color: "#FFFFFF", fontSize: 16, fontWeight: 700,
-                      textDecoration: "none",
-                    }}
-                  >
-                    🎨 Composer
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={dispo.etat === "epuise" || enCours === a.id}
-                    onClick={() => ajouter(a)}
-                    style={{
-                      minHeight: CIBLE, borderRadius: 12, border: "none",
-                      backgroundColor: dispo.etat === "epuise" ? "#C9CEDB" : VERT,
-                      color: "#FFFFFF", fontSize: 16, fontWeight: 700, fontFamily: "inherit",
-                      cursor: dispo.etat === "epuise" ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    {enCours === a.id ? "…" : dispo.etat === "epuise" ? "Épuisé" : "🛒 Ajouter"}
-                  </button>
-                )}
-              </article>
-            );
-          })}
+          {visibles.map((a) => <Carte key={a.id} a={a} />)}
         </div>
       )}
     </div>

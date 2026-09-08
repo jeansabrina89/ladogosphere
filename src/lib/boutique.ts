@@ -44,6 +44,12 @@ export type Article = {
   delai_fabrication_jours: number | null;
   composant: boolean;
   created_at: string;
+  /** APP 16 : ce que l'article MONTRE, distinct de `actif` qui dit s'il existe. */
+  statut_vitrine: string;
+  date_publication: string | null;
+  publier_a_l_entree_stock: boolean;
+  date_limite: string | null;
+  remise_membre_exclue: boolean;
 };
 
 export type MouvementStock = {
@@ -226,6 +232,18 @@ export async function enregistrerMouvement(m: {
     articleId: m.article_id,
     disponibleAvant,
     disponibleApres,
+  });
+
+  // La PUBLICATION À L'ENTRÉE DE STOCK se branche ici, et nulle part ailleurs :
+  // c'est déjà le seul endroit où le stock bouge, et la disponibilité d'avant
+  // et d'après est déjà sous la main. Elle ne peut pas faire échouer le
+  // mouvement — il est écrit, et `publierSiEntreeStock` ne lève pas.
+  const { publierSiEntreeStock } = await import("@/src/lib/publicationArticle");
+  await publierSiEntreeStock({
+    article,
+    disponibleAvant,
+    disponibleApres,
+    userId: m.user_id ?? null,
   });
 
   return { id: data.id as string, stock: Number(data.quantite_apres) };

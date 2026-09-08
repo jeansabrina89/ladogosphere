@@ -36,6 +36,8 @@ import {
 } from "@/src/lib/personnalisationLogique";
 import { lireCatalogueOptions } from "@/src/lib/personnalisation";
 import { articlesVendables } from "@/src/lib/vitrine";
+import { contextePrix, prixDe } from "@/src/lib/prix";
+import { remiseLigne as remiseLigneFigee } from "@/src/lib/prixLogique";
 import { etiquetteLigneTva, ventilerPanier } from "@/src/lib/tvaLogique";
 import { assujettieALaDate } from "@/src/lib/tva";
 import {
@@ -117,11 +119,27 @@ export async function ajouterAuPanier(articleId: string, quantite = 1): Promise<
     };
   }
 
-  const prix = Number(article.prix_vente);
+  // Le prix vient de la fonction unique : rubriques en cours et remise membre
+  // y sont arbitrées d'un seul endroit. Il sera relu à la validation — un
+  // panier peut dormir trois semaines — mais il est juste dès maintenant.
+  const ctx = await contextePrix();
+  const membre = await estMembreActif(supabaseAdmin, client.id);
+  const applicable = prixDe(ctx, article, { estMembre: membre });
+  const remise = remiseLigneFigee(applicable);
+  const prix = applicable.prixFinal;
+
   if (existante) {
     await supabaseAdmin
       .from("commandes_lignes")
-      .update({ quantite: voulue, montant: r2(voulue * prix) })
+      .update({
+        quantite: voulue,
+        prix_unitaire: prix,
+        montant: r2(voulue * prix),
+        prix_base: remise?.prix_base ?? null,
+        remise_pourcentage: remise?.remise_pourcentage ?? null,
+        remise_origine: remise?.remise_origine ?? null,
+        remise_libelle: remise?.remise_libelle ?? null,
+      })
       .eq("id", existante.id);
   } else {
     await supabaseAdmin.from("commandes_lignes").insert({
@@ -133,6 +151,10 @@ export async function ajouterAuPanier(articleId: string, quantite = 1): Promise<
       taux_tva: Number(article.taux_tva),
       secteur_tdfn: article.secteur_tdfn ?? "commerce",
       montant: r2(q * prix),
+      prix_base: remise?.prix_base ?? null,
+      remise_pourcentage: remise?.remise_pourcentage ?? null,
+      remise_origine: remise?.remise_origine ?? null,
+      remise_libelle: remise?.remise_libelle ?? null,
     });
   }
 
@@ -269,16 +291,17 @@ export async function confirmerCommande(entree: EntreeConfirmation): Promise<Ret
 
   // Un panier peut dormir trois semaines. On relit les prix D'AUJOURD'HUI
   // avant tout le reste : jamais de validation silencieuse à un autre prix.
-  const bouge = await recalculerAvantValidation(panier.id);
+  const bouge = await recalculerAvantValidation(panier.id, client.id);
   if (bouge) {
     rafraichir();
     return { error: bouge, recalcule: true };
   }
 
-  const [lignes, params, membre, resas] = await Promise.all([
+  // Les lignes portent déjà leur prix remisé et l'origine de leur remise : le
+  // recalcul ci-dessus vient de les y écrire.
+  const [lignes, params, resas] = await Promise.all([
     lignesPanier(panier.id),
     lireParametresEnLigne(),
-    estMembreActif(supabaseAdmin, client.id),
     reservationsAVenir(client.id, aujourdhuiISO()),
   ]);
 
@@ -312,12 +335,7 @@ export async function confirmerCommande(entree: EntreeConfirmation): Promise<Ret
   }
 
   const option = optionRemise(contexte, entree.mode_remise);
-  const total = totalCommande({
-    lignes,
-    estMembre: membre,
-    remisePourcent: params.remisePourcent,
-    fraisPort: option.frais,
-  });
+  const total = totalCommande({ lignes, fraisPort: option.frais });
 
   // Les articles configurés deviennent des commandes d'atelier, maintenant.
   const erreurAtelier = await creerCommandesAtelier(panier.id, client.id);
@@ -374,7 +392,10 @@ export async function confirmerCommande(entree: EntreeConfirmation): Promise<Ret
  *
  * Retourne null quand rien n'a bougé — le cas ordinaire.
  */
-async function recalculerAvantValidation(panierId: string): Promise<string | null> {
+async function recalculerAvantValidation(
+  panierId: string,
+  clientId: string
+): Promise<string | null> {
   const { data: brutes } = await supabaseAdmin
     .from("commandes_lignes")
     .select("id, article_id, libelle, quantite, prix_unitaire, configuration")
@@ -398,29 +419,47 @@ async function recalculerAvantValidation(panierId: string): Promise<string | nul
   const vendables = await articlesVendables(lignes.map((l) => l.article_id));
   const parId = new Map(vendables.map((a) => [a.id, a]));
 
+  // Le prix D'AUJOURD'HUI, c'est celui de la fonction unique : une action qui a
+  // commencé ou pris fin pendant que le panier dormait s'applique ici, et se
+  // fige à la confirmation.
+  const [ctx, membre] = await Promise.all([
+    contextePrix(),
+    estMembreActif(supabaseAdmin, clientId),
+  ]);
+
   const recalcul = recalculerPanier(
     lignes,
     lignes.map((l) => {
       const a = parId.get(l.article_id);
+      if (!a) return { id: l.article_id, nom: l.libelle, prix_vente: 0, disponible: false };
+      const applicable = prixDe(ctx, a, { estMembre: membre });
       return {
         id: l.article_id,
-        nom: a?.nom ?? l.libelle,
-        prix_vente: Number(a?.prix_vente ?? 0),
-        disponible: !!a,
+        nom: a.nom,
+        prix_vente: applicable.prixFinal,
+        disponible: true,
+        remise: remiseLigneFigee(applicable),
       };
     })
   );
-  if (!recalcul.aSignaler) return null;
 
   // Le panier est mis à jour AVANT de répondre : la page qui se rafraîchit
-  // montre déjà les prix corrigés et le panier allégé.
+  // montre déjà les prix corrigés et le panier allégé. La remise se réécrit
+  // même quand le prix ne bouge pas — son origine a pu changer.
   for (const l of recalcul.lignes) {
-    if (r2(l.prix_actuel) === r2(l.prix_unitaire)) continue;
     await supabaseAdmin
       .from("commandes_lignes")
-      .update({ prix_unitaire: l.prix_actuel, montant: r2(l.quantite * l.prix_actuel) })
+      .update({
+        prix_unitaire: l.prix_actuel,
+        montant: r2(l.quantite * l.prix_actuel),
+        prix_base: l.remise?.prix_base ?? null,
+        remise_pourcentage: l.remise?.remise_pourcentage ?? null,
+        remise_origine: l.remise?.remise_origine ?? null,
+        remise_libelle: l.remise?.remise_libelle ?? null,
+      })
       .eq("id", l.id);
   }
+  if (!recalcul.aSignaler) return null;
 
   const sortis = lignes
     .filter((l) => !recalcul.lignes.some((r) => r.id === l.id))
@@ -503,7 +542,10 @@ async function emettreFactureCommande(
   const commande = await lireCommande(commandeId);
   const { data: lignes } = await supabaseAdmin
     .from("commandes_lignes")
-    .select("libelle, quantite, prix_unitaire, taux_tva, secteur_tdfn, montant")
+    .select(
+      "libelle, quantite, prix_unitaire, taux_tva, secteur_tdfn, montant, " +
+      "prix_base, remise_pourcentage, remise_origine, remise_libelle"
+    )
     .eq("commande_id", commandeId)
     .order("created_at");
 
@@ -522,6 +564,8 @@ async function emettreFactureCommande(
   const lignesBrutes = ((lignes ?? []) as unknown as {
     libelle: string; quantite: number | string; prix_unitaire: number | string;
     taux_tva: number | string; secteur_tdfn: string | null; montant: number | string;
+    prix_base: number | string | null; remise_pourcentage: number | string | null;
+    remise_origine: string | null; remise_libelle: string | null;
   }[]);
 
   // Une entreprise NON assujettie n'émet aucune trace de taux : ni en pied de
@@ -541,26 +585,30 @@ async function emettreFactureCommande(
     compte_produit: "3200",
     taux_tva: l.taux_tva,
     secteur_tdfn: l.secteur_tdfn ?? "commerce",
+    // La remise de ligne voyage avec sa ligne : elle a déjà diminué la base au
+    // taux de CETTE ligne, elle ne passe pas par le prorata du panier.
+    prix_base: l.prix_base,
+    remise_pourcentage: l.remise_pourcentage,
+    remise_origine: l.remise_origine,
+    remise_libelle: l.remise_libelle,
   }));
 
-  const remise = Number(commande?.remise_membre ?? 0);
   const port = Number(commande?.frais_port ?? 0);
 
   /*
-   * Le port et la remise ne partent plus à 0 % : ils se RÉPARTISSENT par taux,
-   * au prorata des montants hors taxe, par la fonction unique de ventilation.
+   * Le PORT se répartit par taux, au prorata des montants hors taxe, par la
+   * fonction unique de ventilation : il suit les marchandises qu'il transporte.
    *
-   * Le port suit les marchandises qu'il transporte ; la remise n'a pas de taux
-   * à elle, elle diminue la base de chacun. Un panier croquettes + collier
-   * produit donc deux lignes de port et deux lignes de remise — c'est plus
-   * bavard sur la facture, mais c'est ce que la loi demande, et c'est la seule
-   * façon d'avoir une ventilation juste en pied de pièce.
+   * Les REMISES, elles, ne passent plus par là depuis APP 16 : chacune a
+   * diminué la base de sa propre ligne, au taux de cette ligne. Les deux
+   * mécanismes cohabitent dans la même facture sans se marcher dessus — la
+   * ventilation de pied reste juste parce qu'elle part des montants nets.
    */
-  if (remise > 0 || port > 0) {
+  if (port > 0) {
     const ventilation = ventilerPanier({
       lignes: lignesCommande.map((l) => ({ montant: l.montant, taux_tva: l.taux_tva })),
       port,
-      remise,
+      remise: 0,
     });
 
     // Le taux ne s'affiche dans le libellé que s'il y en a plusieurs à
@@ -570,16 +618,6 @@ async function emettreFactureCommande(
     const nommerLeTaux = avecTva && ventilation.parts.filter((p) => p.ttc !== 0).length > 1;
     const suffixe = (taux: number) => (nommerLeTaux ? ` (${etiquetteLigneTva(taux)})` : "");
 
-    for (const part of ventilation.parts) {
-      if (part.remise > 0) {
-        aInserer.push({
-          facture_id: facture.id, ordre: ++ordre,
-          libelle: `Remise membre${suffixe(part.taux)}`,
-          quantite: 1, prix_unitaire: -part.remise, compte_produit: "3800",
-          taux_tva: part.taux, secteur_tdfn: "commerce",
-        });
-      }
-    }
     for (const part of ventilation.parts) {
       if (part.port > 0) {
         aInserer.push({

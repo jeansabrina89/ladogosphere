@@ -71,6 +71,10 @@ export async function genererTicket(
     quantite: Number(l.quantite),
     prix_unitaire: Number(l.prix_unitaire),
     montant: Number(l.montant),
+    // La remise est RELUE de la ligne de vente, jamais recalculée : une action
+    // terminée depuis ne change rien à un ticket déjà imprimé.
+    prix_base: l.prix_base === null || l.prix_base === undefined ? null : Number(l.prix_base),
+    remise_libelle: l.remise_libelle ?? null,
   }));
 
   // Chaque ligne porte le taux figé au moment de la vente. La ventilation se

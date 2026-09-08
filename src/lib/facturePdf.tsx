@@ -1,3 +1,4 @@
+import { pourPdf } from "@/src/lib/texteWinAnsi";
 import React from "react";
 import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
 import { BulletinQr } from "@/src/lib/svgQrVersPdf";
@@ -44,6 +45,13 @@ export type LignePdf = {
   quantite: number;
   prix_unitaire: number;
   montant: number;
+  /**
+   * La remise figée à l'émission. La ligne dit alors les TROIS chiffres : le
+   * prix de base réel, la remise avec son origine nommée, et le prix payé. Une
+   * facture qui ne montrerait que le prix payé cacherait ce qu'elle a accordé.
+   */
+  prix_base?: number | null;
+  remise_libelle?: string | null;
 };
 
 export type FacturePdfProps = {
@@ -160,7 +168,15 @@ export function FacturePdf(p: FacturePdfProps) {
         </View>
         {p.lignes.map((l, i) => (
           <View key={i} style={s.tableLigne} wrap={false}>
-            <Text style={s.colLibelle}>{l.libelle}</Text>
+            <View style={s.colLibelle}>
+              <Text>{pourPdf(l.libelle)}</Text>
+              {l.remise_libelle ? (
+                <Text style={{ fontSize: 7.5, color: GRIS }}>
+                  {l.prix_base != null ? `Prix de base ${chf(Number(l.prix_base))} · ` : ""}
+                  {pourPdf(l.remise_libelle)}
+                </Text>
+              ) : null}
+            </View>
             <Text style={s.colQte}>{l.quantite}</Text>
             <Text style={s.colPu}>{chf(l.prix_unitaire)}</Text>
             <Text style={s.colMontant}>{chf(l.montant)}</Text>
@@ -173,12 +189,12 @@ export function FacturePdf(p: FacturePdfProps) {
           </View>
           {p.acomptes > 0 && (
             <View style={s.ligneTotal}>
-              <Text>Acomptes déjà versés</Text><Text>− {chf(p.acomptes)} CHF</Text>
+              <Text>Acomptes déjà versés</Text><Text>{pourPdf("− ")}{chf(p.acomptes)} CHF</Text>
             </View>
           )}
           {p.dejaPaye > 0 && (
             <View style={s.ligneTotal}>
-              <Text>Déjà payé</Text><Text>− {chf(p.dejaPaye)} CHF</Text>
+              <Text>Déjà payé</Text><Text>{pourPdf("− ")}{chf(p.dejaPaye)} CHF</Text>
             </View>
           )}
           <View style={s.ligneTotalFort}>
@@ -202,7 +218,7 @@ export function FacturePdf(p: FacturePdfProps) {
             </View>
             {p.tva.lignes.map((l, i) => (
               <View key={i} style={s.ligneTotal}>
-                <Text>{l.etiquette} sur {chf(l.base)}</Text>
+                <Text>{pourPdf(l.etiquette)} sur {chf(l.base)}</Text>
                 <Text>{chf(l.tva)} CHF</Text>
               </View>
             ))}
@@ -213,7 +229,7 @@ export function FacturePdf(p: FacturePdfProps) {
             {/* Une ligne à 0 % sans explication est incompréhensible : le motif
                 saisi dans les réglages est repris ici, mot pour mot. */}
             {(p.tva.motifs ?? []).map((m, i) => (
-              <Text key={i} style={s.motifTva}>{m}</Text>
+              <Text key={i} style={s.motifTva}>{pourPdf(m)}</Text>
             ))}
           </View>
         )}
@@ -221,11 +237,11 @@ export function FacturePdf(p: FacturePdfProps) {
         {p.motif ? (
           <View style={s.motif}>
             <Text style={s.gras}>Motif</Text>
-            <Text>{p.motif}</Text>
+            <Text>{pourPdf(p.motif)}</Text>
           </View>
         ) : null}
 
-        <Text style={s.mention}>{p.emetteur.mentionTva}</Text>
+        <Text style={s.mention}>{pourPdf(p.emetteur.mentionTva)}</Text>
         {!estAvoir && (
           <Text style={s.mention}>Payable à {p.delaiJours} jours, sans escompte.</Text>
         )}

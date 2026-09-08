@@ -71,7 +71,28 @@ export type LignePanier = {
   type_article?: string | null;
   /** Stock disponible au moment de l'affichage, pour prévenir tôt. */
   stock_disponible?: number | null;
+  /**
+   * APP 16 : la remise se pose SUR LA LIGNE, pas sur le panier.
+   *
+   * `prix_unitaire` est ce qui est réellement payé ; `prix_base` est le prix
+   * pratiqué hors action, et il n'est jamais gonflé pour grossir l'écart.
+   */
+  prix_base?: number | string | null;
+  remise_pourcentage?: number | string | null;
+  remise_origine?: string | null;
+  remise_libelle?: string | null;
 };
+
+/** Le prix de base d'une ligne : celui figé s'il existe, sinon le prix payé. */
+export function prixBaseLigne(l: LignePanier): number {
+  const base = nb(l.prix_base);
+  return r2(base === null ? Number(l.prix_unitaire ?? 0) : base);
+}
+
+/** Ce que la remise enlève sur cette ligne, quantité comprise. */
+export function remiseLigne(l: LignePanier): number {
+  return r2(Number(l.quantite) * (prixBaseLigne(l) - r2(Number(l.prix_unitaire ?? 0))));
+}
 
 export function montantLigne(l: LignePanier): number {
   return r2(Number(l.quantite) * Number(l.prix_unitaire ?? 0));
@@ -88,22 +109,44 @@ export function nombreArticles(lignes: LignePanier[]): number {
 // ── Remise membre ──────────────────────────────────────────────────────────
 
 /**
- * La remise d'adhésion, sur une ligne à elle. Jamais fondue dans les prix :
- * le client doit voir ce que son adhésion lui rapporte, et retrouver le prix
- * public de chaque article.
+ * Ce que les remises de ligne enlèvent au total, tous motifs confondus.
+ *
+ * Depuis APP 16 la remise n'est plus un rabais de PANIER : elle se pose sur
+ * chaque ligne, parce qu'une action et la remise membre ne s'additionnent pas
+ * et que l'arbitrage se fait article par article. Le client voit toujours ce
+ * qu'il économise, et il retrouve toujours le prix de base de chaque article —
+ * la promesse n'a pas changé, seul l'endroit du calcul a changé.
  *
  * Elle porte sur les articles, pas sur le port : la Poste ne fait pas de
  * remise aux membres.
  */
-export function remiseMembre(
-  lignes: LignePanier[],
-  estMembre: boolean,
-  pourcent: number | string | null | undefined
-): number {
-  if (!estMembre) return 0;
-  const taux = nb(pourcent) ?? 0;
-  if (taux <= 0) return 0;
-  return r2((sousTotal(lignes) * taux) / 100);
+export function remiseTotale(lignes: LignePanier[]): number {
+  return r2(lignes.reduce((s, l) => s + remiseLigne(l), 0));
+}
+
+/** Le total AU PRIX DE BASE, avant les remises de ligne. */
+export function sousTotalBase(lignes: LignePanier[]): number {
+  return r2(lignes.reduce((s, l) => s + r2(Number(l.quantite) * prixBaseLigne(l)), 0));
+}
+
+/**
+ * Les remises regroupées par ORIGINE, pour le récapitulatif du panier.
+ *
+ * Un panier peut porter une action sur une ligne et la remise membre sur les
+ * autres : chacune se nomme, chacune s'additionne de son côté. Une remise
+ * anonyme n'apprend rien au client.
+ */
+export function remisesParOrigine(
+  lignes: LignePanier[]
+): { libelle: string; montant: number }[] {
+  const parLibelle = new Map<string, number>();
+  for (const l of lignes) {
+    const montant = remiseLigne(l);
+    if (montant <= 0) continue;
+    const libelle = String(l.remise_libelle ?? "").trim() || "Remise";
+    parLibelle.set(libelle, r2((parLibelle.get(libelle) ?? 0) + montant));
+  }
+  return [...parLibelle].map(([libelle, montant]) => ({ libelle, montant }));
 }
 
 export function libelleRemiseMembre(pourcent: number | string | null | undefined): string {
@@ -250,7 +293,9 @@ export function formatPoids(grammes: number): string {
 // ── Le total ───────────────────────────────────────────────────────────────
 
 export type Total = {
+  /** Les articles à leur prix de base — celui pratiqué hors action. */
   sousTotal: number;
+  /** Ce que les remises de ligne enlèvent, tous motifs confondus. */
   remise: number;
   port: number;
   aPayer: number;
@@ -258,19 +303,21 @@ export type Total = {
 
 /**
  * Le total, ligne par ligne, dans l'ordre où il se lit : les articles, ce que
- * l'adhésion enlève, ce que la Poste ajoute. Aucun de ces trois n'est fondu
+ * les remises enlèvent, ce que la Poste ajoute. Aucun de ces trois n'est fondu
  * dans un autre.
+ *
+ * Les remises sont déjà DANS les lignes — c'est `prixApplicable` qui les y a
+ * mises. Ici on ne fait que les additionner pour les montrer : le total à payer
+ * reste la somme des lignes plus le port, et rien n'est retiré deux fois.
  */
 export function totalCommande(p: {
   lignes: LignePanier[];
-  estMembre: boolean;
-  remisePourcent: number | string | null | undefined;
   fraisPort: number | null;
 }): Total {
-  const st = sousTotal(p.lignes);
-  const remise = remiseMembre(p.lignes, p.estMembre, p.remisePourcent);
+  const base = sousTotalBase(p.lignes);
+  const remise = remiseTotale(p.lignes);
   const port = r2(Math.max(p.fraisPort ?? 0, 0));
-  return { sousTotal: st, remise, port, aPayer: r2(st - remise + port) };
+  return { sousTotal: base, remise, port, aPayer: r2(base - remise + port) };
 }
 
 // ── Refus de confirmation ──────────────────────────────────────────────────

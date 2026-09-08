@@ -20,6 +20,11 @@ import {
   type ModeReglementVente,
 } from "@/src/lib/caisseLogique";
 import { urlPhotoArticle } from "@/src/lib/boutiqueLogique";
+import {
+  prixDansContexte,
+  remiseLigne,
+  type ContextePrixPlat,
+} from "@/src/lib/prixLogique";
 
 /**
  * Caisse au comptoir.
@@ -46,9 +51,12 @@ type Etape = "panier" | "paiement" | "fait";
 
 export default function Caisse({
   articles,
+  contexte,
   peutFacturer,
 }: {
   articles: ArticleVendable[];
+  /** Rubriques en cours et remise membre par catégorie, mises à plat. */
+  contexte: ContextePrixPlat;
   /** « Sur la facture du client » demande en plus perm_encaissements. */
   peutFacturer: boolean;
 }) {
@@ -74,6 +82,35 @@ export default function Caisse({
   const encaissement = encaissementVente(total, mode ?? "carte");
   const rendu = rendreMonnaie(encaissement.aRegler, lireMontant(recu));
 
+  /**
+   * Le prix d'un article, ici et maintenant, pour la personne au comptoir.
+   *
+   * C'est la MÊME fonction que celle du serveur : la caisse ne recalcule rien
+   * à sa façon, elle appelle `prixApplicable` avec le contexte reçu. Le serveur
+   * refera le calcul à la validation — c'est lui qui a le dernier mot — mais
+   * les deux ne peuvent pas diverger, puisqu'il n'y en a qu'un.
+   */
+  const prixDe = useCallback(
+    (article: ArticleVendable) =>
+      prixDansContexte(contexte, article, { estMembre: client?.estMembre === true }),
+    [contexte, client]
+  );
+
+  // L'adhésion change les prix : le panier se refait quand le client change.
+  // Les quantités ne bougent pas — seul le prix suit.
+  const [membreVu, setMembreVu] = useState(client?.estMembre === true);
+  if ((client?.estMembre === true) !== membreVu) {
+    setMembreVu(client?.estMembre === true);
+    setPanier((actuel) =>
+      actuel.map((l) => {
+        const article = articles.find((a) => a.id === l.article_id);
+        if (!article) return l;
+        const prix = prixDansContexte(contexte, article, { estMembre: client?.estMembre === true });
+        return changerQuantite(ligneDepuisArticle(article, 1, remiseLigne(prix)), l.quantite);
+      })
+    );
+  }
+
   const rendreFocus = useCallback(() => {
     // La douchette tape dans ce champ : il ne doit jamais le perdre.
     window.setTimeout(() => champRecherche.current?.focus(), 0);
@@ -93,14 +130,14 @@ export default function Caisse({
     setErreur(null);
     setPanier((actuel) => {
       const i = actuel.findIndex((l) => l.article_id === article.id);
-      if (i === -1) return [...actuel, ligneDepuisArticle(article, 1)];
+      if (i === -1) return [...actuel, ligneDepuisArticle(article, 1, remiseLigne(prixDe(article)))];
       const suite = [...actuel];
       suite[i] = changerQuantite(suite[i], suite[i].quantite + 1);
       return suite;
     });
     setRecherche("");
     rendreFocus();
-  }, [rendreFocus]);
+  }, [rendreFocus, prixDe]);
 
   function surEntree(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key !== "Enter") return;
@@ -243,6 +280,10 @@ export default function Caisse({
             textDecoration: "none",
           };
 
+          // Le prix comparatif est le prix de BASE RÉEL, jamais un « prix
+          // habituel » fabriqué pour grossir la remise.
+          const prix = prixDe(a);
+
           const contenu = (
             <>
               <Vignette article={a} />
@@ -251,9 +292,21 @@ export default function Caisse({
                 <span style={{ display: "block", color: SOUS, fontSize: 13 }}>
                   {a.reference} · {surMesure ? "sur mesure — à configurer" : `reste ${stock - dansPanier} ${a.unite}`}
                 </span>
+                {prix.libelle && (
+                  <span style={{ display: "block", color: "#8A5A1F", fontSize: 13, fontWeight: 700 }}>
+                    {prix.libelle}
+                  </span>
+                )}
               </span>
-              <span style={{ color: MARINE, fontSize: 17, fontWeight: 700, whiteSpace: "nowrap" }}>
-                {surMesure ? "dès " : ""}{chf(Number(a.prix_vente))}
+              <span style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                {prix.libelle && !surMesure && (
+                  <span style={{ display: "block", color: SOUS, fontSize: 13, textDecoration: "line-through" }}>
+                    {chf(prix.prixBase)}
+                  </span>
+                )}
+                <span style={{ color: MARINE, fontSize: 17, fontWeight: 700 }}>
+                  {surMesure ? "dès " : ""}{chf(surMesure ? Number(a.prix_vente) : prix.prixFinal)}
+                </span>
               </span>
             </>
           );
@@ -300,7 +353,17 @@ export default function Caisse({
                     </span>
                     <span style={{ display: "block", color: SOUS, fontSize: 13 }}>
                       {l.quantite} × {chf(l.prix_unitaire)}
+                      {l.prix_base != null && l.prix_base !== l.prix_unitaire && (
+                        <span style={{ textDecoration: "line-through", marginLeft: 6 }}>
+                          {chf(Number(l.prix_base))}
+                        </span>
+                      )}
                     </span>
+                    {l.remise_libelle && (
+                      <span style={{ display: "block", color: "#8A5A1F", fontSize: 12, fontWeight: 700 }}>
+                        {l.remise_libelle}
+                      </span>
+                    )}
                   </span>
 
                   <button type="button" onClick={() => modifier(l.article_id, -1)}

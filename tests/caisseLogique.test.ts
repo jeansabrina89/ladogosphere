@@ -201,7 +201,13 @@ describe("retour partiel", () => {
     expect(retour.lignes).toEqual([
       // Le retour reprend AUSSI le secteur de la ligne vendue : il servira
       // au décompte TVA, et un retour se ventile comme la vente qu'il corrige.
-      { article_id: "a1", libelle: "Croquettes agneau 12 kg", quantite: -1, prix_unitaire: 79.9, taux_tva: 2.6, motif_tva: null, secteur_tdfn: "commerce", montant: -79.9 },
+      {
+        article_id: "a1", libelle: "Croquettes agneau 12 kg", quantite: -1,
+        prix_unitaire: 79.9, taux_tva: 2.6, motif_tva: null, secteur_tdfn: "commerce",
+        montant: -79.9,
+        // Aucune remise sur la vente d'origine : le retour n'en invente pas.
+        prix_base: null, remise_pourcentage: null, remise_origine: null, remise_libelle: null,
+      },
     ]);
     expect(retour.total).toBe(-79.9);
   });

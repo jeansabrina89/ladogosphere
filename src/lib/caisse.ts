@@ -2,6 +2,9 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { assujettieALaDate } from "@/src/lib/tva";
 import { synchroniserComptaFacture } from "@/src/lib/comptaFacture";
+import { estMembreActif } from "@/src/lib/membre";
+import { contextePrix, prixDe } from "@/src/lib/prix";
+import { remiseLigne } from "@/src/lib/prixLogique";
 import {
   ligneDepuisArticle,
   changerQuantite,
@@ -60,7 +63,8 @@ const COLONNES_VENTE = `
 `;
 
 const COLONNES_LIGNE = `
-  id, vente_id, article_id, libelle, quantite, prix_unitaire, taux_tva, motif_tva, secteur_tdfn, montant
+  id, vente_id, article_id, libelle, quantite, prix_unitaire, taux_tva, motif_tva, secteur_tdfn, montant,
+  prix_base, remise_pourcentage, remise_origine, remise_libelle
 `;
 
 export async function lireVente(id: string): Promise<Vente | null> {
@@ -104,14 +108,21 @@ export async function listerVentes(filtres?: {
   return (data ?? []) as unknown as Vente[];
 }
 
-/** Catalogue de la caisse : ce qui est actif, avec son stock du moment. */
+/**
+ * Catalogue de la caisse : ce qui est actif, avec son stock du moment.
+ *
+ * Un BROUILLON n'y figure pas — il n'est vendable nulle part, pas même au
+ * comptoir. Un article MASQUÉ, si : c'est exactement ce qu'on lui demande,
+ * disparaître des yeux des clients sans quitter le comptoir.
+ */
 export async function articlesVendables(): Promise<ArticleVendable[]> {
   const { data } = await supabaseAdmin
     .from("articles")
-    .select("id, nom, reference, code_barres, prix_vente, taux_tva, motif_tva, secteur_tdfn, stock_actuel, unite, photo_path, type_article")
+    .select("id, nom, reference, code_barres, prix_vente, taux_tva, motif_tva, secteur_tdfn, stock_actuel, unite, photo_path, type_article, categorie, remise_membre_exclue, date_limite, statut_vitrine")
     .eq("actif", true)
     // Une fourniture se stocke mais ne se vend pas seule : elle n'entre pas en caisse.
     .eq("composant", false)
+    .neq("statut_vitrine", "brouillon")
     .order("nom");
   return (data ?? []) as unknown as ArticleVendable[];
 }
@@ -232,10 +243,12 @@ export async function finaliserVente(entree: EntreeVente): Promise<ResultatVente
   const ids = [...new Set(entree.lignes.map((l) => l.article_id))];
   const { data: articles } = await supabaseAdmin
     .from("articles")
-    .select("id, nom, reference, code_barres, prix_vente, taux_tva, motif_tva, secteur_tdfn, stock_actuel, unite, photo_path, type_article")
+    .select("id, nom, reference, code_barres, prix_vente, taux_tva, motif_tva, secteur_tdfn, stock_actuel, unite, photo_path, type_article, categorie, remise_membre_exclue, date_limite, statut_vitrine")
     .in("id", ids)
     .eq("actif", true)
-    .eq("composant", false);
+    .eq("composant", false)
+    // Un brouillon ne se vend pas, même en tapant son identifiant à la main.
+    .neq("statut_vitrine", "brouillon");
 
   const parId = new Map((articles ?? []).map((a) => [a.id as string, a as unknown as ArticleVendable]));
 
@@ -245,11 +258,24 @@ export async function finaliserVente(entree: EntreeVente): Promise<ResultatVente
   // l'entreprise n'est pas assujettie. Un ticket d'avant l'assujettissement ne
   // doit garder aucune trace de TVA, pas même dans une colonne.
   const avecTva = await assujettieALaDate(aujourdhuiISO());
+
+  // Le PRIX aussi se fige ici, et il vient de la fonction unique : rubriques en
+  // cours et remise membre y sont arbitrées d'un seul endroit. Une action qui
+  // se terminera demain ne changera rien à ce ticket.
+  const [ctx, membre] = await Promise.all([
+    contextePrix(aujourdhuiISO()),
+    entree.client_id ? estMembreActif(supabaseAdmin, entree.client_id) : Promise.resolve(false),
+  ]);
+  const client = { estMembre: membre };
+
   const panier: LignePanier[] = [];
   for (const l of entree.lignes) {
     const article = parId.get(l.article_id);
     if (!article) return { error: "Un article du panier n'existe plus ou a été retiré de la vente." };
-    const ligne = changerQuantite(ligneDepuisArticle(article), l.quantite);
+    const ligne = changerQuantite(
+      ligneDepuisArticle(article, 1, remiseLigne(prixDe(ctx, article, client))),
+      l.quantite
+    );
     panier.push(avecTva ? ligne : { ...ligne, taux_tva: 0, motif_tva: null });
   }
 
@@ -289,6 +315,10 @@ export async function finaliserVente(entree: EntreeVente): Promise<ResultatVente
       motif_tva: l.motif_tva,
       secteur_tdfn: l.secteur_tdfn,
       montant: l.montant,
+      prix_base: l.prix_base,
+      remise_pourcentage: l.remise_pourcentage,
+      remise_origine: l.remise_origine,
+      remise_libelle: l.remise_libelle,
     })),
     p_total: total,
     p_arrondi: arrondi,

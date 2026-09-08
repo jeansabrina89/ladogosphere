@@ -141,7 +141,7 @@ export default function CarteCommandeEnLigne({ commande }: { commande: CommandeA
 
       {(commande.remise_membre > 0 || commande.frais_port > 0) && (
         <p style={{ color: SOUS, fontSize: 14, margin: "0 0 10px" }}>
-          {commande.remise_membre > 0 ? `Remise membre −${chf(commande.remise_membre)}` : ""}
+          {commande.remise_membre > 0 ? `Remises −${chf(commande.remise_membre)}` : ""}
           {commande.remise_membre > 0 && commande.frais_port > 0 ? " · " : ""}
           {commande.frais_port > 0 ? `Port ${chf(commande.frais_port)}` : ""}
         </p>

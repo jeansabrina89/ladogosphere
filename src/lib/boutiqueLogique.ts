@@ -417,7 +417,9 @@ const COLONNES_COMMUNES = `
   id, reference, nom, description, categorie, marque, taux_tva, secteur_tdfn,
   prix_vente, stock_actuel, stock_alerte, unite, code_barres,
   photo_path, actif, vendable_en_ligne, type_article, delai_fabrication_jours,
-  composant, created_at, poids_grammes, expediable, stock_reserve
+  composant, created_at, poids_grammes, expediable, stock_reserve,
+  statut_vitrine, date_publication, publier_a_l_entree_stock, date_limite,
+  remise_membre_exclue
 `;
 
 /**

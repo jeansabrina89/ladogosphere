@@ -5,6 +5,7 @@ import {
   type PalierPort,
   type StatutCommandeLigne,
 } from "@/src/lib/venteEnLigneLogique";
+import { publierCeQuiEstDu } from "@/src/lib/publicationArticle";
 
 /**
  * Vente en ligne — couche base. Elle ne décide rien : les règles viennent de
@@ -53,11 +54,16 @@ export type LigneCommande = {
   prix_unitaire: number | string;
   taux_tva: number | string;
   montant: number | string;
+  prix_base: number | string | null;
+  remise_pourcentage: number | string | null;
+  remise_origine: string | null;
+  remise_libelle: string | null;
 };
 
 const COLONNES_LIGNE = `
   id, commande_id, article_id, commande_personnalisee_id, libelle,
-  quantite, prix_unitaire, taux_tva, secteur_tdfn, montant
+  quantite, prix_unitaire, taux_tva, secteur_tdfn, montant,
+  prix_base, remise_pourcentage, remise_origine, remise_libelle
 `;
 
 // ── Paramètres de la boutique en ligne ─────────────────────────────────────
@@ -117,12 +123,15 @@ export type ArticleEnLigne = {
   stock_reserve: number | string;
   /** Ce qui reste vraiment commandable : l'actuel moins ce qui est promis. */
   stock_disponible: number;
+  /** Anti-gaspillage : « À écouler avant le 12 octobre ». */
+  date_limite: string | null;
+  remise_membre_exclue: boolean;
 };
 
 const COLONNES_ARTICLE = `
   id, reference, nom, description, categorie, marque, prix_vente, taux_tva, secteur_tdfn, unite,
   photo_path, type_article, delai_fabrication_jours, poids_grammes, expediable,
-  stock_actuel, stock_reserve
+  stock_actuel, stock_reserve, date_limite, remise_membre_exclue
 `;
 
 function avecDisponible(a: Record<string, unknown>): ArticleEnLigne {
@@ -130,19 +139,34 @@ function avecDisponible(a: Record<string, unknown>): ArticleEnLigne {
   return { ...(a as unknown as ArticleEnLigne), stock_disponible: Math.max(dispo, 0) };
 }
 
-/** Le catalogue proposé en ligne : actif, vendable en ligne, jamais un composant. */
+/**
+ * Le catalogue proposé en ligne : actif, vendable en ligne, jamais un
+ * composant — et PUBLIÉ.
+ *
+ * Un brouillon n'existe pour personne ; un article masqué disparaît des yeux
+ * du client tout en restant vendable au comptoir. Le filtre est dans la
+ * requête, comme dans la vue `articles_vitrine` : ce qu'un client n'a pas à
+ * voir ne doit pas quitter la base.
+ */
+const FILTRE_PUBLICATION = () =>
+  `date_publication.is.null,date_publication.lte.${new Date().toISOString()}`;
+
 export async function catalogueEnLigne(): Promise<ArticleEnLigne[]> {
+  await publierCeQuiEstDu();
   const { data } = await supabaseAdmin
     .from("articles")
     .select(COLONNES_ARTICLE)
     .eq("actif", true)
     .eq("vendable_en_ligne", true)
     .eq("composant", false)
+    .eq("statut_vitrine", "publie")
+    .or(FILTRE_PUBLICATION())
     .order("nom");
   return ((data ?? []) as unknown as Record<string, unknown>[]).map(avecDisponible);
 }
 
 export async function articleEnLigne(id: string): Promise<ArticleEnLigne | null> {
+  await publierCeQuiEstDu();
   const { data } = await supabaseAdmin
     .from("articles")
     .select(COLONNES_ARTICLE)
@@ -150,6 +174,8 @@ export async function articleEnLigne(id: string): Promise<ArticleEnLigne | null>
     .eq("actif", true)
     .eq("vendable_en_ligne", true)
     .eq("composant", false)
+    .eq("statut_vitrine", "publie")
+    .or(FILTRE_PUBLICATION())
     .maybeSingle();
   return data ? avecDisponible(data as unknown as Record<string, unknown>) : null;
 }
@@ -227,6 +253,12 @@ export async function lignesPanier(commandeId: string): Promise<LignePanier[]> {
       expediable: a?.expediable !== false,
       type_article: (a?.type_article as string) ?? "standard",
       stock_disponible: Math.max(dispo, 0),
+      // La remise figée à la mise au panier voyage avec la ligne : le client
+      // retrouve le prix de base et l'origine, ici comme sur la facture.
+      prix_base: l.prix_base,
+      remise_pourcentage: l.remise_pourcentage,
+      remise_origine: l.remise_origine,
+      remise_libelle: l.remise_libelle,
     };
   });
 }
