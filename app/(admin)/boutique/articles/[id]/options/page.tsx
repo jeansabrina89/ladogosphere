@@ -23,7 +23,7 @@ export default async function OptionsArticlePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await exigerAccesAdmin("perm_boutique");
+  await exigerAccesAdmin("perm_boutique_gestion");
   const { id } = await params;
 
   const article = await lireArticle(id);

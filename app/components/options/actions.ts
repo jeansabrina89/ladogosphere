@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { verifierPermission } from "@/src/lib/verifierPermission";
+import { verifierPermissionBoutique } from "@/src/lib/permissions";
 import { dupliquerOptions } from "@/src/lib/personnalisation";
 import {
   normaliserCouleur,
@@ -13,7 +13,7 @@ import {
 import { BUCKET_PHOTOS } from "@/src/lib/imageBoutique";
 
 /**
- * Catalogue d'options d'un article personnalisable. Tout exige perm_boutique
+ * Catalogue d'options d'un article personnalisable. Tout exige « Boutique — gestion »
  * (l'admin l'a d'office), et tout renvoie son refus plutôt que de le lancer :
  * une exception d'action serveur est masquée en production.
  */
@@ -23,7 +23,7 @@ export type Retour = { error?: string; message?: string; id?: string };
 const TYPES: TypeGroupe[] = ["liste", "couleur", "texte", "booleen", "mesure"];
 
 async function garde(): Promise<{ userId?: string; erreur?: string }> {
-  const verif = await verifierPermission("perm_boutique");
+  const verif = await verifierPermissionBoutique("gestion");
   if (verif.error) return { erreur: verif.error };
   return { userId: verif.userId };
 }

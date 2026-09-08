@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { listerArticles, type Article } from "@/src/lib/boutique";
+import { listerArticlesSelonNiveau, type Article } from "@/src/lib/boutique";
 import {
   libelleCategorieArticle,
   formatQuantite,
@@ -73,7 +73,9 @@ export default async function ArticlesPage({
     q?: string; categorie?: string; fournisseur?: string; seuil?: string; inactifs?: string;
   }>;
 }) {
-  await exigerAccesAdmin("perm_boutique");
+  const acces = await exigerAccesAdmin("perm_boutique_vente");
+  // Le niveau vient de la garde, jamais du navigateur.
+  const gestion = acces.permissions.perm_boutique_gestion === true;
 
   const params = await searchParams;
   const recherche = (params.q ?? "").trim().toLowerCase();
@@ -82,10 +84,15 @@ export default async function ArticlesPage({
   const seulementSousSeuil = params.seuil === "1";
   const avecInactifs = params.inactifs === "1";
 
-  const [tous, { data: fournisseurs }] = await Promise.all([
-    listerArticles(),
-    supabaseAdmin.from("fournisseurs").select("id, nom").eq("actif", true).order("nom"),
+  // Sans la gestion, ni prix d'achat ni fournisseur ne quittent la base :
+  // le filtrage est dans le SELECT, pas à l'affichage.
+  const [tousBruts, { data: fournisseurs }] = await Promise.all([
+    listerArticlesSelonNiveau(gestion ? "gestion" : "vente"),
+    gestion
+      ? supabaseAdmin.from("fournisseurs").select("id, nom").eq("actif", true).order("nom")
+      : Promise.resolve({ data: [] as { id: string; nom: string }[] }),
   ]);
+  const tous = tousBruts as Article[];
 
   const nomFournisseur = new Map(
     (fournisseurs ?? []).map((f) => [f.id as string, f.nom as string])
@@ -104,7 +111,7 @@ export default async function ArticlesPage({
 
   const actifs = tous.filter((a) => a.actif);
   const nbSousSeuil = actifs.filter(sousLeSeuil).length;
-  const valeur = valeurStock(actifs);
+  const valeur = gestion ? valeurStock(actifs) : 0;
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -114,8 +121,12 @@ export default async function ArticlesPage({
           sousTitre={`${articles.length} article${articles.length > 1 ? "s" : ""} affiché${articles.length > 1 ? "s" : ""}`}
           action={
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <Bouton href="/boutique/articles/nouveau" variante="principal">+ Article</Bouton>
-              <Bouton href="/boutique/inventaire" variante="secondaire">📦 Inventaire</Bouton>
+              {gestion && (
+                <>
+                  <Bouton href="/boutique/articles/nouveau" variante="principal">+ Article</Bouton>
+                  <Bouton href="/boutique/inventaire" variante="secondaire">📦 Inventaire</Bouton>
+                </>
+              )}
             </div>
           }
         />
@@ -131,7 +142,11 @@ export default async function ArticlesPage({
             couleur={nbSousSeuil > 0 ? "#A8453A" : "#1F6E5B"}
             href="/boutique/articles?seuil=1"
           />
-          <Tuile titre="Valeur du stock au prix d'achat" valeur={chf(valeur)} couleur={marine} />
+          {/* La valeur du stock se calcule au prix d'achat : elle n'est même
+              pas calculée sans la gestion. */}
+          {gestion && (
+            <Tuile titre="Valeur du stock au prix d'achat" valeur={chf(valeur)} couleur={marine} />
+          )}
         </div>
 
         <FiltresArticles fournisseurs={(fournisseurs ?? []) as { id: string; nom: string }[]} />

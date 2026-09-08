@@ -73,10 +73,11 @@ function TuileAVenir({ titre, note }: { titre: string; note: string }) {
 }
 
 export default async function BoutiquePage() {
-  const acces = await exigerAccesAdmin("perm_boutique");
+  const acces = await exigerAccesAdmin("perm_boutique_vente");
+  const gestion = acces.permissions.perm_boutique_gestion === true;
 
   const jour = aujourdhuiISO();
-  const c = await lireChiffresBoutique(jour);
+  const c = await lireChiffresBoutique(jour, gestion ? "gestion" : "vente");
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -87,7 +88,9 @@ export default async function BoutiquePage() {
           action={
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <Bouton href="/boutique/caisse" variante="principal">💳 Ouvrir la caisse</Bouton>
-              <Bouton href="/boutique/articles/nouveau" variante="secondaire">+ Article</Bouton>
+              {gestion && (
+                <Bouton href="/boutique/articles/nouveau" variante="secondaire">+ Article</Bouton>
+              )}
             </div>
           }
         />
@@ -116,14 +119,18 @@ export default async function BoutiquePage() {
             detail="À retrouver dans la caisse ce soir"
           />
 
-          <Tuile
-            href="/boutique/articles?seuil=1"
-            titre="Articles sous le seuil"
-            valeur={String(c.sousLeSeuil)}
-            detail={c.sousLeSeuil > 0 ? "À recommander" : "Rien à recommander"}
-            couleur={c.sousLeSeuil > 0 ? "#A8453A" : "#1F6E5B"}
-            alerte={c.sousLeSeuil > 0}
-          />
+          {/* Recommander est une décision d'achat : elle n'est pas calculée
+              pour une vendeuse, et la tuile n'existe pas dans sa page. */}
+          {gestion && (
+            <Tuile
+              href="/boutique/articles?seuil=1"
+              titre="Articles sous le seuil"
+              valeur={String(c.sousLeSeuil)}
+              detail={c.sousLeSeuil > 0 ? "À recommander" : "Rien à recommander"}
+              couleur={c.sousLeSeuil > 0 ? "#A8453A" : "#1F6E5B"}
+              alerte={c.sousLeSeuil > 0}
+            />
+          )}
 
           <Tuile
             href="/boutique/commandes"
@@ -138,12 +145,14 @@ export default async function BoutiquePage() {
             alerte={c.commandesEnRetard > 0}
           />
 
-          <Tuile
-            href="/boutique/inventaire/recapitulatif"
-            titre="Valeur du stock au prix d'achat"
-            valeur={chf(c.valeurStock)}
-            detail={`${c.articlesActifs} article${c.articlesActifs > 1 ? "s" : ""} en rayon`}
-          />
+          {gestion && (
+            <Tuile
+              href="/boutique/inventaire/recapitulatif"
+              titre="Valeur du stock au prix d'achat"
+              valeur={chf(c.valeurStock)}
+              detail={`${c.articlesActifs} article${c.articlesActifs > 1 ? "s" : ""} en rayon`}
+            />
+          )}
 
           {/* Deux places tenues au chaud pour la vente en ligne (APP 13). */}
           <TuileAVenir titre="Commandes en ligne à traiter" note="Avec la vente en ligne (APP 13)" />
@@ -158,9 +167,14 @@ export default async function BoutiquePage() {
             Le reste du magasin
           </h2>
           <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
-            <Raccourci href="/boutique/articles" titre="🛒 Articles" note="Catalogue, prix et stock" />
-            <Raccourci href="/boutique/inventaire" titre="📦 Inventaire" note="Comptage et écarts" />
-            <Raccourci href="/boutique/modeles" titre="🧩 Modèles d&apos;options" note="Les questions posées sur plusieurs articles" />
+            <Raccourci href="/boutique/articles" titre="🛒 Articles"
+              note={gestion ? "Catalogue, prix et stock" : "Catalogue et stock en rayon"} />
+            {gestion && (
+              <>
+                <Raccourci href="/boutique/inventaire" titre="📦 Inventaire" note="Comptage et écarts" />
+                <Raccourci href="/boutique/modeles" titre="🧩 Modèles d&apos;options" note="Les questions posées sur plusieurs articles" />
+              </>
+            )}
             <Raccourci href="/boutique/commandes-en-ligne" titre="🌐 Commandes en ligne" note="À préparer, à remettre, à expédier" />
             <Raccourci href="/comptabilite/fournisseurs" titre="🏢 Fournisseurs"
               note={acces.permissions.perm_depenses

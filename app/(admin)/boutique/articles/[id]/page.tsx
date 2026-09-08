@@ -3,7 +3,7 @@ import Link from "next/link";
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { formatDateFR } from "@/src/lib/dates";
-import { lireArticle, historiqueMouvements } from "@/src/lib/boutique";
+import { lireArticle, lireArticleVente, historiqueMouvements, type Article } from "@/src/lib/boutique";
 import {
   libelleCategorieArticle,
   libelleMouvement,
@@ -68,15 +68,19 @@ export default async function ArticlePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await exigerAccesAdmin("perm_boutique");
+  const acces = await exigerAccesAdmin("perm_boutique_vente");
+  const gestion = acces.permissions.perm_boutique_gestion === true;
   const { id } = await params;
 
-  const article = await lireArticle(id);
-  if (!article) notFound();
+  // Sans la gestion, le prix d'achat et le fournisseur ne sont pas SÉLECTIONNÉS :
+  // ils ne partent pas dans la réponse, ils ne sont pas seulement cachés.
+  const brut = gestion ? await lireArticle(id) : await lireArticleVente(id);
+  if (!brut) notFound();
+  const article = brut as Article;
 
   const [mouvements, { data: fournisseur }] = await Promise.all([
     historiqueMouvements(id),
-    article.fournisseur_id
+    gestion && article.fournisseur_id
       ? supabaseAdmin.from("fournisseurs").select("id, nom").eq("id", article.fournisseur_id).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
@@ -90,7 +94,10 @@ export default async function ArticlePage({
 
   const surMesure = article.type_article === "personnalisable";
   const stock = Number(article.stock_actuel);
-  const marge = margeArticle(Number(article.prix_vente), article.prix_achat === null ? null : Number(article.prix_achat));
+  // La marge se déduit du prix d'achat : sans lui, elle ne se calcule pas.
+  const marge = gestion
+    ? margeArticle(Number(article.prix_vente), article.prix_achat === null ? null : Number(article.prix_achat))
+    : null;
   const alerte = sousLeSeuil(article);
 
   return (
@@ -101,10 +108,12 @@ export default async function ArticlePage({
           sousTitre={`${article.reference}${article.marque ? ` · ${article.marque}` : ""}`}
           action={
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {surMesure && (
+              {gestion && surMesure && (
                 <Bouton href={`/boutique/articles/${id}/options`} variante="principal">🎨 Options</Bouton>
               )}
-              <Bouton href={`/boutique/articles/${id}/modifier`} variante="secondaire">✏️ Modifier</Bouton>
+              {gestion && (
+                <Bouton href={`/boutique/articles/${id}/modifier`} variante="secondaire">✏️ Modifier</Bouton>
+              )}
               <Bouton href="/boutique/articles" variante="secondaire">← Articles</Bouton>
             </div>
           }
@@ -140,33 +149,37 @@ export default async function ArticlePage({
             }
           />
           <Ligne cle="Taux de TVA" valeur={`${Number(article.taux_tva).toString().replace(".", ",")} %`} />
-          <Ligne
-            cle="Prix d'achat"
-            valeur={
-              article.prix_achat === null ? "—" : (
-                <>
-                  {chf(Number(article.prix_achat))}
-                  {marge && (
-                    <span style={{ display: "block", fontSize: 12, fontWeight: 400, color: sousTexte }}>
-                      Marge {marge.montant.toFixed(2)} CHF
-                      {marge.pourcentage !== null && ` (${marge.pourcentage > 0 ? "+" : ""}${String(marge.pourcentage).replace(".", ",")} %)`}
-                    </span>
-                  )}
-                </>
-              )
-            }
-          />
+          {gestion && (
+            <Ligne
+              cle="Prix d'achat"
+              valeur={
+                article.prix_achat === null ? "—" : (
+                  <>
+                    {chf(Number(article.prix_achat))}
+                    {marge && (
+                      <span style={{ display: "block", fontSize: 12, fontWeight: 400, color: sousTexte }}>
+                        Marge {marge.montant.toFixed(2)} CHF
+                        {marge.pourcentage !== null && ` (${marge.pourcentage > 0 ? "+" : ""}${String(marge.pourcentage).replace(".", ",")} %)`}
+                      </span>
+                    )}
+                  </>
+                )
+              }
+            />
+          )}
           <Ligne cle="Seuil d'alerte" valeur={Number(article.stock_alerte ?? 0) > 0 ? `${formatQuantite(article.stock_alerte)} ${article.unite}` : "—"} />
-          <Ligne
-            cle="Fournisseur"
-            valeur={
-              fournisseur ? (
-                <Link href={`/comptabilite/fournisseurs/${fournisseur.id}`} style={{ color: "#1F6E5B" }}>
-                  {fournisseur.nom as string}
-                </Link>
-              ) : "—"
-            }
-          />
+          {gestion && (
+            <Ligne
+              cle="Fournisseur"
+              valeur={
+                fournisseur ? (
+                  <Link href={`/comptabilite/fournisseurs/${fournisseur.id}`} style={{ color: "#1F6E5B" }}>
+                    {fournisseur.nom as string}
+                  </Link>
+                ) : "—"
+              }
+            />
+          )}
           <Ligne cle="Code-barres" valeur={article.code_barres ?? "—"} />
           <Ligne cle="Site vitrine" valeur={article.vendable_en_ligne && article.actif ? "Visible" : "Masqué"} />
           {article.description && <BlocTexte cle="Description" valeur={article.description} />}
@@ -183,12 +196,16 @@ export default async function ArticlePage({
             <p style={{ color: sousTexte, fontSize: 15, margin: 0 }}>
               Un article sur mesure ne tient pas de stock de produit fini : il se fabrique à
               la commande. Ce sont ses fournitures qui se décomptent, au passage en fabrication.{" "}
-              <Link href={`/boutique/articles/${id}/options`} style={{ color: "#1F6E5B", fontWeight: 600 }}>
-                Voir ses options
-              </Link>.
+              {gestion ? (
+                <Link href={`/boutique/articles/${id}/options`} style={{ color: "#1F6E5B", fontWeight: 600 }}>
+                  Voir ses options
+                </Link>
+              ) : (
+                <span>ses options se règlent depuis la gestion de la boutique</span>
+              )}.
             </p>
           </Carte>
-        ) : (
+        ) : gestion ? (
           <Carte>
             <ActionsMouvement
               articleId={id}
@@ -196,6 +213,16 @@ export default async function ArticlePage({
               unite={article.unite}
               perissable={estPerissable(article.categorie)}
             />
+          </Carte>
+        ) : (
+          <Carte>
+            {/* Le stock se lit au comptoir — on doit savoir ce qu'il reste en
+                rayon — mais il ne s'y corrige pas : un écart d'inventaire est
+                une décision, pas un geste de caisse. */}
+            <p style={{ color: sousTexte, fontSize: 14, margin: 0 }}>
+              Le stock se corrige depuis la gestion de la boutique. Signalez un écart
+              plutôt que de le rattraper ici.
+            </p>
           </Carte>
         )}
 

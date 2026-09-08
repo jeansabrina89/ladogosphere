@@ -10,7 +10,7 @@ import FormInventaire, { type LigneComptage } from "./FormInventaire";
 export const dynamic = "force-dynamic";
 
 export default async function InventairePage() {
-  await exigerAccesAdmin("perm_boutique");
+  await exigerAccesAdmin("perm_boutique_gestion");
 
   // Un article sur mesure n'a pas de stock de produit fini : rien à compter.
   const articles = (await listerArticles({ actifsSeulement: true }))

@@ -30,7 +30,7 @@ export default async function ModelePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await exigerAccesAdmin("perm_boutique");
+  await exigerAccesAdmin("perm_boutique_gestion");
   const { id } = await params;
 
   const modele = await lireModele(id);

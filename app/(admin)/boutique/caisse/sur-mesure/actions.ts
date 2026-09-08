@@ -2,6 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { verifierPermissionBoutique } from "@/src/lib/permissions";
+// L'encaissement sur facture reste sa propre permission : porter un achat sur
+// la facture d'un client n'est pas le même geste que d'encaisser au comptoir.
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { lireArticle } from "@/src/lib/boutique";
@@ -57,7 +60,7 @@ export async function commanderSurMesure(entree: {
   creer_facture_libre?: boolean;
   notes?: string | null;
 }): Promise<ResultatCommande> {
-  const verif = await verifierPermission("perm_boutique");
+  const verif = await verifierPermissionBoutique("vente");
   if (verif.error) return { error: verif.error };
 
   if (!MODES.includes(entree.mode)) return { error: "Choisissez le mode de règlement." };
@@ -157,7 +160,7 @@ export type ClientTrouve = { id: string; nom: string; email: string | null };
 
 /** Recherche d'un client : une commande sur mesure se rappelle toujours. */
 export async function chercherClientCommande(q: string): Promise<ClientTrouve[]> {
-  const verif = await verifierPermission("perm_boutique");
+  const verif = await verifierPermissionBoutique("vente");
   if (verif.error) return [];
 
   const recherche = q.trim();

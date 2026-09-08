@@ -15,7 +15,8 @@ import { createClient } from "../utils/supabase/server";
  */
 
 export const PERMISSIONS_PERSONNEL = [
-  "perm_boutique",
+  "perm_boutique_vente",
+  "perm_boutique_gestion",
   "perm_box",
   "perm_checkin",
   "perm_chiens_creer",
@@ -36,6 +37,25 @@ export const PERMISSIONS_PERSONNEL = [
 
 export type PermissionPersonnel = (typeof PERMISSIONS_PERSONNEL)[number];
 
+/**
+ * La gestion IMPLIQUE la vente.
+ *
+ * Qui décide des prix et de l'inventaire sait forcément encaisser ; l'inverse
+ * n'est pas vrai. Un profil qui porterait la gestion sans la vente est donc
+ * traité comme ayant les deux — c'est plus sûr que de lui refuser la caisse,
+ * et l'écran des permissions le dit noir sur blanc plutôt que de le laisser
+ * découvrir.
+ *
+ * La même règle vit dans peut_boutique() côté base : les deux doivent dire la
+ * même chose, sinon RLS et écrans se contrediraient.
+ */
+export function permissionsBoutique(
+  brut: Record<string, unknown> | null | undefined
+): { vente: boolean; gestion: boolean } {
+  const gestion = brut?.perm_boutique_gestion === true;
+  return { gestion, vente: gestion || brut?.perm_boutique_vente === true };
+}
+
 export type ContexteAcces = {
   connecte: boolean;
   role?: string | null;
@@ -52,7 +72,12 @@ export type ExigenceAcces = {
 
 export type DecisionAcces =
   | { autorise: true }
-  | { autorise: false; redirection: "/login" | "/" | "/mon-compte"; motif: string };
+  /**
+   * Un écran de boutique interdit renvoie à l'accueil de la boutique, pas à
+   * celui de l'application : la vendeuse n'est pas égarée, elle a seulement
+   * poussé une porte qui n'est pas la sienne.
+   */
+  | { autorise: false; redirection: "/login" | "/" | "/mon-compte" | "/boutique"; motif: string };
 
 /**
  * Décision pure, sans base ni requête : c'est elle qui porte la règle, et c'est
@@ -78,6 +103,15 @@ export function deciderAccesAdmin(
   }
 
   if (!exigence.permission) return { autorise: true };
+
+  // La boutique a deux niveaux, et la gestion emporte la vente.
+  if (exigence.permission === "perm_boutique_vente" || exigence.permission === "perm_boutique_gestion") {
+    const boutique = permissionsBoutique(contexte.permissions);
+    const accorde = exigence.permission === "perm_boutique_gestion" ? boutique.gestion : boutique.vente;
+    return accorde
+      ? { autorise: true }
+      : { autorise: false, redirection: "/boutique", motif: "Permission manquante" };
+  }
 
   if (contexte.permissions?.[exigence.permission] === true) return { autorise: true };
 
@@ -124,6 +158,12 @@ function normaliserPermissions(
   const perms: Record<string, boolean> = {};
   for (const p of PERMISSIONS_PERSONNEL) {
     perms[p] = role === "admin" ? true : brut?.[p] === true;
+  }
+  // La gestion emporte la vente, ici comme partout ailleurs.
+  if (role !== "admin") {
+    const boutique = permissionsBoutique(brut);
+    perms.perm_boutique_vente = boutique.vente;
+    perms.perm_boutique_gestion = boutique.gestion;
   }
   return perms;
 }

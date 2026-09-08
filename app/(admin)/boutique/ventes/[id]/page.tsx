@@ -31,7 +31,7 @@ export default async function VentePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await exigerAccesAdmin("perm_boutique");
+  await exigerAccesAdmin("perm_boutique_vente");
   const { id } = await params;
 
   const vente = await lireVente(id);

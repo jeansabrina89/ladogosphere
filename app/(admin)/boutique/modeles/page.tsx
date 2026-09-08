@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  * sur plusieurs articles, écrites une fois.
  */
 export default async function ModelesPage() {
-  await exigerAccesAdmin("perm_boutique");
+  await exigerAccesAdmin("perm_boutique_gestion");
   const modeles = await listerModeles();
 
   return (

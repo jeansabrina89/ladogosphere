@@ -30,7 +30,7 @@ export default async function VentesPage({
 }: {
   searchParams: Promise<{ du?: string; au?: string; mode?: string }>;
 }) {
-  await exigerAccesAdmin("perm_boutique");
+  await exigerAccesAdmin("perm_boutique_vente");
 
   const params = await searchParams;
   const jour = aujourdhuiISO();

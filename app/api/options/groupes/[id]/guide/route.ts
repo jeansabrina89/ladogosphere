@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { exigerPermissionApi } from "@/src/lib/apiAuth";
+import { exigerBoutiqueApi } from "@/src/lib/permissions";
 import { lireCorpsFormulaire } from "@/src/lib/corpsRequete";
 import {
   BUCKET_PHOTOS,
@@ -24,7 +24,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient();
-  const garde = await exigerPermissionApi(supabase, "perm_boutique");
+  const garde = await exigerBoutiqueApi(supabase, "gestion");
   if (garde) return garde;
 
   const { id } = await params;
@@ -90,7 +90,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient();
-  const garde = await exigerPermissionApi(supabase, "perm_boutique");
+  const garde = await exigerBoutiqueApi(supabase, "gestion");
   if (garde) return garde;
 
   const { id } = await params;

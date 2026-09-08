@@ -23,7 +23,7 @@ const bordure = "1px solid rgba(27,43,94,0.2)";
  * du compte 1200 « Stock de marchandises » au bilan.
  */
 export default async function RecapitulatifStockPage() {
-  await exigerAccesAdmin("perm_boutique");
+  await exigerAccesAdmin("perm_boutique_gestion");
 
   const articles = (await listerArticles({ actifsSeulement: true })).filter(
     (a) =>

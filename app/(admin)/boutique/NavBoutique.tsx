@@ -15,7 +15,13 @@ import { usePathname } from "next/navigation";
 const MARINE = "#1B2B5E";
 const VERT = "#1F6E5B";
 
-export type EntreeBoutique = { href: string; label: string; exact?: boolean };
+export type EntreeBoutique = {
+  href: string;
+  label: string;
+  exact?: boolean;
+  /** Le niveau qu'il faut pour y entrer. « vente » par défaut. */
+  niveau?: "vente" | "gestion";
+};
 
 export const ENTREES_BOUTIQUE: EntreeBoutique[] = [
   { href: "/boutique", label: "🏠 Boutique", exact: true },
@@ -24,15 +30,22 @@ export const ENTREES_BOUTIQUE: EntreeBoutique[] = [
   { href: "/boutique/commandes", label: "🎁 Sur mesure" },
   { href: "/boutique/commandes-en-ligne", label: "🌐 En ligne" },
   { href: "/boutique/articles", label: "🛒 Articles" },
-  { href: "/boutique/modeles", label: "🧩 Modèles" },
-  { href: "/boutique/inventaire", label: "📦 Inventaire" },
+  { href: "/boutique/modeles", label: "🧩 Modèles", niveau: "gestion" },
+  { href: "/boutique/inventaire", label: "📦 Inventaire", niveau: "gestion" },
   // Un seul écran, deux chemins d'accès : la fiche fournisseur sert aussi bien
-  // aux dépenses qu'à la boutique. Elle n'est ni déplacée ni dupliquée.
-  { href: "/comptabilite/fournisseurs", label: "🏢 Fournisseurs" },
+  // aux dépenses qu'à la boutique. Elle n'est ni déplacée ni dupliquée. Les
+  // fournisseurs relèvent de l'achat : c'est de la gestion.
+  { href: "/comptabilite/fournisseurs", label: "🏢 Fournisseurs", niveau: "gestion" },
 ];
 
-export default function NavBoutique() {
+/** Ce qu'une personne voit dans la barre, selon ce à quoi elle a droit. */
+export function entreesVisibles(gestion: boolean): EntreeBoutique[] {
+  return ENTREES_BOUTIQUE.filter((e) => gestion || e.niveau !== "gestion");
+}
+
+export default function NavBoutique({ gestion = true }: { gestion?: boolean }) {
   const chemin = usePathname();
+  const entrees = entreesVisibles(gestion);
 
   const actif = (e: EntreeBoutique) =>
     e.exact ? chemin === e.href : chemin.startsWith(e.href);
@@ -57,7 +70,7 @@ export default function NavBoutique() {
           WebkitOverflowScrolling: "touch",
         }}
       >
-        {ENTREES_BOUTIQUE.map((e) => {
+        {entrees.map((e) => {
           const ici = actif(e);
           return (
             <Link

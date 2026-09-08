@@ -5,7 +5,7 @@ import Caisse from "./Caisse";
 export const dynamic = "force-dynamic";
 
 export default async function CaissePage() {
-  const acces = await exigerAccesAdmin("perm_boutique");
+  const acces = await exigerAccesAdmin("perm_boutique_vente");
 
   // Le catalogue part en entier au navigateur : il est court, et la caisse
   // doit répondre au scan sans aller-retour.

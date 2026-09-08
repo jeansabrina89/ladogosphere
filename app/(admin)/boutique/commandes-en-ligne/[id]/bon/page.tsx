@@ -24,7 +24,7 @@ export default async function BonPreparationPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await exigerAccesAdmin("perm_boutique");
+  await exigerAccesAdmin("perm_boutique_vente");
   const { id } = await params;
 
   const commande = await lireCommande(id);

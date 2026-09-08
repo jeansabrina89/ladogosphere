@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { verifierPermission } from "@/src/lib/verifierPermission";
+import { verifierPermissionBoutique } from "@/src/lib/permissions";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import {
   enregistrerMouvement,
@@ -27,7 +27,7 @@ import {
 } from "@/src/lib/etatFormulaire";
 
 /**
- * Boutique — actions d'écran. Toutes exigent perm_boutique (l'admin l'a
+ * Boutique — actions d'écran. Toutes exigent « Boutique — gestion » (l'admin l'a
  * d'office). Le stock n'est jamais écrit ici : on passe un mouvement, et c'est
  * le trigger SQL qui tient le compte.
  *
@@ -40,7 +40,7 @@ export type EtatBoutique = EtatFormulaire & { message?: string | null };
 const TYPES_MANUELS: TypeMouvement[] = ["entree", "perte", "usage_interne", "retour", "ajustement"];
 
 async function garde(): Promise<{ userId?: string; erreur?: string }> {
-  const verif = await verifierPermission("perm_boutique");
+  const verif = await verifierPermissionBoutique("gestion");
   if (verif.error) return { erreur: verif.error };
   return { userId: verif.userId };
 }

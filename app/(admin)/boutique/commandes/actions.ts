@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { verifierPermission } from "@/src/lib/verifierPermission";
+import { verifierPermissionBoutique } from "@/src/lib/permissions";
 import {
   changerStatutCommande,
   choixDeCommande,
@@ -25,7 +25,7 @@ export type RetourCommande = {
 };
 
 async function garde(): Promise<{ userId?: string; erreur?: string }> {
-  const verif = await verifierPermission("perm_boutique");
+  const verif = await verifierPermissionBoutique("vente");
   if (verif.error) return { erreur: verif.error };
   return { userId: verif.userId };
 }

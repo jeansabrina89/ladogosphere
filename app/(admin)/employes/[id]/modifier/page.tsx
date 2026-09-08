@@ -5,6 +5,7 @@ import BoutonSupprimerEmploye from "./BoutonSupprimerEmploye";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
+import RaccourciVendeuse from "./RaccourciVendeuse";
 import ChampsRh from "./ChampsRh";
 
 export default async function ModifierEmployePage({
@@ -174,6 +175,8 @@ export default async function ModifierEmployePage({
                   Permissions
                 </h2>
 
+                <RaccourciVendeuse />
+
                 {[
                   {
                     titre: "Opérationnel — chiens & clients",
@@ -198,7 +201,14 @@ export default async function ModifierEmployePage({
                     items: [
                       { key: "perm_encaissements", label: "Encaissements (enregistrer un paiement, marquer payé, avoirs)" },
                       { key: "perm_depenses", label: "Dépenses (saisir, valider et payer, carnet de fournisseurs)" },
-                      { key: "perm_boutique", label: "Boutique (catalogue d'articles, stock et inventaire)" },
+                      {
+                        key: "perm_boutique_vente",
+                        label: "Boutique — vente : la caisse, les retours, le catalogue en lecture, les commandes sur mesure et en ligne.",
+                      },
+                      {
+                        key: "perm_boutique_gestion",
+                        label: "Boutique — gestion : créer et modifier des articles, les options et les modèles, l'inventaire, les entrées de stock et les prix d'achat. Elle ouvre aussi la vente.",
+                      },
                       { key: "perm_tarifs_urgence", label: "Appliquer le tarif d'urgence" },
                     ],
                   },
@@ -233,6 +243,9 @@ export default async function ModifierEmployePage({
 
                 <p className="text-xs text-[rgba(27,43,94,0.5)] italic">
                   Acquis pour tout employé, sans réglage : son propre espace RH, la lecture des tarifs et la lecture du planning de toute l'équipe.
+                </p>
+                <p className="text-xs text-[rgba(27,43,94,0.5)] italic">
+                  La gestion de la boutique implique la vente : cocher « gestion » seule revient à cocher les deux.
                 </p>
               </div>
             )}

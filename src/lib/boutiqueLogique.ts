@@ -388,3 +388,35 @@ export function urlPhotoArticle(photoPath: string | null | undefined): string | 
   if (!base) return null;
   return `${base}/storage/v1/object/public/${BUCKET_PHOTOS_BOUTIQUE}/${chemin}`;
 }
+
+// ── Ce que le comptoir n'a pas à connaître ─────────────────────────────────
+
+export type NiveauCatalogue = "vente" | "gestion";
+
+/**
+ * Les champs d'un article réservés à la gestion.
+ *
+ * Le prix d'achat et le fournisseur sont des données de négociation : elles ne
+ * regardent pas le comptoir, et une marge lue à voix haute devant un client
+ * est un incident. Ils sont nommés ici, une fois, pour que le SELECT et les
+ * tests parlent de la même liste.
+ */
+export const CHAMPS_RESERVES_GESTION = ["prix_achat", "fournisseur_id"] as const;
+
+const COLONNES_COMMUNES = `
+  id, reference, nom, description, categorie, marque, taux_tva,
+  prix_vente, stock_actuel, stock_alerte, unite, code_barres,
+  photo_path, actif, vendable_en_ligne, type_article, delai_fabrication_jours,
+  composant, created_at, poids_grammes, expediable, stock_reserve
+`;
+
+/**
+ * Les colonnes à demander selon le niveau. Le filtrage est dans le SELECT :
+ * une donnée qu'on ne doit pas voir ne doit pas quitter la base. Masquer à
+ * l'affichage la laisserait dans le HTML servi, à portée du premier clic droit.
+ */
+export function colonnesArticle(niveau: NiveauCatalogue): string {
+  return niveau === "gestion"
+    ? `${COLONNES_COMMUNES}, ${CHAMPS_RESERVES_GESTION.join(", ")}`
+    : COLONNES_COMMUNES;
+}

@@ -8,7 +8,7 @@ import FormArticle from "../FormArticle";
 export const dynamic = "force-dynamic";
 
 export default async function NouvelArticlePage() {
-  await exigerAccesAdmin("perm_boutique");
+  await exigerAccesAdmin("perm_boutique_gestion");
 
   const { data: fournisseurs } = await supabaseAdmin
     .from("fournisseurs")

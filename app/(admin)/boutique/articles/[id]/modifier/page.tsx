@@ -14,7 +14,7 @@ export default async function ModifierArticlePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await exigerAccesAdmin("perm_boutique");
+  await exigerAccesAdmin("perm_boutique_gestion");
   const { id } = await params;
 
   const [article, { data: fournisseurs }] = await Promise.all([

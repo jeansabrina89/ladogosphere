@@ -5,6 +5,8 @@ import {
   motifInventaire,
   arrondiQuantite,
   sousLeSeuil,
+  colonnesArticle,
+  type NiveauCatalogue,
   type LigneInventaire,
   type TypeMouvement,
 } from "@/src/lib/boutiqueLogique";
@@ -55,12 +57,20 @@ export type MouvementStock = {
   created_at: string;
 };
 
-const COLONNES_ARTICLE = `
-  id, reference, nom, description, categorie, marque, fournisseur_id, taux_tva,
-  prix_vente, prix_achat, stock_actuel, stock_alerte, unite, code_barres,
-  photo_path, actif, vendable_en_ligne, type_article, delai_fabrication_jours,
-  composant, created_at
-`;
+/**
+ * Les colonnes viennent de boutiqueLogique : une seule liste, que les tests
+ * lisent aussi. Deux listes finiraient par diverger, et c'est le jour où elles
+ * divergent qu'un prix d'achat part au comptoir.
+ */
+const COLONNES_ARTICLE = colonnesArticle("gestion");
+const COLONNES_ARTICLE_VENTE = colonnesArticle("vente");
+
+/**
+ * L'article tel que le voit une vendeuse : les champs réservés sont absents,
+ * pas à null. Absents — pour qu'une lecture distraite ne les prenne pas pour
+ * « zéro » ou « aucun fournisseur ».
+ */
+export type ArticleVente = Omit<Article, "prix_achat" | "fournisseur_id">;
 
 const COLONNES_MOUVEMENT = `
   id, article_id, type, quantite, quantite_apres, motif, depense_id, vente_id,
@@ -76,12 +86,36 @@ export async function lireArticle(id: string): Promise<Article | null> {
   return (data as Article | null) ?? null;
 }
 
+/** La même fiche, amputée de ce que la vente n'a pas à connaître. */
+export async function lireArticleVente(id: string): Promise<ArticleVente | null> {
+  const { data } = await supabaseAdmin
+    .from("articles")
+    .select(COLONNES_ARTICLE_VENTE)
+    .eq("id", id)
+    .maybeSingle();
+  return (data as ArticleVente | null) ?? null;
+}
+
 /** Tous les articles, du plus récent au plus ancien nom : la liste est courte. */
 export async function listerArticles(options?: { actifsSeulement?: boolean }): Promise<Article[]> {
   let requete = supabaseAdmin.from("articles").select(COLONNES_ARTICLE).order("nom");
   if (options?.actifsSeulement) requete = requete.eq("actif", true);
   const { data } = await requete;
   return (data ?? []) as unknown as Article[];
+}
+
+/**
+ * Le catalogue au niveau demandé. C'est LE point d'entrée des écrans : le
+ * niveau vient de la garde d'accès, jamais du navigateur.
+ */
+export async function listerArticlesSelonNiveau(
+  niveau: NiveauCatalogue,
+  options?: { actifsSeulement?: boolean }
+): Promise<(Article | ArticleVente)[]> {
+  let requete = supabaseAdmin.from("articles").select(colonnesArticle(niveau)).order("nom");
+  if (options?.actifsSeulement) requete = requete.eq("actif", true);
+  const { data } = await requete;
+  return (data ?? []) as unknown as (Article | ArticleVente)[];
 }
 
 export async function historiqueMouvements(articleId: string): Promise<MouvementStock[]> {
@@ -232,7 +266,15 @@ export async function compterArticlesSousSeuil(): Promise<number> {
  * Les chiffres du tableau de bord de la boutique. La lecture est ici, le
  * calcul est dans tableauBoutique — c'est lui que les tests couvrent.
  */
-export async function lireChiffresBoutique(jourISO: string) {
+/**
+ * Les chiffres du tableau de bord.
+ *
+ * Sans la gestion, les articles ne sont PAS lus : ni la valeur du stock (qui
+ * se calcule au prix d'achat) ni le nombre d'articles sous le seuil (qui
+ * appelle une décision d'achat) ne sont calculés. Une tuile qu'on n'a pas le
+ * droit de voir ne doit pas exister dans la page, pas seulement y être cachée.
+ */
+export async function lireChiffresBoutique(jourISO: string, niveau: NiveauCatalogue = "gestion") {
   const { chiffresBoutique, debutDuMois } = await import("@/src/lib/tableauBoutique");
 
   const [{ data: ventes }, { data: commandes }, { data: articles }] = await Promise.all([
@@ -244,10 +286,12 @@ export async function lireChiffresBoutique(jourISO: string) {
       .from("commandes_personnalisees")
       .select("statut, date_promise")
       .in("statut", ["a_faire", "en_cours", "prete"]),
-    supabaseAdmin
-      .from("articles")
-      .select("actif, composant, type_article, stock_actuel, stock_alerte, prix_achat")
-      .eq("actif", true),
+    niveau === "gestion"
+      ? supabaseAdmin
+          .from("articles")
+          .select("actif, composant, type_article, stock_actuel, stock_alerte, prix_achat")
+          .eq("actif", true)
+      : Promise.resolve({ data: [] }),
   ]);
 
   return chiffresBoutique({

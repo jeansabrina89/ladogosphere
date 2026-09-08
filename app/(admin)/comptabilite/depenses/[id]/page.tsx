@@ -82,7 +82,8 @@ export default async function DepensePage({
   const catalogue = avecStock ? await listerArticles() : [];
   const nomArticle = new Map(catalogue.map((a) => [a.id, { nom: a.nom, unite: a.unite }]));
   const articlesEntree =
-    avecStock && acces.permissions.perm_boutique && depense.statut !== "annulee"
+    // Entrer en stock est un geste de gestion, pas de comptoir.
+    avecStock && acces.permissions.perm_boutique_gestion && depense.statut !== "annulee"
       ? catalogue
           .filter((a) => a.actif)
           .map((a) => ({

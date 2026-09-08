@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+
+/** Ce qu'on attend d'un client Supabase ici : lire l'utilisateur et un profil. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseClientLike = any;
 import { createClient } from "../utils/supabase/server";
 
 // ── API Routes ──────────────────────────────────────────────────────────────
@@ -102,7 +106,8 @@ export type ProfilePerms = {
   perm_clients_creer: boolean;
   perm_clients_modifier: boolean;
   perm_depenses: boolean;
-  perm_boutique: boolean;
+  perm_boutique_vente: boolean;
+  perm_boutique_gestion: boolean;
   perm_reservations_creer: boolean;
   perm_reservations_modifier: boolean;
   perm_reservations_annuler: boolean;
@@ -125,7 +130,8 @@ export async function getProfilePerms(): Promise<ProfilePerms> {
     .from("profiles")
     .select(`role,
       perm_chiens_creer, perm_chiens_modifier,
-      perm_clients_creer, perm_clients_modifier, perm_depenses, perm_boutique,
+      perm_clients_creer, perm_clients_modifier, perm_depenses,
+      perm_boutique_vente, perm_boutique_gestion,
       perm_reservations_creer, perm_reservations_modifier, perm_reservations_annuler,
       perm_journee_essai, perm_encaissements, perm_tarifs_urgence,
       perm_checkin, perm_box, perm_planning,
@@ -143,7 +149,9 @@ export async function getProfilePerms(): Promise<ProfilePerms> {
     perm_clients_creer: isAdmin || !!profile.perm_clients_creer,
     perm_clients_modifier: isAdmin || !!profile.perm_clients_modifier,
     perm_depenses: isAdmin || !!profile.perm_depenses,
-    perm_boutique: isAdmin || !!profile.perm_boutique,
+    // La gestion emporte la vente : voir permissionsBoutique.
+    perm_boutique_vente: isAdmin || !!profile.perm_boutique_vente || !!profile.perm_boutique_gestion,
+    perm_boutique_gestion: isAdmin || !!profile.perm_boutique_gestion,
     perm_reservations_creer: isAdmin || !!profile.perm_reservations_creer,
     perm_reservations_modifier: isAdmin || !!profile.perm_reservations_modifier,
     perm_reservations_annuler: isAdmin || !!profile.perm_reservations_annuler,
@@ -166,7 +174,8 @@ function falsePerms(): ProfilePerms {
     perm_clients_creer: false,
     perm_clients_modifier: false,
     perm_depenses: false,
-    perm_boutique: false,
+    perm_boutique_vente: false,
+    perm_boutique_gestion: false,
     perm_reservations_creer: false,
     perm_reservations_modifier: false,
     perm_reservations_annuler: false,
@@ -179,4 +188,78 @@ function falsePerms(): ProfilePerms {
     perm_timbrage_equipe: false,
     perm_vacances_equipe: false,
   };
+}
+
+// ── Boutique : deux niveaux, et la gestion emporte la vente ─────────────────
+
+/**
+ * Garde des actions serveur de la boutique.
+ *
+ * « vente » : la caisse, les retours, le catalogue en lecture, les commandes.
+ * « gestion » : les articles, les options, les modèles, l'inventaire, les prix
+ * d'achat — et, parce qu'elle l'implique, tout ce que la vente permet.
+ *
+ * La même règle vit dans permissionsBoutique (écrans) et peut_boutique (RLS).
+ * Les trois doivent dire la même chose, sinon on se contredirait selon la
+ * porte empruntée.
+ */
+export async function verifierPermissionBoutique(
+  niveau: "vente" | "gestion"
+): Promise<{ error?: string; userId?: string; isAdmin?: boolean }> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Non connecté" };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, perm_boutique_vente, perm_boutique_gestion")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.role === "admin") return { userId: user.id, isAdmin: true };
+  if (profile?.role !== "employe") return { error: "Accès réservé au personnel" };
+
+  const gestion = profile.perm_boutique_gestion === true;
+  const accorde = niveau === "gestion" ? gestion : gestion || profile.perm_boutique_vente === true;
+
+  return accorde
+    ? { userId: user.id, isAdmin: false }
+    : {
+        error: niveau === "gestion"
+          ? "Cette action demande la permission « Boutique — gestion »."
+          : "Cette action demande la permission « Boutique — vente ».",
+      };
+}
+
+/** La même garde, pour une route d'API : 403 plutôt qu'une redirection. */
+export async function exigerBoutiqueApi(
+  supabase: SupabaseClientLike,
+  niveau: "vente" | "gestion"
+): Promise<NextResponse | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, perm_boutique_vente, perm_boutique_gestion")
+    .eq("id", user.id)
+    .single();
+
+  if (profile?.role === "admin") return null;
+  if (profile?.role !== "employe") {
+    return NextResponse.json({ error: "Accès réservé au personnel" }, { status: 403 });
+  }
+
+  const gestion = profile.perm_boutique_gestion === true;
+  const accorde = niveau === "gestion" ? gestion : gestion || profile.perm_boutique_vente === true;
+  if (accorde) return null;
+
+  return NextResponse.json(
+    {
+      error: niveau === "gestion"
+        ? "Cette action demande la permission « Boutique — gestion »."
+        : "Cette action demande la permission « Boutique — vente ».",
+    },
+    { status: 403 }
+  );
 }

@@ -21,9 +21,11 @@ export default async function Home() {
   const perms = await getProfilePerms();
   const aujourd_hui = aujourdhuiISO();
   const nbResaPersonnel = await compterReservationsPersonnelAVoir();
-  const nbSousSeuil = perms.perm_boutique ? await compterArticlesSousSeuil() : 0;
-  const ventesDuJour = perms.perm_boutique ? await resumeVentesDuJour(aujourd_hui) : null;
-  const commandes = perms.perm_boutique ? await compterCommandes() : null;
+  // Les articles sous le seuil appellent une décision d'achat : c'est de la
+  // gestion, pas de la vente. On ne le calcule pas pour une vendeuse.
+  const nbSousSeuil = perms.perm_boutique_gestion ? await compterArticlesSousSeuil() : 0;
+  const ventesDuJour = perms.perm_boutique_vente ? await resumeVentesDuJour(aujourd_hui) : null;
+  const commandes = perms.perm_boutique_vente ? await compterCommandes() : null;
 
   const [
     { count: totalChiens },
@@ -201,7 +203,7 @@ export default async function Home() {
             <p style={{ ...statNum, color: "#6E5410" }}>12</p>
             <p style={{ ...statLbl, color: "rgba(110,84,16,0.7)" }}>Boxes disponibles</p>
           </div>
-          {perms.perm_boutique && (
+          {perms.perm_boutique_vente && (
             <Link href="/boutique/ventes" style={{ textDecoration: "none" }}>
               <div style={stat("#DBEFEA")}>
                 <p style={{ ...statNum, color: "#1F6E5B" }}>
@@ -213,7 +215,7 @@ export default async function Home() {
               </div>
             </Link>
           )}
-          {perms.perm_boutique && commandes && (
+          {perms.perm_boutique_vente && commandes && (
             <Link href="/boutique/commandes" style={{ textDecoration: "none" }}>
               <div style={stat(commandes.enRetard > 0 ? "#F7DFDC" : "#F4EAC9")}>
                 <p style={{ ...statNum, color: commandes.enRetard > 0 ? "#A8453A" : "#6E5410" }}>
@@ -226,7 +228,7 @@ export default async function Home() {
               </div>
             </Link>
           )}
-          {perms.perm_boutique && (
+          {perms.perm_boutique_gestion && (
             <Link href="/boutique/articles?seuil=1" style={{ textDecoration: "none" }}>
               <div style={stat(nbSousSeuil > 0 ? "#F7DFDC" : "#EDE8DF")}>
                 <p style={{ ...statNum, color: nbSousSeuil > 0 ? "#A8453A" : "rgba(27,43,94,0.6)" }}>{nbSousSeuil}</p>

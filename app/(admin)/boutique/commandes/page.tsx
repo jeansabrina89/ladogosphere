@@ -21,7 +21,7 @@ export default async function CommandesPage({
 }: {
   searchParams: Promise<{ closes?: string }>;
 }) {
-  await exigerAccesAdmin("perm_boutique");
+  await exigerAccesAdmin("perm_boutique_vente");
   const params = await searchParams;
   const avecCloses = params.closes === "1";
 

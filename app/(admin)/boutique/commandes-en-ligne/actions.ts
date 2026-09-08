@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { verifierPermission } from "@/src/lib/verifierPermission";
+import { verifierPermissionBoutique } from "@/src/lib/permissions";
 import { envoyerEmailCommandeExpediee } from "@/src/lib/email";
 import { lignesEcritureVente, encaissementVente } from "@/src/lib/caisseLogique";
 import { lireCommande, lignesDeCommande } from "@/src/lib/venteEnLigne";
@@ -20,7 +20,7 @@ import type { ModeReglementVente } from "@/src/lib/caisseLogique";
 export type Retour = { error?: string; message?: string; venteId?: string };
 
 async function garde(): Promise<{ userId?: string; erreur?: string }> {
-  const verif = await verifierPermission("perm_boutique");
+  const verif = await verifierPermissionBoutique("vente");
   if (verif.error) return { erreur: verif.error };
   return { userId: verif.userId };
 }

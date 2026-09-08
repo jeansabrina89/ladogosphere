@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { verifierPermission } from "@/src/lib/verifierPermission";
+import { verifierPermissionBoutique } from "@/src/lib/permissions";
 import {
   blocsArticle,
   dupliquerOptions,
@@ -29,7 +29,7 @@ import { refusOrdreGroupes, resoudreGroupes } from "@/src/lib/personnalisationLo
 export type Retour = { error?: string; message?: string; id?: string };
 
 async function garde(): Promise<{ userId?: string; erreur?: string }> {
-  const verif = await verifierPermission("perm_boutique");
+  const verif = await verifierPermissionBoutique("gestion");
   if (verif.error) return { erreur: verif.error };
   return { userId: verif.userId };
 }

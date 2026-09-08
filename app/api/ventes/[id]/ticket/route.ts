@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/server";
-import { exigerPermissionApi } from "@/src/lib/apiAuth";
+import { exigerBoutiqueApi } from "@/src/lib/permissions";
 import { genererTicket } from "@/src/lib/ticketDocument";
 
 /**
@@ -12,7 +12,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const supabase = await createClient();
-  const garde = await exigerPermissionApi(supabase, "perm_boutique");
+  const garde = await exigerBoutiqueApi(supabase, "vente");
   if (garde) return garde;
 
   const { id } = await params;

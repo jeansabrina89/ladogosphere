@@ -13,7 +13,7 @@ export default async function SurMesurePage({
 }: {
   params: Promise<{ articleId: string }>;
 }) {
-  const acces = await exigerAccesAdmin("perm_boutique");
+  const acces = await exigerAccesAdmin("perm_boutique_vente");
   const { articleId } = await params;
 
   const article = await lireArticle(articleId);

@@ -2,6 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { verifierPermissionBoutique } from "@/src/lib/permissions";
+// L'encaissement sur facture reste sa propre permission : porter un achat sur
+// la facture d'un client n'est pas le même geste que d'encaisser au comptoir.
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import {
   finaliserVente,
@@ -13,7 +16,7 @@ import {
 import type { ModeReglementVente } from "@/src/lib/caisseLogique";
 
 /**
- * Caisse — actions d'écran. Ouvrir la caisse demande perm_boutique ; porter un
+ * Caisse — actions d'écran. Ouvrir la caisse demande « Boutique — vente » ; porter un
  * achat sur la facture d'un client demande en plus perm_encaissements, comme
  * tout ce qui touche au compte d'un client.
  *
@@ -24,7 +27,7 @@ import type { ModeReglementVente } from "@/src/lib/caisseLogique";
 const MODES: ModeReglementVente[] = ["especes", "twint", "carte", "facture_client"];
 
 async function garde(mode?: string): Promise<{ userId?: string; erreur?: string }> {
-  const verif = await verifierPermission("perm_boutique");
+  const verif = await verifierPermissionBoutique("vente");
   if (verif.error) return { erreur: verif.error };
 
   if (mode === "facture_client") {
