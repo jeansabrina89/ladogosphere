@@ -30,6 +30,7 @@ export type Article = {
   marque: string | null;
   fournisseur_id: string | null;
   taux_tva: number | string;
+  secteur_tdfn: string | null;
   prix_vente: number | string;
   prix_achat: number | string | null;
   stock_actuel: number | string;

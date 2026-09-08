@@ -8,7 +8,9 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 export type EntiteJournal =
   | "facture" | "paiement" | "avoir" | "reservation" | "depense" | "vente"
   // APP 15 : les alertes de retour en stock et l'article qu'elles visent.
-  | "alerte_stock" | "article";
+  | "alerte_stock" | "article"
+  // APP 14 : le régime de TVA et les décomptes déclarés.
+  | "parametres_tva" | "decompte_tva";
 
 export type EvenementJournal = {
   entite: EntiteJournal;
@@ -114,6 +116,10 @@ const LIBELLES: Record<string, string> = {
   emission_facture_echouee: "Émission de facture refusée",
   vente: "Vente encaissée",
   retour: "Retour de caisse",
+  regime_tva: "Régime de TVA modifié",
+  tva_categorie: "Taux d'une catégorie d'articles",
+  decompte_tva: "Décompte TVA déclaré",
+  decompte_tva_paye: "Décompte TVA payé",
 };
 
 export function libelleEvenement(evenement: string): string {

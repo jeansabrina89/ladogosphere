@@ -57,7 +57,7 @@ export type LigneCommande = {
 
 const COLONNES_LIGNE = `
   id, commande_id, article_id, commande_personnalisee_id, libelle,
-  quantite, prix_unitaire, taux_tva, montant
+  quantite, prix_unitaire, taux_tva, secteur_tdfn, montant
 `;
 
 // ── Paramètres de la boutique en ligne ─────────────────────────────────────
@@ -105,6 +105,8 @@ export type ArticleEnLigne = {
   marque: string | null;
   prix_vente: number | string;
   taux_tva: number | string;
+  /** Secteur de dette fiscale nette, figé sur la ligne de commande. */
+  secteur_tdfn: string | null;
   unite: string;
   photo_path: string | null;
   type_article: string;
@@ -118,7 +120,7 @@ export type ArticleEnLigne = {
 };
 
 const COLONNES_ARTICLE = `
-  id, reference, nom, description, categorie, marque, prix_vente, taux_tva, unite,
+  id, reference, nom, description, categorie, marque, prix_vente, taux_tva, secteur_tdfn, unite,
   photo_path, type_article, delai_fabrication_jours, poids_grammes, expediable,
   stock_actuel, stock_reserve
 `;

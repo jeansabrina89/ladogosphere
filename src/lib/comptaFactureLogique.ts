@@ -28,6 +28,8 @@ export const COMPTE_DEBITEURS = "1100";
 export const COMPTE_ACOMPTES = "2030";
 export const COMPTE_AVOIRS = "2035";
 export const COMPTE_DIMINUTION_PRODUITS = "3800";
+/** TVA due à l'AFC. Alimentée à la pièce en méthode effective, au décompte en TDFN. */
+export const COMPTE_TVA_DUE = "2200";
 export const COMPTE_FRAIS_BANCAIRES = "6940";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -35,6 +37,8 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 export type LigneFacture = {
   compte_produit?: string | null;
   montant?: number | string | null;
+  /** Taux légal figé sur la ligne. Ne sert qu'en méthode effective. */
+  taux_tva?: number | string | null;
 };
 
 export type PaiementFacture = {
@@ -63,6 +67,18 @@ export type FactureCompta = {
    * pour que la cible ne se déplace plus au fil des encaissements.
    */
   montantCredite?: number | string | null;
+  /**
+   * Vrai seulement en MÉTHODE EFFECTIVE, et seulement si la pièce est
+   * assujettie à sa date. Le produit est alors net de TVA et la taxe facturée
+   * se crédite en 2200.
+   *
+   * En dette fiscale nette — le régime de la pension — ce drapeau reste FAUX :
+   * les produits se comptabilisent TTC et rien ne bouge au fil des factures.
+   * C'est la dette au décompte qui les corrigera, une fois par période. Passer
+   * de la TVA ici ET au décompte serait la compter deux fois : c'est l'erreur
+   * classique de ce régime.
+   */
+  tvaEffective?: boolean;
 };
 
 export type LigneExistante = { compte_numero: string; debit: number | string; credit: number | string };
@@ -96,12 +112,30 @@ export function cibleFacture(f: FactureCompta): Record<string, number> {
   const lignes = f.lignes ?? [];
   const total = r2(lignes.reduce((s, l) => s + Number(l.montant ?? 0), 0));
 
+  /**
+   * Le produit d'une ligne, et la TVA qui s'en détache le cas échéant.
+   *
+   * En dette fiscale nette : tout le TTC va au compte de produit, et la TVA
+   * n'apparaît nulle part — elle sera prélevée en bloc au décompte.
+   */
+  const produitEtTva = (l: LigneFacture): { produit: number; tva: number } => {
+    const montant = r2(Number(l.montant ?? 0));
+    const taux = Number(l.taux_tva ?? 0);
+    if (!f.tvaEffective || !(taux > 0)) return { produit: montant, tva: 0 };
+    const ht = r2(montant / (1 + taux / 100));
+    return { produit: ht, tva: r2(montant - ht) };
+  };
+
   if (f.type === "avoir") {
     // Reprise du produit : on redébite les comptes de produit ligne à ligne.
     for (const l of lignes) {
       const montant = r2(Number(l.montant ?? 0));
       if (montant === 0) continue;
-      add(l.compte_produit || "3000", montant);
+      const { produit, tva } = produitEtTva(l);
+      add(l.compte_produit || "3000", produit);
+      // La TVA facturée se reprend elle aussi : le débit de 2200 efface la
+      // dette née à la facture d'origine.
+      if (tva !== 0) add(COMPTE_TVA_DUE, tva);
     }
     // La contrepartie se partage : ce qui restait dû s'efface du débiteur,
     // ce qui était déjà encaissé devient une dette envers le client.
@@ -114,7 +148,11 @@ export function cibleFacture(f: FactureCompta): Record<string, number> {
     for (const l of lignes) {
       const montant = r2(Number(l.montant ?? 0));
       if (montant === 0) continue;
-      add(l.compte_produit || "3000", -montant);
+      const { produit, tva } = produitEtTva(l);
+      add(l.compte_produit || "3000", -produit);
+      // Méthode effective : la TVA facturée n'est pas un produit, c'est une
+      // dette envers l'AFC dès l'émission de la pièce.
+      if (tva !== 0) add(COMPTE_TVA_DUE, -tva);
     }
     add(COMPTE_DEBITEURS, total);
 

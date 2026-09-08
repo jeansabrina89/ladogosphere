@@ -35,6 +35,11 @@ export default async function ReglagesPage() {
             titre="✉️ Modèles d'e-mails"
             note="Les textes envoyés aux clients, et les campagnes. Un message à une personne s'envoie depuis sa fiche."
           />
+          <Raccourci
+            href="/reglages/tva"
+            titre="🧾 TVA"
+            note="Régime d'assujettissement, méthode de décompte, taux de dette fiscale nette et taux facturés par catégorie d'articles."
+          />
         </div>
 
         <section style={{ marginTop: 28, minWidth: 0 }}>

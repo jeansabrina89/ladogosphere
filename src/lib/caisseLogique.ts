@@ -13,8 +13,9 @@ import {
  * L'arrondi aux 5 centimes n'est pas réécrit : c'est celui des factures
  * (arrondirEspeces), et les comptes d'écart sont les mêmes (3800 / 6940).
  *
- * TVA : pas calculée, pas affichée. Chaque ligne emporte pourtant le taux de
- * son article, figé au moment de la vente — il servira en APP 13.
+ * TVA : chaque ligne emporte le TAUX de son article et son SECTEUR, figés au
+ * moment de la vente. Le ticket les ventile en pied (APP 14) ; ici, on ne fait
+ * que les copier — un ticket passé ne se recalcule jamais.
  */
 
 export const COMPTE_CAISSE = "1000";
@@ -56,6 +57,8 @@ export type ArticleVendable = {
   code_barres: string | null;
   prix_vente: number | string;
   taux_tva: number | string;
+  /** Secteur de dette fiscale nette de l'article : il voyage avec la ligne. */
+  secteur_tdfn?: string | null;
   stock_actuel: number | string;
   unite: string;
   photo_path?: string | null;
@@ -75,8 +78,10 @@ export type LignePanier = {
   quantite: number;
   /** Copie du prix au moment de la vente. */
   prix_unitaire: number;
-  /** Copie du taux, pour la TVA à venir. */
+  /** Copie du taux légal, figée à la vente. */
   taux_tva: number;
+  /** Copie du secteur, pour le décompte TVA. */
+  secteur_tdfn: string;
   montant: number;
   unite: string;
   /** Stock au moment où l'article est entré dans le panier, pour le garde-fou. */
@@ -95,6 +100,7 @@ export function ligneDepuisArticle(article: ArticleVendable, quantite = 1): Lign
     quantite: q,
     prix_unitaire: prix,
     taux_tva: Number(article.taux_tva),
+    secteur_tdfn: article.secteur_tdfn === "pension" ? "pension" : "commerce",
     montant: r2(prix * q),
     unite: article.unite,
     stock_disponible: Number(article.stock_actuel),
@@ -255,6 +261,7 @@ export type LigneVendue = {
   quantite: number | string;
   prix_unitaire: number | string;
   taux_tva: number | string;
+  secteur_tdfn?: string | null;
   montant: number | string;
 };
 
@@ -283,6 +290,7 @@ export type LigneRetour = {
   quantite: number;
   prix_unitaire: number;
   taux_tva: number;
+  secteur_tdfn: string;
   montant: number;
 };
 
@@ -313,6 +321,7 @@ export function construireRetour(
       quantite: -q,
       prix_unitaire: prix,
       taux_tva: Number(l.taux_tva),
+      secteur_tdfn: l.secteur_tdfn === "pension" ? "pension" : "commerce",
       montant: r2(-prix * q),
     });
   }

@@ -26,7 +26,7 @@ export default async function TarifsPage({
     .in("cle", [
       "cotisation_montant", "iban", "titulaire",
       "adresse_rue", "adresse_numero", "adresse_npa", "adresse_ville", "adresse_pays",
-      "tva_assujettie", "tva_taux", "tva_numero", "tva_date_debut", "tva_taux_dette_nette",
+      // Les paramètres de TVA ont leur écran et leur table : Réglages → TVA.
     ]);
 
   const { data: anneesDispo } = await supabase
@@ -47,11 +47,6 @@ export default async function TarifsPage({
   const adresseVille = val("adresse_ville");
   const adressePays = val("adresse_pays", "CH");
 
-  const tvaAssujettie = val("tva_assujettie") === "true";
-  const tvaTaux       = val("tva_taux", "8.1");
-  const tvaNumero     = val("tva_numero");
-  const tvaDateDebut  = val("tva_date_debut");
-  const tvaTauxDetteNette = val("tva_taux_dette_nette");
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -71,11 +66,6 @@ export default async function TarifsPage({
           adresseNpaInitial={adresseNpa}
           adresseVilleInitial={adresseVille}
           adressePaysInitial={adressePays}
-          tvaAssujettie={tvaAssujettie}
-          tvaTaux={tvaTaux}
-          tvaNumero={tvaNumero}
-          tvaDateDebut={tvaDateDebut}
-          tvaTauxDetteNette={tvaTauxDetteNette}
         />
       </div>
     </main>

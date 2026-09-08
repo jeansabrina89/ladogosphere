@@ -3,13 +3,16 @@
  * stock et écarts d'inventaire. Aucune dépendance à la base — c'est ici que
  * vivent les décisions, et c'est ce fichier que les tests couvrent.
  *
- * TVA : pas encore activée. Chaque article porte pourtant son taux dès
- * maintenant, pour n'avoir rien à ressaisir le jour où elle le sera. Le prix
- * de vente est un prix TTC, et il le reste.
+ * TVA : chaque article porte son taux et son secteur. Les taux LÉGAUX et
+ * l'attribution par défaut vivent dans `tvaLogique`, qui en est la seule
+ * source — ici on ne fait que les reprendre. Le prix de vente est un prix TTC,
+ * et il le reste.
  */
 
-export const TAUX_REDUIT = 2.6; // denrées alimentaires et litière
-export const TAUX_NORMAL = 8.1; // tout le reste
+// Réexportés depuis la source unique, pour que les écrans de la boutique
+// n'aient pas deux endroits où lire le même chiffre.
+export { TAUX_REDUIT, TAUX_NORMAL } from "@/src/lib/tvaLogique";
+import { TAUX_NORMAL, TAUX_REDUIT, tauxParDefautCategorie } from "@/src/lib/tvaLogique";
 
 export type CategorieArticle =
   | "alimentation_seche"
@@ -103,7 +106,7 @@ export function libelleCategorieArticle(categorie: string | null | undefined): s
  * la litière ; 8,1 % pour le reste. Proposé seulement : la saisie prime.
  */
 export function tauxPropose(categorie: string | null | undefined): number {
-  return CATEGORIES_ARTICLE.find((c) => c.valeur === categorie)?.taux ?? TAUX_NORMAL;
+  return tauxParDefautCategorie(categorie);
 }
 
 export function estPerissable(categorie: string | null | undefined): boolean {
@@ -404,7 +407,7 @@ export type NiveauCatalogue = "vente" | "gestion";
 export const CHAMPS_RESERVES_GESTION = ["prix_achat", "fournisseur_id"] as const;
 
 const COLONNES_COMMUNES = `
-  id, reference, nom, description, categorie, marque, taux_tva,
+  id, reference, nom, description, categorie, marque, taux_tva, secteur_tdfn,
   prix_vente, stock_actuel, stock_alerte, unite, code_barres,
   photo_path, actif, vendable_en_ligne, type_article, delai_fabrication_jours,
   composant, created_at, poids_grammes, expediable, stock_reserve

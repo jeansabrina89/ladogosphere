@@ -9,6 +9,7 @@ import Bouton from "@/app/components/ui/Bouton";
 import BoutonCloture from "./BoutonCloture";
 import { anneesExercices } from "@/src/lib/exercices";
 import { compterDepensesSansJustificatif } from "@/src/lib/depenses";
+import { ventilationExercice } from "@/src/lib/ventilationExercice";
 
 const chf = (n: number) => `${n.toFixed(2)} CHF`;
 
@@ -46,6 +47,9 @@ export default async function RapportsPage({
   // Ligne de contrôle : elle doit rester à zéro. Une dépense au grand-livre
   // sans justificatif, c’est une charge que rien ne prouve.
   const depensesSansJustificatif = await compterDepensesSansJustificatif(annee);
+  // Lecture seule : la ventilation se lit sur les lignes des pièces émises,
+  // elle ne déplace aucune écriture.
+  const tva = await ventilationExercice(annee);
   const exerciceCloture = exercice?.statut === "cloture";
 
   const rap = construireRapport({
@@ -209,6 +213,61 @@ export default async function RapportsPage({
               )}
             </Carte>
 
+            {tva.assujettie && (
+              <Carte>
+                <h2 className="font-bold mb-1" style={{ color: marine }}>Ventilation TVA</h2>
+                <p className="text-xs mb-4" style={{ color: sousTexte }}>
+                  Lue sur les lignes des pièces émises, chacune avec son taux et son
+                  secteur figés. Le secteur sert au décompte de la dette fiscale nette :
+                  il n&apos;a rien à voir avec le taux facturé au client.
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm mb-6">
+                    <thead>
+                      <tr style={{ color: sousTexte }}>
+                        <th className="text-left py-1 font-semibold">Par taux</th>
+                        <th className="text-right py-1 font-semibold">HT</th>
+                        <th className="text-right py-1 font-semibold">TVA</th>
+                        <th className="text-right py-1 font-semibold">TTC</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tva.parTaux.map(l => (
+                        <tr key={l.cle} style={{ borderTop: bordure }}>
+                          <td className="py-1" style={{ color: marine }}>{l.libelle}</td>
+                          <td className="py-1 text-right" style={{ color: sousTexte }}>{chf(l.ht)}</td>
+                          <td className="py-1 text-right" style={{ color: sousTexte }}>{chf(l.tva)}</td>
+                          <td className="py-1 text-right font-semibold" style={{ color: marine }}>{chf(l.ttc)}</td>
+                        </tr>
+                      ))}
+                      <tr style={{ borderTop: `2px solid ${marine}` }}>
+                        <td className="py-1 font-bold" style={{ color: marine }}>Total</td>
+                        <td className="py-1 text-right font-bold" style={{ color: marine }}>{chf(tva.totalHt)}</td>
+                        <td className="py-1 text-right font-bold" style={{ color: marine }}>{chf(tva.totalTva)}</td>
+                        <td className="py-1 text-right font-bold" style={{ color: marine }}>{chf(tva.totalTtc)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr style={{ color: sousTexte }}>
+                        <th className="text-left py-1 font-semibold">Par secteur</th>
+                        <th className="text-right py-1 font-semibold">CA TTC</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tva.parSecteur.map(l => (
+                        <tr key={l.cle} style={{ borderTop: bordure }}>
+                          <td className="py-1" style={{ color: marine }}>{l.libelle}</td>
+                          <td className="py-1 text-right font-semibold" style={{ color: marine }}>{chf(l.ttc)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Carte>
+            )}
             <Carte>
               <h2 className="font-bold mb-4" style={{ color: marine }}>Balance</h2>
               <div className="overflow-x-auto">

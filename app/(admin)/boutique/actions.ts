@@ -11,6 +11,7 @@ import {
   type PerimetreStock,
 } from "@/src/lib/perimetreStock";
 import { aujourdhuiISO } from "@/src/lib/dates";
+import { secteurValide } from "@/src/lib/tvaLogique";
 import {
   enregistrerMouvement,
   validerInventaire,
@@ -114,6 +115,9 @@ export async function enregistrerArticle(
   const nom = String(formData.get("nom") ?? "").trim();
   const categorie = String(formData.get("categorie") ?? "").trim();
   const taux_tva = lireNombre(formData.get("taux_tva")) ?? tauxPropose(categorie);
+  // Le secteur ne sert qu'au décompte TVA, jamais à la facture. Par défaut
+  // le commerce : la pension ne se vend pas au comptoir.
+  const secteur_tdfn = secteurValide(formData.get("secteur_tdfn")) ?? "commerce";
   const prix_vente = lireNombre(formData.get("prix_vente"));
   const prix_achat = lireNombre(formData.get("prix_achat"));
   const stock_alerte = lireNombre(formData.get("stock_alerte"));
@@ -135,6 +139,7 @@ export async function enregistrerArticle(
     marque: String(formData.get("marque") ?? "").trim() || null,
     fournisseur_id: (formData.get("fournisseur_id") as string) || null,
     taux_tva,
+    secteur_tdfn,
     prix_vente,
     prix_achat,
     stock_alerte: stock_alerte ?? 0,

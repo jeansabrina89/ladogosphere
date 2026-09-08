@@ -3,6 +3,7 @@ import { montantDuReservation } from "@/src/lib/montants";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { synchroniserComptaFacture } from "@/src/lib/comptaFacture";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
+import { secteurParDefautCompte, tauxParDefautCompte } from "@/src/lib/tvaLogique";
 
 // La facture est la pièce pivot : elle porte des LIGNES, et c'est l'émission
 // (RPC emettre_facture) qui lui donne son numéro, son échéance et ses écritures.
@@ -152,6 +153,9 @@ export async function remplacerLignesBrouillon(
         quantite: l.quantite,
         prix_unitaire: l.prix_unitaire,
         compte_produit: l.compte_produit,
+        // Le taux et le secteur sont FIGÉS ici, à l'écriture de la ligne.
+        taux_tva: tauxParDefautCompte(l.compte_produit),
+        secteur_tdfn: secteurParDefautCompte(l.compte_produit),
         reservation_id: l.reservation_id ?? null,
         cotisation_id: l.cotisation_id ?? null,
       })),

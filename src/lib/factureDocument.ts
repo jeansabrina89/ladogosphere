@@ -5,7 +5,8 @@ import React from "react";
 import * as Sentry from "@sentry/nextjs";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
-import { lireParametresTVA } from "@/src/lib/tva";
+import { lireParametresTva, affichage } from "@/src/lib/tva";
+import { piedTva, ventilerPanier, type LigneVentilable } from "@/src/lib/tvaLogique";
 import { genererQrBillSvg } from "@/src/lib/qrFacture";
 import { FacturePdf, type LignePdf } from "@/src/lib/facturePdf";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
@@ -72,7 +73,7 @@ export async function genererPdfFacture(factureId: string): Promise<DonneesFactu
 
   const { data: lignesDb } = await supabaseAdmin
     .from("facture_lignes")
-    .select("libelle, quantite, prix_unitaire, montant")
+    .select("libelle, quantite, prix_unitaire, montant, taux_tva")
     .eq("facture_id", factureId)
     .order("ordre");
 
@@ -83,12 +84,25 @@ export async function genererPdfFacture(factureId: string): Promise<DonneesFactu
     montant: Number(l.montant),
   }));
 
-  const [coords, tva, params, logo] = await Promise.all([
+  const dateFacture = (f.date_facture as string) ?? null;
+
+  const [coords, regime, params, logo] = await Promise.all([
     getCoordonneesPaiement(supabaseAdmin),
-    lireParametresTVA(supabaseAdmin),
+    // Le régime EN VIGUEUR à la date de la pièce : une facture de l'an dernier
+    // ne se relit pas avec le régime d'aujourd'hui.
+    lireParametresTva(dateFacture),
     lireParametres(["email_entreprise", "telephone_entreprise", "ide", "delai_paiement_jours"]),
     logoDataUri(),
   ]);
+
+  // La ventilation se lit sur les LIGNES, qui portent chacune leur taux figé.
+  // Rien n'est recalculé : le port et la remise d'une commande en ligne ont
+  // déjà été ventilés à l'émission, et ce sont des lignes comme les autres.
+  const tva = piedTva(
+    affichage(regime),
+    ventilerPanier({ lignes: (lignesDb ?? []) as unknown as LigneVentilable[] }),
+    dateFacture
+  );
 
   // Acomptes imputés : la même règle que la comptabilité, pour que le document
   // et le grand livre disent le même chiffre.
@@ -114,7 +128,10 @@ export async function genererPdfFacture(factureId: string): Promise<DonneesFactu
     debiteur: adresseClient.length > 0 ? { nom: nomClient, adresse: adresseClient } : null,
   });
 
-  const mentionTva = tva.assujettie && tva.numero
+  // Non assujettie : aucun numéro, aucune ventilation, et une phrase qui dit
+  // pourquoi. Laisser entendre une TVA qu'on ne verse pas serait une faute
+  // lourde — plus grave que de ne rien dire.
+  const mentionTva = tva?.numero
     ? `N° TVA : ${tva.numero}`
     : "TVA non applicable — entreprise non assujettie (art. 10 LTVA).";
 
@@ -142,6 +159,7 @@ export async function genererPdfFacture(factureId: string): Promise<DonneesFactu
     dejaPaye: Math.max(dejaPaye - acomptes, 0),
     reste: Number(f.montant_restant ?? total),
     delaiJours: parseInt(params.delai_paiement_jours || "30", 10) || 30,
+    tva,
     logo,
     bulletinSvg,
   });

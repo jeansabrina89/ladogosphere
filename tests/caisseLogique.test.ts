@@ -199,7 +199,9 @@ describe("retour partiel", () => {
   it("rend une partie, au prix de la vente et non à celui d'aujourd'hui", () => {
     const retour = construireRetour(lignesVente, { l1: 1 });
     expect(retour.lignes).toEqual([
-      { article_id: "a1", libelle: "Croquettes agneau 12 kg", quantite: -1, prix_unitaire: 79.9, taux_tva: 2.6, montant: -79.9 },
+      // Le retour reprend AUSSI le secteur de la ligne vendue : il servira
+      // au décompte TVA, et un retour se ventile comme la vente qu'il corrige.
+      { article_id: "a1", libelle: "Croquettes agneau 12 kg", quantite: -1, prix_unitaire: 79.9, taux_tva: 2.6, secteur_tdfn: "commerce", montant: -79.9 },
     ]);
     expect(retour.total).toBe(-79.9);
   });

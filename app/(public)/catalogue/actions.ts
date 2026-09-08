@@ -36,6 +36,8 @@ import {
 } from "@/src/lib/personnalisationLogique";
 import { lireCatalogueOptions } from "@/src/lib/personnalisation";
 import { articlesVendables } from "@/src/lib/vitrine";
+import { etiquetteLigneTva, ventilerPanier } from "@/src/lib/tvaLogique";
+import { assujettieALaDate } from "@/src/lib/tva";
 import {
   messageRecalcul,
   recalculerPanier,
@@ -129,6 +131,7 @@ export async function ajouterAuPanier(articleId: string, quantite = 1): Promise<
       quantite: q,
       prix_unitaire: prix,
       taux_tva: Number(article.taux_tva),
+      secteur_tdfn: article.secteur_tdfn ?? "commerce",
       montant: r2(q * prix),
     });
   }
@@ -171,6 +174,7 @@ export async function ajouterConfigurationAuPanier(
     quantite: 1,
     prix_unitaire: prix,
     taux_tva: Number(article.taux_tva),
+    secteur_tdfn: article.secteur_tdfn ?? "commerce",
     montant: prix,
     configuration: figes,
   });
@@ -499,7 +503,7 @@ async function emettreFactureCommande(
   const commande = await lireCommande(commandeId);
   const { data: lignes } = await supabaseAdmin
     .from("commandes_lignes")
-    .select("libelle, quantite, prix_unitaire")
+    .select("libelle, quantite, prix_unitaire, taux_tva, secteur_tdfn, montant")
     .eq("commande_id", commandeId)
     .order("created_at");
 
@@ -515,28 +519,77 @@ async function emettreFactureCommande(
     .select("id").single();
   if (error || !facture) return { error: "La facture n'a pas pu être créée." };
 
-  let ordre = 0;
-  const aInserer: Record<string, unknown>[] = ((lignes ?? []) as unknown as {
+  const lignesBrutes = ((lignes ?? []) as unknown as {
     libelle: string; quantite: number | string; prix_unitaire: number | string;
-  }[]).map((l) => ({
+    taux_tva: number | string; secteur_tdfn: string | null; montant: number | string;
+  }[]);
+
+  // Une entreprise NON assujettie n'émet aucune trace de taux : ni en pied de
+  // facture, ni dans un libellé, ni dans la colonne. Le taux tombe à zéro ici,
+  // une fois pour toutes — c'est le taux qui s'appliquait vraiment ce jour-là.
+  const dateFacture = aujourdhuiISO();
+  const avecTva = await assujettieALaDate(dateFacture);
+  const lignesCommande = lignesBrutes.map((l) => ({
+    ...l,
+    taux_tva: avecTva ? Number(l.taux_tva ?? 0) : 0,
+  }));
+
+  let ordre = 0;
+  const aInserer: Record<string, unknown>[] = lignesCommande.map((l) => ({
     facture_id: facture.id, ordre: ++ordre, libelle: l.libelle,
     quantite: Number(l.quantite), prix_unitaire: Number(l.prix_unitaire),
-    compte_produit: "3200", taux_tva: 0,
+    compte_produit: "3200",
+    taux_tva: l.taux_tva,
+    secteur_tdfn: l.secteur_tdfn ?? "commerce",
   }));
 
   const remise = Number(commande?.remise_membre ?? 0);
-  if (remise > 0) {
-    aInserer.push({
-      facture_id: facture.id, ordre: ++ordre, libelle: "Remise membre",
-      quantite: 1, prix_unitaire: -remise, compte_produit: "3800", taux_tva: 0,
-    });
-  }
   const port = Number(commande?.frais_port ?? 0);
-  if (port > 0) {
-    aInserer.push({
-      facture_id: facture.id, ordre: ++ordre, libelle: "Frais de port",
-      quantite: 1, prix_unitaire: port, compte_produit: "3200", taux_tva: 0,
+
+  /*
+   * Le port et la remise ne partent plus à 0 % : ils se RÉPARTISSENT par taux,
+   * au prorata des montants hors taxe, par la fonction unique de ventilation.
+   *
+   * Le port suit les marchandises qu'il transporte ; la remise n'a pas de taux
+   * à elle, elle diminue la base de chacun. Un panier croquettes + collier
+   * produit donc deux lignes de port et deux lignes de remise — c'est plus
+   * bavard sur la facture, mais c'est ce que la loi demande, et c'est la seule
+   * façon d'avoir une ventilation juste en pied de pièce.
+   */
+  if (remise > 0 || port > 0) {
+    const ventilation = ventilerPanier({
+      lignes: lignesCommande.map((l) => ({ montant: l.montant, taux_tva: l.taux_tva })),
+      port,
+      remise,
     });
+
+    // Le taux ne s'affiche dans le libellé que s'il y en a plusieurs à
+    // distinguer, et jamais quand l'entreprise n'est pas assujettie : sur une
+    // facture sans TVA, « Frais de port (TVA 8,1 %) » ressemblerait à une taxe
+    // facturée. C'est précisément ce qu'il ne faut pas laisser croire.
+    const nommerLeTaux = avecTva && ventilation.parts.filter((p) => p.ttc !== 0).length > 1;
+    const suffixe = (taux: number) => (nommerLeTaux ? ` (${etiquetteLigneTva(taux)})` : "");
+
+    for (const part of ventilation.parts) {
+      if (part.remise > 0) {
+        aInserer.push({
+          facture_id: facture.id, ordre: ++ordre,
+          libelle: `Remise membre${suffixe(part.taux)}`,
+          quantite: 1, prix_unitaire: -part.remise, compte_produit: "3800",
+          taux_tva: part.taux, secteur_tdfn: "commerce",
+        });
+      }
+    }
+    for (const part of ventilation.parts) {
+      if (part.port > 0) {
+        aInserer.push({
+          facture_id: facture.id, ordre: ++ordre,
+          libelle: `Frais de port${suffixe(part.taux)}`,
+          quantite: 1, prix_unitaire: part.port, compte_produit: "3200",
+          taux_tva: part.taux, secteur_tdfn: "commerce",
+        });
+      }
+    }
   }
 
   await supabaseAdmin.from("facture_lignes").insert(aInserer);

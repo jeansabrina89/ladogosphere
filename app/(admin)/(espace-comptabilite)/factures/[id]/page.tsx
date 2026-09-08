@@ -2,7 +2,8 @@ import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { formatDateFR } from "@/src/lib/dates";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
-import { lireParametresTVA, ventilerTVA } from "@/src/lib/tva";
+import { lireParametresTva, affichage } from "@/src/lib/tva";
+import { piedTva, ventilerPanier, type LigneVentilable } from "@/src/lib/tvaLogique";
 import { genererQrBillSvg } from "@/src/lib/qrFacture";
 import { estMembreActif } from "@/src/lib/membre";
 import { lireHistorique, libelleEvenement } from "@/src/lib/journalEvenements";
@@ -51,10 +52,10 @@ export default async function FacturePage({
 
   const [{ data: lignesDb }, coords, paramsTV, historique] = await Promise.all([
     supabaseAdmin.from("facture_lignes")
-      .select("id, ordre, libelle, quantite, prix_unitaire, montant, compte_produit")
+      .select("id, ordre, libelle, quantite, prix_unitaire, montant, compte_produit, taux_tva")
       .eq("facture_id", id).order("ordre"),
     getCoordonneesPaiement(supabaseAdmin),
-    lireParametresTVA(supabaseAdmin),
+    lireParametresTva(facture.date_facture ? String(facture.date_facture).split("T")[0] : null),
     lireHistorique("facture", id),
   ]);
   const lignes = (lignesDb ?? []) as LigneFacture[];
@@ -97,7 +98,13 @@ export default async function FacturePage({
     .eq("facture_origine_id", id).not("numero", "is", null);
 
   const dateISO = facture.date_facture ? String(facture.date_facture).split("T")[0] : null;
-  const tvaData = ventilerTVA(Number(facture.montant_total ?? 0), dateISO, paramsTV);
+  // La ventilation se lit sur les LIGNES, chacune avec son taux figé — jamais
+  // en appliquant un taux unique au total de la pièce.
+  const tvaData = piedTva(
+    affichage(paramsTV),
+    ventilerPanier({ lignes: (lignesDb ?? []) as unknown as LigneVentilable[] }),
+    dateISO
+  );
   const membreAJour = client?.id ? await estMembreActif(supabaseAdmin, client.id, dateISO ?? undefined) : false;
 
   const estAvoir = facture.type === "avoir";
@@ -214,16 +221,20 @@ export default async function FacturePage({
                 )}
               </tbody>
               <tfoot>
-                {tvaData.applicable && (
+                {tvaData && tvaData.lignes.length > 0 && (
                   <>
                     <tr>
                       <td colSpan={3} className="px-4 py-2 text-right text-sm" style={{ color: GRIS }}>Total HT</td>
-                      <td className="px-4 py-2 text-right text-sm font-semibold">{chf(tvaData.ht)}</td>
+                      <td className="px-4 py-2 text-right text-sm font-semibold">{chf(tvaData.totalHt)}</td>
                     </tr>
-                    <tr>
-                      <td colSpan={3} className="px-4 py-2 text-right text-sm" style={{ color: GRIS }}>TVA {tvaData.taux} %</td>
-                      <td className="px-4 py-2 text-right text-sm font-semibold">{chf(tvaData.tva)}</td>
-                    </tr>
+                    {tvaData.lignes.map((t) => (
+                      <tr key={t.taux}>
+                        <td colSpan={3} className="px-4 py-2 text-right text-sm" style={{ color: GRIS }}>
+                          {t.etiquette} sur {chf(t.base)}
+                        </td>
+                        <td className="px-4 py-2 text-right text-sm font-semibold">{chf(t.tva)}</td>
+                      </tr>
+                    ))}
                   </>
                 )}
                 <tr style={{ backgroundColor: "#F5F0E8" }}>

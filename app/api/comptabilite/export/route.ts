@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/server";
 import * as XLSX from "xlsx";
 import { exigerAdminApi } from "@/src/lib/apiAuth";
-import { lireParametresTVA, ventilerTVA } from "@/src/lib/tva";
+import { lireParametresTva, affichage } from "@/src/lib/tva";
+import { extraireTVA, tauxApplicable, tauxParDefautCompte, secteurParDefautCompte, libelleSecteur } from "@/src/lib/tvaLogique";
 
 type Ligne = {
   "Date": string;
@@ -12,7 +13,9 @@ type Ligne = {
   "Mode": string;
   "Montant TTC": number;
   "HT": number;
+  "Taux": string;
   "TVA": number;
+  "Secteur": string;
 };
 
 export async function GET(req: NextRequest) {
@@ -31,7 +34,23 @@ export async function GET(req: NextRequest) {
     ? new Date(parseInt(annee), parseInt(mois), 0).toISOString().split("T")[0]
     : `${annee}-12-31`;
 
-  const paramsTV = await lireParametresTVA(supabase);
+  const paramsTV = affichage(await lireParametresTva(fin));
+
+  /**
+   * Ventilation d'une ligne d'export : le taux vient du COMPTE de produit,
+   * comme à l'émission, et il tombe à zéro tant que l'entreprise n'est pas
+   * assujettie — un export ne doit pas laisser croire à une TVA qui n'existe
+   * pas.
+   */
+  const ventiler = (montant: number, dateISO: string, compte: string) => {
+    const taux = tauxApplicable(paramsTV, dateISO, tauxParDefautCompte(compte));
+    const v = extraireTVA(montant, taux);
+    return {
+      ...v,
+      libelleTaux: taux > 0 ? String(taux).replace(".", ",") + " %" : "—",
+      secteur: libelleSecteur(secteurParDefautCompte(compte)),
+    };
+  };
 
   // Source A — encaissements de réservations (filtrés par date_paiement)
   const { data: reservations } = await supabase
@@ -65,7 +84,7 @@ export async function GET(req: NextRequest) {
     const piece = factureActive?.numero ?? `Résa #${res.numero}`;
     const montant = Number(res.montant_paye ?? 0);
     const dateISO = (res.date_paiement as string).split("T")[0];
-    const v = ventilerTVA(montant, dateISO, paramsTV);
+    const v = ventiler(montant, dateISO, "3000");
     lignes.push({
       "Date": dateISO,
       "Pièce": piece,
@@ -74,7 +93,9 @@ export async function GET(req: NextRequest) {
       "Mode": res.mode_paiement || "—",
       "Montant TTC": v.ttc,
       "HT": v.ht,
+      "Taux": v.libelleTaux,
       "TVA": v.tva,
+      "Secteur": v.secteur,
     });
   }
 
@@ -83,7 +104,7 @@ export async function GET(req: NextRequest) {
     const client = `${c?.prenom ?? ""} ${c?.nom ?? ""}`.trim();
     const montant = Number(cot.montant ?? 0);
     const dateISO = (cot.date_paiement as string).split("T")[0];
-    const v = ventilerTVA(montant, dateISO, paramsTV);
+    const v = ventiler(montant, dateISO, "3005");
     lignes.push({
       "Date": dateISO,
       "Pièce": "Adhésion",
@@ -92,7 +113,9 @@ export async function GET(req: NextRequest) {
       "Mode": cot.mode_paiement || "—",
       "Montant TTC": v.ttc,
       "HT": v.ht,
+      "Taux": v.libelleTaux,
       "TVA": v.tva,
+      "Secteur": v.secteur,
     });
   }
 
@@ -109,14 +132,16 @@ export async function GET(req: NextRequest) {
     "Mode": "",
     "Montant TTC": Math.round(totalTTC * 100) / 100,
     "HT": Math.round(totalHT * 100) / 100,
+    "Taux": "",
     "TVA": Math.round(totalTVA * 100) / 100,
+    "Secteur": "",
   });
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(lignes);
   ws["!cols"] = [
     { wch: 12 }, { wch: 16 }, { wch: 22 }, { wch: 32 },
-    { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 8 },
+    { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 8 }, { wch: 10 }, { wch: 20 },
   ];
   XLSX.utils.book_append_sheet(wb, ws, "Journal encaissements");
 

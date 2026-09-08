@@ -9,7 +9,7 @@ export async function PUT(req: NextRequest) {
   if (garde) return garde;
   const lecture = await lireCorpsJson(req);
   if (!lecture.ok) return lecture.reponse;
-  const { updates, cotisation, iban, coordonnees, tva } = lecture.corps;
+  const { updates, cotisation, iban, coordonnees } = lecture.corps;
 
   // Mettre à jour les tarifs
   for (const { id, prix } of updates) {
@@ -37,14 +37,9 @@ export async function PUT(req: NextRequest) {
     }
   }
 
-  // Mettre à jour les paramètres TVA
-  if (tva) {
-    for (const [cle, valeur] of Object.entries(tva as Record<string, string>)) {
-      await supabase.from("parametres")
-        .update({ valeur, updated_at: new Date().toISOString() })
-        .eq("cle", cle);
-    }
-  }
+  // La TVA a son écran et sa table (parametres_tva) : Réglages → TVA. Elle ne
+  // se règle plus ici, et surtout plus dans la table clé/valeur — un régime
+  // s'historise, il ne s'écrase pas.
 
   return NextResponse.json({ ok: true });
 }

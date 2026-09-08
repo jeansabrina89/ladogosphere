@@ -14,6 +14,7 @@ import {
   lireNombre,
 } from "@/src/lib/boutiqueLogique";
 import { COMPTE_MATIERES_FABRICATION, type PerimetreStock } from "@/src/lib/perimetreStock";
+import { SECTEURS } from "@/src/lib/tvaLogique";
 
 export type ArticleFormulaire = {
   id: string;
@@ -24,6 +25,7 @@ export type ArticleFormulaire = {
   marque: string | null;
   fournisseur_id: string | null;
   taux_tva: number | string;
+  secteur_tdfn: string | null;
   type_article: string;
   delai_fabrication_jours: number | null;
   composant: boolean;
@@ -166,6 +168,22 @@ export default function FormArticle({
           onChange={(e) => { setTaux(e.target.value); setTauxTouche(true); }}
         />
         <p style={aide}>{MENTION_TAUX}</p>
+      </div>
+
+      <div>
+        <label htmlFor="secteur_tdfn" style={etiquette}>Secteur de dette fiscale nette</label>
+        <select
+          {...marqueChamp(etat, "secteur_tdfn", { ...champ, maxWidth: 280 })}
+          defaultValue={article?.secteur_tdfn ?? "commerce"}
+        >
+          {SECTEURS.map((s) => (
+            <option key={s.valeur} value={s.valeur}>{s.libelle}</option>
+          ))}
+        </select>
+        <p style={aide}>
+          Il ne sert qu&apos;au décompte TVA, jamais à la facture : le taux facturé
+          au client est celui du champ précédent.
+        </p>
       </div>
 
       <div style={{ display: "grid", gap: 18, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>

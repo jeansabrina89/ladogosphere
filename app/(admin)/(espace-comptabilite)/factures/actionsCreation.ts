@@ -10,6 +10,7 @@ import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { genererPdfFacture, finaliserEmission } from "@/src/lib/factureDocument";
 import { lignesDepuisReservation } from "@/src/lib/factureResa";
 import { COMPTES_PRODUIT } from "@/src/lib/factureStatut";
+import { secteurParDefautCompte, tauxParDefautCompte } from "@/src/lib/tvaLogique";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const COMPTES = COMPTES_PRODUIT.map((c) => c.numero) as readonly string[];
@@ -59,13 +60,14 @@ export async function creerAvoir(formData: FormData): Promise<{ error?: string; 
 
   const { data: lignesOrigine } = await supabaseAdmin
     .from("facture_lignes")
-    .select("id, libelle, quantite, prix_unitaire, montant, compte_produit, reservation_id, cotisation_id")
+    .select("id, libelle, quantite, prix_unitaire, montant, compte_produit, taux_tva, secteur_tdfn, reservation_id, cotisation_id")
     .eq("facture_id", factureId)
     .order("ordre");
 
   type LigneOrigine = {
     id: string; libelle: string; quantite: number | string; prix_unitaire: number | string;
-    compte_produit: string; reservation_id: string | null; cotisation_id: string | null;
+    compte_produit: string; taux_tva: number | string; secteur_tdfn: string | null;
+    reservation_id: string | null; cotisation_id: string | null;
   };
 
   const choisies = new Map(lignes.map((l) => [l.ligne_id, Number(l.quantite)]));
@@ -114,6 +116,11 @@ export async function creerAvoir(formData: FormData): Promise<{ error?: string; 
       quantite: l.quantiteAvoir,
       prix_unitaire: Number(l.prix_unitaire),
       compte_produit: l.compte_produit,
+      // L'avoir reprend le taux et le secteur de la PIÈCE D'ORIGINE, jamais
+      // ceux d'aujourd'hui : on rend ce qui a été facturé, à ce qui a été
+      // facturé. Un changement de taux entre-temps ne s'invite pas ici.
+      taux_tva: Number(l.taux_tva ?? 0),
+      secteur_tdfn: l.secteur_tdfn ?? null,
       reservation_id: l.reservation_id ?? null,
       cotisation_id: l.cotisation_id ?? null,
     })),
@@ -266,6 +273,9 @@ export async function creerFactureLibre(formData: FormData): Promise<{ error?: s
     aInserer.push({
       facture_id: facture.id, ordre: ++ordre, libelle: l.libelle,
       quantite: l.quantite, prix_unitaire: l.prix_unitaire, compte_produit: l.compte_produit,
+      // Taux et secteur figés à l'écriture de la ligne, comme le prix.
+      taux_tva: tauxParDefautCompte(l.compte_produit),
+      secteur_tdfn: secteurParDefautCompte(l.compte_produit),
     });
   }
   for (const resaId of reservations) {
@@ -273,6 +283,8 @@ export async function creerFactureLibre(formData: FormData): Promise<{ error?: s
       aInserer.push({
         facture_id: facture.id, ordre: ++ordre, libelle: l.libelle,
         quantite: l.quantite, prix_unitaire: l.prix_unitaire, compte_produit: l.compte_produit,
+        taux_tva: tauxParDefautCompte(l.compte_produit),
+        secteur_tdfn: secteurParDefautCompte(l.compte_produit),
         reservation_id: l.reservation_id ?? null, cotisation_id: l.cotisation_id ?? null,
       });
     }

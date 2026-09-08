@@ -21,6 +21,7 @@ import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import ActionsMouvement from "./ActionsMouvement";
 import PhotoArticle from "./PhotoArticle";
+import { libelleSecteur } from "@/src/lib/tvaLogique";
 
 export const dynamic = "force-dynamic";
 
@@ -179,6 +180,7 @@ export default async function ArticlePage({
             }
           />
           <Ligne cle="Taux de TVA" valeur={`${Number(article.taux_tva).toString().replace(".", ",")} %`} />
+          <Ligne cle="Secteur TVA" valeur={libelleSecteur(article.secteur_tdfn)} />
           {gestion && (
             <Ligne
               cle="Prix d'achat"

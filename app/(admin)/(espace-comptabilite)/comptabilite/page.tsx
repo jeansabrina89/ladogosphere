@@ -15,6 +15,9 @@ import { formatPeriodeCotisation } from "@/src/lib/cotisationPeriode";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import NomClientLien from "@/app/components/NomClientLien";
 import { anneesExercices } from "@/src/lib/exercices";
+import { caDouzeMoisGlissants, lireParametresTva } from "@/src/lib/tva";
+import { seuilSecondTaux } from "@/src/lib/decompteTvaLogique";
+import { soldeTvaDue } from "@/src/lib/decompteTva";
 
 export default async function ComptabilitePage({
   searchParams,
@@ -272,6 +275,21 @@ export default async function ComptabilitePage({
     equilibreGrandLivre(),
   ]);
 
+  // Le seuil des 10 % : une activité secondaire trop grosse appelle un second
+  // taux de dette fiscale nette. On avertit — on ne bloque rien, et surtout on
+  // n'invente aucun taux : c'est l'AFC qui l'attribue, sur demande.
+  const [regimeTva, caGlissant, tvaDue] = await Promise.all([
+    lireParametresTva(),
+    caDouzeMoisGlissants(),
+    soldeTvaDue(),
+  ]);
+  const seuilTva = regimeTva.assujettie
+    ? seuilSecondTaux({
+        caParSecteur: caGlissant,
+        secondTauxDejaSaisi: (regimeTva.tauxTdfn2 ?? 0) > 0,
+      })
+    : null;
+
   const enRetard = ((facturesRetard ?? []) as any[])
     .filter((f) => f.type !== "avoir" && f.statut !== "annulee" && f.statut !== "annulee_par_avoir");
   const totalEnRetard = enRetard.reduce((s, f) => s + Number(f.montant_restant ?? 0), 0);
@@ -354,8 +372,35 @@ export default async function ComptabilitePage({
               couleur={ecartGrandLivre === 0 ? "#1F6E5B" : "#A8453A"}
               alerte={ecartGrandLivre !== 0}
             />
+            {regimeTva.assujettie && (
+              <Tuile
+                href="/comptabilite/tva"
+                titre="TVA due à l&apos;AFC"
+                valeur={chfTuile(tvaDue)}
+                detail={tvaDue > 0 ? "Décomptes déclarés non encore payés" : "Rien à verser"}
+                couleur={tvaDue > 0 ? "#C9A84C" : "#1F6E5B"}
+              />
+            )}
           </GrilleTuiles>
         </div>
+
+        {/* L&apos;alerte du second taux : un avertissement, jamais un blocage. */}
+        {seuilTva?.message && (
+          <div className="mb-8 rounded-[18px] p-4"
+            style={{ backgroundColor: "#F4EAC9", border: "1px solid #C9A84C" }}>
+            <p role="status" className="font-semibold" style={{ color: "#6E5410", margin: 0 }}>
+              ⚠️ {seuilTva.message}
+            </p>
+            <p className="text-sm mt-1" style={{ color: "rgba(110,84,16,0.85)", margin: "4px 0 0" }}>
+              Douze mois glissants. En attendant, tout le chiffre d&apos;affaires est
+              décompté au taux du secteur 1 —{" "}
+              <Link href="/reglages/tva" className="font-bold underline">
+                Réglages → TVA
+              </Link>
+              .
+            </p>
+          </div>
+        )}
 
         {/* Statistiques */}
         <Statistiques

@@ -90,7 +90,7 @@ export async function fusionnerPanierLocal(brut: unknown): Promise<RetourFusion>
       .eq("id", m.id);
   }
 
-  // Le taux de TVA se relit sur l'article : la vitrine ne le porte pas.
+  // Le taux et le secteur se relisent sur l'article : la vitrine ne les porte pas.
   await rattraperTaux(panier.id);
 
   revalidatePath("/catalogue");
@@ -103,28 +103,32 @@ export async function fusionnerPanierLocal(brut: unknown): Promise<RetourFusion>
   };
 }
 
-/** Les lignes créées à la fusion prennent le taux réel de leur article. */
+/** Les lignes créées à la fusion prennent le taux ET le secteur de leur article. */
 async function rattraperTaux(panierId: string): Promise<void> {
   const { data: lignes } = await supabaseAdmin
-    .from("commandes_lignes").select("id, article_id, taux_tva").eq("commande_id", panierId);
+    .from("commandes_lignes").select("id, article_id, taux_tva, secteur_tdfn").eq("commande_id", panierId);
 
-  const aCorriger = ((lignes ?? []) as { id: string; article_id: string; taux_tva: number | string }[])
-    .filter((l) => Number(l.taux_tva) === 0);
+  const aCorriger = ((lignes ?? []) as {
+    id: string; article_id: string; taux_tva: number | string; secteur_tdfn: string | null;
+  }[]).filter((l) => Number(l.taux_tva) === 0 || l.secteur_tdfn === null);
   if (aCorriger.length === 0) return;
 
   const { data: articles } = await supabaseAdmin
     .from("articles")
-    .select("id, taux_tva")
+    .select("id, taux_tva, secteur_tdfn")
     .in("id", [...new Set(aCorriger.map((l) => l.article_id))]);
 
-  const taux = new Map(
-    ((articles ?? []) as { id: string; taux_tva: number | string }[])
-      .map((a) => [a.id, Number(a.taux_tva)])
+  const parId = new Map(
+    ((articles ?? []) as { id: string; taux_tva: number | string; secteur_tdfn: string | null }[])
+      .map((a) => [a.id, a])
   );
 
   for (const l of aCorriger) {
-    const t = taux.get(l.article_id);
-    if (t === undefined || t === 0) continue;
-    await supabaseAdmin.from("commandes_lignes").update({ taux_tva: t }).eq("id", l.id);
+    const a = parId.get(l.article_id);
+    if (!a) continue;
+    await supabaseAdmin.from("commandes_lignes").update({
+      taux_tva: Number(a.taux_tva),
+      secteur_tdfn: a.secteur_tdfn ?? "commerce",
+    }).eq("id", l.id);
   }
 }

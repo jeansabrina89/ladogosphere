@@ -30,6 +30,7 @@ const s = StyleSheet.create({
   totaux: { marginTop: 12, alignSelf: "flex-end", width: 250 },
   ligneTotal: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3 },
   ligneTotalFort: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderTopWidth: 1, borderTopColor: MARINE, marginTop: 4 },
+  ventilation: { marginTop: 10, alignSelf: "flex-end", width: 250, paddingTop: 8, borderTopWidth: 0.5, borderTopColor: "#CBD5E1" },
   gras: { fontFamily: "Helvetica-Bold" },
   mention: { marginTop: 16, fontSize: 8, color: GRIS },
   motif: { marginTop: 12, padding: 8, backgroundColor: SABLE, fontSize: 8.5 },
@@ -61,6 +62,16 @@ export type FacturePdfProps = {
   dejaPaye: number;
   reste: number;
   delaiJours: number;
+  /**
+   * La ventilation par taux, ou null quand l'entreprise n'est pas assujettie.
+   * Null veut dire : n'affiche RIEN — pas même une ligne à zéro.
+   */
+  tva?: {
+    numero: string | null;
+    totalHt: number;
+    totalTtc: number;
+    lignes: { taux: number; etiquette: string; base: number; tva: number }[];
+  } | null;
   logo?: string | null;
   /** SVG du bulletin de versement, quand les coordonnées le permettent. */
   bulletinSvg?: string | null;
@@ -172,6 +183,32 @@ export function FacturePdf(p: FacturePdfProps) {
             <Text style={s.gras}>{chf(estAvoir ? p.total : p.reste)} CHF</Text>
           </View>
         </View>
+
+        {/*
+          La ventilation par taux, en pied : les prix restent affichés TTC —
+          c'est ce que le client paie — et la TVA s'en extrait ici. Seuls les
+          taux réellement présents apparaissent : une ligne « TVA 2,6 % : 0,00 »
+          sur une facture de pension n'apprendrait rien à personne.
+
+          Rien de tout cela ne s'affiche si l'entreprise n'est pas assujettie.
+        */}
+        {p.tva && p.tva.lignes.length > 0 && (
+          <View style={s.ventilation} wrap={false}>
+            <View style={s.ligneTotal}>
+              <Text>Total HT</Text><Text>{chf(p.tva.totalHt)} CHF</Text>
+            </View>
+            {p.tva.lignes.map((l, i) => (
+              <View key={i} style={s.ligneTotal}>
+                <Text>{l.etiquette} sur {chf(l.base)}</Text>
+                <Text>{chf(l.tva)} CHF</Text>
+              </View>
+            ))}
+            <View style={s.ligneTotal}>
+              <Text style={s.gras}>Total TTC</Text>
+              <Text style={s.gras}>{chf(p.tva.totalTtc)} CHF</Text>
+            </View>
+          </View>
+        )}
 
         {p.motif ? (
           <View style={s.motif}>

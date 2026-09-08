@@ -1,4 +1,6 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { aujourdhuiISO } from "@/src/lib/dates";
+import { assujettieALaDate } from "@/src/lib/tva";
 import { synchroniserComptaFacture } from "@/src/lib/comptaFacture";
 import {
   ligneDepuisArticle,
@@ -58,7 +60,7 @@ const COLONNES_VENTE = `
 `;
 
 const COLONNES_LIGNE = `
-  id, vente_id, article_id, libelle, quantite, prix_unitaire, taux_tva, montant
+  id, vente_id, article_id, libelle, quantite, prix_unitaire, taux_tva, secteur_tdfn, montant
 `;
 
 export async function lireVente(id: string): Promise<Vente | null> {
@@ -106,7 +108,7 @@ export async function listerVentes(filtres?: {
 export async function articlesVendables(): Promise<ArticleVendable[]> {
   const { data } = await supabaseAdmin
     .from("articles")
-    .select("id, nom, reference, code_barres, prix_vente, taux_tva, stock_actuel, unite, photo_path, type_article")
+    .select("id, nom, reference, code_barres, prix_vente, taux_tva, secteur_tdfn, stock_actuel, unite, photo_path, type_article")
     .eq("actif", true)
     // Une fourniture se stocke mais ne se vend pas seule : elle n'entre pas en caisse.
     .eq("composant", false)
@@ -230,7 +232,7 @@ export async function finaliserVente(entree: EntreeVente): Promise<ResultatVente
   const ids = [...new Set(entree.lignes.map((l) => l.article_id))];
   const { data: articles } = await supabaseAdmin
     .from("articles")
-    .select("id, nom, reference, code_barres, prix_vente, taux_tva, stock_actuel, unite, photo_path, type_article")
+    .select("id, nom, reference, code_barres, prix_vente, taux_tva, secteur_tdfn, stock_actuel, unite, photo_path, type_article")
     .in("id", ids)
     .eq("actif", true)
     .eq("composant", false);
@@ -238,11 +240,17 @@ export async function finaliserVente(entree: EntreeVente): Promise<ResultatVente
   const parId = new Map((articles ?? []).map((a) => [a.id as string, a as unknown as ArticleVendable]));
 
   // Les libellés, prix et taux sont relus MAINTENANT et figés dans la vente.
+  //
+  // Le taux figé est celui qui S'APPLIQUE aujourd'hui : zéro tant que
+  // l'entreprise n'est pas assujettie. Un ticket d'avant l'assujettissement ne
+  // doit garder aucune trace de TVA, pas même dans une colonne.
+  const avecTva = await assujettieALaDate(aujourdhuiISO());
   const panier: LignePanier[] = [];
   for (const l of entree.lignes) {
     const article = parId.get(l.article_id);
     if (!article) return { error: "Un article du panier n'existe plus ou a été retiré de la vente." };
-    panier.push(changerQuantite(ligneDepuisArticle(article), l.quantite));
+    const ligne = changerQuantite(ligneDepuisArticle(article), l.quantite);
+    panier.push(avecTva ? ligne : { ...ligne, taux_tva: 0 });
   }
 
   const refus = refusPanier(panier);
@@ -278,6 +286,7 @@ export async function finaliserVente(entree: EntreeVente): Promise<ResultatVente
       quantite: l.quantite,
       prix_unitaire: l.prix_unitaire,
       taux_tva: l.taux_tva,
+      secteur_tdfn: l.secteur_tdfn,
       montant: l.montant,
     })),
     p_total: total,

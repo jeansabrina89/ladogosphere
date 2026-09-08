@@ -4,6 +4,8 @@ import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { lireVente, lignesDeVente } from "@/src/lib/caisse";
 import { libelleModeVente } from "@/src/lib/caisseLogique";
 import { TicketPdf, type LigneTicket } from "@/src/lib/ticketPdf";
+import { lireParametresTva, affichage } from "@/src/lib/tva";
+import { piedTva, ventilerPanier } from "@/src/lib/tvaLogique";
 
 /**
  * Ticket de caisse, fabriqué à la demande.
@@ -71,6 +73,19 @@ export async function genererTicket(
     montant: Number(l.montant),
   }));
 
+  // Chaque ligne porte le taux figé au moment de la vente. La ventilation se
+  // fait sur le total des lignes : l'arrondi aux 5 centimes est un écart de
+  // caisse, pas une base d'imposition.
+  const dateVente = String(vente.date_vente).slice(0, 10);
+  const regime = await lireParametresTva(dateVente);
+  const tva = piedTva(
+    affichage(regime),
+    ventilerPanier({
+      lignes: lignesDb.map((l) => ({ montant: l.montant, taux_tva: l.taux_tva })),
+    }),
+    dateVente
+  );
+
   const total = Number(vente.montant_total);
   const arrondi = Number(vente.arrondi ?? 0);
   const recu = vente.montant_recu === null ? null : Number(vente.montant_recu);
@@ -101,6 +116,7 @@ export async function genererTicket(
     recu,
     rendu: recu === null ? null : Math.round((recu - aRegler) * 100) / 100,
     modeLibelle: libelleModeVente(vente.mode_reglement),
+    tva,
     surFacture: vente.mode_reglement === "facture_client",
     vendeur,
   });

@@ -204,6 +204,7 @@ export const ESPACES: Espace[] = [
       { href: "/comptabilite/depenses", label: "💸 Dépenses", exigence: perm("perm_depenses") },
       { href: "/comptabilite/fournisseurs", label: "🏢 Fournisseurs", exigence: perm("perm_depenses") },
       { href: "/comptabilite/journal", label: "📒 Journal", exigence: ADMIN },
+      { href: "/comptabilite/tva", label: "🧾 Décompte TVA", exigence: ADMIN },
       { href: "/comptabilite/rapports", label: "📊 Rapports", exigence: ADMIN },
     ],
   },
@@ -227,6 +228,7 @@ export const ESPACES: Espace[] = [
     ecrans: [
       { href: "/tarifs", label: "💰 Tarifs", exigence: ADMIN },
       { href: "/emails", label: "✉️ Modèles d'e-mails", exigence: ADMIN },
+      { href: "/reglages/tva", label: "🧾 TVA", exigence: ADMIN },
     ],
   },
 ];

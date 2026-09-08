@@ -2,8 +2,30 @@ import * as Sentry from "@sentry/nextjs";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { calculerLignesFacture, type FactureCompta } from "@/src/lib/comptaFactureLogique";
 import { statutApresPaiement } from "@/src/lib/factureStatut";
+import { lireParametresTva } from "@/src/lib/tva";
 
 export const PIECE_TYPE_FACTURE = "facture";
+
+/**
+ * La pièce doit-elle porter sa TVA en comptabilité ?
+ *
+ * Oui en MÉTHODE EFFECTIVE seulement, et seulement à partir de la date
+ * d'assujettissement. En dette fiscale nette — le régime de la pension — la
+ * réponse est non : les produits restent TTC et la dette naît au décompte,
+ * une fois par période. La comptabiliser aux deux endroits la compterait deux
+ * fois, et c'est l'erreur classique de ce régime.
+ *
+ * Le régime lu est celui EN VIGUEUR À LA DATE de la pièce : une facture
+ * ancienne garde sa comptabilisation même si le régime change ensuite.
+ */
+async function tvaEffectivePour(dateFacture: string | null): Promise<boolean> {
+  const regime = await lireParametresTva(dateFacture);
+  if (!regime.assujettie || regime.methode !== "effective") return false;
+  if (regime.dateAssujettissement && dateFacture && dateFacture < regime.dateAssujettissement) {
+    return false;
+  }
+  return true;
+}
 
 /**
  * Acomptes déjà encaissés sur les réservations d'une facture : ils dorment en
@@ -38,7 +60,7 @@ export async function synchroniserComptaFacture(
 
     const { data: lignes } = await supabaseAdmin
       .from("facture_lignes")
-      .select("compte_produit, montant")
+      .select("compte_produit, montant, taux_tva")
       .eq("facture_id", factureId);
 
     const { data: paiements } = await supabaseAdmin
@@ -72,12 +94,16 @@ export async function synchroniserComptaFacture(
       type: f.type,
       emise: !!f.numero,
       statut: f.statut,
-      lignes: (lignes ?? []) as { compte_produit: string; montant: number }[],
+      lignes: (lignes ?? []) as { compte_produit: string; montant: number; taux_tva: number }[],
       paiements: (paiements ?? []) as { mode: string; montant: number; arrondi: number }[],
       acomptesImputes: f.type === "facture" || f.type === "libre"
         ? await acomptesImputes(factureId, total)
         : 0,
       montantCredite,
+      // Le régime EN VIGUEUR À LA DATE de la pièce décide, pas celui
+      // d'aujourd'hui : une facture ancienne garde sa comptabilisation même si
+      // le régime change ensuite.
+      tvaEffective: await tvaEffectivePour(f.date_facture as string | null),
     };
 
     const lignesEcriture = calculerLignesFacture(

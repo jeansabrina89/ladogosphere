@@ -56,6 +56,16 @@ export type TicketProps = {
   recu?: number | null;
   rendu?: number | null;
   modeLibelle: string;
+  /**
+   * La ventilation par taux, ou null si l'entreprise n'est pas assujettie.
+   * Null veut dire : n'affiche RIEN — ni numéro, ni ligne de TVA.
+   */
+  tva?: {
+    numero: string | null;
+    totalHt: number;
+    totalTtc: number;
+    lignes: { taux: number; etiquette: string; base: number; tva: number }[];
+  } | null;
   /** Achat porté sur une facture : rien n'a été encaissé au comptoir. */
   surFacture: boolean;
   vendeur?: string | null;
@@ -64,9 +74,12 @@ export type TicketProps = {
 const chf = (n: number) =>
   new Intl.NumberFormat("fr-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
-/** Hauteur du rouleau : il s'allonge avec le nombre de lignes. */
-export function hauteurTicket(nbLignes: number): number {
-  return 300 + nbLignes * 22;
+/**
+ * Hauteur du rouleau : il s'allonge avec le nombre de lignes, et avec le bloc
+ * de ventilation quand il y en a un.
+ */
+export function hauteurTicket(nbLignes: number, nbLignesTva = 0): number {
+  return 300 + nbLignes * 22 + (nbLignesTva > 0 ? 40 + nbLignesTva * 14 : 0);
 }
 
 export function TicketPdf(p: TicketProps) {
@@ -80,7 +93,7 @@ export function TicketPdf(p: TicketProps) {
       creator="La Dogosphère"
       producer="La Dogosphère"
     >
-      <Page size={[LARGEUR_80MM, hauteurTicket(p.lignes.length)]} style={s.page}>
+      <Page size={[LARGEUR_80MM, hauteurTicket(p.lignes.length, p.tva?.lignes.length ?? 0)]} style={s.page}>
         <Text style={s.nom}>{p.emetteur.nom}</Text>
         <Text style={s.entreprise}>
           {p.emetteur.adresse.join("\n")}
@@ -155,6 +168,36 @@ export function TicketPdf(p: TicketProps) {
             )}
           </>
         )}
+
+        {/*
+          La ventilation, en pied de ticket. Les prix affichés restent TTC.
+
+          Elle se calcule sur le TOTAL DES LIGNES, jamais sur le montant
+          réellement encaissé : l'arrondi aux 5 centimes est un écart de
+          caisse qui part en 3800, il n'est pas une base d'imposition.
+
+          Rien ne s'affiche si l'entreprise n'est pas assujettie.
+        */}
+        {p.tva && p.tva.lignes.length > 0 && (
+          <>
+            <View style={s.filet} />
+            <View style={s.totalLigne}>
+              <Text>Total HT</Text>
+              <Text>{chf(p.tva.totalHt)}</Text>
+            </View>
+            {p.tva.lignes.map((l, i) => (
+              <View key={i} style={s.totalLigne}>
+                <Text>{l.etiquette} sur {chf(l.base)}</Text>
+                <Text>{chf(l.tva)}</Text>
+              </View>
+            ))}
+            <View style={s.totalLigne}>
+              <Text style={s.gras}>Total TTC</Text>
+              <Text style={s.gras}>{chf(p.tva.totalTtc)}</Text>
+            </View>
+          </>
+        )}
+        {p.tva?.numero && <Text style={[s.detail, s.centre, { marginTop: 6 }]}>{p.tva.numero}</Text>}
 
         {p.motif && <Text style={s.motif}>Motif : {p.motif}</Text>}
         {p.vendeur && <Text style={s.motif}>Servi par {p.vendeur}</Text>}
