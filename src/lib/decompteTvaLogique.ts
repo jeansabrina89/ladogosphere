@@ -56,6 +56,20 @@ export type ParametresTva = {
   libelleSecteur2: string | null;
 };
 
+/** Le régime quand rien n'est saisi : rien n'est assujetti, rien ne s'affiche. */
+export const REGIME_VIERGE: ParametresTva = {
+  assujettie: false,
+  dateAssujettissement: null,
+  numero: null,
+  methode: "tdfn",
+  periodicite: "semestrielle",
+  baseDecompte: "convenues",
+  tauxTdfn1: 0,
+  libelleSecteur1: "",
+  tauxTdfn2: null,
+  libelleSecteur2: null,
+};
+
 export const METHODES: { valeur: MethodeTva; libelle: string; aide: string }[] = [
   {
     valeur: "tdfn",
@@ -69,18 +83,39 @@ export const METHODES: { valeur: MethodeTva; libelle: string; aide: string }[] =
   },
 ];
 
+/** Le principe légal, et ce que le décompte applique. */
+export const BASE_DECOMPTE_PAR_DEFAUT: BaseDecompte = "convenues";
+
 export const BASES_DECOMPTE: { valeur: BaseDecompte; libelle: string; aide: string }[] = [
-  {
-    valeur: "recues",
-    libelle: "Contre-prestations reçues",
-    aide: "La TVA est due à l'encaissement. C'est le régime usuel avec la dette fiscale nette : un abonnement payé d'avance entre au décompte quand le client paie.",
-  },
   {
     valeur: "convenues",
     libelle: "Contre-prestations convenues",
-    aide: "La TVA est due dès l'émission de la facture, même impayée.",
+    aide: "La TVA est due dès l'émission de la facture, même impayée. C'est le principe légal, et c'est ce que le décompte applique.",
+  },
+  {
+    valeur: "recues",
+    libelle: "Contre-prestations reçues",
+    aide: "La TVA est due à l'encaissement — sur autorisation de l'AFC seulement.",
   },
 ];
+
+/**
+ * L'avertissement qui accompagne le choix des contre-prestations reçues.
+ *
+ * Il paraît à deux endroits : sous le réglage, et EN TÊTE DU DÉCOMPTE. Un
+ * chiffre ne doit jamais pouvoir être lu comme reposant sur une base qu'il
+ * n'applique pas — c'est la seule façon honnête de laisser le choix ouvert
+ * sans avoir construit le mécanisme.
+ */
+export const AVERTISSEMENT_CONTRE_PRESTATIONS_RECUES =
+  "Le décompte selon les contre-prestations reçues exige une autorisation de l'AFC. " +
+  "Tant que cette option n'est pas mise en œuvre, le décompte reste calculé sur les " +
+  "contre-prestations convenues.";
+
+/** L'avertissement à afficher, ou null quand la base est celle qu'on applique. */
+export function avertissementBaseDecompte(base: BaseDecompte | null | undefined): string | null {
+  return base === "recues" ? AVERTISSEMENT_CONTRE_PRESTATIONS_RECUES : null;
+}
 
 export const PERIODICITES: { valeur: Periodicite; libelle: string; parAn: number }[] = [
   { valeur: "semestrielle", libelle: "Semestrielle (2 décomptes par an)", parAn: 2 },

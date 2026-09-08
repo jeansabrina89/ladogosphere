@@ -10,6 +10,7 @@ import {
   type CodePrestation,
   type Secteur,
 } from "@/src/lib/tvaLogique";
+import { BASE_DECOMPTE_PAR_DEFAUT, REGIME_VIERGE } from "@/src/lib/decompteTvaLogique";
 import type { BaseDecompte, MethodeTva, ParametresTva, Periodicite, CaSecteur } from "@/src/lib/decompteTvaLogique";
 
 /**
@@ -34,19 +35,8 @@ type LigneParametres = {
   libelle_secteur_2: string | null;
 };
 
-/** Le régime quand la table est vide : rien n'est assujetti, rien ne s'affiche. */
-export const REGIME_VIERGE: ParametresTva = {
-  assujettie: false,
-  dateAssujettissement: null,
-  numero: null,
-  methode: "tdfn",
-  periodicite: "semestrielle",
-  baseDecompte: "recues",
-  tauxTdfn1: 0,
-  libelleSecteur1: "",
-  tauxTdfn2: null,
-  libelleSecteur2: null,
-};
+// Le régime vierge vit dans le module PUR, avec le reste des règles.
+export { REGIME_VIERGE } from "@/src/lib/decompteTvaLogique";
 
 function depuisLigne(l: LigneParametres): ParametresTva {
   const taux2 = l.taux_tdfn_2 === null || l.taux_tdfn_2 === undefined ? null : Number(l.taux_tdfn_2);
@@ -56,7 +46,7 @@ function depuisLigne(l: LigneParametres): ParametresTva {
     numero: (l.numero_tva ?? "").trim() || null,
     methode: (l.methode as MethodeTva) ?? "tdfn",
     periodicite: (l.periodicite as Periodicite) ?? "semestrielle",
-    baseDecompte: (l.base_decompte as BaseDecompte) ?? "recues",
+    baseDecompte: (l.base_decompte as BaseDecompte) ?? BASE_DECOMPTE_PAR_DEFAUT,
     tauxTdfn1: Number(l.taux_tdfn_1 ?? 0),
     libelleSecteur1: (l.libelle_secteur_1 ?? "").trim(),
     tauxTdfn2: taux2,

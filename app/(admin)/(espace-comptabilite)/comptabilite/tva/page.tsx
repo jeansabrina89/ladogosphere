@@ -2,7 +2,14 @@ import Link from "next/link";
 import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { lireParametresTva, caDouzeMoisGlissants } from "@/src/lib/tva";
 import { apercuDecompte, periodesAvecEtat, soldeTvaDue } from "@/src/lib/decompteTva";
-import { seuilSecondTaux, METHODES, libellePeriodicite, COMPTE_DECOMPTE_TDFN, COMPTE_TVA_DUE } from "@/src/lib/decompteTvaLogique";
+import {
+  seuilSecondTaux,
+  avertissementBaseDecompte,
+  METHODES,
+  libellePeriodicite,
+  COMPTE_DECOMPTE_TDFN,
+  COMPTE_TVA_DUE,
+} from "@/src/lib/decompteTvaLogique";
 import { anneesExercices } from "@/src/lib/exercices";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
@@ -106,6 +113,19 @@ export default async function DecompteTvaPage({
             </Link>
           ))}
         </div>
+
+        {/* En TÊTE du décompte : un chiffre ne doit jamais pouvoir être lu
+            comme reposant sur une base qu'il n'applique pas. */}
+        {avertissementBaseDecompte(regime.baseDecompte) && (
+          <Carte>
+            <p role="status" style={{
+              backgroundColor: "#F4EAC9", color: "#6E5410", border: "1px solid #C9A84C",
+              borderRadius: 12, padding: "12px 14px", fontSize: 15, fontWeight: 600, margin: 0,
+            }}>
+              ⚠️ {avertissementBaseDecompte(regime.baseDecompte)}
+            </p>
+          </Carte>
+        )}
 
         {seuil?.message && (
           <Carte>

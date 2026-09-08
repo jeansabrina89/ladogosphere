@@ -6,6 +6,7 @@ import { enregistrerRegimeTva } from "./actions";
 import { GARDE_FOU_TAUX_TDFN, TDFN_MAXIMUM, TDFN_MINIMUM } from "@/src/lib/tvaLogique";
 import {
   BASES_DECOMPTE,
+  avertissementBaseDecompte,
   METHODES,
   PERIODICITES,
   periodiciteInhabituelle,
@@ -203,6 +204,18 @@ export default function FormulaireTva({ initial }: { initial: RegimeInitial }) {
           <p style={aide}>
             {BASES_DECOMPTE.find((b) => b.valeur === base)?.aide}
           </p>
+          {/* Le choix reste ouvert, mais il ne doit pas laisser croire que le
+              calcul suit : tant que l'autorisation n'est pas là, le décompte
+              reste sur les contre-prestations convenues. */}
+          {avertissementBaseDecompte(base) && (
+            <p role="status" style={{
+              backgroundColor: "#F4EAC9", color: "#6E5410", border: "1px solid #C9A84C",
+              borderRadius: 12, padding: "10px 12px", fontSize: 14.5, fontWeight: 600,
+              margin: "8px 0 0",
+            }}>
+              ⚠️ {avertissementBaseDecompte(base)}
+            </p>
+          )}
         </div>
       </section>
 

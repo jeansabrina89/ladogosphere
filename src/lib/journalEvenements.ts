@@ -12,7 +12,9 @@ export type EntiteJournal =
   // APP 14 : le régime de TVA et les décomptes déclarés.
   | "parametres_tva" | "decompte_tva"
   // APP 15 : les cartes prépayées, leur facture et leur expiration.
-  | "abonnement";
+  | "abonnement"
+  // Une écriture saisie à la main : le journal en porte la raison.
+  | "ecriture";
 
 export type EvenementJournal = {
   entite: EntiteJournal;
@@ -126,6 +128,7 @@ const LIBELLES: Record<string, string> = {
   abonnement_porte_sur_facture: "Carte portée sur une facture en cours",
   abonnement_expire: "Carte expirée — journées non consommées",
   abonnement_avoir: "Carte annulée par avoir",
+  ecriture_manuelle: "Écriture saisie à la main",
 };
 
 export function libelleEvenement(evenement: string): string {
