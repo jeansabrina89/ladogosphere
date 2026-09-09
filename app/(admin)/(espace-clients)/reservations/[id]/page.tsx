@@ -23,6 +23,7 @@ import { libelleModeRemise } from "@/src/lib/venteEnLigneLogique";
 import NomClientLien from "@/app/components/NomClientLien";
 import ContactEmail from "@/app/components/ContactEmail";
 import ContactTelephone from "@/app/components/ContactTelephone";
+import MessageProprietaire from "@/app/components/MessageProprietaire";
 
 function badgeCheckin(statut: string) {
   const map: Record<string, { label: string; bg: string; color: string }> = {
@@ -221,12 +222,20 @@ export default async function ReservationPage({
           <p><strong>Heure départ :</strong> {formatHeure(res.heure_depart) || "—"}</p>
           {res.commentaire_admin && (
             <>
-              <p className="mb-0"><strong>Commentaire :</strong></p>
+              {/* La note de l'ÉQUIPE. À ne pas confondre avec le message du
+                  propriétaire, juste en dessous : deux champs, deux auteurs. */}
+              <p className="mb-0"><strong>Commentaire interne :</strong></p>
               {/* Texte libre : les sauts de ligne saisis sont conservés. */}
               <p className="whitespace-pre-line">{res.commentaire_admin}</p>
             </>
           )}
         </div>
+
+        {/* Ce que le propriétaire a signalé en réservant. Sans clic : c'est
+            souvent la seule chose qu'il aura pu dire avant l'arrivée. Le
+            composant ne rend RIEN s'il n'y a pas de message — pas même un
+            conteneur vide qui laisserait un blanc dans la page. */}
+        <MessageProprietaire commentaire={res.commentaire_client} />
 
         {/* Le colis qui attend : impossible de rendre le chien sans le voir. */}
         {colisEnAttente.length > 0 && (

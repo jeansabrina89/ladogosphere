@@ -9,6 +9,7 @@ import { clientsAvecCommandeARemettre } from "@/src/lib/venteEnLigne";
 import NomClientLien from "@/app/components/NomClientLien";
 import NomChienLien from "@/app/components/NomChienLien";
 import BadgePhotos from "@/app/components/BadgePhotos";
+import MessageProprietaire from "@/app/components/MessageProprietaire";
 
 const TYPE_LABELS: Record<string, string> = {
   journee: "Journée",
@@ -18,7 +19,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 const SELECT = `
   id, statut, date_arrivee_prevue, date_depart_prevu, date_arrivee_reelle,
-  reservations ( type_reservation, heure_arrivee, heure_depart, clients (id, prenom, nom, photos_ok) ),
+  reservations ( type_reservation, heure_arrivee, heure_depart, commentaire_client, clients (id, prenom, nom, photos_ok) ),
   chiens ( id, nom )
 ` as const;
 
@@ -133,6 +134,12 @@ export default async function ChiensDuJourPage({
                           {cc.reservations?.type_reservation && ` · ${TYPE_LABELS[cc.reservations.type_reservation] ?? cc.reservations.type_reservation}`}
                           {heure && ` · ${heure}`}
                         </p>
+                        {/* Ce que le propriétaire a signalé : sur la ligne du
+                            chien concerné, sans clic. */}
+                        <MessageProprietaire
+                          commentaire={cc.reservations?.commentaire_client}
+                          taille="petite"
+                        />
                       </div>
                       {peutPointer && (
                         <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type="arrivee" />
@@ -178,6 +185,12 @@ export default async function ChiensDuJourPage({
                           {departPrevu && ` · Départ prévu le ${departPrevu}`}
                           {heureDep && ` à ${heureDep}`}
                         </p>
+                        {/* Ce que le propriétaire a signalé : sur la ligne du
+                            chien concerné, sans clic. */}
+                        <MessageProprietaire
+                          commentaire={cc.reservations?.commentaire_client}
+                          taille="petite"
+                        />
                       </div>
                       {peutPointer && (
                         <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type="depart" est_essai={cc.reservations?.type_reservation === "essai"} nom_chien={cc.chiens?.nom ?? "ce chien"} />
@@ -217,6 +230,12 @@ export default async function ChiensDuJourPage({
                           {cc.reservations?.type_reservation && ` · ${TYPE_LABELS[cc.reservations.type_reservation] ?? cc.reservations.type_reservation}`}
                           {heure && ` · ${heure}`}
                         </p>
+                        {/* Ce que le propriétaire a signalé : sur la ligne du
+                            chien concerné, sans clic. */}
+                        <MessageProprietaire
+                          commentaire={cc.reservations?.commentaire_client}
+                          taille="petite"
+                        />
                       </div>
                       {peutPointer && (
                         <BoutonsCheckinDashboard checkin_id={cc.id} statut={cc.statut} type="depart" est_essai={cc.reservations?.type_reservation === "essai"} nom_chien={cc.chiens?.nom ?? "ce chien"} />

@@ -7,6 +7,7 @@ import { aujourdhuiISO } from "@/src/lib/dates";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import NomClientLien from "@/app/components/NomClientLien";
 import NomChienLien from "@/app/components/NomChienLien";
+import MessageProprietaire from "@/app/components/MessageProprietaire";
 
 const SERIF = "Georgia, 'Times New Roman', serif";
 
@@ -45,6 +46,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: Prom
         date_debut,
         date_fin,
         type_reservation,
+        commentaire_client,
         boxes (numero, nom),
         clients (id, prenom, nom)
       )
@@ -62,6 +64,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: Prom
         date_debut,
         date_fin,
         type_reservation,
+        commentaire_client,
         boxes (numero, nom),
         clients (id, prenom, nom)
       )
@@ -219,6 +222,9 @@ function CarteCheckin({ checkin, action, accent }: { checkin: any; action?: Reac
           <p style={{ margin: "1px 0 0" }}><NomClientLien id={res?.clients?.id} prenom={res?.clients?.prenom} nom={res?.clients?.nom} /></p>
         </div>
       </div>
+      {/* L'arrivée est le moment où l'information sert : une boiterie, un
+          traitement, une peur se lisent ici, pas dans un autre écran. */}
+      <MessageProprietaire commentaire={res?.commentaire_client} taille="petite" />
       {action && <div className="mt-2">{action}</div>}
     </div>
   );
