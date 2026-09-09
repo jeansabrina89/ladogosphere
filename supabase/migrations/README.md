@@ -4,10 +4,16 @@ Ce dossier contient l'historique complet et ordonne des migrations SQL de la bas
 Supabase de production (`lljxyrbocdqerricggfc`), une par fichier, nommees
 `<version>_<nom>.sql` ou `version` est un horodatage UTC `AAAAMMJJhhmmss`.
 
-Rejouees dans l'ordre sur une base vide, ces 58 migrations reproduisent
-exactement le schema de production (tables, RLS, fonctions, triggers, seed du
-plan comptable). C'est la source de verite du schema : il remplace l'ancien
-dump `schema.sql`.
+Rejouees dans l'ordre sur une base vide, ces migrations reproduisent exactement
+le schema de production (tables, RLS, fonctions, triggers, seed du plan
+comptable). C'est la source de verite du schema : il remplace l'ancien dump
+`schema.sql`.
+
+**Promesse verifiee le 9 septembre 2026** : chaque ligne de
+`supabase_migrations.schema_migrations` a son fichier ici, et le contenu de
+chaque fichier a ete compare octet par octet (empreinte md5) a ce qui a
+reellement ete applique. Une promesse sans date se perime sans prevenir : celle-
+ci se reverifie a chaque fois qu'on veut pouvoir s'y fier.
 
 ## A quoi ca sert
 - Reproductibilite : monter une base de staging identique a la prod.
