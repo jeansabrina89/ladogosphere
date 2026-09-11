@@ -5,6 +5,12 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { getAvoirAppliqueReservation } from "@/src/lib/avoirs";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
+import {
+  EVENEMENT_REQUALIFICATION,
+  refusRequalification,
+  typeSejour,
+} from "@/src/lib/typeSejour";
 
 export async function modifierReservation(id: string, formData: FormData) {
   const verif = await verifierPermission("perm_reservations_modifier");
@@ -19,6 +25,26 @@ export async function modifierReservation(id: string, formData: FormData) {
   const date_debut = formData.get("date_debut") as string;
   const date_fin = formData.get("date_fin") as string;
 
+  // ── Requalification du type de séjour ──────────────────────────────────
+  //
+  // Ce n'est pas une correction de saisie : changer de type déplace des
+  // montants hors du chiffre d'affaires, ou les y ramène. Motif obligatoire,
+  // trace au journal.
+  const { data: avant } = await supabaseAdmin
+    .from("reservations").select("type_sejour, numero").eq("id", id).maybeSingle();
+
+  const typeAvant = typeSejour(avant?.type_sejour as string | undefined);
+  const typeApres = typeSejour(formData.get("type_sejour") as string);
+  const motifType = String(formData.get("motif_type_sejour") ?? "").trim();
+
+  const refusType = refusRequalification({
+    avant: typeAvant,
+    apres: typeApres,
+    motif: motifType,
+    peutTarifsUrgence: (await verifierPermission("perm_tarifs_urgence")).error === undefined,
+  });
+  if (refusType) throw new Error(refusType);
+
   const { error } = await supabaseAdmin
     .from("reservations")
     .update({
@@ -28,12 +54,27 @@ export async function modifierReservation(id: string, formData: FormData) {
       heure_arrivee,
       heure_depart,
       urgence,
+      type_sejour: typeApres,
       date_debut,
       date_fin,
     })
     .eq("id", id);
 
   if (error) throw new Error(error.message);
+
+  // La trace ne part qu'APRÈS l'écriture, et seulement si le type a bougé :
+  // un journal qui note des non-changements ne se lit plus.
+  if (typeAvant !== typeApres) {
+    await tracerEvenement({
+      entite: "reservation",
+      entiteId: id,
+      evenement: EVENEMENT_REQUALIFICATION,
+      avant: { type_sejour: typeAvant },
+      apres: { type_sejour: typeApres, numero: avant?.numero ?? null },
+      motif: motifType,
+      userId: verif.userId ?? null,
+    });
+  }
 
   // Mettre à jour les occupations de boxes
   if (box_id) {

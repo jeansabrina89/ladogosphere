@@ -138,6 +138,9 @@ const LIBELLES: Record<string, string> = {
   promotion_desactivee: "Rubrique désactivée",
   promotion_reactivee: "Rubrique réactivée",
   remise_membre_categorie: "Remise membre d'une catégorie",
+  // Une requalification déplace des montants hors du chiffre d'affaires,
+  // ou les y ramène : elle se lit en toutes lettres.
+  type_sejour: "Type de séjour requalifié",
 };
 
 export function libelleEvenement(evenement: string): string {

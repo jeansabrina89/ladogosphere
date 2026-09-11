@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { construireRapport } from "@/src/lib/rapportsCompta";
+import { ventilationSejoursExercice } from "@/src/lib/ventilationSejoursExercice";
 import * as XLSX from "xlsx";
 
 export async function GET(req: NextRequest) {
@@ -77,6 +78,22 @@ export async function GET(req: NextRequest) {
   const wsGL = XLSX.utils.aoa_to_sheet(gl);
   wsGL["!cols"] = [{ wch: 28 }, { wch: 12 }, { wch: 34 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
   XLSX.utils.book_append_sheet(wb, wsGL, "Grand-livre");
+
+  // Lecture seule, posée à côté des produits : un séjour gratuit ne produit
+  // toujours aucun produit, et cet onglet dit combien il y en a eu.
+  const sejours = await ventilationSejoursExercice(parseInt(annee));
+  const vs: (string | number)[][] = [["Ventilation par type de séjour", annee], [],
+    ["Type", "Séjours", "Nuitées", "Montant", "Entre dans le chiffre d'affaires"]];
+  for (const l of sejours.lignes) {
+    vs.push([l.libelle, l.nb, l.nuitees, l.montant, l.compteDansActivite ? "oui" : "non"]);
+  }
+  vs.push([],
+    ["Dont activité (pension)", sejours.activiteNb, sejours.activiteNuitees, sejours.activiteMontant, ""],
+    ["Dont accueils non facturés", sejours.nonFacturesNb, sejours.nonFacturesNuitees, sejours.nonFacturesMontant, ""],
+    ["Total accueilli", sejours.totalNb, sejours.totalNuitees, sejours.totalMontant, ""]);
+  const wsVS = XLSX.utils.aoa_to_sheet(vs);
+  wsVS["!cols"] = [{ wch: 30 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 32 }];
+  XLSX.utils.book_append_sheet(wb, wsVS, "Types de séjour");
 
   const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
   return new NextResponse(buffer, {

@@ -6,9 +6,16 @@ import { formatDateFR } from "@/src/lib/dates";
 import SelectHeure from "@/app/components/SelectHeure";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import { statutEssaiDe, chienReservablePour, messageRefusChien } from "@/src/lib/journeeEssai";
+import {
+  MENTION_OCCUPATION_TOUS_TYPES,
+  TYPES_SEJOUR,
+  infoTypeSejour,
+  typeSejourPropose,
+  typesSejourAutorises,
+} from "@/src/lib/typeSejour";
 
 type EtatJourneeEssai = { disponible: boolean; heuresPrises: string[]; creneauxLibres: string[] };
-type Client = { id: string; prenom: string; nom: string; membre: boolean; aJour: boolean; cotisation_exemptee?: boolean };
+type Client = { id: string; prenom: string; nom: string; membre: boolean; aJour: boolean; cotisation_exemptee?: boolean; interne?: boolean };
 type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string; statut_essai: string | null };
 type Box = { id: string; numero: number; nom?: string | null };
 
@@ -37,6 +44,10 @@ export default function FormReservation({
   estAdmin?: boolean;
 }) {
   const [type, setType] = useState("journee");
+  // Le TYPE DE SÉJOUR — pourquoi le chien est là. Il ne se voit jamais côté
+  // client : c'est une qualification de la pension, qui décide des chiffres.
+  const [typeSejourChoisi, setTypeSejourChoisi] = useState("pension");
+  const [typeSejourTouche, setTypeSejourTouche] = useState(false);
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
   const [heureArrivee, setHeureArrivee] = useState("");
@@ -132,6 +143,17 @@ export default function FormReservation({
   const tousValidesSel = chiensSelectionnesInfos.length > 0 && chiensNonValidesSel.length === 0;
 
   const clientSelectionne = clients.find(c => c.id === clientId) ?? null;
+  const typesOuverts = TYPES_SEJOUR.filter((t) =>
+    typesSejourAutorises({ peutTarifsUrgence: peutUrgence }).includes(t.valeur)
+  );
+  // La fiche propose, elle n'impose pas : une fiche interne part sur
+  // « personnel », et Sabrina peut encore choisir autre chose.
+  const typeSejourAttendu = typeSejourPropose({ ficheInterne: clientSelectionne?.interne === true });
+  const [ficheVue, setFicheVue] = useState<string | null>(null);
+  if (clientId !== ficheVue) {
+    setFicheVue(clientId);
+    if (!typeSejourTouche) setTypeSejourChoisi(typeSejourAttendu);
+  }
   const clientsFiltres = clientSearch
     ? clients.filter(c => `${c.prenom} ${c.nom}`.toLowerCase().includes(clientSearch.toLowerCase()))
     : clients;
@@ -344,6 +366,7 @@ export default function FormReservation({
         fd.set("heure_arrivee", heureArrivee || "");
         fd.set("heure_depart", heureDepart || "");
         fd.set("urgence", "");
+        fd.set("type_sejour", typeSejourChoisi);
         fd.set("commentaire_admin", commentaire_admin || "");
         if (forcer) {
           fd.set("forcer", "on");
@@ -821,6 +844,39 @@ export default function FormReservation({
                 className="w-full border rounded-xl p-3"
               />
             </div>
+          </div>
+
+          {/* Le TYPE DE SÉJOUR : pourquoi le chien est là. Côté pension
+              uniquement — le client ne voit jamais cette notion. */}
+          <div>
+            <label htmlFor="type_sejour" className="block font-semibold mb-1">
+              Type de séjour
+            </label>
+            <select
+              id="type_sejour"
+              name="type_sejour"
+              value={typeSejourChoisi}
+              onChange={(e) => { setTypeSejourChoisi(e.target.value); setTypeSejourTouche(true); }}
+              className="w-full border rounded-xl p-3"
+            >
+              {typesOuverts.map((t) => (
+                <option key={t.valeur} value={t.valeur}>{t.libelle}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              {infoTypeSejour(typeSejourChoisi).aide}
+            </p>
+            {typeSejourChoisi !== "pension" && (
+              <p className="text-xs mt-1" style={{ color: "#6E5410" }}>
+                Ce séjour n&apos;entrera pas dans le chiffre d&apos;affaires.{" "}
+                {MENTION_OCCUPATION_TOUS_TYPES}
+              </p>
+            )}
+            {!peutUrgence && (
+              <p className="text-xs text-gray-400 mt-1">
+                « Urgence » et « Abandon » demandent la permission des tarifs d&apos;urgence.
+              </p>
+            )}
           </div>
 
           {/* Urgence — visible si admin ou permission perm_tarifs_urgence */}

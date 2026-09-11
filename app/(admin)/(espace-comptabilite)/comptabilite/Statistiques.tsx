@@ -5,6 +5,12 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
 } from "recharts";
+import {
+  AIDE_OCCUPATION_PAYANTE,
+  AIDE_OCCUPATION_REELLE,
+  LIBELLE_OCCUPATION_PAYANTE,
+  LIBELLE_OCCUPATION_REELLE,
+} from "@/src/lib/typeSejour";
 
 type StatMois = {
   mois: string;
@@ -14,8 +20,12 @@ type StatMois = {
   ca_cotisations: number;
   ca_total: number;
   nb_reservations: number;
+  nb_accueils_non_factures: number;
   nb_chiens_total: number;
+  /** Tous types de séjour : la charge de travail. */
   taux_box: number;
+  /** Pension seule : ce qui a été vendu. */
+  taux_box_payant: number;
   taux_places: number;
 };
 
@@ -73,17 +83,19 @@ export default function Statistiques({
       const wsChiens = XLSX.utils.json_to_sheet(statsMois.map(m => ({
         "Mois": m.mois,
         "Chiens présents (distincts)": m.nb_chiens_total,
-        "Nb réservations": m.nb_reservations,
+        "Nb séjours de pension": m.nb_reservations,
+        "Nb accueils non facturés": m.nb_accueils_non_factures,
       })));
-      wsChiens["!cols"] = [{ wch: 8 }, { wch: 12 }, { wch: 16 }];
+      wsChiens["!cols"] = [{ wch: 8 }, { wch: 12 }, { wch: 20 }, { wch: 24 }];
       XLSX.utils.book_append_sheet(wb, wsChiens, `Chiens ${annee}`);
 
       const wsTaux = XLSX.utils.json_to_sheet(statsMois.map(m => ({
         "Mois": m.mois,
-        "Taux box (%)": m.taux_box,
+        [`${LIBELLE_OCCUPATION_REELLE} (%)`]: m.taux_box,
+        [`${LIBELLE_OCCUPATION_PAYANTE} (%)`]: m.taux_box_payant,
         "Taux places (%)": m.taux_places,
       })));
-      wsTaux["!cols"] = [{ wch: 8 }, { wch: 16 }, { wch: 18 }];
+      wsTaux["!cols"] = [{ wch: 8 }, { wch: 20 }, { wch: 22 }, { wch: 18 }];
       XLSX.utils.book_append_sheet(wb, wsTaux, `Remplissage ${annee}`);
 
       if (statsJours.length > 0) {
@@ -181,7 +193,7 @@ export default function Statistiques({
         <h3 className="font-bold mb-3" style={{ color: "#1B2B5E" }}>
           {vue === "ca" ? `Facturé vs encaissé par mois — ${annee} (comparaison ${annee - 1})` :
            vue === "chiens" ? `Chiens présents par mois — ${annee}` :
-           `Taux de remplissage mensuel — ${annee}`}
+           `Occupation mensuelle — ${annee} (réelle et payante)`}
         </h3>
 
         <ResponsiveContainer width="100%" height={300}>
@@ -213,8 +225,12 @@ export default function Statistiques({
               <Legend />
               <Line
                 type="monotone" dataKey="taux_box"
-                name="Taux box (occupation des boxes)" stroke="#E8847A" strokeWidth={2}
+                name={LIBELLE_OCCUPATION_REELLE} stroke="#E8847A" strokeWidth={2}
                 dot={{ fill: "#E8847A" }} />
+              <Line
+                type="monotone" dataKey="taux_box_payant"
+                name={LIBELLE_OCCUPATION_PAYANTE} stroke="#1B2B5E" strokeWidth={2}
+                dot={{ fill: "#1B2B5E" }} />
               <Line
                 type="monotone" dataKey="taux_places"
                 name="Taux places (densité d'accueil)" stroke="#4AAEA0" strokeWidth={2}
@@ -224,7 +240,10 @@ export default function Statistiques({
         </ResponsiveContainer>
         {vue === "remplissage" && (
           <p className="text-xs text-[rgba(27,43,94,0.45)] mt-3">
-            Taux box = boxes occupées / boxes actives. Taux places = chiens présents / capacité standard totale (2 chiens/box).
+            <strong>{LIBELLE_OCCUPATION_REELLE}</strong> : {AIDE_OCCUPATION_REELLE}{" "}
+            <strong>{LIBELLE_OCCUPATION_PAYANTE}</strong> : {AIDE_OCCUPATION_PAYANTE}{" "}
+            Un seul de ces deux chiffres serait faux dans les deux sens. Taux places =
+            chiens présents / capacité standard totale (2 chiens/box), tous types confondus.
           </p>
         )}
       </div>
@@ -259,9 +278,10 @@ export default function Statistiques({
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">💰 Total</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">Facturé {annee - 1}</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">Évolution</th>
-              <th className="px-4 py-3 text-right text-sm font-semibold text-white">Réservations</th>
+              <th className="px-4 py-3 text-right text-sm font-semibold text-white">Séjours de pension</th>
+              <th className="px-4 py-3 text-right text-sm font-semibold text-white">Accueils non facturés</th>
               <th className="px-4 py-3 text-right text-sm font-semibold text-white">Chiens</th>
-              <th className="px-4 py-3 text-right text-sm font-semibold text-white">Taux remplissage</th>
+              <th className="px-4 py-3 text-right text-sm font-semibold text-white">Occupation</th>
             </tr>
           </thead>
           <tbody>
@@ -299,6 +319,9 @@ export default function Statistiques({
                     ) : "—"}
                   </td>
                   <td className="px-4 py-3 text-sm text-right text-[rgba(27,43,94,0.6)]">{m.nb_reservations}</td>
+                  <td className="px-4 py-3 text-sm text-right text-[rgba(27,43,94,0.6)]">
+                    {m.nb_accueils_non_factures > 0 ? m.nb_accueils_non_factures : "—"}
+                  </td>
                   <td className="px-4 py-3 text-sm text-right text-[rgba(27,43,94,0.6)]">{m.nb_chiens_total}</td>
                   <td className="px-4 py-3 text-sm text-right">
                     <div className="flex flex-col gap-1 items-end">
@@ -307,14 +330,18 @@ export default function Statistiques({
                         m.taux_box >= 50 ? "bg-yellow-100 text-yellow-700" :
                         "bg-[#EDE8DF] text-[rgba(27,43,94,0.6)]"
                       }`}>
-                        📦 {m.taux_box}%
+                        📦 {LIBELLE_OCCUPATION_REELLE} {m.taux_box}%
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#E4E7F0] text-[#1B2B5E]"
+                        title={AIDE_OCCUPATION_PAYANTE}>
+                        💰 {LIBELLE_OCCUPATION_PAYANTE} {m.taux_box_payant}%
                       </span>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                         m.taux_places >= 80 ? "bg-green-100 text-green-700" :
                         m.taux_places >= 50 ? "bg-yellow-100 text-yellow-700" :
                         "bg-[#EDE8DF] text-[rgba(27,43,94,0.6)]"
                       }`}>
-                        🐾 {m.taux_places}%
+                        🐾 Places {m.taux_places}%
                       </span>
                     </div>
                   </td>

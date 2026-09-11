@@ -8,6 +8,7 @@ import { rafraichirFactureBrouillon } from "@/src/lib/factureResa";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 import { synchroniserComptaAvoir } from "@/src/lib/comptaAvoir";
 import type { EcartType } from "@/src/lib/facturation";
+import { reglesFacturation } from "@/src/lib/typeSejour";
 
 /**
  * Prix d'une réservation — couche métier, sans session.
@@ -120,7 +121,7 @@ export type ResultatMontantCalcule = {
   montant?: number;
   calcule: boolean;
   /** Pourquoi rien n'a été calculé, quand ce n'est pas une erreur. */
-  raison?: "deja_calcule" | "offerte" | "sans_chien";
+  raison?: "deja_calcule" | "offerte" | "sans_chien" | "gratuit_par_defaut";
   erreur?: string;
 };
 
@@ -129,6 +130,12 @@ export type ResultatMontantCalcule = {
  * calculé n'est pas recalculé (le personnel peut l'avoir ajusté à la main).
  *
  * Une réservation offerte ou d'une fiche interne reste à 0, c'est voulu.
+ *
+ * Le type de séjour porte sa règle de facturation, et cette règle est celle
+ * qui existait déjà : « personnel » et « abandon » ne déclenchent aucun calcul
+ * (le montant part à zéro et n'y est ramené par personne — un refuge ou une
+ * commune peut toujours participer, à la main), « urgence » passe par le tarif
+ * d'urgence déjà en place. Rien de neuf ici : le type rattache, il n'invente pas.
  */
 export async function assurerMontantCalcule(
   reservationId: string,
@@ -137,7 +144,7 @@ export async function assurerMontantCalcule(
   const { data: resa, error } = await supabaseAdmin
     .from("reservations")
     .select(`
-      id, statut, type_reservation, urgence, offerte,
+      id, statut, type_reservation, urgence, offerte, type_sejour,
       date_debut, date_fin, heure_arrivee, heure_depart,
       montant_calcule, client_id,
       reservation_chiens (chien_id)
@@ -149,6 +156,14 @@ export async function assurerMontantCalcule(
   if (!resa) return { calcule: false, erreur: "Réservation introuvable." };
 
   if (resa.offerte) return { montant: 0, calcule: false, raison: "offerte" };
+
+  // Gratuit par défaut : on ne pose aucun montant automatique. Le montant
+  // reste libre (montant_final, ajustement_manuel) pour les types qui
+  // l'autorisent — c'est ainsi qu'une participation d'un refuge s'inscrit.
+  const regles = reglesFacturation(resa.type_sejour);
+  if (regles.gratuitParDefaut) {
+    return { montant: 0, calcule: false, raison: "gratuit_par_defaut" };
+  }
 
   // Un montant déjà posé fait foi : 0 vaut « pas encore calculé », comme partout
   // ailleurs dans l'application (une réservation gratuite passe par `offerte`).
@@ -181,7 +196,9 @@ export async function assurerMontantCalcule(
     type_reservation: resa.type_reservation,
     nb_chiens: chienIds.length,
     est_membre: estMembre,
-    est_urgence: !!resa.urgence,
+    // Le type « urgence » applique le tarif d'urgence existant, au même titre
+    // que la case à cocher historique.
+    est_urgence: !!resa.urgence || regles.tarif === "urgence",
     est_privatif: estPrivatifPourSelection(cohabitation),
     date_debut: resa.date_debut,
     date_fin: resa.date_fin,

@@ -9,6 +9,7 @@ import Carte from "@/app/components/ui/Carte";
 import BadgeStatut from "@/app/components/ui/BadgeStatut";
 import EtatVide from "@/app/components/ui/EtatVide";
 import Encaisser from "@/app/(admin)/(espace-comptabilite)/factures/Encaisser";
+import { compteDansActivite, infoTypeSejour } from "@/src/lib/typeSejour";
 
 // Liste des réservations. La sélection multiple pour « facture groupée » a
 // disparu : la facture se monte désormais depuis l'assistant
@@ -20,6 +21,7 @@ type Reservation = {
   numero?: number | null;
   statut: string;
   statut_paiement?: string | null;
+  type_sejour?: string | null;
   type_reservation: string;
   date_debut: string;
   date_fin: string;
@@ -82,6 +84,18 @@ export default function ListeReservations({
                   {res.numero && (
                     <span style={{ fontSize: 12, fontWeight: 600, padding: "2px 8px", borderRadius: 999, backgroundColor: "#F5F0E8", color: "#1B2B5E" }}>
                       #{res.numero}
+                    </span>
+                  )}
+                  {/* La pastille n'apparaît que pour ce qui sort du chiffre
+                      d'affaires : la pension est le cas normal, elle n'a rien
+                      à signaler. */}
+                  {!compteDansActivite(res.type_sejour) && (
+                    <span style={{
+                      fontSize: 12, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+                      backgroundColor: infoTypeSejour(res.type_sejour).fond,
+                      color: infoTypeSejour(res.type_sejour).couleur,
+                    }}>
+                      {infoTypeSejour(res.type_sejour).pastille}
                     </span>
                   )}
                 </div>

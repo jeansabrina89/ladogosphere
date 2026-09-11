@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { revalidatePath } from "next/cache";
+import { usageBox } from "@/src/lib/usageBox";
 
 async function verifierAdmin(): Promise<{ error?: string }> {
   const supabase = await createSupabaseServerClient();
@@ -53,6 +54,10 @@ export async function modifierBox(id: string, formData: FormData): Promise<{ err
   const notes = (formData.get("notes") as string)?.trim() || null;
   const actif = formData.get("actif") === "on";
 
+  // À quoi sert ce box. Une valeur inconnue retombe sur « pension » : le
+  // défaut ne retire aucune place, il n'en invente aucune non plus.
+  const usage_box = usageBox(formData.get("usage_box") as string);
+
   // Box interne : réservé au personnel / à la pension. Le propriétaire doit être
   // une fiche INTERNE ; sans propriétaire, c'est le box de la pension.
   const interne = formData.get("interne") === "on";
@@ -79,6 +84,7 @@ export async function modifierBox(id: string, formData: FormData): Promise<{ err
       actif,
       interne,
       proprietaire_client_id,
+      usage_box,
     })
     .eq("id", id);
   if (error) return { error: error.message };

@@ -6,6 +6,12 @@ import SuggestionBox from "./SuggestionBox";
 import { formatBoxLabel } from "@/src/lib/boxes";
 
 import SelectHeure from "@/app/components/SelectHeure";
+import {
+  TYPES_SEJOUR,
+  infoTypeSejour,
+  typeSejour,
+  typesSejourAutorises,
+} from "@/src/lib/typeSejour";
 
 export default function FormModifierReservation({ id }: { id: string }) {
   const router = useRouter();
@@ -14,6 +20,9 @@ export default function FormModifierReservation({ id }: { id: string }) {
   const [boxId, setBoxId] = useState("");
   const [loading, setLoading] = useState(false);
   const [peutUrgence, setPeutUrgence] = useState(false);
+  // Le type au chargement : c'est lui qui dit s'il y a requalification.
+  const [typeSejourInitial, setTypeSejourInitial] = useState("pension");
+  const [typeSejourChoisi, setTypeSejourChoisi] = useState("pension");
 
   useEffect(() => {
     fetch(`/api/reservations/${id}/details`)
@@ -23,6 +32,9 @@ export default function FormModifierReservation({ id }: { id: string }) {
         setBoxes(data.boxes);
         setBoxId(data.reservation?.box_id || "");
         setPeutUrgence(!!data.peutUrgence);
+        const t = typeSejour(data.reservation?.type_sejour);
+        setTypeSejourInitial(t);
+        setTypeSejourChoisi(t);
       });
   }, [id]);
 
@@ -146,6 +158,52 @@ export default function FormModifierReservation({ id }: { id: string }) {
                 className="w-full border rounded-xl p-3"
               />
             </div>
+          </div>
+
+          {/* Requalifier le séjour : ce n'est pas une correction de saisie,
+              c'est une décision qui déplace des chiffres. Motif obligatoire. */}
+          <div>
+            <label htmlFor="type_sejour" className="block font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+              Type de séjour
+            </label>
+            <select
+              id="type_sejour"
+              name="type_sejour"
+              value={typeSejourChoisi}
+              onChange={(e) => setTypeSejourChoisi(e.target.value)}
+              className="w-full border rounded-xl p-3"
+            >
+              {TYPES_SEJOUR.filter((t) =>
+                typesSejourAutorises({ peutTarifsUrgence: peutUrgence }).includes(t.valeur)
+              ).map((t) => (
+                <option key={t.valeur} value={t.valeur}>{t.libelle}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              {infoTypeSejour(typeSejourChoisi).aide}
+            </p>
+
+            {typeSejourChoisi !== typeSejourInitial && (
+              <div className="mt-3 rounded-xl p-3" style={{ backgroundColor: "#F4EAC9", border: "1px solid #C9A84C" }}>
+                <label htmlFor="motif_type_sejour" className="block font-semibold text-sm mb-1" style={{ color: "#6E5410" }}>
+                  Pourquoi ce changement ?
+                </label>
+                <input
+                  id="motif_type_sejour"
+                  name="motif_type_sejour"
+                  type="text"
+                  required
+                  placeholder="Chien laissé sur place, propriétaire injoignable…"
+                  className="w-full border rounded-xl p-2 text-sm"
+                />
+                <p className="text-xs mt-1" style={{ color: "rgba(110,84,16,0.85)" }}>
+                  De « {infoTypeSejour(typeSejourInitial).libelle} » à «{" "}
+                  {infoTypeSejour(typeSejourChoisi).libelle}{" "}». Le motif part au journal :
+                  cette requalification déplace des montants hors du chiffre d&apos;affaires,
+                  ou les y ramène.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Urgence — visible si admin ou permission perm_tarifs_urgence */}

@@ -10,6 +10,7 @@ import BoutonCloture from "./BoutonCloture";
 import { anneesExercices } from "@/src/lib/exercices";
 import { compterDepensesSansJustificatif } from "@/src/lib/depenses";
 import { ventilationExercice } from "@/src/lib/ventilationExercice";
+import { ventilationSejoursExercice } from "@/src/lib/ventilationSejoursExercice";
 
 const chf = (n: number) => `${n.toFixed(2)} CHF`;
 
@@ -50,6 +51,9 @@ export default async function RapportsPage({
   // Lecture seule : la ventilation se lit sur les lignes des pièces émises,
   // elle ne déplace aucune écriture.
   const tva = await ventilationExercice(annee);
+  // Même esprit : une lecture posée à côté des produits, qui montre ce que
+  // la maison a accueilli sans le facturer.
+  const sejours = await ventilationSejoursExercice(annee);
   const exerciceCloture = exercice?.statut === "cloture";
 
   const rap = construireRapport({
@@ -268,6 +272,63 @@ export default async function RapportsPage({
                 </div>
               </Carte>
             )}
+            <Carte>
+              <h2 className="font-bold mb-1" style={{ color: marine }}>Ventilation par type de séjour</h2>
+              <p className="text-xs mb-4" style={{ color: sousTexte }}>
+                Lecture seule. Seuls les séjours de pension produisent un produit ;
+                les trois autres types occupent un box sans rien facturer. Aucune
+                écriture ne change ici — ce tableau explique le compte de résultat,
+                il ne le corrige pas.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ color: sousTexte }}>
+                      <th className="text-left py-1 font-semibold">Type de séjour</th>
+                      <th className="text-right py-1 font-semibold">Séjours</th>
+                      <th className="text-right py-1 font-semibold">Nuitées</th>
+                      <th className="text-right py-1 font-semibold">Montant</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sejours.lignes.map(l => (
+                      <tr key={l.type} style={{ borderTop: bordure }}>
+                        <td className="py-1" style={{ color: marine }}>
+                          {l.libelle}
+                          {!l.compteDansActivite && (
+                            <span className="ml-2 text-xs" style={{ color: sousTexte }}>
+                              non facturé
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-1 text-right" style={{ color: sousTexte }}>{l.nb}</td>
+                        <td className="py-1 text-right" style={{ color: sousTexte }}>{l.nuitees}</td>
+                        <td className="py-1 text-right font-semibold" style={{ color: marine }}>{chf(l.montant)}</td>
+                      </tr>
+                    ))}
+                    <tr style={{ borderTop: `2px solid ${marine}` }}>
+                      <td className="py-1 font-bold" style={{ color: marine }}>Dont activité (pension)</td>
+                      <td className="py-1 text-right font-bold" style={{ color: marine }}>{sejours.activiteNb}</td>
+                      <td className="py-1 text-right font-bold" style={{ color: marine }}>{sejours.activiteNuitees}</td>
+                      <td className="py-1 text-right font-bold" style={{ color: marine }}>{chf(sejours.activiteMontant)}</td>
+                    </tr>
+                    <tr style={{ borderTop: bordure }}>
+                      <td className="py-1 font-bold" style={{ color: marine }}>Dont accueils non facturés</td>
+                      <td className="py-1 text-right font-bold" style={{ color: marine }}>{sejours.nonFacturesNb}</td>
+                      <td className="py-1 text-right font-bold" style={{ color: marine }}>{sejours.nonFacturesNuitees}</td>
+                      <td className="py-1 text-right font-bold" style={{ color: marine }}>{chf(sejours.nonFacturesMontant)}</td>
+                    </tr>
+                    <tr style={{ borderTop: bordure }}>
+                      <td className="py-1 font-bold" style={{ color: marine }}>Total accueilli</td>
+                      <td className="py-1 text-right font-bold" style={{ color: marine }}>{sejours.totalNb}</td>
+                      <td className="py-1 text-right font-bold" style={{ color: marine }}>{sejours.totalNuitees}</td>
+                      <td className="py-1 text-right font-bold" style={{ color: marine }}>{chf(sejours.totalMontant)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </Carte>
+
             <Carte>
               <h2 className="font-bold mb-4" style={{ color: marine }}>Balance</h2>
               <div className="overflow-x-auto">

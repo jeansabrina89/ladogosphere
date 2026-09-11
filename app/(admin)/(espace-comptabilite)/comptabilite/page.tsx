@@ -18,6 +18,12 @@ import { anneesExercices } from "@/src/lib/exercices";
 import { caDouzeMoisGlissants, lireParametresTva } from "@/src/lib/tva";
 import { seuilSecondTaux } from "@/src/lib/decompteTvaLogique";
 import { soldeTvaDue } from "@/src/lib/decompteTva";
+import {  comptesNonFactures,
+  compteDansActivite,
+  filtrerActivite,
+  infoTypeSejour,
+  tauxOccupation,
+} from "@/src/lib/typeSejour";
 
 export default async function ComptabilitePage({
   searchParams,
@@ -66,7 +72,7 @@ export default async function ComptabilitePage({
   // Occupations de l'année (box_id + chien_id pour les stats chiens et taux)
   const { data: occupations } = await supabase
     .from("occupation_boxes")
-    .select("box_id, chien_id, date_debut, date_fin")
+    .select("box_id, chien_id, date_debut, date_fin, reservation_id")
     .gte("date_fin", `${annee}-01-01`)
     .lte("date_debut", `${annee}-12-31`);
 
@@ -92,6 +98,18 @@ export default async function ComptabilitePage({
     .gte("date_fin", premierMoisCourant)
     .lte("date_debut", dernierMoisCourant);
 
+  // Le type de séjour de chaque réservation. Une occupation dont la
+  // réservation a disparu retombe sur « pension » : le défaut de
+  // compteDansActivite ne fait jamais disparaître du chiffre en silence.
+  const typeParReservation = new Map<string, string | null>(
+    ((reservations ?? []) as { id: string; type_sejour: string | null }[])
+      .map((r) => [r.id, r.type_sejour])
+  );
+  const occupationPayante = (occ: { reservation_id?: string | null }) =>
+    compteDansActivite(
+      occ.reservation_id ? typeParReservation.get(occ.reservation_id) : null
+    );
+
   const moisLabels = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
   const NB_BOXES = 12;
 
@@ -110,9 +128,14 @@ export default async function ComptabilitePage({
       return parts[0] === String(anneePrec) && parts[1] === moisStr;
     }) ?? [];
 
+    // Seule la pension entre dans les chiffres d'activité. Le filtre est
+    // celui de src/lib/typeSejour, jamais une condition réécrite ici.
+    const resAnneePension = filtrerActivite(resAnnee);
+    const resAnneePrecPension = filtrerActivite(resAnneePrec);
+
     // CA facturé : par date_debut, montant net définitif via helper
-    const caFacture = resAnnee.reduce((s, r) => s + montantDuReservation(r), 0);
-    const caPrec = resAnneePrec.reduce((s, r) => s + montantDuReservation(r), 0);
+    const caFacture = resAnneePension.reduce((s, r) => s + montantDuReservation(r), 0);
+    const caPrec = resAnneePrecPension.reduce((s, r) => s + montantDuReservation(r), 0);
 
     // CA encaissé : par date_paiement
     const resEncaisseMois = reservations?.filter(r => {
@@ -120,7 +143,8 @@ export default async function ComptabilitePage({
       const parts = (r.date_paiement as string).split("-");
       return parts[0] === String(annee) && parts[1] === moisStr;
     }) ?? [];
-    const caEncaisse = resEncaisseMois.reduce((s, r) => s + Number(r.montant_paye ?? 0), 0);
+    const caEncaisse = filtrerActivite(resEncaisseMois)
+      .reduce((s, r) => s + Number(r.montant_paye ?? 0), 0);
 
     // Cotisations du mois (par date_paiement)
     const cotisMois = cotisations?.filter(c => {
@@ -143,8 +167,10 @@ export default async function ComptabilitePage({
     }
     const nbChiens = chiensDistincts.size;
 
-    // Taux de remplissage réel via occupation_boxes
+    // Règle inverse : la disponibilité compte TOUS les types. Le taux réel
+    // dit la charge de travail, le taux payant dit l'activité vendue.
     const boxJoursSet = new Set<string>();
+    const boxJoursPensionSet = new Set<string>();
     let chienJours = 0;
     for (const occ of occupations ?? []) {
       const debut = occ.date_debut > premier ? occ.date_debut : premier;
@@ -155,12 +181,16 @@ export default async function ComptabilitePage({
       while (d <= fDate) {
         const jourISO = d.toISOString().split("T")[0];
         boxJoursSet.add(`${occ.box_id}|${jourISO}`);
+        if (occupationPayante(occ)) boxJoursPensionSet.add(`${occ.box_id}|${jourISO}`);
         chienJours++;
         d.setUTCDate(d.getUTCDate() + 1);
       }
     }
-    const boxJoursOccupes = boxJoursSet.size;
-    const tauxBox    = nbBoxes > 0             ? Math.round((boxJoursOccupes / (nbBoxes * nbJoursMois))             * 1000) / 10 : 0;
+    const deuxTaux = tauxOccupation({
+      boxJoursTous: boxJoursSet.size,
+      boxJoursPension: boxJoursPensionSet.size,
+      capacite: nbBoxes * nbJoursMois,
+    });
     const tauxPlaces = capaciteTotaleBoxes > 0 ? Math.round((chienJours      / (capaciteTotaleBoxes * nbJoursMois)) * 1000) / 10 : 0;
 
     return {
@@ -170,9 +200,11 @@ export default async function ComptabilitePage({
       ca_annee_prec: Math.round(caPrec * 100) / 100,
       ca_cotisations: Math.round(caCotis * 100) / 100,
       ca_total: Math.round((caFacture + caCotis) * 100) / 100,
-      nb_reservations: resAnnee.length,
+      nb_reservations: resAnneePension.length,
+      nb_accueils_non_factures: resAnnee.length - resAnneePension.length,
       nb_chiens_total: nbChiens,
-      taux_box: tauxBox,
+      taux_box: deuxTaux.reelle,
+      taux_box_payant: deuxTaux.payante,
       taux_places: tauxPlaces,
     };
   });
@@ -233,8 +265,15 @@ export default async function ComptabilitePage({
 
   // montantDuReservation applique déjà l'ajustement manuel — et le montant final,
   // quand il existe, l'inclut déjà : l'ajouter à nouveau comptait le geste deux fois.
-  const caFacturePeriode = resPeriodeFacture.reduce((s, r) => s + montantDuReservation(r), 0);
-  const caEncaissePeriode = resPeriodeEncaisse.reduce((s, r) => s + Number(r.montant_paye ?? 0), 0);
+  const caFacturePeriode = filtrerActivite(resPeriodeFacture)
+    .reduce((s, r) => s + montantDuReservation(r), 0);
+  const caEncaissePeriode = filtrerActivite(resPeriodeEncaisse)
+    .reduce((s, r) => s + Number(r.montant_paye ?? 0), 0);
+
+  // Ce que la période a accueilli sans le facturer. Ces chiffres se lisent À
+  // CÔTÉ du chiffre d'affaires : ils expliquent l'écart entre la liste et le CA,
+  // ils ne s'y ajoutent jamais.
+  const nonFacturesPeriode = comptesNonFactures(resPeriodeFacture);
   const totalCotisFiltrees = cotisationsFiltrees?.reduce((s, c) => s + Number(c.montant), 0) ?? 0;
   const totalEncaissePeriode = caEncaissePeriode + totalCotisFiltrees;
   const resteAPayer = caFacturePeriode - caEncaissePeriode;
@@ -445,6 +484,17 @@ export default async function ComptabilitePage({
         </div>
         <p className="text-xs text-[rgba(27,43,94,0.45)] -mt-6 mb-6">
           Facturé = prestations dues sur la période (par date de séjour). Encaissé = montants perçus (par date de paiement).
+          {" "}Seuls les séjours de pension entrent dans ces montants.
+          {nonFacturesPeriode.total > 0 && (
+            <>
+              {" "}La période compte aussi{" "}
+              <Link href={`/reservations?nonfactures=1`} className="font-semibold underline">
+                {nonFacturesPeriode.total} accueil{nonFacturesPeriode.total > 1 ? "s" : ""} non facturé{nonFacturesPeriode.total > 1 ? "s" : ""}
+              </Link>
+              {" "}({nonFacturesPeriode.personnel} personnel, {nonFacturesPeriode.urgence} urgence,{" "}
+              {nonFacturesPeriode.abandon} abandon) : ils occupent un box, pas une ligne de produit.
+            </>
+          )}
         </p>
 
         <div className="grid grid-cols-3 gap-4 mb-8">
@@ -481,6 +531,7 @@ export default async function ComptabilitePage({
                 <th className="px-4 py-3 text-left text-sm font-semibold text-white">Client</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-white">Dates</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-white">Chien(s)</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-white">Type</th>
                 <th className="px-4 py-3 text-right text-sm font-semibold text-white">Facturé</th>
                 <th className="px-4 py-3 text-right text-sm font-semibold text-white">Payé</th>
                 <th className="px-4 py-3 text-right text-sm font-semibold text-white">Reste</th>
@@ -491,7 +542,7 @@ export default async function ComptabilitePage({
             <tbody>
               {reservationsFiltrees?.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-6 text-center text-[rgba(27,43,94,0.45)] text-sm">
+                  <td colSpan={9} className="px-4 py-6 text-center text-[rgba(27,43,94,0.45)] text-sm">
                     Aucune réservation pour ce mois.
                   </td>
                 </tr>
@@ -511,6 +562,15 @@ export default async function ComptabilitePage({
                       {formatDateFR(res.date_debut)} → {formatDateFR(res.date_fin)}
                     </td>
                     <td className="px-4 py-3 text-sm text-[rgba(27,43,94,0.55)]">{chiens}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap"
+                        style={{
+                          backgroundColor: infoTypeSejour(res.type_sejour).fond,
+                          color: infoTypeSejour(res.type_sejour).couleur,
+                        }}>
+                        {infoTypeSejour(res.type_sejour).pastille}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-sm text-right font-semibold" style={{ color: "#1B2B5E" }}>
                       {res.montant_final ? `${res.montant_final} CHF` : "—"}
                     </td>

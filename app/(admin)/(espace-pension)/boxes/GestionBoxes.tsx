@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { creerBox, modifierBox, ajouterIndisponibilite, supprimerIndisponibilite } from "./actions";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { formatDateFR } from "@/src/lib/dates";
+import { USAGES_BOX, estBoxDePension, infoUsageBox, usageBox } from "@/src/lib/usageBox";
 
 type Indisponibilite = {
   id: string;
@@ -24,6 +25,7 @@ type Box = {
   actif: boolean;
   interne: boolean;
   proprietaire_client_id: string | null;
+  usage_box?: string | null;
 };
 
 type FicheInterne = { id: string; prenom: string; nom: string };
@@ -170,6 +172,17 @@ export default function GestionBoxes({
                   {box.notes && <p className="text-sm text-gray-400 mt-1">📝 {box.notes}</p>}
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* L'usage n'est affiché que lorsqu'il sort de l'ordinaire :
+                      la pension est le cas normal. */}
+                  {!estBoxDePension(box.usage_box) && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                      style={{
+                        backgroundColor: infoUsageBox(box.usage_box).fond,
+                        color: infoUsageBox(box.usage_box).couleur,
+                      }}>
+                      {infoUsageBox(box.usage_box).pastille}
+                    </span>
+                  )}
                   {box.interne && (
                     <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
                       ⭐ Interne
@@ -228,6 +241,31 @@ export default function GestionBoxes({
                       <label className="block text-sm font-semibold mb-1">Notes</label>
                       <textarea name="notes" rows={2} defaultValue={box.notes ?? ""}
                         className="w-full border rounded-xl p-2" />
+                    </div>
+
+                    {/* À quoi sert ce box. Rien n'est deviné : tant que Sabrina
+                        ne l'a pas dit, un box est de la pension. */}
+                    <div className="rounded-xl p-4" style={{ backgroundColor: "#F5F0E8", border: "1px solid rgba(27,43,94,0.15)" }}>
+                      <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>
+                        Usage du box
+                      </label>
+                      <select name="usage_box" defaultValue={usageBox(box.usage_box)}
+                        className="w-full border rounded-xl p-2 text-sm">
+                        {USAGES_BOX.map(u => (
+                          <option key={u.valeur} value={u.valeur}>{u.libelle}</option>
+                        ))}
+                      </select>
+                      <ul className="text-xs mt-2 space-y-1" style={{ color: "rgba(27,43,94,0.6)" }}>
+                        {USAGES_BOX.map(u => (
+                          <li key={u.valeur}>
+                            <strong>{u.libelle}</strong> — {u.aide}
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-xs mt-2" style={{ color: "rgba(27,43,94,0.6)" }}>
+                        L&apos;usage ne retire le box d&apos;aucun calcul de disponibilité : il dit
+                        à quoi il sert, pas s&apos;il existe.
+                      </p>
                     </div>
 
                     {/* Box interne : réservé au personnel et à la pension */}

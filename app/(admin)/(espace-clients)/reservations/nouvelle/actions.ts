@@ -7,6 +7,7 @@ import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "
 import { verifierChiensPourReservation, marquerChiensEssaiProgramme } from "@/src/lib/essaiReservation";
 import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
 import { assurerMontantCalcule } from "@/src/lib/prixReservation";
+import { infoTypeSejour, reglesFacturation, refusTypeSejour, typeSejour } from "@/src/lib/typeSejour";
 
 export async function creerReservation(formData: FormData) {
   const verif = await verifierPermission("perm_reservations_creer");
@@ -20,9 +21,25 @@ export async function creerReservation(formData: FormData) {
   const heure_arrivee = formData.get("heure_arrivee") as string || null;
   const heure_depart = formData.get("heure_depart") as string || null;
   const urgence = formData.get("urgence") === "on";
+  // Le TYPE DE SÉJOUR : pourquoi le chien est là. Il décide des chiffres,
+  // jamais de la place — tous les types occupent un box.
+  const type_sejour = typeSejour(formData.get("type_sejour") as string);
   const statut = formData.get("statut") as string;
   const commentaire_admin = formData.get("commentaire_admin") as string || null;
   const chien_ids = formData.getAll("chien_ids") as string[];
+
+  // « Urgence » et « Abandon » sortent du chiffre d'affaires : on ne s'y
+  // qualifie pas soi-même sans la permission des tarifs d'urgence.
+  const refusType = refusTypeSejour({
+    type: type_sejour,
+    peutTarifsUrgence: (await verifierPermission("perm_tarifs_urgence")).error === undefined,
+  });
+  if (refusType) throw new Error(refusType);
+
+  // La règle de facturation du type. Elle n'est pas nouvelle : « personnel »
+  // reprend le comportement des fiches internes (gratuit, sans adhésion ni
+  // journée d'essai), « urgence » le tarif d'urgence déjà en place.
+  const regles = reglesFacturation(type_sejour);
 
   const aujourdhuiCH = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Zurich" });
   if (date_debut && date_debut < aujourdhuiCH) {
@@ -36,13 +53,19 @@ export async function creerReservation(formData: FormData) {
   if (forcer && !forcer_raison?.trim()) {
     throw new Error("Indiquez la raison du passage outre de la journée d'essai.");
   }
-  if (chien_ids.length > 0 && !forcer) {
+  // Un accueil d'urgence ou un chien abandonné n'a pas pu faire de journée
+  // d'essai. Le passage outre reste tracé, avec sa raison écrite — on ne
+  // supprime pas le garde-fou, on dit pourquoi il ne s'applique pas.
+  const essaiHorsSujet = !regles.essaiPropose;
+  if (chien_ids.length > 0 && !forcer && !essaiHorsSujet) {
     const refus = await verifierChiensPourReservation(chien_ids, type_reservation);
     if (refus) throw new Error(refus);
   }
 
-  // Adhésion obligatoire pour réserver (sauf essai ou client exempté).
-  if (type_reservation !== "essai" && client_id) {
+  // Adhésion obligatoire pour réserver (sauf essai, client exempté, ou type
+  // de séjour qui ne l'exige pas : on ne demande pas sa carte de membre à un
+  // chien abandonné).
+  if (type_reservation !== "essai" && client_id && regles.adhesionRequise) {
     const { data: clientRow } = await supabaseAdmin
       .from("clients")
       .select("cotisation_exemptee")
@@ -70,10 +93,15 @@ export async function creerReservation(formData: FormData) {
       heure_arrivee,
       heure_depart,
       urgence,
+      type_sejour,
       statut,
       commentaire_admin,
-      essai_force: forcer,
-      essai_force_raison: forcer ? forcer_raison!.trim() : null,
+      essai_force: forcer || essaiHorsSujet,
+      essai_force_raison: forcer
+        ? forcer_raison!.trim()
+        : essaiHorsSujet
+          ? `Séjour « ${infoTypeSejour(type_sejour).libelle} » : la journée d'essai ne s'applique pas.`
+          : null,
     })
     .select()
     .single();

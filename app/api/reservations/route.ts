@@ -6,6 +6,7 @@ import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { verifierChiensPourReservation, marquerChiensEssaiProgramme, etatJourneeEssai } from "@/src/lib/essaiReservation";
 import { heureCourte, MESSAGE_DATE_ESSAI_PRISE } from "@/src/lib/journeeEssai";
 import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
+import { MESSAGE_TYPE_RESERVE, typeSejour } from "@/src/lib/typeSejour";
 import { assurerMontantCalcule } from "@/src/lib/prixReservation";
 
 export async function POST(req: NextRequest) {
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest) {
   const heure_arrivee = formData.get("heure_arrivee") as string || null;
   const heure_depart = formData.get("heure_depart") as string || null;
   const urgence = formData.get("urgence") === "on";
+  const type_sejour = typeSejour(formData.get("type_sejour") as string);
   const statut = formData.get("statut") as string;
   const commentaire_admin = formData.get("commentaire_admin") as string || null;
   const chien_ids = formData.getAll("chien_ids") as string[];
@@ -32,6 +34,13 @@ export async function POST(req: NextRequest) {
   if (urgence) {
     const urgGarde = await exigerPermissionApi(supabase, "perm_tarifs_urgence");
     if (urgGarde) return urgGarde;
+  }
+
+  // « Urgence » et « Abandon » sortent la réservation du chiffre d'affaires :
+  // on ne s'y qualifie pas soi-même. Même permission que le tarif d'urgence.
+  if (type_sejour === "urgence" || type_sejour === "abandon") {
+    const garde = await exigerPermissionApi(supabase, "perm_tarifs_urgence");
+    if (garde) return NextResponse.json({ error: MESSAGE_TYPE_RESERVE }, { status: 403 });
   }
 
   // Règle de la journée d'essai, chien par chien. Le personnel peut passer
@@ -96,6 +105,7 @@ export async function POST(req: NextRequest) {
       heure_arrivee: essai_force_heure ?? heure_arrivee,
       heure_depart,
       urgence,
+      type_sejour,
       statut,
       commentaire_admin,
       essai_force: forcer || !!essai_force_heure,

@@ -24,6 +24,9 @@ import NomClientLien from "@/app/components/NomClientLien";
 import ContactEmail from "@/app/components/ContactEmail";
 import ContactTelephone from "@/app/components/ContactTelephone";
 import MessageProprietaire from "@/app/components/MessageProprietaire";
+import { compteDansActivite, infoTypeSejour } from "@/src/lib/typeSejour";
+import { lireHistorique, libelleEvenement } from "@/src/lib/journalEvenements";
+import { EVENEMENT_REQUALIFICATION } from "@/src/lib/typeSejour";
 
 function badgeCheckin(statut: string) {
   const map: Record<string, { label: string; bg: string; color: string }> = {
@@ -66,6 +69,11 @@ export default async function ReservationPage({
     `)
     .eq("id", id)
     .single();
+
+  // La trace des requalifications de type : elle explique pourquoi un séjour
+  // ne pèse plus dans le chiffre d’affaires, ou y est revenu.
+  const requalifications = (await lireHistorique("reservation", id))
+    .filter((h) => h.evenement === EVENEMENT_REQUALIFICATION);
 
   const { data: tarifs } = await supabase
     .from("tarifs")
@@ -154,9 +162,49 @@ export default async function ReservationPage({
           </div>
         </div>
 
+        {/* Le type de séjour ne s'affiche que lorsqu'il sort de l'ordinaire :
+            la pension est le cas normal, elle n'a rien à annoncer. */}
+        {!compteDansActivite(res.type_sejour) && (
+          <div className="px-4 py-3 rounded-xl mb-6" style={{
+            backgroundColor: infoTypeSejour(res.type_sejour).fond,
+            color: infoTypeSejour(res.type_sejour).couleur,
+          }}>
+            <p className="font-semibold" style={{ margin: 0 }}>
+              {infoTypeSejour(res.type_sejour).pastille}
+            </p>
+            <p className="text-sm" style={{ margin: "4px 0 0" }}>
+              {infoTypeSejour(res.type_sejour).aide} Ce séjour occupe un box comme
+              tout autre, mais n&apos;entre pas dans le chiffre d&apos;affaires.
+            </p>
+          </div>
+        )}
+
         {res.urgence && (
           <div className="bg-orange-100 text-orange-700 px-4 py-2 rounded-xl mb-6 font-semibold">
             🚨 Réservation urgence
+          </div>
+        )}
+
+        {/* Les requalifications : qui a changé le type, quand et pourquoi. */}
+        {requalifications.length > 0 && (
+          <div className="border rounded-xl p-4 mb-6" style={{ borderColor: "rgba(27,43,94,0.15)" }}>
+            <h2 className="font-bold mb-2" style={{ color: "#1B2B5E" }}>
+              Requalifications
+            </h2>
+            <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+              {requalifications.map((h) => (
+                <li key={h.id} className="text-sm" style={{ padding: "6px 0" }}>
+                  <span style={{ color: "#1B2B5E", fontWeight: 600 }}>
+                    {libelleEvenement(h.evenement)}
+                  </span>
+                  <span style={{ color: "rgba(27,43,94,0.6)" }}>
+                    {" "}— {new Date(h.created_at).toLocaleString("fr-CH")}
+                    {h.auteur ? ` · ${h.auteur}` : ""}
+                  </span>
+                  {h.motif && <div style={{ color: "rgba(27,43,94,0.6)" }}>{h.motif}</div>}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
