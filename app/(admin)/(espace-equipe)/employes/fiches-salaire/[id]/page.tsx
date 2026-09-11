@@ -3,6 +3,12 @@ import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { createClient } from "@/src/utils/supabase/server";
 import BoutonImprimer from "./BoutonImprimer";
 import Link from "next/link";
+import { entiteA } from "@/src/lib/entiteJuridique";
+import {
+  AVERTISSEMENT_SALAIRE_PROPRIETAIRE,
+  lignesAdresse,
+} from "@/src/lib/entiteJuridiqueLogique";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 
 const MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -24,11 +30,28 @@ export default async function FicheSalairePage({
 
   if (!fiche) return <div>Fiche introuvable</div>;
 
+  // L'employeur tel qu'il était au mois de la fiche : une fiche de novembre
+  // porte l'employeur de novembre, même relue deux entités plus tard.
+  const employeur = await entiteA(
+    `${fiche.annee}-${String(fiche.mois).padStart(2, "0")}-01`
+  );
+
   // Vérifier que l'employé ne voit que sa propre fiche
   if (acces.role === "employe" && fiche.employes_rh?.email !== acces.email) {
     redirect("/employes/mon-espace");
   }
 
+  // La propriétaire, en raison individuelle, ne se verse pas de salaire. On
+  // l’écrit sur SA fiche seulement : les employées, elles, ne changent pas.
+  const emailFiche = String(fiche.employes_rh?.email ?? "").trim().toLowerCase();
+  let estLaProprietaire = false;
+  if (employeur.forme === "raison_individuelle" && emailFiche !== "") {
+    const { data: admins } = await supabaseAdmin
+      .from("profiles").select("email").eq("role", "admin");
+    estLaProprietaire = ((admins ?? []) as { email: string | null }[])
+      .some((a) => String(a.email ?? "").trim().toLowerCase() === emailFiche);
+  }
+
   const { data: deductions } = await supabase
     .from("fiche_salaire_deductions")
     .select("*")
@@ -46,6 +69,17 @@ export default async function FicheSalairePage({
           @page { margin: 1.5cm; size: A4; }
         }
       `}} />
+
+      {estLaProprietaire && (
+        <div className="p-4 no-print">
+          <p style={{
+            background: "#F4EAC9", border: "1px solid #C9A84C", color: "#6E5410",
+            borderRadius: 14, padding: "10px 12px", fontSize: 14, fontWeight: 600, margin: 0,
+          }}>
+            ⚠️ {AVERTISSEMENT_SALAIRE_PROPRIETAIRE}
+          </p>
+        </div>
+      )}
 
       {/* Boutons */}
       <div className="no-print p-4 flex gap-3">
@@ -158,7 +192,7 @@ export default async function FicheSalairePage({
 
         {/* Pied de page */}
         <div className="border-t pt-6 text-center text-xs text-gray-400">
-          <p>La Dogosphère Sàrl — Pension canine — Sion, Valais</p>
+          <p>{[employeur.raisonSociale, ...lignesAdresse(employeur)].filter(Boolean).join(" — ")}</p>
           <p>Document confidentiel — {MOIS[fiche.mois - 1]} {fiche.annee}</p>
         </div>
       </div>

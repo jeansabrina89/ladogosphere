@@ -3,6 +3,8 @@ import { createClient } from "@/src/utils/supabase/server";
 import CertificatEditeur from "./CertificatEditeur";
 import Link from "next/link";
 import { formatDateFR } from "@/src/lib/dates";
+import { entiteA } from "@/src/lib/entiteJuridique";
+import { lignesAdresse } from "@/src/lib/entiteJuridiqueLogique";
 
 export default async function CertificatSalaireAnnuelPage({
   searchParams,
@@ -76,6 +78,10 @@ export default async function CertificatSalaireAnnuelPage({
     fiches && fiches.length < 12 ? `Mois couverts : ${fiches.length}/12` : "",
   ].filter(Boolean).join(" | ");
 
+  // L'employeur au 31 décembre de l'année certifiée : c'est lui qui a versé
+  // les salaires de cette année-là.
+  const entite = await entiteA(`${annee}-12-31`);
+
   return (
     <CertificatEditeur
       annee={annee}
@@ -90,6 +96,12 @@ export default async function CertificatSalaireAnnuelPage({
       ijm={ijm}
       remarquesInitiales={remarquesInitiales}
       isAdmin={acces.isAdmin}
+      employeur={{
+        nom: entite.raisonSociale,
+        adresse: lignesAdresse(entite),
+        email: entite.email ?? "",
+        ide: entite.ide,
+      }}
     />
   );
 }

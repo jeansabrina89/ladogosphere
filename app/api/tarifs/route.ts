@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { exigerPersonnel } from "@/src/lib/apiAuth";
+import { supabaseAdmin } from "@/src/lib/supabase-admin";
 
 export async function PUT(req: NextRequest) {
   const supabase = await createClient();
@@ -21,19 +22,35 @@ export async function PUT(req: NextRequest) {
     .update({ valeur: cotisation.toString(), updated_at: new Date().toISOString() })
     .eq("cle", "cotisation_montant");
 
-  // Mettre à jour l'IBAN
-  if (iban !== undefined) {
-    await supabase.from("parametres")
-      .update({ valeur: iban, updated_at: new Date().toISOString() })
-      .eq("cle", "iban");
+  // L'IBAN et les coordonnées du créancier vivent désormais sur l'ENTITÉ
+  // JURIDIQUE en vigueur, et non plus dans la table clé/valeur : c'est la même
+  // source que la raison sociale imprimée en tête d'une facture. Deux sources
+  // pour un même créancier finissent par écrire deux titulaires sur la
+  // même pièce.
+  const champs: Record<string, string | null> = {};
+  if (iban !== undefined) champs.iban = String(iban ?? "").trim() || null;
+  if (coordonnees && typeof coordonnees === "object") {
+    const c = coordonnees as Record<string, string>;
+    if (c.titulaire !== undefined) champs.raison_sociale = String(c.titulaire ?? "").trim();
+    for (const cle of ["adresse_rue", "adresse_numero", "adresse_npa", "adresse_ville"]) {
+      if (c[cle] !== undefined) champs[cle] = String(c[cle] ?? "").trim() || null;
+    }
+    if (c.adresse_pays !== undefined) champs.adresse_pays = String(c.adresse_pays ?? "").trim() || "CH";
   }
 
-  // Coordonnées de paiement (titulaire + adresse) pour le bulletin QR
-  if (coordonnees && typeof coordonnees === "object") {
-    for (const [cle, valeur] of Object.entries(coordonnees as Record<string, string>)) {
-      await supabase.from("parametres")
-        .update({ valeur: valeur ?? "", updated_at: new Date().toISOString() })
-        .eq("cle", cle);
+  if (Object.keys(champs).length > 0) {
+    // L'entité EN VIGUEUR aujourd'hui : on corrige l'identité courante, on ne
+    // touche pas à celle d'une période passée.
+    const { data: courante } = await supabaseAdmin
+      .from("entites_juridiques")
+      .select("id")
+      .lte("date_debut", new Date().toISOString().slice(0, 10))
+      .order("date_debut", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (courante) {
+      if (champs.raison_sociale === "") delete champs.raison_sociale;
+      await supabaseAdmin.from("entites_juridiques").update(champs).eq("id", courante.id);
     }
   }
 

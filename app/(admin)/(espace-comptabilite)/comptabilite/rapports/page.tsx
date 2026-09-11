@@ -11,6 +11,8 @@ import { anneesExercices } from "@/src/lib/exercices";
 import { compterDepensesSansJustificatif } from "@/src/lib/depenses";
 import { ventilationExercice } from "@/src/lib/ventilationExercice";
 import { ventilationSejoursExercice } from "@/src/lib/ventilationSejoursExercice";
+import { entiteA } from "@/src/lib/entiteJuridique";
+import { renommerComptes } from "@/src/lib/entiteJuridiqueLogique";
 
 const chf = (n: number) => `${n.toFixed(2)} CHF`;
 
@@ -28,6 +30,8 @@ export default async function RapportsPage({
 
   const { data: comptes } = await supabaseAdmin
     .from("comptes").select("numero, libelle, type").order("numero");
+  // La forme juridique en vigueur à la CLÔTURE de l’exercice lu.
+  const entite = await entiteA(`${annee}-12-31`);
 
   const { data: ecrituresAnnee } = await supabaseAdmin
     .from("ecritures")
@@ -57,7 +61,10 @@ export default async function RapportsPage({
   const exerciceCloture = exercice?.statut === "cloture";
 
   const rap = construireRapport({
-    comptes: (comptes ?? []) as any,
+    // En raison individuelle, « Capital social » se lit « Capital propre » :
+    // ce n’est pas une nuance de vocabulaire, les deux ne se lisent pas de la
+    // même façon dans un bilan.
+    comptes: renommerComptes((comptes ?? []) as any, entite.forme) as any,
     ecrituresAnnee: (ecrituresAnnee ?? []) as any,
     ecrituresAnterieures: (ecrituresAnterieures ?? []) as any,
     exerciceCloture,

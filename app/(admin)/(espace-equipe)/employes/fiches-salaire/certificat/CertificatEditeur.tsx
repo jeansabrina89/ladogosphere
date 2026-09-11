@@ -17,12 +17,14 @@ type Props = {
   ijm: number;
   remarquesInitiales: string;
   isAdmin: boolean;
+  /** L'employeur tel qu'il était à la fin de l'année certifiée. */
+  employeur: { nom: string; adresse: string[]; email: string; ide: string | null };
 };
 
 export default function CertificatEditeur({
   annee, employe, dateDebut,
   totalBrut, totalNet, avs_ai_apg, ac, aanp, lpp_ordinaire, ijm,
-  remarquesInitiales, isAdmin,
+  remarquesInitiales, isAdmin, employeur,
 }: Props) {
 
   const dateFin = `31.12.${annee}`;
@@ -193,9 +195,10 @@ export default function CertificatEditeur({
               <td style={{ border: "0.5px solid #aaa", padding: "2px 4px", background: "#f0f0f0", fontWeight: "bold", width: "20px", verticalAlign: "top" }}>H</td>
               <td style={{ border: "0.5px solid #aaa", padding: "6px 8px", width: "50%" }}>
                 <div style={{ fontSize: "9px", color: "#666", marginBottom: "2px" }}>EMPLOYEUR</div>
-                <strong>La Dogosphère Sàrl</strong><br/>
-                Pension canine — Sion, Valais<br/>
-                ladogosphere@gmail.com
+                <strong>{employeur.nom}</strong><br/>
+                {employeur.adresse.map((l, i) => <span key={i}>{l}<br/></span>)}
+                {employeur.ide ? <>{employeur.ide}<br/></> : null}
+                {employeur.email}
               </td>
               <td style={{ border: "0.5px solid #aaa", padding: "6px 8px" }}>
                 <div style={{ fontSize: "9px", color: "#666", marginBottom: "2px" }}>EMPLOYÉ(E)</div>
@@ -505,10 +508,10 @@ export default function CertificatEditeur({
                 y.c. adresse et n° tél. de l'employeur
               </td>
               <td style={{ border: "0.5px solid #aaa", padding: "6px 8px", fontSize: "10px" }}>
-                <strong>La Dogosphère Sàrl</strong><br/>
+                <strong>{employeur.nom}</strong><br/>
                 Sabrina Jean<br/>
-                Sion, Valais<br/>
-                ladogosphere@gmail.com
+                {employeur.adresse.map((l, i) => <span key={i}>{l}<br/></span>)}
+                {employeur.email}
               </td>
             </tr>
           </tbody>

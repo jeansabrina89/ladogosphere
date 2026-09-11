@@ -16,13 +16,6 @@ import { piedTva, ventilerPanier } from "@/src/lib/tvaLogique";
  * même texte parce que la vente ne bouge plus.
  */
 
-async function lireParametres(cles: string[]): Promise<Record<string, string>> {
-  const { data } = await supabaseAdmin.from("parametres").select("cle, valeur").in("cle", cles);
-  const map: Record<string, string> = {};
-  for (const r of (data ?? []) as { cle: string; valeur: string }[]) map[r.cle] = (r.valeur ?? "").trim();
-  return map;
-}
-
 export type DonneesTicket = {
   numero: string;
   clientEmail: string | null;
@@ -38,10 +31,8 @@ export async function genererTicket(
 
   const lignesDb = await lignesDeVente(venteId);
 
-  const [coords, params] = await Promise.all([
-    getCoordonneesPaiement(supabaseAdmin),
-    lireParametres(["email_entreprise", "telephone_entreprise", "ide"]),
-  ]);
+  // L’identité en vigueur à la date de la vente.
+  const coords = await getCoordonneesPaiement(supabaseAdmin, String(vente.date_vente).slice(0, 10));
 
   type ClientTicket = { prenom: string | null; nom: string | null; email: string | null };
   let client: ClientTicket | null = null;
@@ -109,9 +100,9 @@ export async function genererTicket(
         [coords.adresse.rue, coords.adresse.numero].filter(Boolean).join(" "),
         [coords.adresse.npa, coords.adresse.ville].filter(Boolean).join(" "),
       ].filter(Boolean),
-      email: params.email_entreprise ?? "",
-      telephone: params.telephone_entreprise ?? "",
-      ide: params.ide ?? "",
+      email: coords.entite.email ?? "",
+      telephone: coords.entite.telephone ?? "",
+      ide: coords.entite.ide ?? "",
     },
     client: client ? `${client.prenom ?? ""} ${client.nom ?? ""}`.trim() : null,
     lignes,

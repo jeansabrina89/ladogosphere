@@ -212,7 +212,7 @@ export default function GestionTarifs({
             <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>Titulaire du compte</label>
             <input type="text" value={titulaire}
               onChange={e => setTitulaire(e.target.value)}
-              placeholder="La Dogosphère Sàrl"
+              placeholder={titulaireInitial || "Raison sociale"}
               className="border rounded-xl p-3 w-full text-sm" style={{ color: "#1B2B5E" }} />
           </div>
 

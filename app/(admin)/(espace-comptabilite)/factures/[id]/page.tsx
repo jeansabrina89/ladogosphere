@@ -54,7 +54,12 @@ export default async function FacturePage({
     supabaseAdmin.from("facture_lignes")
       .select("id, ordre, libelle, quantite, prix_unitaire, montant, compte_produit, taux_tva, motif_tva")
       .eq("facture_id", id).order("ordre"),
-    getCoordonneesPaiement(supabaseAdmin),
+    // L’identité de la DATE de la pièce : l’écran doit montrer la même
+    // raison sociale que le PDF, quel que soit le jour où on le relit.
+    getCoordonneesPaiement(
+      supabaseAdmin,
+      facture.date_facture ? String(facture.date_facture).split("T")[0] : null
+    ),
     lireParametresTva(facture.date_facture ? String(facture.date_facture).split("T")[0] : null),
     lireHistorique("facture", id),
   ]);

@@ -16,7 +16,9 @@ export type EntiteJournal =
   // Une écriture saisie à la main : le journal en porte la raison.
   | "ecriture"
   // APP 16 : les rubriques de la boutique et la remise d'adhésion.
-  | "promotion" | "remise_membre";
+  | "promotion" | "remise_membre"
+  // APP 18 : l’identité juridique de l’entreprise, et ses changements.
+  | "entite_juridique";
 
 export type EvenementJournal = {
   entite: EntiteJournal;
@@ -141,6 +143,9 @@ const LIBELLES: Record<string, string> = {
   // Une requalification déplace des montants hors du chiffre d'affaires,
   // ou les y ramène : elle se lit en toutes lettres.
   type_sejour: "Type de séjour requalifié",
+  identite_corrigee: "Identité juridique corrigée",
+  changement_prepare: "Changement d’entité préparé",
+  changement_annule: "Changement d’entité annulé",
 };
 
 export function libelleEvenement(evenement: string): string {

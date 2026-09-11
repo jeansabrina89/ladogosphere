@@ -1,7 +1,7 @@
 /**
  * Les prestations aux locataires de box : ce qui se décide sans base.
  *
- * Un locataire de box loue un box à la propriétaire. Son chien y vit. La Sàrl
+ * Un locataire de box loue un box à la propriétaire. Son chien y vit. La société
  * lui vend des services autour — passages, repas, nettoyages, balades — et,
  * quand il part, la garde complète de son chien DANS SON PROPRE BOX.
  *

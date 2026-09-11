@@ -159,7 +159,7 @@ describe("une entrée de menu ne mène jamais à une redirection", () => {
 describe("les trois déplacements décidés", () => {
   it("Tarifs, Modèles d'e-mails et TVA sont dans Réglages", () => {
     expect(labels("reglages", ADMIN)).toEqual([
-      "🏠 Réglages", "💰 Tarifs", "✉️ Modèles d'e-mails", "🧾 TVA", "🎫 Remise membre",
+      "🏠 Réglages", "🏛️ Entreprise", "💰 Tarifs", "✉️ Modèles d'e-mails", "🧾 TVA", "🎫 Remise membre",
     ]);
   });
 

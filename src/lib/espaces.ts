@@ -251,6 +251,7 @@ export const ESPACES: Espace[] = [
     exigence: ADMIN,
     accueil: { href: "/reglages", label: "🏠 Réglages", exigence: ADMIN, exact: true },
     ecrans: [
+      { href: "/reglages/entreprise", label: "🏛️ Entreprise", exigence: ADMIN },
       { href: "/tarifs", label: "💰 Tarifs", exigence: ADMIN },
       { href: "/emails", label: "✉️ Modèles d'e-mails", exigence: ADMIN },
       { href: "/reglages/tva", label: "🧾 TVA", exigence: ADMIN },

@@ -4,6 +4,8 @@ import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { construireRapport } from "@/src/lib/rapportsCompta";
 import { ventilationSejoursExercice } from "@/src/lib/ventilationSejoursExercice";
+import { entiteA } from "@/src/lib/entiteJuridique";
+import { renommerComptes } from "@/src/lib/entiteJuridiqueLogique";
 import * as XLSX from "xlsx";
 
 export async function GET(req: NextRequest) {
@@ -18,6 +20,7 @@ export async function GET(req: NextRequest) {
   const annee = searchParams.get("annee") ?? String(new Date().getFullYear());
 
   const { data: comptes } = await supabaseAdmin.from("comptes").select("numero, libelle, type").order("numero");
+  const entite = await entiteA(`${annee}-12-31`);
   const { data: ecrituresAnnee } = await supabaseAdmin
     .from("ecritures")
     .select("date_ecriture, libelle, piece_type, ecritures_lignes (compte_numero, debit, credit)")
@@ -33,7 +36,10 @@ export async function GET(req: NextRequest) {
     .from("exercices").select("statut").eq("annee", parseInt(annee)).maybeSingle();
 
   const rap = construireRapport({
-    comptes: (comptes ?? []) as any,
+    // En raison individuelle, « Capital social » se lit « Capital propre » :
+    // ce n’est pas une nuance de vocabulaire, les deux ne se lisent pas de la
+    // même façon dans un bilan.
+    comptes: renommerComptes((comptes ?? []) as any, entite.forme) as any,
     ecrituresAnnee: (ecrituresAnnee ?? []) as any,
     ecrituresAnterieures: (ecrituresAnterieures ?? []) as any,
     exerciceCloture: exercice?.statut === "cloture",

@@ -18,8 +18,20 @@ const FROM = "La Dogosphère <noreply@ladogosphere.ch>";
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "https://reservation.ladogosphere.ch";
 
+/**
+ * La raison sociale du jour, pour la signature et le pied des e-mails.
+ *
+ * Un e-mail part maintenant : c’est donc l’identité d’aujourd’hui qui le signe.
+ * Les pièces, elles, prennent la date de la pièce — voir factureDocument.
+ */
+async function raisonSocialeDuJour(): Promise<string> {
+  const { entiteA } = await import("@/src/lib/entiteJuridique");
+  const entite = await entiteA();
+  return entite.raisonSociale || "La Dogosphère";
+}
+
 // Template de base commun à tous les emails
-const emailTemplate = (contenu: string) => `
+const emailTemplate = async (contenu: string) => `
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -54,7 +66,7 @@ const emailTemplate = (contenu: string) => `
                 <tr>
                   <td>
                     <p style="margin:0 0 4px 0; font-weight:bold; color:#1B2B5E; font-size:14px;">Sabrina Jean</p>
-                    <p style="margin:0 0 4px 0; color:#6B7280; font-size:13px;">La Dogosphère Sàrl — Responsable</p>
+                    <p style="margin:0 0 4px 0; color:#6B7280; font-size:13px;">${await raisonSocialeDuJour()} — Responsable</p>
                     <p style="margin:0 0 4px 0; color:#6B7280; font-size:13px;">📍 Sion, Valais, Suisse</p>
                     <p style="margin:0 0 4px 0; font-size:13px;">
                       <a href="mailto:ladogosphere@gmail.com" style="color:#4AAEA0; text-decoration:none;">✉️ ladogosphere@gmail.com</a>
@@ -75,7 +87,7 @@ const emailTemplate = (contenu: string) => `
           <tr>
             <td style="background-color:#1B2B5E; padding:16px 40px; text-align:center;">
               <p style="color:#6B7280; font-size:11px; margin:0;">
-                © ${new Date().getFullYear()} La Dogosphère Sàrl — Tous droits réservés
+                © ${new Date().getFullYear()} ${await raisonSocialeDuJour()} — Tous droits réservés
               </p>
               <p style="color:#4B5563; font-size:11px; margin:4px 0 0 0;">
                 Vous recevez cet email car vous avez effectué une réservation chez nous.
@@ -357,7 +369,7 @@ export async function envoyerMessageLibre(p: {
     destinataire: p.email,
     type: "campagne",
     sujet,
-    html: emailTemplate(`
+    html: await emailTemplate(`
       <div style="color:#1B2B5E; font-size:15px; line-height:1.7;">${corpsHtml}</div>
       ${pied}
     `),
@@ -376,7 +388,7 @@ export async function envoyerEmailConfirmationDemande({
     destinataire: email,
     type: "confirmation_demande",
     sujet: m.sujet,
-    html: emailTemplate(`
+    html: await emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
@@ -424,7 +436,7 @@ export async function envoyerEmailReservationValidee({
     destinataire: email,
     type: "reservation_validee",
     sujet: m.sujet,
-    html: emailTemplate(`
+    html: await emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
@@ -479,7 +491,7 @@ export async function envoyerEmailReservationAnnulee({
     destinataire: email,
     type: "reservation_annulee",
     sujet: m.sujet,
-    html: emailTemplate(`
+    html: await emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
@@ -526,7 +538,7 @@ export async function envoyerEmailReservationRefusee({
     destinataire: email,
     type: "reservation_refusee",
     sujet: m.sujet,
-    html: emailTemplate(`
+    html: await emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
@@ -578,7 +590,7 @@ export async function envoyerEmailPaiement({
     destinataire: email,
     type: "paiement",
     sujet: m.sujet,
-    html: emailTemplate(`
+    html: await emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
@@ -648,7 +660,7 @@ export async function envoyerEmailRelancePaiement({
     destinataire: email,
     type: typeModele,
     sujet: m.sujet,
-    html: emailTemplate(`
+    html: await emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
@@ -709,7 +721,7 @@ export async function envoyerEmailSatisfactionEssai({
     destinataire: email,
     type: "satisfaction_essai",
     sujet: m.sujet,
-    html: emailTemplate(`
+    html: await emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">
         ${m.intro}
@@ -784,7 +796,7 @@ export async function envoyerEmailResultatEssai({
     destinataire: email,
     type,
     sujet: m.sujet,
-    html: emailTemplate(`
+    html: await emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">
         ${m.intro}
@@ -823,7 +835,7 @@ export async function envoyerEmailRappelVeille({
     destinataire: email,
     type: "rappel_veille",
     sujet: m.sujet,
-    html: emailTemplate(`
+    html: await emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">
         ${m.intro}
@@ -916,7 +928,7 @@ export async function envoyerEmailRappelCotisation({
     destinataire: email,
     type: "rappel_cotisation",
     sujet: m.sujet,
-    html: emailTemplate(`
+    html: await emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">
         ${intro}
@@ -1013,7 +1025,7 @@ export async function envoyerEmailFactureEmise(p: {
     type: "facture_emise",
     sujet: m.sujet,
     piecesJointes: p.pdf ? [{ filename: `${p.numero}.pdf`, content: p.pdf }] : undefined,
-    html: emailTemplate(`
+    html: await emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
@@ -1068,7 +1080,7 @@ export async function envoyerEmailTicketBoutique(p: {
     type: "ticket_boutique",
     sujet: `Votre ticket ${p.numero} — La Dogosphère`,
     piecesJointes: [{ filename: `${p.numero}.pdf`, content: p.pdf }],
-    html: emailTemplate(`
+    html: await emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Merci de votre visite</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">
         Voici le ticket de votre achat à la boutique, en pièce jointe.
@@ -1127,7 +1139,7 @@ export async function envoyerEmailCommandePrete(p: {
     destinataire: p.email,
     type: "commande_prete",
     sujet: m.sujet,
-    html: emailTemplate(`
+    html: await emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
@@ -1228,7 +1240,7 @@ export async function envoyerEmailCommandeConfirmee(commandeId: string): Promise
     destinataire: client.email,
     type: "commande_confirmee",
     sujet: m.sujet,
-    html: emailTemplate(`
+    html: await emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
@@ -1284,7 +1296,7 @@ export async function envoyerEmailCommandeExpediee(commandeId: string): Promise<
     destinataire: client.email,
     type: "commande_expediee",
     sujet: m.sujet,
-    html: emailTemplate(`
+    html: await emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
@@ -1347,7 +1359,7 @@ export async function envoyerEmailRetourEnStock(p: {
     destinataire: p.email,
     type: "retour_en_stock",
     sujet: m.sujet,
-    html: emailTemplate(`
+    html: await emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 

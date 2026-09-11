@@ -4,7 +4,7 @@
  * Les quatorze box de la maison ne servent pas tous la même chose. Deux
  * d'entre eux ne sont pas de la pension :
  *
- *   · celui des chiens de Sabrina — privé, hors Sàrl, aucun loyer ;
+ *   · celui des chiens de Sabrina — privé, hors société, aucun loyer ;
  *   · celui de Belle — loyer payé à la propriétaire, puis refacturé au
  *     propriétaire du chien.
  *
@@ -43,12 +43,12 @@ export const USAGES_BOX: {
   },
   {
     valeur: "prive_hors_sarl",
-    libelle: "Privé hors Sàrl",
+    libelle: "Privé hors société",
     aide:
-      "Les chiens de la propriétaire. Hors Sàrl : la société ne paie aucun loyer " +
+      "Les chiens de la propriétaire. Hors société : elle ne paie aucun loyer " +
       "pour ce box et n'en tire aucun produit.",
     pourLaPension: false,
-    pastille: "🏡 Privé hors Sàrl",
+    pastille: "🏡 Privé hors société",
     couleur: "#6E5410",
     fond: "#F4EAC9",
   },
@@ -57,7 +57,7 @@ export const USAGES_BOX: {
     libelle: "Refacturé",
     aide:
       "Loyer payé à la propriétaire, puis refacturé au propriétaire du chien. " +
-      "Le box ne fait ni perte ni bénéfice pour la Sàrl.",
+      "Le box ne fait ni perte ni bénéfice pour la société.",
     pourLaPension: false,
     pastille: "↔️ Refacturé",
     couleur: "#1B2B5E",

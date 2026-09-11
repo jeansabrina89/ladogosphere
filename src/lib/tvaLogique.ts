@@ -107,7 +107,7 @@ export function tauxParDefautCompte(compteProduit: string | null | undefined): n
  * Elle reste au taux NORMAL : c'est une contre-prestation — elle ouvre l'accès
  * aux réservations et la remise boutique — et non une cotisation de membre au
  * sens de l'art. 21 al. 2 ch. 13 LTVA. Cette exclusion vise les associations
- * qui poursuivent un but idéal, pas une Sàrl.
+ * qui poursuivent un but idéal, pas une entreprise commerciale.
  *
  * Le taux reste modifiable dans Réglages → TVA : si la situation change, c'est
  * là qu'on le dit, et le changement ne vaut que pour les pièces suivantes.
@@ -116,7 +116,7 @@ export const COMPTE_ADHESION = "3005";
 export const ADHESION_CONTRE_PRESTATION =
   "L'adhésion est une contre-prestation — elle ouvre l'accès aux réservations et la " +
   "remise boutique — et non une cotisation de membre exclue au sens de l'art. 21 LTVA : " +
-  "cette exclusion vise les associations, pas une Sàrl. Elle reste donc au taux normal.";
+  "cette exclusion vise les associations, pas une entreprise commerciale. Elle reste donc au taux normal.";
 
 // ── Les prestations réglables ──────────────────────────────────────────────
 
@@ -171,7 +171,7 @@ export const PRESTATIONS_TVA: {
   {
     code: "loyer_box_refacture", libelle: "Loyer de box refacturé", comptes: ["3021"],
     aide:
-      "Le loyer d'un box que la Sàrl paie à la propriétaire puis refacture au " +
+      "Le loyer d'un box que la société paie à la propriétaire puis refacture au " +
       "propriétaire du chien. Le taux est À CONFIRMER auprès de l'AFC (art. 21 LTVA) : " +
       "8,1 % par défaut, le 0 % et son motif restent disponibles.",
   },

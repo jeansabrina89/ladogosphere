@@ -99,11 +99,13 @@ export async function genererPdfFacture(factureId: string): Promise<DonneesFactu
   const dateFacture = (f.date_facture as string) ?? null;
 
   const [coords, regime, params, logo] = await Promise.all([
-    getCoordonneesPaiement(supabaseAdmin),
+    // La date de la pièce, pas celle du jour : un avoir de février porte
+    // l identité de février, la facture de novembre celle de novembre.
+    getCoordonneesPaiement(supabaseAdmin, (f.date_facture as string) ?? null),
     // Le régime EN VIGUEUR à la date de la pièce : une facture de l'an dernier
     // ne se relit pas avec le régime d'aujourd'hui.
     lireParametresTva(dateFacture),
-    lireParametres(["email_entreprise", "telephone_entreprise", "ide", "delai_paiement_jours"]),
+    lireParametres(["delai_paiement_jours"]),
     logoDataUri(),
   ]);
 
@@ -144,8 +146,10 @@ export async function genererPdfFacture(factureId: string): Promise<DonneesFactu
   // Non assujettie : aucun numéro, aucune ventilation, et une phrase qui dit
   // pourquoi. Laisser entendre une TVA qu'on ne verse pas serait une faute
   // lourde — plus grave que de ne rien dire.
-  const mentionTva = tva?.numero
-    ? `N° TVA : ${tva.numero}`
+  // Le numéro de TVA suit l identité de la pièce, pas le réglage du jour.
+  const numeroTva = coords.entite.numeroTva ?? tva?.numero ?? null;
+  const mentionTva = numeroTva
+    ? `N° TVA : ${numeroTva}`
     : "TVA non applicable — entreprise non assujettie (art. 10 LTVA).";
 
   const element = React.createElement(FacturePdf, {
@@ -161,9 +165,9 @@ export async function genererPdfFacture(factureId: string): Promise<DonneesFactu
         [coords.adresse.rue, coords.adresse.numero].filter(Boolean).join(" "),
         [coords.adresse.npa, coords.adresse.ville].filter(Boolean).join(" "),
       ].filter(Boolean),
-      email: params.email_entreprise ?? "",
-      telephone: params.telephone_entreprise ?? "",
-      ide: params.ide ?? "",
+      email: coords.entite.email ?? "",
+      telephone: coords.entite.telephone ?? "",
+      ide: coords.entite.ide ?? "",
       mentionTva,
     },
     lignes,
