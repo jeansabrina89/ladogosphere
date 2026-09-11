@@ -8,7 +8,7 @@ import { rafraichirFactureBrouillon } from "@/src/lib/factureResa";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 import { synchroniserComptaAvoir } from "@/src/lib/comptaAvoir";
 import type { EcartType } from "@/src/lib/facturation";
-import { reglesFacturation } from "@/src/lib/typeSejour";
+import { reglesFacturation, urgenceDerivee } from "@/src/lib/typeSejour";
 
 /**
  * Prix d'une réservation — couche métier, sans session.
@@ -136,6 +136,10 @@ export type ResultatMontantCalcule = {
  * (le montant part à zéro et n'y est ramené par personne — un refuge ou une
  * commune peut toujours participer, à la main), « urgence » passe par le tarif
  * d'urgence déjà en place. Rien de neuf ici : le type rattache, il n'invente pas.
+ *
+ * Le type est la SEULE référence de l'urgence. La colonne `urgence` n'est plus
+ * lue ici : elle est dérivée du type à l'écriture, et deux sources pour un même
+ * fait finissent toujours par se contredire au pire moment.
  */
 export async function assurerMontantCalcule(
   reservationId: string,
@@ -144,7 +148,7 @@ export async function assurerMontantCalcule(
   const { data: resa, error } = await supabaseAdmin
     .from("reservations")
     .select(`
-      id, statut, type_reservation, urgence, offerte, type_sejour,
+      id, statut, type_reservation, offerte, type_sejour,
       date_debut, date_fin, heure_arrivee, heure_depart,
       montant_calcule, client_id,
       reservation_chiens (chien_id)
@@ -196,9 +200,7 @@ export async function assurerMontantCalcule(
     type_reservation: resa.type_reservation,
     nb_chiens: chienIds.length,
     est_membre: estMembre,
-    // Le type « urgence » applique le tarif d'urgence existant, au même titre
-    // que la case à cocher historique.
-    est_urgence: !!resa.urgence || regles.tarif === "urgence",
+    est_urgence: urgenceDerivee(resa.type_sejour),
     est_privatif: estPrivatifPourSelection(cohabitation),
     date_debut: resa.date_debut,
     date_fin: resa.date_fin,

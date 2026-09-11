@@ -6,8 +6,10 @@ import { verifierPermission } from "@/src/lib/verifierPermission";
 import { getAvoirAppliqueReservation } from "@/src/lib/avoirs";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { recalculerMontantSejour } from "../actions";
 import {
   EVENEMENT_REQUALIFICATION,
+  champsTypeSejour,
   refusRequalification,
   typeSejour,
 } from "@/src/lib/typeSejour";
@@ -21,7 +23,6 @@ export async function modifierReservation(id: string, formData: FormData) {
   const commentaire_admin = formData.get("commentaire_admin") as string || null;
   const heure_arrivee = formData.get("heure_arrivee") as string || null;
   const heure_depart = formData.get("heure_depart") as string || null;
-  const urgence = formData.get("urgence") === "on";
   const date_debut = formData.get("date_debut") as string;
   const date_fin = formData.get("date_fin") as string;
 
@@ -53,8 +54,8 @@ export async function modifierReservation(id: string, formData: FormData) {
       commentaire_admin,
       heure_arrivee,
       heure_depart,
-      urgence,
-      type_sejour: typeApres,
+      // Requalifier déplace aussi le tarif : la case dérivée suit le type.
+      ...champsTypeSejour(typeApres),
       date_debut,
       date_fin,
     })
@@ -74,6 +75,12 @@ export async function modifierReservation(id: string, formData: FormData) {
       motif: motifType,
       userId: verif.userId ?? null,
     });
+  }
+
+  // Requalifier déplace le tarif : le montant suit le type, sinon la
+  // réservation resterait facturée au tarif qu'elle n'a plus.
+  if (typeAvant !== typeApres) {
+    await recalculerMontantSejour(id);
   }
 
   // Mettre à jour les occupations de boxes

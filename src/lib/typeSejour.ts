@@ -261,6 +261,40 @@ export function refusRequalification({
   return null;
 }
 
+// ── L'ancienne case « urgence », devenue dérivée ──────────────────────────
+
+/**
+ * Ce séjour est-il un accueil d'urgence ?
+ *
+ * Une seule notion d'urgence, et c'est le TYPE. La colonne
+ * `reservations.urgence` ne se saisit plus : elle est maintenue égale à cette
+ * fonction par tout code qui écrit une réservation, pour que ce qui la lit
+ * encore continue de répondre juste.
+ *
+ * La réponse se lit dans la règle de facturation plutôt que par comparaison
+ * avec la chaîne « urgence » : c'est le tarif qui définit l'urgence, et il n'y
+ * a ainsi qu'un seul endroit à changer si un autre type venait à le porter.
+ */
+export function urgenceDerivee(valeur: string | null | undefined): boolean {
+  return reglesFacturation(valeur).tarif === "urgence";
+}
+
+/**
+ * Les deux colonnes qui doivent toujours s'accorder, posées ensemble.
+ *
+ * Tout insert et tout update d'une réservation étale ce résultat plutôt que
+ * d'écrire `urgence` à la main : c'est la seule façon de garantir que les deux
+ * réglages ne divergent sur AUCUN chemin — admin, employée, client, personnel
+ * ou requalification.
+ */
+export function champsTypeSejour(valeur: string | null | undefined): {
+  type_sejour: TypeSejour;
+  urgence: boolean;
+} {
+  const type = typeSejour(valeur);
+  return { type_sejour: type, urgence: urgenceDerivee(type) };
+}
+
 export const EVENEMENT_REQUALIFICATION = "type_sejour";
 
 // ── Les compteurs d'accueils non facturés ─────────────────────────────────

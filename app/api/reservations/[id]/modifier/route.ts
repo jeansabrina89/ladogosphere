@@ -3,7 +3,12 @@ import { lireCorpsFormulaire } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { recalculerMontantSejour } from "@/app/(admin)/(espace-clients)/reservations/[id]/actions";
-import { EVENEMENT_REQUALIFICATION, refusRequalification, typeSejour } from "@/src/lib/typeSejour";
+import {
+  EVENEMENT_REQUALIFICATION,
+  champsTypeSejour,
+  refusRequalification,
+  typeSejour,
+} from "@/src/lib/typeSejour";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
 
@@ -24,17 +29,10 @@ export async function POST(
   const commentaire_admin = formData.get("commentaire_admin") as string || null;
   const heure_arrivee = formData.get("heure_arrivee") as string || null;
   const heure_depart = formData.get("heure_depart") as string || null;
-  const urgence = formData.get("urgence") === "on";
   const date_debut = formData.get("date_debut") as string;
   const date_fin = formData.get("date_fin") as string;
   const typeApres = typeSejour(formData.get("type_sejour") as string);
   const motifType = String(formData.get("motif_type_sejour") ?? "").trim();
-
-  // Tarif urgence : permission supplémentaire requise
-  if (urgence) {
-    const urgGarde = await exigerPermissionApi(supabase, "perm_tarifs_urgence");
-    if (urgGarde) return urgGarde;
-  }
 
   // Valeurs avant modification : pour détecter un changement de
   // date_debut/date_fin/heure_arrivee/heure_depart sur un séjour et
@@ -62,8 +60,8 @@ export async function POST(
       commentaire_admin,
       heure_arrivee,
       heure_depart,
-      urgence,
-      type_sejour: typeApres,
+      // Requalifier déplace aussi le tarif : la case dérivée suit le type.
+      ...champsTypeSejour(typeApres),
       date_debut,
       date_fin,
     })
@@ -82,15 +80,17 @@ export async function POST(
   }
 
   // Séjour : si les dates ou heures changent (typiquement, heures saisies
-  // après coup), recalculer montant_calcule par tranche horaire puis
-  // re-dériver montant_final / paiement.
+  // après coup), ou si le TYPE change, recalculer montant_calcule puis
+  // re-dériver montant_final / paiement. Requalifier déplace le tarif :
+  // laisser l'ancien montant en place ferait mentir la requalification.
   if (avant?.type_reservation === "sejour") {
     const normHeure = (h: string | null) => (h ? h.slice(0, 5) : null);
     const aChange =
       avant.date_debut !== date_debut ||
       avant.date_fin !== date_fin ||
       normHeure(avant.heure_arrivee) !== normHeure(heure_arrivee) ||
-      normHeure(avant.heure_depart) !== normHeure(heure_depart);
+      normHeure(avant.heure_depart) !== normHeure(heure_depart) ||
+      typeAvant !== typeApres;
 
     if (aChange) {
       await recalculerMontantSejour(id);

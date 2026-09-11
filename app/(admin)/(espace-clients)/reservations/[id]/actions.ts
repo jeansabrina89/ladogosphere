@@ -8,6 +8,7 @@ import { verifierPermission } from "@/src/lib/verifierPermission";
 import { calculerMontant } from "@/src/lib/calculTarif";
 import { estMembreActif } from "@/src/lib/membre";
 import { estPrivatifPourSelection } from "@/src/lib/cohabitation";
+import { reglesFacturation, urgenceDerivee } from "@/src/lib/typeSejour";
 import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { factureEmisePourReservation } from "@/src/lib/factureResa";
@@ -89,10 +90,10 @@ export async function recalculerMontantSejour(reservationId: string): Promise<Re
   const { data: reservation, error: resError } = await supabaseAdmin
     .from("reservations")
     .select(`
-      statut, type_reservation, urgence, date_debut, date_fin, heure_arrivee, heure_depart,
+      statut, type_reservation, type_sejour, date_debut, date_fin, heure_arrivee, heure_depart,
       client_id,
       clients (membre),
-      reservation_chiens (chiens (doit_etre_isole))
+      reservation_chiens (chiens (id, doit_etre_isole))
     `)
     .eq("id", reservationId)
     .single();
@@ -116,18 +117,24 @@ export async function recalculerMontantSejour(reservationId: string): Promise<Re
   );
   const est_membre = (reservation as any).client_id ? await estMembreActif(supabaseAdmin, (reservation as any).client_id, reservation.date_debut) : false;
 
-  const montant = calculerMontant({
-    tarifs: tarifs ?? [],
-    type_reservation: "sejour",
-    nb_chiens,
-    est_membre,
-    est_urgence: !!reservation.urgence,
-    est_privatif: chien_isole,
-    date_debut: reservation.date_debut,
-    date_fin: reservation.date_fin,
-    heure_arrivee: reservation.heure_arrivee,
-    heure_depart: reservation.heure_depart,
-  });
+  // Un type gratuit par défaut ne se voit poser aucun tarif automatique : le
+  // montant reste libre, comme à la création. Sans cela, requalifier en
+  // « abandon » facturerait le séjour au tarif de la pension.
+  const montant = reglesFacturation(reservation.type_sejour).gratuitParDefaut
+    ? 0
+    : calculerMontant({
+        tarifs: tarifs ?? [],
+        type_reservation: "sejour",
+        nb_chiens,
+        est_membre,
+        // Une seule notion d'urgence : le type de séjour.
+        est_urgence: urgenceDerivee(reservation.type_sejour),
+        est_privatif: chien_isole,
+        date_debut: reservation.date_debut,
+        date_fin: reservation.date_fin,
+        heure_arrivee: reservation.heure_arrivee,
+        heure_depart: reservation.heure_depart,
+      });
 
   const { error: updateError } = await supabaseAdmin
     .from("reservations")

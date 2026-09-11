@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { envoyerEmailConfirmationDemande } from "@/src/lib/email";
 import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "@/src/lib/membre";
 import { verifierSelectionChiens } from "@/src/lib/journeeEssai";
+import { champsTypeSejour } from "@/src/lib/typeSejour";
 import { typeAutorisePourPersonnel } from "@/src/lib/personnel";
 import { verifierDateEssaiLibre } from "@/src/lib/essaiReservation";
 import { verifierPlaceDisponible } from "@/src/lib/suggestionBox";
@@ -133,7 +134,8 @@ export async function POST(req: NextRequest) {
       heure_depart,
       statut: "en_attente",
       commentaire_admin: commentaire_client,
-      urgence: false,
+      // Le client ne choisit jamais son type de séjour.
+      ...champsTypeSejour("pension"),
     })
     .select()
     .single();

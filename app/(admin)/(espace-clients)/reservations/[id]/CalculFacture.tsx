@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { calculerMontant, compterSejour } from "@/src/lib/calculTarif";
+import { urgenceDerivee } from "@/src/lib/typeSejour";
 import { enregistrerMontantCalcule } from "./actions";
 import { messageEcart } from "@/src/lib/facturation";
 
@@ -43,7 +44,7 @@ export default function CalculFacture({
     type_reservation: reservation.type_reservation,
     nb_chiens,
     est_membre,
-    est_urgence: reservation.urgence,
+    est_urgence: urgenceDerivee(reservation.type_sejour),
     est_privatif,
     date_debut: reservation.date_debut,
     date_fin: reservation.date_fin,
@@ -132,7 +133,7 @@ export default function CalculFacture({
           </div>
           <div>
             <p className="text-gray-500">Urgence</p>
-            <p className="font-semibold">{reservation.urgence ? "🚨 Oui" : "Non"}</p>
+            <p className="font-semibold">{urgenceDerivee(reservation.type_sejour) ? "🚨 Oui" : "Non"}</p>
           </div>
           {detailSejour && (
             <div>

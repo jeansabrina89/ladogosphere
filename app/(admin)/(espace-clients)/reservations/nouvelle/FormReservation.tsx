@@ -365,7 +365,6 @@ export default function FormReservation({
         fd.set("statut", statut || "en_attente");
         fd.set("heure_arrivee", heureArrivee || "");
         fd.set("heure_depart", heureDepart || "");
-        fd.set("urgence", "");
         fd.set("type_sejour", typeSejourChoisi);
         fd.set("commentaire_admin", commentaire_admin || "");
         if (forcer) {
@@ -866,6 +865,12 @@ export default function FormReservation({
             <p className="text-xs text-gray-500 mt-1">
               {infoTypeSejour(typeSejourChoisi).aide}
             </p>
+            {typeSejourChoisi === "urgence" && (
+              <p className="text-xs mt-1 font-semibold" style={{ color: "#A8453A" }}>
+                Le tarif d&apos;urgence s&apos;applique. Il n&apos;y a plus de case à cocher :
+                choisir ce type suffit, et c&apos;est la seule façon de le demander.
+              </p>
+            )}
             {typeSejourChoisi !== "pension" && (
               <p className="text-xs mt-1" style={{ color: "#6E5410" }}>
                 Ce séjour n&apos;entrera pas dans le chiffre d&apos;affaires.{" "}
@@ -878,16 +883,6 @@ export default function FormReservation({
               </p>
             )}
           </div>
-
-          {/* Urgence — visible si admin ou permission perm_tarifs_urgence */}
-          {peutUrgence && (
-            <div className="flex items-center gap-2">
-              <input type="checkbox" name="urgence" id="urgence" />
-              <label htmlFor="urgence" className="font-semibold">
-                🚨 Réservation urgence (membres uniquement)
-              </label>
-            </div>
-          )}
 
           {/* Journée d'essai : une seule par jour */}
           {essaiDatePrise && (

@@ -8,6 +8,7 @@ import { consommerAbonnementResa } from "@/src/lib/consommationAbonnement";
 import { etatAdhesionReservation } from "@/src/lib/membre";
 import { cotisationEnAttente } from "@/src/lib/cotisation";
 import { verifierSelectionChiens } from "@/src/lib/journeeEssai";
+import { champsTypeSejour } from "@/src/lib/typeSejour";
 import { typeAutorisePourPersonnel } from "@/src/lib/personnel";
 import { verifierDateEssaiLibre } from "@/src/lib/essaiReservation";
 import { verifierPlaceDisponible } from "@/src/lib/suggestionBox";
@@ -221,7 +222,9 @@ export async function creerDemandeReservation(
     heure_depart: input.heure_depart || null,
     statut: "en_attente",
     commentaire_client: input.commentaire_client || null,
-    urgence: false,
+    // Le client ne voit pas cette notion et ne peut donc pas s'y qualifier :
+    // sa demande est de la pension, et la case dérivée le dit.
+    ...champsTypeSejour("pension"),
   }));
 
   const { data: reservationsCreees, error: errInsert } = await supabaseAdmin

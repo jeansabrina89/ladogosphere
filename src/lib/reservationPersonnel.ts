@@ -6,7 +6,7 @@ import {
 } from "@/src/lib/personnel";
 import { suggererBox, boxesInternesLibres, fichesInternesQuiTravaillent } from "@/src/lib/suggestionBox";
 import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
-import { typeSejourPropose } from "@/src/lib/typeSejour";
+import { champsTypeSejour, typeSejourPropose } from "@/src/lib/typeSejour";
 
 export type OccurrencePersonnel = { date_debut: string; date_fin: string };
 
@@ -85,8 +85,7 @@ export async function creerReservationsPersonnel({
         // Une fiche interne accueille un chien du personnel : gratuit, et
         // hors chiffre d'affaires. Le type ne fait que nommer ce qui est
         // déjà le cas — `champsReservationPersonnel` pose le montant à zéro.
-        type_sejour: typeSejourPropose({ ficheInterne: true }),
-        urgence: false,
+        ...champsTypeSejour(typeSejourPropose({ ficheInterne: true })),
         ...champs,
       })
       .select("id")

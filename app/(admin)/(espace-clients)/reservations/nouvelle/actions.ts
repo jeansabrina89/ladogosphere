@@ -7,7 +7,13 @@ import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "
 import { verifierChiensPourReservation, marquerChiensEssaiProgramme } from "@/src/lib/essaiReservation";
 import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
 import { assurerMontantCalcule } from "@/src/lib/prixReservation";
-import { infoTypeSejour, reglesFacturation, refusTypeSejour, typeSejour } from "@/src/lib/typeSejour";
+import {
+  champsTypeSejour,
+  infoTypeSejour,
+  reglesFacturation,
+  refusTypeSejour,
+  typeSejour,
+} from "@/src/lib/typeSejour";
 
 export async function creerReservation(formData: FormData) {
   const verif = await verifierPermission("perm_reservations_creer");
@@ -20,7 +26,6 @@ export async function creerReservation(formData: FormData) {
   const date_fin = formData.get("date_fin") as string;
   const heure_arrivee = formData.get("heure_arrivee") as string || null;
   const heure_depart = formData.get("heure_depart") as string || null;
-  const urgence = formData.get("urgence") === "on";
   // Le TYPE DE SÉJOUR : pourquoi le chien est là. Il décide des chiffres,
   // jamais de la place — tous les types occupent un box.
   const type_sejour = typeSejour(formData.get("type_sejour") as string);
@@ -92,8 +97,9 @@ export async function creerReservation(formData: FormData) {
       date_fin,
       heure_arrivee,
       heure_depart,
-      urgence,
-      type_sejour,
+      // Une seule notion d'urgence : le type la porte, la vieille colonne
+      // en découle. Les deux ne peuvent pas diverger si on les pose ensemble.
+      ...champsTypeSejour(type_sejour),
       statut,
       commentaire_admin,
       essai_force: forcer || essaiHorsSujet,
