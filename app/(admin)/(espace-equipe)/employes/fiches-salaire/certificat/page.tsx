@@ -4,7 +4,7 @@ import CertificatEditeur from "./CertificatEditeur";
 import Link from "next/link";
 import { formatDateFR } from "@/src/lib/dates";
 import { entiteA } from "@/src/lib/entiteJuridique";
-import { lignesAdresse } from "@/src/lib/entiteJuridiqueLogique";
+import { lignesAdresse, raisonSocialeAffichee } from "@/src/lib/entiteJuridiqueLogique";
 
 export default async function CertificatSalaireAnnuelPage({
   searchParams,
@@ -97,7 +97,7 @@ export default async function CertificatSalaireAnnuelPage({
       remarquesInitiales={remarquesInitiales}
       isAdmin={acces.isAdmin}
       employeur={{
-        nom: entite.raisonSociale,
+        nom: raisonSocialeAffichee(entite),
         adresse: lignesAdresse(entite),
         email: entite.email ?? "",
         ide: entite.ide,

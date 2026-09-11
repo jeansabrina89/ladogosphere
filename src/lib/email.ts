@@ -26,8 +26,8 @@ const SITE_URL =
  */
 async function raisonSocialeDuJour(): Promise<string> {
   const { entiteA } = await import("@/src/lib/entiteJuridique");
-  const entite = await entiteA();
-  return entite.raisonSociale || "La Dogosphère";
+  const { raisonSocialeAffichee } = await import("@/src/lib/entiteJuridiqueLogique");
+  return raisonSocialeAffichee(await entiteA());
 }
 
 // Template de base commun à tous les emails

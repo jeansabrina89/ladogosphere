@@ -131,29 +131,29 @@ export const ESPACES: Espace[] = [
       { href: "/calendrier-essais", label: "🚫 Essais fermés", exigence: PERSONNEL },
     ],
   },
-  {
-    /**
-     * Les locataires de box : un public à part, et des gestes à part.
-     *
-     * Ce ne sont pas des clients de la pension. Leur chien vit dans le box
-     * qu’ils louent, aucune place de la pension n’est prise, et rien de ce
-     * qu’on fait pour eux n’est une réservation. C’est pourquoi cet espace
-     * existe plutôt que de s’ajouter à celui de la Pension : mélanger les deux
-     * ferait mentir les chiffres de l’un comme le travail de l’autre.
-     */
-    cle: "prestations",
-    label: "🧹 Prestations",
-    exigence: perm("perm_prestations"),
-    accueil: { href: "/prestations", label: "✅ Aujourd’hui", exigence: perm("perm_prestations"), exact: true },
-    ecrans: [
-      { href: "/prestations/planning", label: "🗂️ Planning", exigence: perm("perm_prestations") },
-      { href: "/prestations/locataires", label: "🏠 Locataires", exigence: perm("perm_prestations") },
-      { href: "/prestations/formules", label: "📋 Formules", exigence: ADMIN },
-      { href: "/prestations/catalogue", label: "🔖 Catalogue", exigence: ADMIN },
-      { href: "/prestations/facturer", label: "🧾 Facturer le mois", exigence: perm("perm_factures") },
-    ],
-  },
-  {
+  {
+    /**
+     * Les locataires de box : un public à part, et des gestes à part.
+     *
+     * Ce ne sont pas des clients de la pension. Leur chien vit dans le box
+     * qu’ils louent, aucune place de la pension n’est prise, et rien de ce
+     * qu’on fait pour eux n’est une réservation. C’est pourquoi cet espace
+     * existe plutôt que de s’ajouter à celui de la Pension : mélanger les deux
+     * ferait mentir les chiffres de l’un comme le travail de l’autre.
+     */
+    cle: "prestations",
+    label: "🧹 Prestations",
+    exigence: perm("perm_prestations"),
+    accueil: { href: "/prestations", label: "✅ Aujourd’hui", exigence: perm("perm_prestations"), exact: true },
+    ecrans: [
+      { href: "/prestations/planning", label: "🗂️ Planning", exigence: perm("perm_prestations") },
+      { href: "/prestations/locataires", label: "🏠 Locataires", exigence: perm("perm_prestations") },
+      { href: "/prestations/formules", label: "📋 Formules", exigence: ADMIN },
+      { href: "/prestations/catalogue", label: "🔖 Catalogue", exigence: ADMIN },
+      { href: "/prestations/facturer", label: "🧾 Facturer le mois", exigence: perm("perm_factures") },
+    ],
+  },
+  {
     cle: "clients",
     label: "👤 Clients",
     exigence: PERSONNEL,

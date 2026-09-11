@@ -20,6 +20,11 @@ import {
   refusRaisonSociale,
   renommerComptes,
   veille,
+  AVERTISSEMENT_RAISON_SOCIALE,
+  NOM_COMMERCIAL,
+  comptesSaisissables,
+  raisonSocialeACompleter,
+  raisonSocialeAffichee,
   type EntiteJuridique,
 } from "@/src/lib/entiteJuridiqueLogique";
 
@@ -330,5 +335,92 @@ describe("aucune raison sociale n’est écrite en dur", () => {
       expect(f, chemin).toBeDefined();
       expect(f!.contenu, chemin).toMatch(/entiteJuridique/);
     }
+  });
+});
+
+// ── La correction d'APP 17 : raison individuelle d'abord, Sàrl ensuite ────
+
+describe("l’entité de départ, corrigée en raison individuelle", () => {
+  // L'état réel après la migration : une raison individuelle sans raison
+  // sociale encore choisie, puis la Sàrl préparée au 1er janvier 2027.
+  const premiere = sarl({
+    dateDebut: "2024-01-01",
+    dateFin: "2027-01-01",
+    forme: "raison_individuelle",
+    raisonSociale: "",
+  });
+  const suivante = sarl({ dateDebut: "2027-01-01", raisonSociale: "La Dogosphère Sàrl" });
+  const toutes = [suivante, premiere];
+
+  it("la première année est une raison individuelle", () => {
+    for (const jour of ["2026-06-11", "2026-09-12", "2026-12-31"]) {
+      expect(entiteEnVigueur(toutes, jour)?.forme, jour).toBe("raison_individuelle");
+    }
+  });
+
+  it("et la Sàrl ne prend effet qu’au 1er janvier 2027", () => {
+    expect(entiteEnVigueur(toutes, "2026-12-31")?.forme).toBe("raison_individuelle");
+    expect(entiteEnVigueur(toutes, "2027-01-01")?.forme).toBe("sarl");
+    expect(entiteEnVigueur(toutes, "2027-06-30")?.raisonSociale).toBe("La Dogosphère Sàrl");
+  });
+
+  it("aucun document de la première année ne porte « Sàrl »", () => {
+    for (const jour of ["2026-06-11", "2026-09-12", "2026-12-31"]) {
+      const e = entiteEnVigueur(toutes, jour)!;
+      expect(raisonSocialeAffichee(e), jour).toBe(NOM_COMMERCIAL);
+      expect(raisonSocialeAffichee(e), jour).not.toMatch(/S[àa]rl/);
+    }
+  });
+
+  it("tant que la raison sociale manque, le document porte le nom commercial seul", () => {
+    expect(raisonSocialeACompleter(premiere)).toBe(true);
+    expect(raisonSocialeAffichee(premiere)).toBe("La Dogosphère");
+    expect(AVERTISSEMENT_RAISON_SOCIALE)
+      .toBe("Raison sociale à compléter avant la première facture réelle.");
+  });
+
+  it("une fois saisie, elle remplace le repli et l’avertissement s’éteint", () => {
+    const saisie = { ...premiere, raisonSociale: "La Dogosphère, Sabrina Jean" };
+    expect(raisonSocialeACompleter(saisie)).toBe(false);
+    expect(raisonSocialeAffichee(saisie)).toBe("La Dogosphère, Sabrina Jean");
+  });
+
+  it("et elle doit contenir le nom de famille : « La Dogosphère » seul est refusé", () => {
+    expect(refusRaisonSociale({
+      forme: "raison_individuelle", raisonSociale: "La Dogosphère", nomFamille: "Jean",
+    })).toBe(MOTIF_NOM_FAMILLE);
+    expect(refusRaisonSociale({
+      forme: "raison_individuelle", raisonSociale: "La Dogosphère, Sabrina Jean", nomFamille: "Jean",
+    })).toBeNull();
+  });
+
+  it("les deux plages se touchent sans se chevaucher", () => {
+    expect(chevauchements(toutes)).toEqual([]);
+  });
+});
+
+describe("les trois effets de la raison individuelle", () => {
+  const plan = [
+    { numero: "1000", libelle: "Caisse" },
+    { numero: "2800", libelle: "Capital social" },
+    { numero: "2850", libelle: "Compte privé" },
+  ];
+
+  it("le capital se lit « Capital propre »", () => {
+    expect(renommerComptes(plan, "raison_individuelle")[1].libelle).toBe("Capital propre");
+  });
+
+  it("le compte privé 2850 est proposé à la saisie", () => {
+    expect(comptesSaisissables(plan, "raison_individuelle").map((c) => c.numero))
+      .toEqual(["1000", "2800", "2850"]);
+  });
+
+  it("en Sàrl, il disparaît de la saisie — une société ne prélève pas en privé", () => {
+    expect(comptesSaisissables(plan, "sarl").map((c) => c.numero)).toEqual(["1000", "2800"]);
+    expect(comptesSaisissables(plan, "sarl")[1].libelle).toBe("Capital social");
+  });
+
+  it("mais il reste visible dans les rapports : cacher un solde cacherait de l’argent", () => {
+    expect(renommerComptes(plan, "sarl").map((c) => c.numero)).toEqual(["1000", "2800", "2850"]);
   });
 });

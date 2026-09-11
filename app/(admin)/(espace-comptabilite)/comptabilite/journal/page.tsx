@@ -6,6 +6,8 @@ import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import FormEcriture from "./FormEcriture";
 import { anneesExercices } from "@/src/lib/exercices";
+import { entiteA } from "@/src/lib/entiteJuridique";
+import { comptesSaisissables, renommerComptes } from "@/src/lib/entiteJuridiqueLogique";
 
 const MOIS = ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"];
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -24,8 +26,16 @@ export default async function JournalPage({
   const debut = moisFiltre ? `${annee}-${String(moisFiltre).padStart(2, "0")}-01` : `${annee}-01-01`;
   const fin = moisFiltre ? new Date(annee, moisFiltre, 0).toISOString().split("T")[0] : `${annee}-12-31`;
 
-  const { data: comptes } = await supabaseAdmin
+  const { data: comptesDb } = await supabaseAdmin
     .from("comptes").select("numero, libelle, type").eq("actif", true).order("numero");
+
+  // La forme juridique en vigueur sur la période affichée : c’est elle qui
+  // décide de l’étiquette du capital et de la présence du compte privé.
+  const entite = await entiteA(fin);
+  const comptes = renommerComptes(
+    (comptesDb ?? []) as { numero: string; libelle: string; type: string }[],
+    entite.forme
+  );
 
   const { data: ecritures } = await supabaseAdmin
     .from("ecritures")
@@ -35,7 +45,7 @@ export default async function JournalPage({
     .order("date_ecriture", { ascending: true })
     .order("created_at", { ascending: true });
 
-  const libelleCompte = new Map((comptes ?? []).map((c: any) => [c.numero, c.libelle]));
+  const libelleCompte = new Map(comptes.map((c) => [c.numero, c.libelle]));
 
   let totalDebit = 0, totalCredit = 0;
   for (const e of (ecritures ?? []) as any[]) {
@@ -82,7 +92,10 @@ export default async function JournalPage({
           ))}
         </div>
 
-        <FormEcriture comptes={comptes ?? []} />
+        {/* Le compte privé 2850 n’est proposé qu’en raison individuelle : une
+            société ne fait pas de prélèvement privé. Il reste visible partout
+            ailleurs — cacher un compte qui porte un solde cacherait de l’argent. */}
+        <FormEcriture comptes={comptesSaisissables(comptes, entite.forme)} />
 
         <div className="mt-6">
           <Carte>

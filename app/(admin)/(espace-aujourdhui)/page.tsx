@@ -3,7 +3,7 @@ import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { lireJournee } from "@/src/lib/journeeDonnees";
 import type { LigneJournee, Rappel } from "@/src/lib/journee";
-import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
+import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
 import { tachesDuJour } from "@/src/lib/prestationsDb";
 
 export const dynamic = "force-dynamic";
@@ -217,13 +217,13 @@ export default async function AujourdhuiPage() {
     perm_boutique_vente: acces.permissions.perm_boutique_vente === true,
   });
 
-  const peutPointer = acces.permissions.perm_checkin === true;
-
-  // Les prestations des locataires de box : un bloc À PART, après les arrivées
-  // et les départs. Ce ne sont pas les mêmes gestes, et leurs chiens ne sont
-  // pas dans les box de la pension — les mélanger tromperait sur les deux.
-  const peutPrestations = acces.isAdmin || acces.permissions.perm_prestations === true;
-  const prestations = peutPrestations ? await tachesDuJour(jour) : [];
+  const peutPointer = acces.permissions.perm_checkin === true;
+
+  // Les prestations des locataires de box : un bloc À PART, après les arrivées
+  // et les départs. Ce ne sont pas les mêmes gestes, et leurs chiens ne sont
+  // pas dans les box de la pension — les mélanger tromperait sur les deux.
+  const peutPrestations = acces.isAdmin || acces.permissions.perm_prestations === true;
+  const prestations = peutPrestations ? await tachesDuJour(jour) : [];
   const prestationsAFaire = prestations.filter((t) => t.statut === "a_faire");
 
   return (
@@ -252,30 +252,30 @@ export default async function AujourdhuiPage() {
           ))}
         </Bloc>
 
-        {peutPrestations && (
-          <Bloc
-            titre="🧹 Prestations chez les locataires"
-            nombre={prestationsAFaire.length}
-            vide="Rien à faire chez les locataires."
-          >
-            {prestationsAFaire.map((t) => (
-              <li key={t.id} style={{
-                listStyle: "none", background: "#FFFFFF", border: BORDURE,
-                borderLeft: t.garde ? "4px solid #C9A84C" : BORDURE,
-                borderRadius: 16, padding: "12px 14px", marginBottom: 8, minWidth: 0,
-              }}>
-                <p style={{ margin: 0, fontWeight: 700, color: MARINE, fontSize: 15, overflowWrap: "anywhere" }}>
-                  {t.garde ? "🏠 " : ""}{t.prestation}
-                  {t.heure_prevue && <span style={{ color: SOUS, fontWeight: 400 }}> — {t.heure_prevue.slice(0, 5)}</span>}
-                </p>
-                <p style={{ margin: "4px 0 0", color: SOUS, fontSize: 14, overflowWrap: "anywhere" }}>
-                  {t.chien ?? "—"} · Box {t.box ?? "—"} · {t.client}
-                </p>
-              </li>
-            ))}
-          </Bloc>
-        )}
-
+        {peutPrestations && (
+          <Bloc
+            titre="🧹 Prestations chez les locataires"
+            nombre={prestationsAFaire.length}
+            vide="Rien à faire chez les locataires."
+          >
+            {prestationsAFaire.map((t) => (
+              <li key={t.id} style={{
+                listStyle: "none", background: "#FFFFFF", border: BORDURE,
+                borderLeft: t.garde ? "4px solid #C9A84C" : BORDURE,
+                borderRadius: 16, padding: "12px 14px", marginBottom: 8, minWidth: 0,
+              }}>
+                <p style={{ margin: 0, fontWeight: 700, color: MARINE, fontSize: 15, overflowWrap: "anywhere" }}>
+                  {t.garde ? "🏠 " : ""}{t.prestation}
+                  {t.heure_prevue && <span style={{ color: SOUS, fontWeight: 400 }}> — {t.heure_prevue.slice(0, 5)}</span>}
+                </p>
+                <p style={{ margin: "4px 0 0", color: SOUS, fontSize: 14, overflowWrap: "anywhere" }}>
+                  {t.chien ?? "—"} · Box {t.box ?? "—"} · {t.client}
+                </p>
+              </li>
+            ))}
+          </Bloc>
+        )}
+
         <Bloc titre="📌 À ne pas oublier" nombre={journee.rappels.length} vide="Rien à signaler cette semaine.">
           {journee.rappels.map((r) => <LigneRappel key={r.cle} r={r} />)}
         </Bloc>

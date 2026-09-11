@@ -4,10 +4,13 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { annulerChangement, corrigerEntite, preparerChangement } from "./actions";
 import {
+  AVERTISSEMENT_RAISON_SOCIALE,
   FORMAT_IDE,
   FORMES,
+  NOM_COMMERCIAL,
   POURQUOI_DEBUT_EXERCICE,
   libelleForme,
+  raisonSocialeACompleter,
   veille,
   type EntiteJuridique,
 } from "@/src/lib/entiteJuridiqueLogique";
@@ -161,7 +164,7 @@ export default function FormEntreprise({
         {courante ? (
           <>
             <p style={{ margin: 0, fontWeight: 700, color: MARINE, fontSize: 18, overflowWrap: "anywhere" }}>
-              {courante.raisonSociale}
+              {courante.raisonSociale || `${NOM_COMMERCIAL} — raison sociale à choisir`}
             </p>
             <p style={{ color: SOUS, fontSize: 13, margin: "4px 0 0" }}>
               {libelleForme(courante.forme)} · depuis le {courante.dateDebut}
@@ -179,6 +182,17 @@ export default function FormEntreprise({
               </li>
               <li>E-mail : {courante.email ?? "— à saisir —"}</li>
             </ul>
+            {/* Aucune facture réelle n’existe encore. La première qui partira doit
+                porter le bon nom : c’est le seul avertissement qui compte ici. */}
+            {raisonSocialeACompleter(courante) && (
+              <p role="status" style={{
+                background: "#FBE2DE", border: "1px solid #A8453A", color: "#A8453A",
+                borderRadius: 12, padding: "10px 12px", fontSize: 14, fontWeight: 700,
+                margin: "12px 0 0",
+              }}>
+                ⚠️ {AVERTISSEMENT_RAISON_SOCIALE}
+              </p>
+            )}
             {manquants.length > 0 && (
               <p style={{
                 background: "#F4EAC9", border: "1px solid #C9A84C", color: "#6E5410",

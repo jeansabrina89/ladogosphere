@@ -107,19 +107,33 @@ export async function entiteCourante(): Promise<EntiteJuridique | null> {
 /**
  * Le nom de famille de la titulaire, pour contrôler une raison individuelle.
  *
- * Lu sur le profil de la personne qui prépare le changement — c'est
- * l'administratrice, et son nom vit déjà là. Le recopier dans un réglage
- * créerait une seconde vérité, qui finirait par diverger de la première.
+ * Cherché à deux endroits, dans cet ordre : le profil de la personne qui
+ * prépare le changement, puis sa fiche d’employée. Le profil de
+ * l’administratrice ne porte pas toujours de nom — le sien n’en portait pas —
+ * alors que sa fiche RH, elle, en porte un depuis toujours. Chercher au seul
+ * premier endroit rendait la raison individuelle impossible à saisir.
  *
- * Rend null si le profil ne porte pas de nom : l'écran refuse alors le passage
- * en raison individuelle et dit quoi compléter, plutôt que de deviner.
+ * Rend null si aucun des deux ne le connaît : l’écran dit alors quoi compléter,
+ * plutôt que de deviner un nom qui finirait au registre du commerce.
  */
 export async function nomFamilleTitulaire(userId: string | null | undefined): Promise<string | null> {
   if (!userId) return null;
-  const { data } = await supabaseAdmin
+  const { data: profil } = await supabaseAdmin
     .from("profiles")
-    .select("nom")
+    .select("nom, email")
     .eq("id", userId)
     .maybeSingle();
-  return ((data?.nom as string | null) ?? "").trim() || null;
+
+  const duProfil = ((profil?.nom as string | null) ?? "").trim();
+  if (duProfil !== "") return duProfil;
+
+  const email = ((profil?.email as string | null) ?? "").trim();
+  if (email === "") return null;
+
+  const { data: employee } = await supabaseAdmin
+    .from("employes_rh")
+    .select("nom")
+    .eq("email", email)
+    .maybeSingle();
+  return ((employee?.nom as string | null) ?? "").trim() || null;
 }

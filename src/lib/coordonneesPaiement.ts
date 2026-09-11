@@ -1,6 +1,7 @@
 import {
   ibanDeVersement,
   lignesAdresse,
+  raisonSocialeAffichee,
   type EntiteJuridique,
 } from "@/src/lib/entiteJuridiqueLogique";
 
@@ -42,7 +43,9 @@ export async function getCoordonneesPaiement(
 
   return {
     iban,
-    titulaire: entite.raisonSociale,
+    // Tant que la raison sociale n'est pas choisie, le document porte le nom
+    // commercial seul. Mieux vaut un en-tête au nom d'enseigne qu'un en-tête vide.
+    titulaire: raisonSocialeAffichee(entite),
     ibanConfigure: iban !== "",
     adresse: {
       rue: entite.adresse.rue ?? "",

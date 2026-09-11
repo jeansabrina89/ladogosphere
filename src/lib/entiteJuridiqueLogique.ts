@@ -306,3 +306,50 @@ export function manquantsEntite(entite: EntiteJuridique): string[] {
 export function ibanDeVersement(entite: EntiteJuridique): string {
   return (entite.qrIban ?? entite.iban ?? "").trim();
 }
+
+// ── Une raison sociale encore à choisir ───────────────────────────────────
+
+/**
+ * Le nom commercial, qui ne change pas avec la forme juridique.
+ *
+ * Il sert de repli tant que la raison sociale n'est pas saisie : mieux vaut un
+ * document au nom d'enseigne qu'un document sans nom du tout. Ce n'est PAS une
+ * raison sociale, et l'écran des Réglages le réclame tant qu'elle manque.
+ */
+export const NOM_COMMERCIAL = "La Dogosphère";
+
+export const AVERTISSEMENT_RAISON_SOCIALE =
+  "Raison sociale à compléter avant la première facture réelle.";
+
+/** Ce qu'un document imprime en tête, raison sociale saisie ou non. */
+export function raisonSocialeAffichee(entite: EntiteJuridique | null | undefined): string {
+  return (entite?.raisonSociale ?? "").trim() || NOM_COMMERCIAL;
+}
+
+/** La raison sociale reste-t-elle à choisir ? */
+export function raisonSocialeACompleter(entite: EntiteJuridique | null | undefined): boolean {
+  return (entite?.raisonSociale ?? "").trim() === "";
+}
+
+// ── Les comptes offerts à la saisie ───────────────────────────────────────
+
+/**
+ * Le plan comptable proposé à une écriture manuelle.
+ *
+ * Le compte privé 2850 n'a de sens qu'en raison individuelle : c'est là que
+ * passent les retraits et les apports de la titulaire. En Sàrl, il n'a rien à
+ * faire dans la liste — une société ne fait pas de prélèvement privé, elle
+ * verse un salaire ou un dividende.
+ *
+ * Il n'est retiré QUE de la proposition de saisie. Les rapports, eux, montrent
+ * toujours tous les comptes : cacher un compte qui porte un solde cacherait de
+ * l'argent.
+ */
+export function comptesSaisissables<T extends { numero: string; libelle: string }>(
+  comptes: readonly T[],
+  forme: string | null | undefined
+): T[] {
+  const avecLibelles = renommerComptes(comptes, forme);
+  if (formeJuridique(forme) === "raison_individuelle") return avecLibelles;
+  return avecLibelles.filter((c) => c.numero !== COMPTE_PRIVE);
+}

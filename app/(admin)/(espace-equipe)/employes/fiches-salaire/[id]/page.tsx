@@ -4,10 +4,11 @@ import { createClient } from "@/src/utils/supabase/server";
 import BoutonImprimer from "./BoutonImprimer";
 import Link from "next/link";
 import { entiteA } from "@/src/lib/entiteJuridique";
-import {
-  AVERTISSEMENT_SALAIRE_PROPRIETAIRE,
-  lignesAdresse,
-} from "@/src/lib/entiteJuridiqueLogique";
+import {
+  AVERTISSEMENT_SALAIRE_PROPRIETAIRE,
+  lignesAdresse,
+  raisonSocialeAffichee,
+} from "@/src/lib/entiteJuridiqueLogique";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 
 const MOIS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -41,17 +42,17 @@ export default async function FicheSalairePage({
     redirect("/employes/mon-espace");
   }
 
-  // La propriétaire, en raison individuelle, ne se verse pas de salaire. On
-  // l’écrit sur SA fiche seulement : les employées, elles, ne changent pas.
-  const emailFiche = String(fiche.employes_rh?.email ?? "").trim().toLowerCase();
-  let estLaProprietaire = false;
-  if (employeur.forme === "raison_individuelle" && emailFiche !== "") {
-    const { data: admins } = await supabaseAdmin
-      .from("profiles").select("email").eq("role", "admin");
-    estLaProprietaire = ((admins ?? []) as { email: string | null }[])
-      .some((a) => String(a.email ?? "").trim().toLowerCase() === emailFiche);
-  }
-
+  // La propriétaire, en raison individuelle, ne se verse pas de salaire. On
+  // l’écrit sur SA fiche seulement : les employées, elles, ne changent pas.
+  const emailFiche = String(fiche.employes_rh?.email ?? "").trim().toLowerCase();
+  let estLaProprietaire = false;
+  if (employeur.forme === "raison_individuelle" && emailFiche !== "") {
+    const { data: admins } = await supabaseAdmin
+      .from("profiles").select("email").eq("role", "admin");
+    estLaProprietaire = ((admins ?? []) as { email: string | null }[])
+      .some((a) => String(a.email ?? "").trim().toLowerCase() === emailFiche);
+  }
+
   const { data: deductions } = await supabase
     .from("fiche_salaire_deductions")
     .select("*")
@@ -192,7 +193,7 @@ export default async function FicheSalairePage({
 
         {/* Pied de page */}
         <div className="border-t pt-6 text-center text-xs text-gray-400">
-          <p>{[employeur.raisonSociale, ...lignesAdresse(employeur)].filter(Boolean).join(" — ")}</p>
+          <p>{[raisonSocialeAffichee(employeur), ...lignesAdresse(employeur)].filter(Boolean).join(" — ")}</p>
           <p>Document confidentiel — {MOIS[fiche.mois - 1]} {fiche.annee}</p>
         </div>
       </div>
