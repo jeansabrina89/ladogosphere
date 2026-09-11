@@ -184,7 +184,7 @@ describe("les deux phrases du garde-fou", () => {
 });
 
 describe("les prestations réglables", () => {
-  it("couvre les six lignes attendues du côté pension", () => {
+  it("couvre les sept lignes attendues du côté pension", () => {
     expect(PRESTATIONS_TVA.map((p) => p.libelle)).toEqual([
       "Adhésion",
       "Abonnement",
@@ -192,6 +192,9 @@ describe("les prestations réglables", () => {
       "Journée d'essai",
       "Prestations annexes",
       "Frais d'annulation et suppléments",
+      // APP 17 : le loyer d'un box refacturé au propriétaire du chien. Son
+      // taux est à confirmer auprès de l'AFC — d'où sa présence ici, réglable.
+      "Loyer de box refacturé",
     ]);
   });
 

@@ -106,6 +106,7 @@ export const COMPTES_PRODUIT = [
   { numero: "3005", libelle: "Adhésion" },
   { numero: "3010", libelle: "Frais et suppléments" },
   { numero: "3020", libelle: "Prestation annexe" },
+  { numero: "3021", libelle: "Loyer de box refacturé" },
   { numero: "3200", libelle: "Boutique" },
 ] as const;
 

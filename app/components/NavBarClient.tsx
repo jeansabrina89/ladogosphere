@@ -1,7 +1,12 @@
 "use client";
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/src/lib/supabase-browser";
-const liens: { href: string; label: string; exact: boolean; clientSeul?: boolean }[] = [
+const liens: {
+  href: string; label: string; exact: boolean;
+  clientSeul?: boolean;
+  /** Réservé aux locataires de box : invisible pour un client de la pension. */
+  locataireSeul?: boolean;
+}[] = [
   { href: "/mon-compte", label: "🏠 Mon compte", exact: true },
   { href: "/mon-compte/chiens", label: "🐶 Mes chiens", exact: false },
   { href: "/mon-compte/reservations", label: "📅 Mes réservations", exact: false },
@@ -9,11 +14,20 @@ const liens: { href: string; label: string; exact: boolean; clientSeul?: boolean
   { href: "/mon-compte/abonnements", label: "🎟️ Mes abonnements", exact: false, clientSeul: true },
   { href: "/catalogue", label: "🛍️ Boutique", exact: false, clientSeul: true },
   { href: "/mon-compte/commandes", label: "📦 Mes commandes", exact: false, clientSeul: true },
+  // Les prestations n'existent que pour un locataire de box. L'entrée cachée
+  // n'est qu'une politesse : la page elle-même referme la porte côté serveur.
+  { href: "/mon-compte/prestations", label: "🧹 Mes prestations", exact: false, locataireSeul: true },
   { href: "/mon-compte/profil", label: "👤 Mon profil", exact: false },
   // Les tarifs ne concernent pas une fiche du personnel (réservations gratuites).
   { href: "/mon-compte/tarifs", label: "💰 Tarifs", exact: false, clientSeul: true },
 ];
-export default function NavBarClient({ interne = false }: { interne?: boolean }) {
+export default function NavBarClient({
+  interne = false,
+  locataire = false,
+}: {
+  interne?: boolean;
+  locataire?: boolean;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   if (pathname === "/login" || pathname === "/inscription") return null;
@@ -47,7 +61,10 @@ export default function NavBarClient({ interne = false }: { interne?: boolean })
           </button>
         </div>
         <div className="flex flex-wrap gap-1 pb-3">
-          {liens.filter(l => !(interne && l.clientSeul)).map(({ href, label, exact }) => (
+          {liens
+            .filter(l => !(interne && l.clientSeul))
+            .filter(l => !l.locataireSeul || locataire)
+            .map(({ href, label, exact }) => (
             <a key={href} href={href}
               className="px-3 rounded-lg text-sm font-medium whitespace-nowrap inline-flex items-center"
               style={{

@@ -26,12 +26,13 @@ const droits = (p: Partial<DroitsNav> = {}): DroitsNav => ({
   perm_boutique_vente: false,
   perm_boutique_gestion: false,
   perm_atelier: false,
+  perm_prestations: false,
   ...p,
 });
 
 const ADMIN = droits({ isAdmin: true });
 const COMPLETE = droits({
-  perm_encaissements: true, perm_depenses: true,
+  perm_encaissements: true, perm_depenses: true, perm_prestations: true,
   perm_boutique_vente: true, perm_boutique_gestion: true, perm_atelier: true,
 });
 const COMPTOIR = droits({ perm_boutique_vente: true });
@@ -42,17 +43,20 @@ const cles = (d: DroitsNav) => espacesVisibles(d).map((e) => e.cle);
 const labels = (cle: Parameters<typeof entreesEspace>[0], d: DroitsNav) =>
   entreesEspace(cle, d).map((e) => e.label);
 
-describe("les huit espaces", () => {
+describe("les neuf espaces", () => {
   it("l'administratrice les voit tous, dans l'ordre", () => {
     expect(cles(ADMIN)).toEqual([
-      "aujourdhui", "pension", "clients", "boutique",
+      "aujourdhui", "pension", "prestations", "clients", "boutique",
       "atelier", "comptabilite", "equipe", "reglages",
     ]);
   });
 
-  it("huit entrées, pas vingt-deux : c'est ce qui tient dans 667 px", () => {
-    expect(ESPACES).toHaveLength(8);
-    expect(espacesVisibles(ADMIN)).toHaveLength(8);
+  it("neuf entrées, pas vingt-deux : c'est ce qui tient dans 667 px", () => {
+    // Neuf entrées de 46 px font 414 px : avec le logo, « Mon espace » et la
+    // déconnexion, la barre tient encore sans défilement sur un écran de
+    // 667 px. La dixième ne tiendra pas, et il faudra alors regrouper.
+    expect(ESPACES).toHaveLength(9);
+    expect(espacesVisibles(ADMIN)).toHaveLength(9);
   });
 });
 
@@ -61,7 +65,7 @@ describe("ce que voit chaque profil", () => {
     // Comptabilité, Équipe et Réglages sont réservés à l'admin par la porte de
     // l'ESPACE : aucune permission d'employée ne les ouvre.
     expect(cles(COMPLETE)).toEqual([
-      "aujourdhui", "pension", "clients", "boutique", "atelier",
+      "aujourdhui", "pension", "prestations", "clients", "boutique", "atelier",
     ]);
     for (const ferme of ["comptabilite", "equipe", "reglages"]) {
       expect(cles(COMPLETE), ferme).not.toContain(ferme);
@@ -69,6 +73,7 @@ describe("ce que voit chaque profil", () => {
   });
 
   it("une employée au comptoir : quatre entrées, jamais vingt-deux", () => {
+    // Sans perm_prestations, l'espace des locataires n'existe pas pour elle.
     expect(cles(COMPTOIR)).toEqual(["aujourdhui", "pension", "clients", "boutique"]);
     expect(cles(COMPTOIR).length).toBeLessThanOrEqual(6);
   });
@@ -254,6 +259,7 @@ describe("droitsNav", () => {
       perm_boutique_vente: true,
       perm_boutique_gestion: true,
       perm_atelier: true,
+      perm_prestations: true,
     });
   });
 
@@ -311,8 +317,8 @@ describe("les quatre profils du parcours", () => {
     perm_checkin: true, perm_encaissements: true, perm_boutique_vente: true,
   } as Partial<DroitsNav>);
 
-  it("l'admin voit les huit espaces", () => {
-    expect(cles(ADMIN)).toHaveLength(8);
+  it("l'admin voit les neuf espaces", () => {
+    expect(cles(ADMIN)).toHaveLength(9);
   });
 
   it("une employée qui encaisse ne voit AUCUNE entrée Comptabilité", () => {
@@ -367,5 +373,34 @@ describe("l'espace d'une adresse prêtée", () => {
   it("les réservations comptent désormais pour la pension", () => {
     expect(espaceDuChemin("/reservations")).toBe("pension");
     expect(espaceDuChemin("/reservations/abc-123")).toBe("pension");
+  });
+});
+
+describe("l'espace Prestations", () => {
+  it("n'existe pas sans la permission : un client de la pension n'en voit rien", () => {
+    expect(cles(droits())).not.toContain("prestations");
+    expect(cles(COMPTOIR)).not.toContain("prestations");
+  });
+
+  it("s'ouvre à perm_prestations, avec les écrans de terrain seulement", () => {
+    const terrain = droits({ perm_prestations: true });
+    expect(cles(terrain)).toContain("prestations");
+    expect(labels("prestations", terrain)).toEqual([
+      "✅ Aujourd’hui", "🗂️ Planning", "🏠 Locataires",
+    ]);
+  });
+
+  it("les formules et le catalogue restent à l'administratrice", () => {
+    const vus = labels("prestations", ADMIN);
+    expect(vus).toContain("📋 Formules");
+    expect(vus).toContain("🔖 Catalogue");
+    expect(vus).toContain("🧾 Facturer le mois");
+  });
+
+  it("facturer suit la permission des factures, pas celle des prestations", () => {
+    const avecFactures = droits({ perm_prestations: true, perm_factures: true });
+    expect(labels("prestations", avecFactures)).toContain("🧾 Facturer le mois");
+    expect(labels("prestations", droits({ perm_prestations: true })))
+      .not.toContain("🧾 Facturer le mois");
   });
 });

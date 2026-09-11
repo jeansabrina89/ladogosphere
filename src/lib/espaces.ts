@@ -1,5 +1,5 @@
 /**
- * Les huit espaces de l'application, et ce que chacun montre à qui.
+ * Les neuf espaces de l'application, et ce que chacun montre à qui.
  *
  * Fonction pure, sans base ni requête : c'est elle qui porte la composition des
  * menus, et c'est elle que les tests couvrent. Les écrans ne changent PAS
@@ -20,6 +20,7 @@ export type DroitsNav = {
   perm_boutique_vente: boolean;
   perm_boutique_gestion: boolean;
   perm_atelier: boolean;
+  perm_prestations: boolean;
 };
 
 export type PermissionNav = Exclude<keyof DroitsNav, "isAdmin">;
@@ -58,6 +59,7 @@ export function droitsNav(
     perm_boutique_vente: vrai("perm_boutique_vente"),
     perm_boutique_gestion: vrai("perm_boutique_gestion"),
     perm_atelier: vrai("perm_atelier"),
+    perm_prestations: vrai("perm_prestations"),
   };
 }
 
@@ -76,7 +78,7 @@ export type Ecran = {
 };
 
 export type CleEspace =
-  | "aujourdhui" | "pension" | "clients" | "boutique"
+  | "aujourdhui" | "pension" | "prestations" | "clients" | "boutique"
   | "atelier" | "comptabilite" | "equipe" | "reglages";
 
 export type Espace = {
@@ -129,7 +131,29 @@ export const ESPACES: Espace[] = [
       { href: "/calendrier-essais", label: "🚫 Essais fermés", exigence: PERSONNEL },
     ],
   },
-  {
+  {
+    /**
+     * Les locataires de box : un public à part, et des gestes à part.
+     *
+     * Ce ne sont pas des clients de la pension. Leur chien vit dans le box
+     * qu’ils louent, aucune place de la pension n’est prise, et rien de ce
+     * qu’on fait pour eux n’est une réservation. C’est pourquoi cet espace
+     * existe plutôt que de s’ajouter à celui de la Pension : mélanger les deux
+     * ferait mentir les chiffres de l’un comme le travail de l’autre.
+     */
+    cle: "prestations",
+    label: "🧹 Prestations",
+    exigence: perm("perm_prestations"),
+    accueil: { href: "/prestations", label: "✅ Aujourd’hui", exigence: perm("perm_prestations"), exact: true },
+    ecrans: [
+      { href: "/prestations/planning", label: "🗂️ Planning", exigence: perm("perm_prestations") },
+      { href: "/prestations/locataires", label: "🏠 Locataires", exigence: perm("perm_prestations") },
+      { href: "/prestations/formules", label: "📋 Formules", exigence: ADMIN },
+      { href: "/prestations/catalogue", label: "🔖 Catalogue", exigence: ADMIN },
+      { href: "/prestations/facturer", label: "🧾 Facturer le mois", exigence: perm("perm_factures") },
+    ],
+  },
+  {
     cle: "clients",
     label: "👤 Clients",
     exigence: PERSONNEL,

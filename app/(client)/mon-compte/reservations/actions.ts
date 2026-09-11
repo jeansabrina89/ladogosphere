@@ -9,6 +9,7 @@ import { etatAdhesionReservation } from "@/src/lib/membre";
 import { cotisationEnAttente } from "@/src/lib/cotisation";
 import { verifierSelectionChiens } from "@/src/lib/journeeEssai";
 import { champsTypeSejour } from "@/src/lib/typeSejour";
+import { adhesionExigee } from "@/src/lib/prestationsLogique";
 import { typeAutorisePourPersonnel } from "@/src/lib/personnel";
 import { verifierDateEssaiLibre } from "@/src/lib/essaiReservation";
 import { verifierPlaceDisponible } from "@/src/lib/suggestionBox";
@@ -71,7 +72,7 @@ export async function creerDemandeReservation(
   // 2. Fiche client liée à la session — client_id JAMAIS fourni par le formulaire
   const { data: fiche, error: ficheErr } = await supabaseServer
     .from("clients")
-    .select("id, email, prenom, cotisation_exemptee, interne")
+    .select("id, email, prenom, cotisation_exemptee, interne, locataire_box")
     .eq("auth_user_id", user.id)
     .maybeSingle();
   if (ficheErr) return { ok: false, erreur: ficheErr.message };
@@ -197,7 +198,10 @@ export async function creerDemandeReservation(
     ]);
     const decision = peutReserverPension({
       estMembreAJour: etatAdh.aJour,
-      estExempte: !!(fiche as { cotisation_exemptee?: boolean }).cotisation_exemptee,
+      // Un locataire de box ne doit aucune adhésion (cf. prestationsLogique).
+      estExempte:
+        !!(fiche as { cotisation_exemptee?: boolean }).cotisation_exemptee ||
+        !adhesionExigee(fiche as { locataire_box?: boolean }),
       essaiTermine,
       typeReservation: input.type_reservation,
       estAdmin: false,

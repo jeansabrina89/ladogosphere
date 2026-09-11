@@ -134,7 +134,8 @@ export type CodePrestation =
   | "adhesion"
   | "abonnement"
   | "prestation_annexe"
-  | "frais_annulation";
+  | "frais_annulation"
+  | "loyer_box_refacture";
 
 export const PRESTATIONS_TVA: {
   code: CodePrestation;
@@ -166,6 +167,13 @@ export const PRESTATIONS_TVA: {
   {
     code: "frais_annulation", libelle: "Frais d'annulation et suppléments", comptes: ["3010"],
     aide: "Les frais portés sur une réservation, annulation comprise.",
+  },
+  {
+    code: "loyer_box_refacture", libelle: "Loyer de box refacturé", comptes: ["3021"],
+    aide:
+      "Le loyer d'un box que la Sàrl paie à la propriétaire puis refacture au " +
+      "propriétaire du chien. Le taux est À CONFIRMER auprès de l'AFC (art. 21 LTVA) : " +
+      "8,1 % par défaut, le 0 % et son motif restent disponibles.",
   },
 ];
 

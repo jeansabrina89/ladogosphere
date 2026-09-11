@@ -73,13 +73,16 @@ export async function creerReservation(formData: FormData) {
   if (type_reservation !== "essai" && client_id && regles.adhesionRequise) {
     const { data: clientRow } = await supabaseAdmin
       .from("clients")
-      .select("cotisation_exemptee")
+      .select("cotisation_exemptee, locataire_box")
       .eq("id", client_id)
       .maybeSingle();
     const estMembre = await estMembreActif(supabaseAdmin, client_id, date_debut);
     if (!reservationAutorisee({
       estMembre,
-      estExempte: !!clientRow?.cotisation_exemptee,
+      // Un locataire de box ne paie AUCUNE adhésion : il n'utilise ni la
+      // journée d'essai, ni la validation du chien, ni les réservations. La lui
+      // réclamer serait un péage sans contrepartie.
+      estExempte: !!clientRow?.cotisation_exemptee || !!clientRow?.locataire_box,
       typeReservation: type_reservation,
     })) {
       throw new Error(MESSAGE_ADHESION_REQUISE);

@@ -3,7 +3,7 @@ import { droitsNav, type CleEspace } from "@/src/lib/espaces";
 import NavEspace from "./NavEspace";
 
 /**
- * Le layout commun des huit espaces — celui de la boutique, généralisé.
+ * Le layout commun des neuf espaces — celui de la boutique, généralisé.
  *
  * Il pose la barre secondaire au-dessus de tous les écrans de l'espace, avec
  * les seules entrées auxquelles la personne a droit. Il ne remplace PAS la

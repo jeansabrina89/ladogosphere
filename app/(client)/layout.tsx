@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import CreerProfilPersonnel from "@/app/components/CreerProfilPersonnel";
 import { BANDEAU_PERSONNEL, ficheDoitDevenirInterne } from "@/src/lib/personnel";
 import { basculerFicheEnInterne } from "@/app/(client)/mon-compte/actionsPersonnel";
+import { catalogueVisible } from "@/src/lib/prestationsLogique";
 
 /**
  * Deux publics dans cet espace :
@@ -23,11 +24,12 @@ export default async function ClientLayout({ children }: { children: React.React
   const { data: { user } } = await supabase.auth.getUser();
 
   let ficheInterne = false;
+  let ficheLocataire = false;
 
   if (user) {
     const [{ data: profil }, { data: fiche }] = await Promise.all([
       supabaseAdmin.from("profiles").select("role").eq("id", user.id).maybeSingle(),
-      supabaseAdmin.from("clients").select("id, interne").eq("auth_user_id", user.id).maybeSingle(),
+      supabaseAdmin.from("clients").select("id, interne, locataire_box").eq("auth_user_id", user.id).maybeSingle(),
     ]);
 
     const estPersonnel = profil?.role === "employe" || profil?.role === "admin";
@@ -46,6 +48,7 @@ export default async function ClientLayout({ children }: { children: React.React
     if (!estPersonnel && !fiche) redirect("/mon-compte/completer-profil");
 
     ficheInterne = !!fiche?.interne;
+    ficheLocataire = catalogueVisible(fiche);
 
     // Correctif : un compte du personnel qui avait déjà une fiche ORDINAIRE
     // voyait l'adhésion et la journée d'essai. On la bascule en interne, une
@@ -58,7 +61,7 @@ export default async function ClientLayout({ children }: { children: React.React
 
   return (
     <>
-      <NavBarClient interne={ficheInterne} />
+      <NavBarClient interne={ficheInterne} locataire={ficheLocataire} />
       {ficheInterne && (
         <div
           style={{
