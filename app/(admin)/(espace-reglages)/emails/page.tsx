@@ -6,7 +6,7 @@ import GestionEmails from "./GestionEmails";
 export const dynamic = "force-dynamic";
 
 export default async function EmailsPage() {
-  await exigerAdminPage();
+  const acces = await exigerAdminPage();
 
   const { data: modeles } = await supabaseAdmin
     .from("modeles_email")
@@ -29,5 +29,5 @@ export default async function EmailsPage() {
     .order("created_at", { ascending: false })
     .limit(10);
 
-  return <GestionEmails emails={emails} campagnes={campagnes ?? []} />;
+  return <GestionEmails emails={emails} campagnes={campagnes ?? []} emailAdmin={acces.email ?? ""} />;
 }

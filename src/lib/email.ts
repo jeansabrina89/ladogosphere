@@ -1,6 +1,8 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import * as Sentry from "@sentry/nextjs";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { PREFIXE_TEST } from "@/src/lib/emailsDeTest";
 import {
   MENTION_SANS_RESERVATION,
   MODELE_RETOUR_EN_STOCK,
@@ -292,6 +294,25 @@ async function modeleEmail(
   };
 }
 
+/**
+ * Marque « ceci est un envoi de test », portée à l'appel et à lui seul.
+ *
+ * Un simple drapeau de module serait partagé par toutes les requêtes du même
+ * serveur : un vrai e-mail parti pendant qu'un test tourne se retrouverait
+ * marqué `test:`, et personne ne le verrait. `AsyncLocalStorage` limite la
+ * marque à la chaîne d'appels qui l'a posée.
+ */
+const contexteEnvoiDeTest = new AsyncLocalStorage<true>();
+
+/** Tout ce qui part depuis `fn` est journalisé comme un envoi de test. */
+export function dansEnvoiDeTest<T>(fn: () => Promise<T>): Promise<T> {
+  return contexteEnvoiDeTest.run(true, fn);
+}
+
+function enEnvoiDeTest(): boolean {
+  return contexteEnvoiDeTest.getStore() === true;
+}
+
 async function envoyerEmail(p: {
   destinataire: string;
   type: string;
@@ -310,14 +331,19 @@ async function envoyerEmail(p: {
       ? { attachments: p.piecesJointes.map((f) => ({ filename: f.filename, content: f.content })) }
       : {}),
   });
+  const test = enEnvoiDeTest();
   await supabaseAdmin.from("emails_envoyes").insert({
     destinataire: p.destinataire,
-    type: p.type,
+    // Un envoi de test porte son préfixe à jamais : un relevé ou une relance
+    // qui le compterait pour un vrai message fausserait tout, et la ligne
+    // écrite ne se reprend pas.
+    type: test ? PREFIXE_TEST + p.type : p.type,
     sujet: p.sujet,
     statut: error ? "echec" : "envoye",
     resend_id: data?.id ?? null,
     erreur: error ? String(error.message ?? error).slice(0, 500) : null,
-    reservation_id: p.reservationId ?? null,
+    // Un test ne se rattache à aucune réservation : les valeurs sont inventées.
+    reservation_id: test ? null : (p.reservationId ?? null),
   });
   if (error) {
     Sentry.captureException(error);
@@ -1202,7 +1228,15 @@ function consigneRemise(mode: string | null, delaiJours: number): string {
  * et le délai. Le modèle « commande_confirmee » est éditable depuis l'écran
  * des e-mails, comme les autres.
  */
-export async function envoyerEmailCommandeConfirmee(commandeId: string): Promise<void> {
+export async function envoyerEmailCommandeConfirmee(
+  commandeId: string,
+  /**
+   * Remplace l'adresse du client, et elle seule : le contenu reste celui de la
+   * vraie commande. Sert à l'envoi de test, qui vise la boîte de qui le
+   * déclenche plutôt que celle du client.
+   */
+  destinataire?: string | null,
+): Promise<void> {
   const { data: cmd } = await supabaseAdmin
     .from("commandes")
     .select("id, numero, mode_remise, mode_paiement, frais_port, remise_membre, montant_total, client_id")
@@ -1237,7 +1271,7 @@ export async function envoyerEmailCommandeConfirmee(commandeId: string): Promise
   const port = Number(cmd.frais_port ?? 0);
 
   await envoyerEmail({
-    destinataire: client.email,
+    destinataire: destinataire?.trim() || client.email,
     type: "commande_confirmee",
     sujet: m.sujet,
     html: await emailTemplate(`
@@ -1272,7 +1306,11 @@ export async function envoyerEmailCommandeConfirmee(commandeId: string): Promise
 }
 
 /** Expédition : le numéro de suivi, quand il existe. */
-export async function envoyerEmailCommandeExpediee(commandeId: string): Promise<void> {
+export async function envoyerEmailCommandeExpediee(
+  commandeId: string,
+  /** Remplace l'adresse du client, et elle seule. Voir la confirmation. */
+  destinataire?: string | null,
+): Promise<void> {
   const { data: cmd } = await supabaseAdmin
     .from("commandes")
     .select("numero, numero_suivi, client_id, adresse_livraison")
@@ -1293,7 +1331,7 @@ export async function envoyerEmailCommandeExpediee(commandeId: string): Promise<
     .map((l) => (l ?? "").trim()).filter(Boolean).join("<br>");
 
   await envoyerEmail({
-    destinataire: client.email,
+    destinataire: destinataire?.trim() || client.email,
     type: "commande_expediee",
     sujet: m.sujet,
     html: await emailTemplate(`

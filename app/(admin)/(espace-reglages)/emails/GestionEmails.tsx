@@ -4,12 +4,21 @@ import { useMemo, useState, useEffect } from "react";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
+import { TYPES_EMAIL_TEST } from "@/src/lib/emailsDeTest";
 
 type Champs = {
   sujet: string;
   titre: string;
   intro: string;
   message_final: string;
+};
+
+type ResultatTest = {
+  cle: string;
+  libelle: string;
+  statut: string;
+  resendId: string | null;
+  message: string | null;
 };
 
 type EmailModele = {
@@ -404,7 +413,143 @@ function MessageMembres({ campagnes }: { campagnes: Campagne[] }) {
   );
 }
 
-export default function GestionEmails({ emails, campagnes = [] }: { emails: EmailModele[]; campagnes?: Campagne[] }) {
+/**
+ * Envoyer les vrais e-mails vers une adresse choisie, pour les relire dans une
+ * boîte plutôt que dans un aperçu. Les pièces jointes et les liens sont ceux de
+ * la production : c'est là que se voient un PDF qui ne s'ouvre pas ou un lien
+ * mort. Les envois partent au journal préfixés `test:`, jamais confondus avec
+ * un vrai message.
+ */
+function EnvoiDeTest({ emailAdmin }: { emailAdmin: string }) {
+  const [destinataire, setDestinataire] = useState(emailAdmin);
+  const [coches, setCoches] = useState<string[]>([]);
+  const [envoiEnCours, setEnvoiEnCours] = useState(false);
+  const [erreur, setErreur] = useState("");
+  const [resultats, setResultats] = useState<ResultatTest[] | null>(null);
+
+  const toutCoche = coches.length === TYPES_EMAIL_TEST.length;
+
+  const basculer = (cle: string) =>
+    setCoches((c) => (c.includes(cle) ? c.filter((x) => x !== cle) : [...c, cle]));
+
+  async function envoyer() {
+    setErreur("");
+    setResultats(null);
+    setEnvoiEnCours(true);
+    try {
+      const reponse = await fetch("/api/emails/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ destinataire, types: coches }),
+      });
+      const corps = await reponse.json();
+      if (!reponse.ok) setErreur(corps?.error ?? "L'envoi a échoué.");
+      else setResultats(corps.resultats ?? []);
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : String(e));
+    } finally {
+      setEnvoiEnCours(false);
+    }
+  }
+
+  const couleurStatut = (s: string) =>
+    s === "envoye" ? "#1F6E5B" : s === "echec" ? "#A8453A" : "#6E5410";
+  const libelleStatut = (s: string) =>
+    s === "envoye" ? "Envoyé" : s === "echec" ? "Échec" : "Rien à envoyer";
+
+  return (
+    <div style={{ margin: "0 0 20px 0" }}>
+      <Carte accent="or">
+        <p style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 18, fontWeight: 700, color: "#1B2B5E", margin: "0 0 4px" }}>
+          Envoyer un e-mail de test
+        </p>
+        <p style={{ fontSize: 13, color: "#6B7280", margin: "0 0 16px" }}>
+          Les messages partent par le même chemin que les vrais, avec leurs pièces
+          jointes et leurs liens. Ils apparaissent au journal préfixés « test: ».
+        </p>
+
+        <label style={labelStyle} htmlFor="destinataire-test">Adresse de réception</label>
+        <input
+          id="destinataire-test"
+          type="email"
+          style={{ ...inputStyle, marginBottom: 16 }}
+          value={destinataire}
+          onChange={(e) => setDestinataire(e.target.value)}
+        />
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "0 0 8px" }}>
+          <span style={labelStyle}>Types à envoyer</span>
+          <button
+            type="button"
+            onClick={() => setCoches(toutCoche ? [] : TYPES_EMAIL_TEST.map((t) => t.cle))}
+            style={{ background: "none", border: "none", color: "#2E8B7E", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0 }}
+          >
+            {toutCoche ? "Tout décocher" : "Tout cocher"}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 min-[480px]:grid-cols-2 gap-1" style={{ marginBottom: 16 }}>
+          {TYPES_EMAIL_TEST.map((t) => (
+            <label key={t.cle} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "#1B2B5E", minHeight: 32, cursor: "pointer" }}>
+              <input type="checkbox" checked={coches.includes(t.cle)} onChange={() => basculer(t.cle)} />
+              {t.libelle}
+            </label>
+          ))}
+        </div>
+
+        <Bouton variante="principal" onClick={envoyer} disabled={envoiEnCours || coches.length === 0}>
+          {envoiEnCours ? "Envoi en cours…" : `Envoyer${coches.length ? ` (${coches.length})` : ""}`}
+        </Bouton>
+
+        {erreur && (
+          <p style={{ color: "#A8453A", fontSize: 14, fontWeight: 600, margin: "12px 0 0" }}>{erreur}</p>
+        )}
+
+        {resultats && (
+          <div style={{ marginTop: 16, overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: "left", padding: "6px 8px 6px 0", color: "#6B7280", fontWeight: 600 }}>Type</th>
+                  <th style={{ textAlign: "left", padding: "6px 8px", color: "#6B7280", fontWeight: 600 }}>Résultat</th>
+                  <th style={{ textAlign: "left", padding: "6px 0 6px 8px", color: "#6B7280", fontWeight: 600 }}>Détail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resultats.map((r) => (
+                  <tr key={r.cle} style={{ borderTop: "1px solid rgba(27,43,94,0.08)" }}>
+                    <td style={{ padding: "8px 8px 8px 0", color: "#1B2B5E", fontWeight: 600 }}>{r.libelle}</td>
+                    <td style={{ padding: "8px", color: couleurStatut(r.statut), fontWeight: 600, whiteSpace: "nowrap" }}>
+                      {libelleStatut(r.statut)}
+                    </td>
+                    {/* Le message d'erreur est rendu ENTIER : le tronquer, c'est
+                        perdre l'information qu'on est venu chercher. */}
+                    <td style={{ padding: "8px 0 8px 8px", color: "#6B7280", wordBreak: "break-word" }}>
+                      {r.resendId && <code style={{ color: "#1F6E5B" }}>{r.resendId}</code>}
+                      {r.resendId && r.message ? " — " : ""}
+                      {r.message}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Carte>
+    </div>
+  );
+}
+
+export default function GestionEmails({
+  emails,
+  campagnes = [],
+  emailAdmin = "",
+}: {
+  emails: EmailModele[];
+  campagnes?: Campagne[];
+  /** Adresse du compte connecté : ce que le bloc de test propose d'emblée. */
+  emailAdmin?: string;
+}) {
   const [onglet, setOnglet] = useState<"modeles" | "message">("modeles");
 
   const ongletStyle = (actif: boolean): React.CSSProperties => ({
@@ -424,6 +569,8 @@ export default function GestionEmails({ emails, campagnes = [] }: { emails: Emai
         titre="✉️ Emails"
         sousTitre="Personnalisez les emails automatiques et envoyez un message à vos clients."
       />
+
+      <EnvoiDeTest emailAdmin={emailAdmin} />
 
       <div style={{ display: "flex", gap: "20px", borderBottom: "1px solid #EDE8DF", margin: "0 0 20px 0" }}>
         <button type="button" style={ongletStyle(onglet === "modeles")} onClick={() => setOnglet("modeles")}>
