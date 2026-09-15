@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { messageErreurBase } from "@/src/lib/validationChien";
+import { compteAuthParEmail } from "@/src/lib/compteAuth";
 import {
   valeursFormulaire,
   type EtatFormulaire,
@@ -49,15 +50,15 @@ export async function creerClient(
   const invalide = refusIdentiteClient(prenom, nomClient, email);
   if (invalide) return refus(invalide.message, invalide.champ);
 
-  // Vérifier si un compte Auth existe déjà avec cet email
-  let auth_user_id: string | null = null;
-  if (email) {
-    const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const authUser = authUsers?.users?.find(u => u.email === email);
-    if (authUser) {
-      auth_user_id = authUser.id;
-    }
-  }
+  // Le compte Auth de cette adresse, s'il existe.
+  //
+  // Une recherche qui ÉCHOUE refuse la création. Une fiche créée sans son
+  // rattachement ressemble en tout point à une fiche dont le client n'a pas de
+  // compte : personne ne s'aperçoit de rien avant le jour où il se connecte et
+  // ne trouve pas ses chiens.
+  const recherche = await compteAuthParEmail(email);
+  if (!recherche.ok) return refus(recherche.message, "email");
+  const auth_user_id = recherche.id;
 
   const { data: client, error } = await supabaseAdmin
     .from("clients")
