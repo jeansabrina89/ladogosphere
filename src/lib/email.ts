@@ -135,58 +135,61 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
   // Les textes vivent avec la règle qu'ils servent, dans alertesStockLogique.
   retour_en_stock: { ...MODELE_RETOUR_EN_STOCK },
   commande_confirmee: {
-    sujet: "🛍️ Votre commande {numero} est enregistrée",
+    sujet: "Votre commande {numero} est enregistrée",
     titre: "Merci {prenom} ! 🛍️",
     intro: "Nous avons bien reçu votre commande et nous la préparons.",
     message_final: "Une question sur votre commande ? Répondez simplement à cet e-mail.",
   },
   commande_expediee: {
-    sujet: "📦 Votre commande {numero} est en route",
+    sujet: "Votre commande {numero} est en route",
     titre: "C'est parti, {prenom} ! 📦",
     intro: "Votre commande a quitté la pension.",
     message_final: "Bonne réception ! 🐾",
   },
   confirmation_demande: {
-    sujet: "🐾 Votre demande de réservation a été reçue",
+    sujet: "Votre demande de réservation a été reçue",
     titre: "Bonjour {prenom} ! 👋",
     intro: "Nous avons bien reçu votre demande de réservation et nous vous en remercions.",
     message_final: "Pour toute question, n'hésitez pas à nous contacter directement par email ou téléphone.",
   },
   reservation_validee: {
-    sujet: "✅ Votre réservation est confirmée !",
+    sujet: "Votre réservation est confirmée !",
     titre: "Bonjour {prenom} ! 🎉",
     intro: "Excellente nouvelle ! Votre réservation a été <strong style=\"color:#4AAEA0;\">confirmée</strong> par notre équipe.",
     message_final: "Nous sommes impatients d'accueillir votre compagnon ! 🐶",
   },
   reservation_annulee: {
-    sujet: "❌ Votre réservation a été annulée",
+    sujet: "Votre réservation a été annulée",
     titre: "Bonjour {prenom},",
     intro: "Nous vous informons que votre réservation a été <strong style=\"color:#E8847A;\">annulée</strong>.",
     message_final: "Nous espérons vous revoir bientôt à La Dogosphère ! 🐾",
   },
   reservation_refusee: {
-    sujet: "🐾 Votre demande de réservation",
+    sujet: "Votre demande de réservation",
     titre: "Bonjour {prenom},",
     intro: "Nous sommes navrés : nous ne pouvons malheureusement pas <strong style=\"color:#E8847A;\">donner suite</strong> à votre demande de réservation pour les dates indiquées.",
     message_final: "N'hésitez pas à nous proposer d'autres dates — nous espérons pouvoir accueillir votre compagnon très bientôt ! 🐾",
   },
   paiement: {
-    sujet: "💰 Règlement de votre séjour à La Dogosphère",
+    sujet: "Règlement de votre séjour à La Dogosphère",
     titre: "Bonjour {prenom},",
     intro: "Voici le récapitulatif de votre séjour et les informations de paiement.",
     message_final: "Merci de procéder au règlement dans les meilleurs délais. N'hésitez pas à nous contacter pour toute question. 🐾",
   },
+  // Un suivi, pas une sollicitation : on prend des nouvelles du chien, on ne
+  // demande rien. Ni bouton, ni lien dans le corps.
   satisfaction_essai: {
-    sujet: "🐾 Comment s'est passée la journée d'essai ?",
-    titre: "Bonjour {prenom} ! 🐶",
-    intro: "Nous espérons que <strong>{nom_chien}</strong> est bien rentré à la maison ! Toute l'équipe a été ravie de l'avoir avec nous.",
-    message_final: "À très bientôt pour un prochain séjour ! 🐾",
+    sujet: "Journée d'essai de {nom_chien}",
+    titre: "Bonjour {prenom},",
+    intro: "{nom_chien} a passé sa journée d'essai chez nous aujourd'hui. Nous espérons qu'il est bien rentré.",
+    message_final: "À bientôt,",
   },
+  // Un compte rendu, pas une offre.
   essai_valide: {
     sujet: "Tout s'est bien passé pour {nom_chien}",
-    titre: "Bonjour {prenom} ! 🐶",
+    titre: "Bonjour {prenom},",
     intro: "La journée d'essai s'est bien passée : <strong>{nom_chien}</strong> est accepté à la pension.",
-    message_final: "Toute l'équipe s'est réjouie de le rencontrer, et se réjouit déjà de le revoir ! 🐾",
+    message_final: "Toute l'équipe s'est réjouie de le rencontrer, et se réjouit déjà de le revoir !",
   },
   essai_seconde_journee: {
     sujet: "Une seconde journée d'essai pour {nom_chien}",
@@ -195,7 +198,7 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
     message_final: "N'hésitez pas à nous appeler si vous avez la moindre question — nous en discutons volontiers. 🐾",
   },
   rappel_veille: {
-    sujet: "📅 Rappel — votre chien arrive demain !",
+    sujet: "Rappel — votre chien arrive demain !",
     titre: "Bonjour {prenom} ! 🐶",
     intro: "Petit rappel — <strong>{nom_chien}</strong> arrive <strong>demain</strong> à La Dogosphère !",
     message_final: "En cas d'imprévu, contactez-nous au plus vite. À demain ! 🐾",
@@ -207,13 +210,13 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
     message_final: "Le PDF est joint à ce message ; il est aussi disponible dans votre espace client. Merci de votre confiance ! 🐾",
   },
   commande_prete: {
-    sujet: "🎁 Votre commande sur mesure est prête",
+    sujet: "Votre commande sur mesure est prête",
     titre: "Bonjour {prenom} ! 🎉",
     intro: "Votre commande <strong>{article}</strong> est terminée et vous attend à La Dogosphère.",
     message_final: "Passez la chercher quand vous voulez, aux heures d'ouverture. À très vite ! 🐾",
   },
   rappel_cotisation: {
-    sujet: "⭐ Renouvellement de votre adhésion membre",
+    sujet: "Renouvellement de votre adhésion membre",
     titre: "Bonjour {prenom} ! ⭐",
     intro: "Votre adhésion membre La Dogosphère est échue depuis le <strong>{date_fin}</strong>.",
     message_final: "Merci pour votre fidélité ! Nous espérons vous accueillir encore longtemps. 🐶",
@@ -753,12 +756,10 @@ export async function envoyerEmailSatisfactionEssai({
         ${m.intro}
       </p>
 
-      <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">
-        <p style="margin:0; color:#1B5E4F; font-size:14px;">
-          Votre avis nous tient à cœur — si vous avez quelques minutes, nous serions très reconnaissants de recevoir votre retour.
-          Cela nous aide à nous améliorer et à faire connaître La Dogosphère.
-        </p>
-      </div>
+      <p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">
+        Si quelque chose vous a interpellée à son retour — fatigue, appétit, comportement —
+        répondez simplement à cet e-mail ou appelez-nous, nous en discutons volontiers.
+      </p>
 
       <p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">
         ${m.message_final}
@@ -795,28 +796,42 @@ export async function envoyerEmailResultatEssai({
   const m = await modeleEmail(type, { prenom, nom_chien, montant: montant.toFixed(2) });
 
   const lienReserver = `${SITE_URL}/mon-compte/reservations/nouvelle`;
-  const libelleBouton = resultat === "valide" ? "Réserver" : "Réserver la seconde journée";
 
+  // Le résultat accepté est un compte rendu : du texte courant, et l'accès à
+  // l'espace client en lien discret. La seconde journée, elle, demande un
+  // geste — elle garde son encadré et son bouton.
   const bloc = resultat === "valide"
     ? `
-      <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">
-        <p style="margin:0 0 8px 0; color:#1B5E4F; font-size:14px;">
-          Vous pouvez dès maintenant réserver ses journées et ses séjours depuis votre espace client.
-        </p>
-        <p style="margin:0; color:#1B5E4F; font-size:14px;">
-          La cotisation annuelle de <strong>CHF ${montant.toFixed(2)}</strong> se règle avant ou avec la
-          première réservation — elle est ajoutée automatiquement à votre première réservation.
-        </p>
-      </div>`
+      <p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">
+        Vous pouvez réserver ses journées et ses séjours depuis votre espace client.
+        L'adhésion annuelle de <strong>CHF ${montant.toFixed(2)}</strong> est ajoutée à la première réservation.
+      </p>`
     : `
       <div style="background-color:#FFF8E1; border-left:4px solid #C9A84C; border-radius:8px; padding:16px; margin:0 0 24px 0;">
         <p style="margin:0 0 8px 0; color:#7A5C00; font-size:14px;">
           Cette seconde journée se réserve depuis votre espace client, au tarif d'une journée de garderie.
         </p>
         <p style="margin:0; color:#7A5C00; font-size:14px;">
-          La cotisation n'est pas due tant que la journée d'essai n'est pas concluante.
+          L'adhésion n'est pas due tant que la journée d'essai n'est pas concluante.
         </p>
       </div>`;
+
+  const appel = resultat === "valide"
+    ? `
+      <p style="margin:0 0 24px 0; font-size:14px;">
+        <a href="${lienReserver}" style="color:#4AAEA0; text-decoration:none;">Ouvrir mon espace client</a>
+      </p>`
+    : `
+      <table cellpadding="0" cellspacing="0" style="margin:0 0 24px 0;">
+        <tr>
+          <td style="background-color:#4AAEA0; border-radius:12px;">
+            <a href="${lienReserver}"
+              style="display:inline-block; padding:14px 28px; color:#ffffff; font-size:15px; font-weight:bold; text-decoration:none;">
+              Réserver la seconde journée
+            </a>
+          </td>
+        </tr>
+      </table>`;
 
   await envoyerEmail({
     destinataire: email,
@@ -830,16 +845,7 @@ export async function envoyerEmailResultatEssai({
 
       ${bloc}
 
-      <table cellpadding="0" cellspacing="0" style="margin:0 0 24px 0;">
-        <tr>
-          <td style="background-color:#4AAEA0; border-radius:12px;">
-            <a href="${lienReserver}"
-              style="display:inline-block; padding:14px 28px; color:#ffffff; font-size:15px; font-weight:bold; text-decoration:none;">
-              ${libelleBouton}
-            </a>
-          </td>
-        </tr>
-      </table>
+      ${appel}
 
       <p style="color:#6B7280; font-size:14px; margin:0;">
         ${m.message_final}
