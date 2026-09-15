@@ -24,6 +24,7 @@ type LigneEntite = {
   date_fin: string | null;
   forme: string;
   raison_sociale: string;
+  titulaire_nom: string | null;
   adresse_rue: string | null;
   adresse_numero: string | null;
   adresse_npa: string | null;
@@ -38,7 +39,7 @@ type LigneEntite = {
 };
 
 const COLONNES =
-  "id, date_debut, date_fin, forme, raison_sociale, adresse_rue, adresse_numero, " +
+  "id, date_debut, date_fin, forme, raison_sociale, titulaire_nom, adresse_rue, adresse_numero, " +
   "adresse_npa, adresse_ville, adresse_pays, ide, numero_tva, iban, qr_iban, email, telephone";
 
 export function depuisLigne(l: LigneEntite): EntiteJuridique {
@@ -48,6 +49,7 @@ export function depuisLigne(l: LigneEntite): EntiteJuridique {
     dateFin: l.date_fin ? String(l.date_fin) : null,
     forme: formeJuridique(l.forme),
     raisonSociale: (l.raison_sociale ?? "").trim(),
+    titulaireNom: (l.titulaire_nom ?? "").trim() || null,
     adresse: {
       rue: (l.adresse_rue ?? "").trim() || null,
       numero: (l.adresse_numero ?? "").trim() || null,
@@ -105,35 +107,15 @@ export async function entiteCourante(): Promise<EntiteJuridique | null> {
 }
 
 /**
- * Le nom de famille de la titulaire, pour contrôler une raison individuelle.
+ * Le nom du titulaire ne se DÉDUIT plus : il se saisit sur l'entité.
  *
- * Cherché à deux endroits, dans cet ordre : le profil de la personne qui
- * prépare le changement, puis sa fiche d’employée. Le profil de
- * l’administratrice ne porte pas toujours de nom — le sien n’en portait pas —
- * alors que sa fiche RH, elle, en porte un depuis toujours. Chercher au seul
- * premier endroit rendait la raison individuelle impossible à saisir.
+ * Il vivait sur `profiles.nom`, vide pour l'administratrice, avec un repli sur
+ * la fiche d'employée qui supposait que la titulaire soit aussi salariée et que
+ * les deux adresses e-mail coïncident. Deux suppositions pour un mot. Il est
+ * désormais une colonne de `entites_juridiques`, au même titre que la raison
+ * sociale qu'il doit contenir — et la base refuse une raison individuelle sans
+ * lui.
  *
- * Rend null si aucun des deux ne le connaît : l’écran dit alors quoi compléter,
- * plutôt que de deviner un nom qui finirait au registre du commerce.
+ * Aucune fonction ne remplace celle qui lisait le profil : `entiteA(date)`
+ * rend déjà `titulaireNom`.
  */
-export async function nomFamilleTitulaire(userId: string | null | undefined): Promise<string | null> {
-  if (!userId) return null;
-  const { data: profil } = await supabaseAdmin
-    .from("profiles")
-    .select("nom, email")
-    .eq("id", userId)
-    .maybeSingle();
-
-  const duProfil = ((profil?.nom as string | null) ?? "").trim();
-  if (duProfil !== "") return duProfil;
-
-  const email = ((profil?.email as string | null) ?? "").trim();
-  if (email === "") return null;
-
-  const { data: employee } = await supabaseAdmin
-    .from("employes_rh")
-    .select("nom")
-    .eq("email", email)
-    .maybeSingle();
-  return ((employee?.nom as string | null) ?? "").trim() || null;
-}

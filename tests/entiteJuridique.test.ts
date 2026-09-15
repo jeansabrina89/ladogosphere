@@ -6,7 +6,8 @@ import {
   ENTITE_VIDE,
   FORMAT_IDE,
   MESSAGE_DEBUT_EXERCICE,
-  MOTIF_NOM_FAMILLE,
+  MESSAGE_TITULAIRE_REQUIS,
+  avertissementIdentite,
   chevauchements,
   entiteEnVigueur,
   formeJuridique,
@@ -24,7 +25,9 @@ import {
   NOM_COMMERCIAL,
   comptesSaisissables,
   raisonSocialeACompleter,
+  motifNomTitulaire,
   raisonSocialeAffichee,
+  titulaireACompleter,
   type EntiteJuridique,
 } from "@/src/lib/entiteJuridiqueLogique";
 
@@ -152,48 +155,51 @@ describe("la date d’un changement d’entité", () => {
 });
 
 describe("la raison sociale d’une raison individuelle", () => {
-  it("doit contenir le nom de famille du titulaire", () => {
+  it("doit contenir le nom du titulaire, lu sur l’entité", () => {
     expect(refusRaisonSociale({
       forme: "raison_individuelle",
       raisonSociale: "Pension La Dogosphère, Jean",
-      nomFamille: "Jean",
+      titulaireNom: "Jean",
     })).toBeNull();
   });
 
-  it("est refusée sinon, avec le motif de droit", () => {
+  it("est refusée sinon, et le message CITE le nom attendu", () => {
     expect(refusRaisonSociale({
       forme: "raison_individuelle",
       raisonSociale: "La Dogosphère",
-      nomFamille: "Jean",
-    })).toBe(MOTIF_NOM_FAMILLE);
+      titulaireNom: "Jean",
+    })).toBe("La raison sociale doit contenir le nom du titulaire (Jean).");
+    expect(motifNomTitulaire("Jean"))
+      .toBe("La raison sociale doit contenir le nom du titulaire (Jean).");
   });
 
   it("accepte les accents et la casse, refuse un nom seulement contenu dans un mot", () => {
     expect(refusRaisonSociale({
-      forme: "raison_individuelle", raisonSociale: "Pension MÜLLER", nomFamille: "müller",
+      forme: "raison_individuelle", raisonSociale: "Pension MÜLLER", titulaireNom: "müller",
     })).toBeNull();
     // « Jeanneret » n'est pas « Jean » : un morceau de mot ne suffit pas.
     expect(refusRaisonSociale({
-      forme: "raison_individuelle", raisonSociale: "Pension Jeanneret", nomFamille: "Jean",
-    })).toBe(MOTIF_NOM_FAMILLE);
+      forme: "raison_individuelle", raisonSociale: "Pension Jeanneret", titulaireNom: "Jean",
+    })).toBe(motifNomTitulaire("Jean"));
   });
 
-  it("sans nom de famille connu, elle dit quoi compléter plutôt que de deviner", () => {
+  it("sans titulaire sur l’entité, elle réclame le nom — sans parler d’un profil", () => {
     const refus = refusRaisonSociale({
-      forme: "raison_individuelle", raisonSociale: "Pension Jean", nomFamille: null,
+      forme: "raison_individuelle", raisonSociale: "Pension Jean", titulaireNom: null,
     });
-    expect(refus).toContain("complétez son profil");
+    expect(refus).toBe(MESSAGE_TITULAIRE_REQUIS);
+    expect(refus).not.toContain("profil");
   });
 
   it("une Sàrl n’a pas cette contrainte", () => {
     expect(refusRaisonSociale({
-      forme: "sarl", raisonSociale: "La Dogosphère", nomFamille: "Jean",
+      forme: "sarl", raisonSociale: "La Dogosphère", titulaireNom: "Jean",
     })).toBeNull();
   });
 
   it("mais une raison sociale vide est refusée dans les deux formes", () => {
     for (const forme of ["sarl", "raison_individuelle"]) {
-      expect(refusRaisonSociale({ forme, raisonSociale: "  ", nomFamille: "Jean" }))
+      expect(refusRaisonSociale({ forme, raisonSociale: "  ", titulaireNom: "Jean" }))
         .toBe("La raison sociale est obligatoire.");
     }
   });
@@ -387,10 +393,10 @@ describe("l’entité de départ, corrigée en raison individuelle", () => {
 
   it("et elle doit contenir le nom de famille : « La Dogosphère » seul est refusé", () => {
     expect(refusRaisonSociale({
-      forme: "raison_individuelle", raisonSociale: "La Dogosphère", nomFamille: "Jean",
-    })).toBe(MOTIF_NOM_FAMILLE);
+      forme: "raison_individuelle", raisonSociale: "La Dogosphère", titulaireNom: "Jean",
+    })).toBe(motifNomTitulaire("Jean"));
     expect(refusRaisonSociale({
-      forme: "raison_individuelle", raisonSociale: "La Dogosphère, Sabrina Jean", nomFamille: "Jean",
+      forme: "raison_individuelle", raisonSociale: "La Dogosphère, Sabrina Jean", titulaireNom: "Jean",
     })).toBeNull();
   });
 
@@ -422,5 +428,109 @@ describe("les trois effets de la raison individuelle", () => {
 
   it("mais il reste visible dans les rapports : cacher un solde cacherait de l’argent", () => {
     expect(renommerComptes(plan, "sarl").map((c) => c.numero)).toEqual(["1000", "2800", "2850"]);
+  });
+});
+
+// ── Le nom du titulaire vit sur l'entité, et nulle part ailleurs ──────────
+
+describe("le nom du titulaire", () => {
+  const individuelle = (titulaireNom: string | null) =>
+    sarl({ forme: "raison_individuelle", raisonSociale: "", titulaireNom });
+
+  it("manque tant qu’il n’est pas saisi, et se dit", () => {
+    expect(titulaireACompleter(individuelle(null))).toBe(true);
+    expect(titulaireACompleter(individuelle("  "))).toBe(true);
+    expect(titulaireACompleter(individuelle("Jean"))).toBe(false);
+  });
+
+  it("ne concerne pas une Sàrl, qui n’en porte pas", () => {
+    expect(titulaireACompleter(sarl({ titulaireNom: null }))).toBe(false);
+    expect(refusRaisonSociale({
+      forme: "sarl", raisonSociale: "La Dogosphère Sàrl", titulaireNom: null,
+    })).toBeNull();
+  });
+
+  it("se compare sans tenir compte de la casse ni des accents", () => {
+    for (const [raison, titulaire] of [
+      ["La Dogosphère - JEAN Sabrina", "jean"],
+      ["Pension müller", "MÜLLER"],
+      ["Pension Muller", "Müller"],
+      ["la dogosphère, jean", "Jean"],
+    ]) {
+      expect(refusRaisonSociale({
+        forme: "raison_individuelle", raisonSociale: raison, titulaireNom: titulaire,
+      }), `${raison} / ${titulaire}`).toBeNull();
+    }
+  });
+
+  it("exige un mot entier : « Jeanneret » ne contient pas « Jean »", () => {
+    expect(refusRaisonSociale({
+      forme: "raison_individuelle", raisonSociale: "Pension Jeanneret", titulaireNom: "Jean",
+    })).toBe(motifNomTitulaire("Jean"));
+  });
+
+  it("figure dans ce qui manque, avant la raison sociale", () => {
+    expect(manquantsEntite(individuelle(null)).slice(0, 2))
+      .toEqual(["le nom du titulaire", "la raison sociale"]);
+  });
+});
+
+describe("l’avertissement de l’écran Entreprise", () => {
+  const individuelle = (titulaireNom: string | null, raisonSociale = "") =>
+    sarl({ forme: "raison_individuelle", raisonSociale, titulaireNom });
+
+  it("réclame les deux quand les deux manquent", () => {
+    expect(avertissementIdentite(individuelle(null)))
+      .toBe("Raison sociale et nom du titulaire à compléter avant la première facture réelle.");
+  });
+
+  it("ne réclame que la raison sociale quand le titulaire est là", () => {
+    expect(avertissementIdentite(individuelle("Jean")))
+      .toBe("Raison sociale à compléter avant la première facture réelle.");
+  });
+
+  it("se tait quand tout est saisi", () => {
+    expect(avertissementIdentite(individuelle("Jean", "La Dogosphère - Jean Sabrina"))).toBeNull();
+  });
+
+  it("et ne réclame jamais de titulaire à une Sàrl", () => {
+    expect(avertissementIdentite(sarl({ raisonSociale: "La Dogosphère Sàrl" }))).toBeNull();
+  });
+});
+
+describe("plus aucune lecture du profil ni de la fiche d’employée", () => {
+  /** Les fichiers qui portent la règle du nom du titulaire. */
+  const CONCERNES = [
+    "src/lib/entiteJuridique.ts",
+    "src/lib/entiteJuridiqueLogique.ts",
+    "app/(admin)/(espace-reglages)/reglages/entreprise/actions.ts",
+  ];
+
+  it("aucun d’eux n’interroge profiles ni employes_rh pour cette règle", () => {
+    // Le nom venait de deux endroits qui ne parlaient de la titulaire que par
+    // coïncidence. S'ils revenaient, la règle redeviendrait indevinable le jour
+    // où l'une des deux coïncidences cesserait.
+    const coupables: string[] = [];
+    for (const chemin of CONCERNES) {
+      const f = SOURCES.find((s) => s.chemin === chemin);
+      expect(f, chemin).toBeDefined();
+      if (/from\(\s*["']profiles["']\s*\)/.test(f!.contenu)) coupables.push(`${chemin} → profiles`);
+      if (/employes_rh/.test(f!.contenu)) coupables.push(`${chemin} → employes_rh`);
+    }
+    expect(coupables).toEqual([]);
+  });
+
+  it("et la fonction qui les lisait n’existe plus", () => {
+    const coupables = SOURCES
+      .filter((f) => /nomFamilleTitulaire/.test(f.contenu))
+      .map((f) => f.chemin);
+    expect(coupables).toEqual([]);
+  });
+
+  it("le message « complétez son profil » a disparu du dépôt", () => {
+    const coupables = SOURCES
+      .filter((f) => /complétez son profil/.test(f.contenu))
+      .map((f) => f.chemin);
+    expect(coupables).toEqual([]);
   });
 });

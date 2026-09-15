@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { aujourdhuiISO } from "@/src/lib/dates";
-import { entiteCourante, nomFamilleTitulaire } from "@/src/lib/entiteJuridique";
+import { entiteCourante } from "@/src/lib/entiteJuridique";
 import {
   formeJuridique,
   normaliserIde,
@@ -35,6 +35,12 @@ function champs(formData: FormData) {
   return {
     forme: formeJuridique(String(formData.get("forme") ?? "")),
     raison_sociale: String(formData.get("raison_sociale") ?? "").trim(),
+    // Le nom du titulaire n'existe qu'en raison individuelle : la base refuse
+    // qu'une société en porte un, et l'écran ne le demande pas.
+    titulaire_nom:
+      formeJuridique(String(formData.get("forme") ?? "")) === "raison_individuelle"
+        ? String(formData.get("titulaire_nom") ?? "").trim() || null
+        : null,
     adresse_rue: lire("adresse_rue"),
     adresse_numero: lire("adresse_numero"),
     adresse_npa: lire("adresse_npa"),
@@ -51,15 +57,11 @@ function champs(formData: FormData) {
   };
 }
 
-async function refusIdentite(
-  valeurs: ReturnType<typeof champs>,
-  userId: string | null
-): Promise<string | null> {
-  const nomFamille = await nomFamilleTitulaire(userId);
+function refusIdentite(valeurs: ReturnType<typeof champs>): string | null {
   const refus = refusRaisonSociale({
     forme: valeurs.forme,
     raisonSociale: valeurs.raison_sociale,
-    nomFamille,
+    titulaireNom: valeurs.titulaire_nom,
   });
   if (refus) return refus;
   const ideSaisi = String(valeurs.ide ?? "");
@@ -77,7 +79,7 @@ export async function corrigerEntite(formData: FormData): Promise<Resultat> {
   if (!courante?.id) return { error: "Aucune entité enregistrée." };
 
   const valeurs = champs(formData);
-  const refus = await refusIdentite(valeurs, acces.userId ?? null);
+  const refus = refusIdentite(valeurs);
   if (refus) return { error: refus };
 
   const { error } = await supabaseAdmin
@@ -120,7 +122,7 @@ export async function preparerChangement(formData: FormData): Promise<Resultat> 
   if (refusDate) return { error: refusDate };
 
   const valeurs = champs(formData);
-  const refus = await refusIdentite(valeurs, acces.userId ?? null);
+  const refus = refusIdentite(valeurs);
   if (refus) return { error: refus };
 
   // L'ancienne se ferme la VEILLE : les deux plages se touchent sans se

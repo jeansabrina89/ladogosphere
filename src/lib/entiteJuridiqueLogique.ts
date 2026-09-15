@@ -23,6 +23,11 @@ export type EntiteJuridique = {
   dateFin: string | null;
   forme: FormeJuridique;
   raisonSociale: string;
+  /**
+   * Le nom de famille du titulaire. Obligatoire en raison individuelle,
+   * null pour toute autre forme — la base l'impose, pas seulement l'écran.
+   */
+  titulaireNom: string | null;
   adresse: {
     rue: string | null;
     numero: string | null;
@@ -50,6 +55,7 @@ export const ENTITE_VIDE: EntiteJuridique = {
   dateFin: null,
   forme: "sarl",
   raisonSociale: "",
+  titulaireNom: null,
   adresse: { rue: null, numero: null, npa: null, ville: null, pays: "CH" },
   ide: null,
   numeroTva: null,
@@ -176,10 +182,25 @@ export function veille(date: string): string {
 
 // ── La raison sociale d'une raison individuelle ───────────────────────────
 
-export const MOTIF_NOM_FAMILLE =
-  "En raison individuelle, la raison sociale doit contenir le nom de famille du " +
-  "titulaire : c'est une exigence du droit des raisons de commerce (art. 945 CO), " +
-  "pas une règle de cette application.";
+/**
+ * Le message de refus, qui CITE le nom attendu.
+ *
+ * « La raison sociale doit contenir le nom du titulaire » sans dire lequel
+ * oblige à deviner ce que l'application a en tête. Le nom entre parenthèses
+ * transforme un refus en instruction.
+ */
+export function motifNomTitulaire(nom: string): string {
+  return `La raison sociale doit contenir le nom du titulaire (${nom.trim()}).`;
+}
+
+/**
+ * Le nom manque sur l'entité elle-même : c'est là qu'il se saisit, et nulle
+ * part ailleurs. Ni sur un profil, ni sur une fiche d'employée — deux endroits
+ * qui ne parlaient de la titulaire que par coïncidence.
+ */
+export const MESSAGE_TITULAIRE_REQUIS =
+  "Indiquez le nom de famille du titulaire : en raison individuelle, la raison " +
+  "sociale doit le contenir (art. 945 CO).";
 
 /** Comparaison insensible aux accents, à la casse et aux traits d'union. */
 function normaliser(texte: string): string {
@@ -191,28 +212,37 @@ function normaliser(texte: string): string {
     .trim();
 }
 
+/**
+ * La raison sociale est-elle recevable ?
+ *
+ * Le nom du titulaire vient de l'ENTITÉ — `titulaireNom` — et de rien d'autre.
+ * La comparaison ignore la casse, les accents et la ponctuation, mais exige un
+ * mot entier : « Jeanneret » ne contient pas « Jean ».
+ */
 export function refusRaisonSociale({
   forme,
   raisonSociale,
-  nomFamille,
+  titulaireNom,
 }: {
   forme: string | null | undefined;
   raisonSociale: string;
-  nomFamille: string | null | undefined;
+  titulaireNom: string | null | undefined;
 }): string | null {
   const nom = String(raisonSociale ?? "").trim();
   if (nom === "") return "La raison sociale est obligatoire.";
   if (formeJuridique(forme) !== "raison_individuelle") return null;
 
-  const famille = String(nomFamille ?? "").trim();
-  if (famille === "") {
-    return (
-      "Le nom de famille du titulaire est introuvable : complétez son profil avant " +
-      "de passer en raison individuelle."
-    );
-  }
+  const titulaire = String(titulaireNom ?? "").trim();
+  if (titulaire === "") return MESSAGE_TITULAIRE_REQUIS;
+
   const mots = normaliser(nom).split(" ").filter(Boolean);
-  return mots.includes(normaliser(famille)) ? null : MOTIF_NOM_FAMILLE;
+  return mots.includes(normaliser(titulaire)) ? null : motifNomTitulaire(titulaire);
+}
+
+/** Le titulaire est-il exigé par cette forme, et manque-t-il ? */
+export function titulaireACompleter(entite: EntiteJuridique | null | undefined): boolean {
+  if (!entite || formeJuridique(entite.forme) !== "raison_individuelle") return false;
+  return String(entite.titulaireNom ?? "").trim() === "";
 }
 
 // ── L'IDE ─────────────────────────────────────────────────────────────────
@@ -289,6 +319,7 @@ export function lignesAdresse(entite: EntiteJuridique): string[] {
  */
 export function manquantsEntite(entite: EntiteJuridique): string[] {
   const manque: string[] = [];
+  if (titulaireACompleter(entite)) manque.push("le nom du titulaire");
   if (!entite.raisonSociale.trim()) manque.push("la raison sociale");
   if (lignesAdresse(entite).length === 0) manque.push("l'adresse");
   if (!entite.ide) manque.push(`l'IDE (${FORMAT_IDE})`);
@@ -320,6 +351,26 @@ export const NOM_COMMERCIAL = "La Dogosphère";
 
 export const AVERTISSEMENT_RAISON_SOCIALE =
   "Raison sociale à compléter avant la première facture réelle.";
+
+export const AVERTISSEMENT_RAISON_SOCIALE_ET_TITULAIRE =
+  "Raison sociale et nom du titulaire à compléter avant la première facture réelle.";
+
+/**
+ * L'avertissement à afficher, ou null s'il n'y a rien à réclamer.
+ *
+ * Un seul message, choisi selon ce qui manque : réclamer la raison sociale
+ * alors que le nom du titulaire manque aussi ferait revenir Sabrina deux fois.
+ */
+export function avertissementIdentite(
+  entite: EntiteJuridique | null | undefined
+): string | null {
+  const titulaire = titulaireACompleter(entite);
+  const raison = raisonSocialeACompleter(entite);
+  if (raison && titulaire) return AVERTISSEMENT_RAISON_SOCIALE_ET_TITULAIRE;
+  if (raison) return AVERTISSEMENT_RAISON_SOCIALE;
+  if (titulaire) return MESSAGE_TITULAIRE_REQUIS;
+  return null;
+}
 
 /** Ce qu'un document imprime en tête, raison sociale saisie ou non. */
 export function raisonSocialeAffichee(entite: EntiteJuridique | null | undefined): string {

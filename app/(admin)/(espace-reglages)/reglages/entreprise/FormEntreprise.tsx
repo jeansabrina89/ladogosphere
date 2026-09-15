@@ -4,13 +4,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { annulerChangement, corrigerEntite, preparerChangement } from "./actions";
 import {
-  AVERTISSEMENT_RAISON_SOCIALE,
   FORMAT_IDE,
   FORMES,
   NOM_COMMERCIAL,
   POURQUOI_DEBUT_EXERCICE,
+  avertissementIdentite,
   libelleForme,
-  raisonSocialeACompleter,
   veille,
   type EntiteJuridique,
 } from "@/src/lib/entiteJuridiqueLogique";
@@ -34,21 +33,40 @@ const bouton = (fond: string, texte = "#FFF"): React.CSSProperties => ({
 /** Les champs d'une identité, partagés par la correction et le changement. */
 function Champs({ e, prefixe }: { e?: EntiteJuridique; prefixe: string }) {
   const id = (n: string) => `${prefixe}-${n}`;
+  // La forme décide de ce qui s'affiche : une société n'a pas de titulaire, et le
+  // champ ne doit pas seulement être vide — il ne doit pas être là.
+  const [forme, setForme] = useState(e?.forme ?? "sarl");
+  const individuelle = forme === "raison_individuelle";
   return (
     <>
       <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
         <div>
           <label style={label} htmlFor={id("forme")}>Forme juridique</label>
-          <select id={id("forme")} name="forme" defaultValue={e?.forme ?? "sarl"} style={champ}>
+          <select id={id("forme")} name="forme" defaultValue={e?.forme ?? "sarl"} style={champ}
+            onChange={(ev) => setForme(ev.target.value as EntiteJuridique["forme"])}>
             {FORMES.map((f) => (
               <option key={f.valeur} value={f.valeur}>{f.libelle}</option>
             ))}
           </select>
         </div>
+        {/* Le nom du titulaire vient AVANT la raison sociale : c'est lui qui
+            dicte ce qu'elle doit contenir, pas l'inverse. */}
+        {individuelle && (
+          <div>
+            <label style={label} htmlFor={id("titulaire")}>Nom de famille du titulaire</label>
+            <input id={id("titulaire")} name="titulaire_nom" required
+              defaultValue={e?.titulaireNom ?? ""} placeholder="Jean" style={champ} />
+          </div>
+        )}
         <div>
           <label style={label} htmlFor={id("raison")}>Raison sociale</label>
           <input id={id("raison")} name="raison_sociale" required
             defaultValue={e?.raisonSociale ?? ""} style={champ} />
+          {individuelle && (
+            <p style={{ color: SOUS, fontSize: 12, margin: "4px 0 0" }}>
+              Elle doit contenir le nom du titulaire (art. 945 CO).
+            </p>
+          )}
         </div>
         <div>
           <label style={label} htmlFor={id("ide")}>IDE ({FORMAT_IDE})</label>
@@ -120,6 +138,7 @@ export default function FormEntreprise({
   const [erreur, setErreur] = useState("");
   const [succes, setSucces] = useState("");
   const [ouvert, setOuvert] = useState<"corriger" | "changer" | null>(null);
+  const avertissement = avertissementIdentite(courante);
   const [apercu, setApercu] = useState({
     raison: courante?.raisonSociale ?? "",
     forme: courante?.forme ?? "sarl",
@@ -171,6 +190,9 @@ export default function FormEntreprise({
               {courante.dateFin && ` · jusqu'au ${veille(courante.dateFin)}`}
             </p>
             <ul style={{ listStyle: "none", margin: "10px 0 0", padding: 0, color: SOUS, fontSize: 13 }}>
+              {courante.forme === "raison_individuelle" && (
+                <li>Nom du titulaire : {courante.titulaireNom ?? "— à saisir —"}</li>
+              )}
               <li>IDE : {courante.ide ?? "— à saisir —"}</li>
               <li>Numéro de TVA : {courante.numeroTva ?? "—"}</li>
               <li>IBAN : {courante.iban ?? "— à saisir —"}</li>
@@ -184,13 +206,13 @@ export default function FormEntreprise({
             </ul>
             {/* Aucune facture réelle n’existe encore. La première qui partira doit
                 porter le bon nom : c’est le seul avertissement qui compte ici. */}
-            {raisonSocialeACompleter(courante) && (
+            {avertissement && (
               <p role="status" style={{
                 background: "#FBE2DE", border: "1px solid #A8453A", color: "#A8453A",
                 borderRadius: 12, padding: "10px 12px", fontSize: 14, fontWeight: 700,
                 margin: "12px 0 0",
               }}>
-                ⚠️ {AVERTISSEMENT_RAISON_SOCIALE}
+                ⚠️ {avertissement}
               </p>
             )}
             {manquants.length > 0 && (
@@ -342,6 +364,7 @@ export default function FormEntreprise({
                 <th style={{ padding: "4px 6px", fontWeight: 600 }}>Au</th>
                 <th style={{ padding: "4px 6px", fontWeight: 600 }}>Forme</th>
                 <th style={{ padding: "4px 6px", fontWeight: 600 }}>Raison sociale</th>
+                <th style={{ padding: "4px 6px", fontWeight: 600 }}>Titulaire</th>
                 <th style={{ padding: "4px 6px", fontWeight: 600 }}>IDE</th>
               </tr>
             </thead>
@@ -356,6 +379,7 @@ export default function FormEntreprise({
                   <td style={{ padding: "6px", color: MARINE, overflowWrap: "anywhere" }}>
                     {h.raisonSociale}
                   </td>
+                  <td style={{ padding: "6px", color: SOUS }}>{h.titulaireNom ?? "—"}</td>
                   <td style={{ padding: "6px", color: SOUS }}>{h.ide ?? "—"}</td>
                 </tr>
               ))}
