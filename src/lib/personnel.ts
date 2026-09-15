@@ -9,6 +9,21 @@
 export const MESSAGE_AUCUN_BOX = "Aucun box disponible ce jour-là.";
 export const BANDEAU_PERSONNEL = "Profil du personnel : gratuit, validé automatiquement.";
 
+/**
+ * Le retour vers l'espace pension, depuis l'espace client.
+ *
+ * Quelqu'un du personnel qui consulte ses propres chiens n'avait qu'une sortie :
+ * se déconnecter, puis se reconnecter. Deux chemins existent désormais, et
+ * c'est voulu — le bandeau se lit, la barre se cherche. Les deux mènent au
+ * même endroit, et ce libellé-ci est écrit une seule fois.
+ */
+export const LIEN_ESPACE_PENSION = "/";
+export const RETOUR_PENSION = "← Espace pension";
+/** Le même, pour un écran de 375 px où la ligne du haut est déjà pleine. */
+export const RETOUR_PENSION_COURT = "← Pension";
+/** Dans le bandeau, en toutes lettres : c'est une phrase, pas un bouton. */
+export const RETOUR_PENSION_BANDEAU = "Revenir à l'espace pension";
+
 /** Types de prestation ouverts à une fiche interne (jamais de journée d'essai). */
 export const TYPES_RESERVATION_PERSONNEL = ["journee", "sejour"] as const;
 

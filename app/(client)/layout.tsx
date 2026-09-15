@@ -3,7 +3,12 @@ import NavBarClient from "@/app/components/NavBarClient";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import CreerProfilPersonnel from "@/app/components/CreerProfilPersonnel";
-import { BANDEAU_PERSONNEL, ficheDoitDevenirInterne } from "@/src/lib/personnel";
+import {
+  BANDEAU_PERSONNEL,
+  LIEN_ESPACE_PENSION,
+  RETOUR_PENSION_BANDEAU,
+  ficheDoitDevenirInterne,
+} from "@/src/lib/personnel";
 import { basculerFicheEnInterne } from "@/app/(client)/mon-compte/actionsPersonnel";
 import { catalogueVisible } from "@/src/lib/prestationsLogique";
 
@@ -25,6 +30,8 @@ export default async function ClientLayout({ children }: { children: React.React
 
   let ficheInterne = false;
   let ficheLocataire = false;
+  // Prise ici, et ici seulement : la barre la reçoit, elle ne la redevine pas.
+  let personnel = false;
 
   if (user) {
     const [{ data: profil }, { data: fiche }] = await Promise.all([
@@ -33,12 +40,15 @@ export default async function ClientLayout({ children }: { children: React.React
     ]);
 
     const estPersonnel = profil?.role === "employe" || profil?.role === "admin";
+    personnel = estPersonnel;
 
     if (estPersonnel && !fiche) {
       // Pas encore de fiche interne : on la propose, sans quitter l'espace.
+      // La sortie vers la pension compte double ici : sans fiche, il n'y a
+      // rien d'autre à faire sur cet écran.
       return (
         <>
-          <NavBarClient />
+          <NavBarClient personnel />
           <CreerProfilPersonnel />
         </>
       );
@@ -61,7 +71,7 @@ export default async function ClientLayout({ children }: { children: React.React
 
   return (
     <>
-      <NavBarClient interne={ficheInterne} locataire={ficheLocataire} />
+      <NavBarClient interne={ficheInterne} locataire={ficheLocataire} personnel={personnel} />
       {ficheInterne && (
         <div
           style={{
@@ -69,11 +79,23 @@ export default async function ClientLayout({ children }: { children: React.React
             color: "#6E5410",
             fontSize: 13,
             fontWeight: 600,
-            textAlign: "center",
             padding: "8px 16px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 12,
+            flexWrap: "wrap",
           }}
         >
-          ⭐ {BANDEAU_PERSONNEL}
+          <span>⭐ {BANDEAU_PERSONNEL}</span>
+          {/* Deux chemins pour un même retour : le bandeau se lit, la barre se
+              cherche. Celui-ci est un lien en toutes lettres, pas un bouton. */}
+          <a
+            href={LIEN_ESPACE_PENSION}
+            style={{ color: "#6E5410", fontWeight: 700, textDecoration: "underline" }}
+          >
+            {RETOUR_PENSION_BANDEAU}
+          </a>
         </div>
       )}
       {children}
