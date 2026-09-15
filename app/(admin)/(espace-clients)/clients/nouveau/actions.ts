@@ -5,6 +5,8 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { messageErreurBase } from "@/src/lib/validationChien";
 import { compteAuthParEmail } from "@/src/lib/compteAuth";
+import { refusRattachementFiche } from "@/src/lib/ficheDeRecette";
+import { decisionProfilPourFiche } from "@/src/lib/profilPourFicheClient";
 import {
   valeursFormulaire,
   type EtatFormulaire,
@@ -60,6 +62,22 @@ export async function creerClient(
   if (!recherche.ok) return refus(recherche.message, "email");
   const auth_user_id = recherche.id;
 
+  // Une fiche marquée recette ne reçoit jamais un compte réel. Le même refus
+  // existe en base : celui-ci n'est là que pour le dire à l'écran.
+  const refusRecette = refusRattachementFiche({
+    fiche: { email, nom: nomClient, prenom },
+    authUserId: auth_user_id,
+    emailCompte: email,
+  });
+  if (refusRecette) return refus(refusRecette, "email");
+
+  // Le rôle du profil décide de la sorte de fiche, et non l'inverse : la fiche
+  // de quelqu'un de la maison naît interne, et son rôle ne bouge pas.
+  const { data: profilExistant } = auth_user_id
+    ? await supabaseAdmin.from("profiles").select("role").eq("id", auth_user_id).maybeSingle()
+    : { data: null };
+  const decision = decisionProfilPourFiche(profilExistant?.role);
+
   const { error } = await supabaseAdmin
     .from("clients")
     .insert({
@@ -71,6 +89,7 @@ export async function creerClient(
       membre: formData.get("membre") === "on",
       actif: true,
       auth_user_id,
+      interne: decision.ficheInterne,
       photos_ok: formData.get("photos_ok") === "on",
       photos_ok_modifie_le: new Date().toISOString(),
     })
@@ -84,14 +103,16 @@ export async function creerClient(
     return refus(messageErreurBase(error));
   }
 
-  // Si on a trouvé un compte Auth, s'assurer que son profil est bien "client"
-  if (auth_user_id) {
+  // Le profil ne reçoit « client » que s'il n'a pas déjà un rôle. Un compte
+  // `admin` ou `employe` n'est JAMAIS rétrogradé : il perdrait son espace de
+  // travail au rafraîchissement suivant, sans que rien ne le dise.
+  if (auth_user_id && decision.roleAPoser) {
     await supabaseAdmin
       .from("profiles")
       .upsert({
         id: auth_user_id,
         email,
-        role: "client",
+        role: decision.roleAPoser,
         actif: true,
       });
   }

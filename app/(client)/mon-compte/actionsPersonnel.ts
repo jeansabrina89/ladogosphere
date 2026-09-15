@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getEmployeRhActuel } from "@/src/lib/employeActuel";
+import { refusRattachementFiche } from "@/src/lib/ficheDeRecette";
 
 export type ResultatFicheInterne = { ok: true; client_id: string } | { ok: false; error: string };
 
@@ -46,6 +47,16 @@ export async function creerFicheInterne(): Promise<ResultatFicheInterne> {
   const telephone = (employe?.telephone || "").trim() || null;
 
   if (!email) return { ok: false, error: "Aucune adresse e-mail sur votre compte." };
+
+  // Une fiche marquée recette ne reçoit jamais un compte réel. Ici la fiche
+  // naît des coordonnées du compte lui-même : le refus ne se déclenche que si
+  // la fiche RH porte un nom de recette. Le même refus existe en base.
+  const refusRecette = refusRattachementFiche({
+    fiche: { email, nom, prenom },
+    authUserId: user.id,
+    emailCompte: profil.email ?? user.email,
+  });
+  if (refusRecette) return { ok: false, error: refusRecette };
 
   const { data: creee, error } = await supabaseAdmin
     .from("clients")

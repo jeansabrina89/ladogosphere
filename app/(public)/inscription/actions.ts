@@ -9,6 +9,7 @@ import {
   type FicheClientExistante,
   type IdentiteInscription,
 } from "@/src/lib/inscriptionClient";
+import { refusRattachementFiche } from "@/src/lib/ficheDeRecette";
 
 export type ResultatFicheClient = { ok: true; client_id: string } | { ok: false; error: string };
 
@@ -114,12 +115,21 @@ export async function creerOuLierFicheClient(input: {
     .limit(1);
 
   const ficheBrute = ((fichesLiees ?? [])[0] ?? fiches[0] ?? null) as
-    | (FicheClientExistante & { photos_ok_modifie_le?: string | null })
+    | (FicheClientExistante & { email?: string | null; photos_ok_modifie_le?: string | null })
     | null;
   const fiche = ficheBrute as FicheClientExistante | null;
 
   const decision = decisionFicheClient({ fiche, authUserId: utilisateur.id, identite });
   if (decision.action === "refus") return { ok: false, error: decision.message };
+
+  // Une fiche marquée recette ne reçoit jamais un compte réel, quelle que soit
+  // la voie. Le même refus existe en base.
+  const refusRecette = refusRattachementFiche({
+    fiche: ficheBrute ?? { email: emailCompte, nom: identite.nom, prenom: identite.prenom },
+    authUserId: utilisateur.id,
+    emailCompte,
+  });
+  if (refusRecette) return { ok: false, error: refusRecette };
 
   const photosOk = input.photos_ok !== false;
   const maintenant = new Date().toISOString();
