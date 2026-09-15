@@ -18,6 +18,7 @@ import Carte from "@/app/components/ui/Carte";
 import BadgeStatut from "@/app/components/ui/BadgeStatut";
 import EtatVide from "@/app/components/ui/EtatVide";
 import InstallerAppButton from "@/app/InstallerAppButton";
+import { tuilesVisibles } from "@/src/lib/entreesEspaceClient";
 
 export default async function MonComptePage() {
   const supabase = await createClient();
@@ -91,15 +92,43 @@ export default async function MonComptePage() {
     .maybeSingle();
   const montantCotisation = parseFloat(paramCotis?.valeur ?? "200") || 200;
 
-  const raccourcis = [
-    { href: "/mon-compte/chiens",        label: "Mes chiens" },
-    { href: "/mon-compte/reservations",  label: "Mes réservations" },
-    { href: "/mon-compte/abonnements",   label: "Mes abonnements" },
-    { href: "/mon-compte/factures",      label: "Mes factures" },
-    { href: "/mon-compte/profil",        label: "Mon profil" },
-    // Les tarifs ne concernent pas une fiche du personnel (réservations gratuites).
-    ...(estInterne ? [] : [{ href: "/mon-compte/tarifs", label: "Tarifs" }]),
-  ];
+  // Les tuiles viennent du module partagé avec la barre de navigation : une
+  // seule liste, une seule règle de visibilité.
+  const tuiles = tuilesVisibles({
+    interne: estInterne,
+    locataire: !!client?.locataire_box,
+  });
+
+  /**
+   * La ligne d'information d'une tuile, calculée depuis ce que la page a DÉJÀ
+   * chargé. Aucune requête n'est ajoutée pour l'afficher : là où la donnée
+   * manque, la ligne est fixe et ne prétend pas compter.
+   */
+  const infoTuile = (href: string): string => {
+    switch (href) {
+      case "/mon-compte/chiens":
+        return nbChiens === 0 ? "Aucun chien" : `${nbChiens} chien${nbChiens > 1 ? "s" : ""}`;
+      case "/mon-compte/reservations":
+        return resAVenir.length === 0
+          ? "Aucune à venir"
+          : `${resAVenir.length} à venir`;
+      case "/mon-compte/profil":
+        return [client?.prenom, client?.nom].filter(Boolean).join(" ") || "Mes coordonnées";
+      // Les trois suivantes tiennent dans des tables que cette page ne lit pas
+      // (factures, abonnements, commandes) : un compteur coûterait une requête
+      // de plus à chaque affichage du tableau de bord.
+      case "/mon-compte/factures":
+        return "Toutes mes factures";
+      case "/mon-compte/abonnements":
+        return "Cartes et abonnements";
+      case "/mon-compte/commandes":
+        return "Suivi de mes commandes";
+      case "/mon-compte/prestations":
+        return "Prestations de mon box";
+      default:
+        return "";
+    }
+  };
 
   const statCardStyle = (bg: string): React.CSSProperties => ({
     backgroundColor: bg,
@@ -343,31 +372,40 @@ export default async function MonComptePage() {
           Mon espace
         </h2>
 
-        <Carte>
-          {raccourcis.map(({ href, label }, i) => (
-            <Link
-              key={href}
-              href={href}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "14px 0",
-                color: "#1B2B5E",
-                textDecoration: "none",
-                fontSize: "15px",
-                fontWeight: 500,
-                borderBottom:
-                  i < raccourcis.length - 1
-                    ? "1px solid rgba(27,43,94,0.08)"
-                    : "none",
-              }}
-            >
-              <span>{label}</span>
-              <span style={{ color: "rgba(27,43,94,0.35)", fontSize: "20px", lineHeight: 1 }}>›</span>
-            </Link>
-          ))}
-        </Carte>
+        {/* Une colonne sous 480 px, deux au-dessus. Les tuiles s'étirent à la
+            hauteur de leur rangée : une ligne d'information plus longue ne
+            casse pas l'alignement. */}
+        <div className="grid grid-cols-1 min-[480px]:grid-cols-2 gap-3">
+          {tuiles.map((entree) => {
+            const info = infoTuile(entree.href);
+            return (
+              <Link
+                key={entree.href}
+                href={entree.href}
+                style={{ display: "block", height: "100%", minHeight: 44, textDecoration: "none" }}
+              >
+                <Carte className="h-full">
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, minHeight: 74 }}>
+                    <span style={{ fontSize: 24, lineHeight: 1 }} aria-hidden="true">
+                      {entree.icone}
+                    </span>
+                    <span style={{
+                      fontFamily: "Georgia, 'Times New Roman', serif",
+                      fontSize: 16,
+                      fontWeight: 700,
+                      color: "#1B2B5E",
+                    }}>
+                      {entree.libelle}
+                    </span>
+                    {info && (
+                      <span style={{ fontSize: 13, color: "rgba(27,43,94,0.6)" }}>{info}</span>
+                    )}
+                  </div>
+                </Carte>
+              </Link>
+            );
+          })}
+        </div>
 
       </div>
     </main>
