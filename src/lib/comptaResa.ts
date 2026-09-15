@@ -87,9 +87,9 @@ export async function synchroniserComptaResa(reservationId: string, dateOperatio
     if (error) throw error;
 
     await marquerStatutCompta(reservationId, true);
-  } catch (e: any) {
+  } catch (e) {
     Sentry.captureException(e);
-    await marquerStatutCompta(reservationId, false, String(e?.message ?? e).slice(0, 500));
+    await marquerStatutCompta(reservationId, false, String(e instanceof Error ? e.message : e).slice(0, 500));
     console.error("compta resa:", e);
   }
 }

@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
 
   const wb = XLSX.utils.book_new();
 
-  const cr: any[][] = [["Compte de résultat", annee], [], ["Produits", ""]];
+  const cr: (string | number)[][] = [["Compte de résultat", annee], [], ["Produits", ""]];
   for (const p of rap.produits) cr.push([`${p.numero} ${p.libelle}`, p.montant]);
   cr.push(["Total produits", rap.totalProduits], [], ["Charges", ""]);
   for (const c of rap.charges) cr.push([`${c.numero} ${c.libelle}`, c.montant]);
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
   wsCR["!cols"] = [{ wch: 40 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(wb, wsCR, "Compte de résultat");
 
-  const bi: any[][] = [["Bilan", annee], ["(report à nouveau inclus)", ""], [], ["Actif", ""]];
+  const bi: (string | number)[][] = [["Bilan", annee], ["(report à nouveau inclus)", ""], [], ["Actif", ""]];
   for (const a of rap.actifs) bi.push([`${a.numero} ${a.libelle}`, a.montant]);
   bi.push(["Total actif", rap.totalActif], [], ["Passif", ""]);
   for (const p of rap.passifs) bi.push([`${p.numero} ${p.libelle}`, p.montant]);
@@ -66,14 +66,14 @@ export async function GET(req: NextRequest) {
   wsBI["!cols"] = [{ wch: 40 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(wb, wsBI, "Bilan");
 
-  const ba: any[][] = [["Compte", "Libellé", "Débit", "Crédit", "Solde"]];
+  const ba: (string | number)[][] = [["Compte", "Libellé", "Débit", "Crédit", "Solde"]];
   for (const b of rap.balance) ba.push([b.numero, b.libelle, b.debit, b.credit, b.solde]);
   ba.push(["", "TOTAUX", rap.totalDebit, rap.totalCredit, Math.round((rap.totalDebit - rap.totalCredit) * 100) / 100]);
   const wsBA = XLSX.utils.aoa_to_sheet(ba);
   wsBA["!cols"] = [{ wch: 10 }, { wch: 30 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
   XLSX.utils.book_append_sheet(wb, wsBA, "Balance");
 
-  const gl: any[][] = [["Compte", "Date", "Écriture", "Débit", "Crédit", "Solde"]];
+  const gl: (string | number)[][] = [["Compte", "Date", "Écriture", "Débit", "Crédit", "Solde"]];
   for (const g of rap.grandLivre) {
     gl.push([`${g.numero} ${g.libelle}`, "", "", "", "", ""]);
     if (g.ouverture !== 0) gl.push(["", "", "À nouveau (report)", "", "", g.ouverture]);

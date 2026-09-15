@@ -68,8 +68,8 @@ export async function POST(req: NextRequest) {
       niveau: niveau as 1 | 2 | 3,
       numeroFacture: (await factureEmisePourReservation(reservation_id))?.numero ?? null,
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
   }
 
   const today = new Date().toISOString().split("T")[0];

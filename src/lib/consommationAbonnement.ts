@@ -19,7 +19,7 @@ export async function trouverAbonnementUtilisable(clientId: string, categorie: s
   if (!data) return null;
 
   const avecSolde = data
-    .map((abo: any) => ({
+    .map((abo) => ({
       id: abo.id as string,
       statut: abo.statut as string,
       date_expiration: abo.date_expiration as string | null,
@@ -57,7 +57,7 @@ export async function consommerAbonnementResa(
   if (!["en_attente", "validee"].includes(resa.statut)) return { error: "Cette reservation ne peut pas etre reglee par carte." };
 
   const dogs = (resa.reservation_chiens ?? [])
-    .map((rc: any) => rc.chiens)
+    .map((rc) => rc.chiens)
     .filter(Boolean) as ChienSociabilite[];
   const categorie = categorieJourneePourChiens(dogs);
   if (!categorie) return { error: "Configuration de chiens non prise en charge par les cartes." };

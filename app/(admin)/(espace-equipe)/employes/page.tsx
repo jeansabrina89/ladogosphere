@@ -52,7 +52,7 @@ export default async function EmployesPage() {
         />
 
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          {employesRh?.map((emp: any) => {
+          {employesRh?.map((emp) => {
             const profil = profiles?.find(p => p.id === emp.profile_id) ?? profiles?.find(p => p.email === emp.email);
             const salaireBrut = (emp.salaire_base * emp.taux_travail / 100).toFixed(2);
             const joursParSemaine = Math.round(emp.taux_travail / 100 * 5);

@@ -29,8 +29,8 @@ export default async function VacancesPage() {
   const bonusFeriers = feriesTravailles?.length ?? 0;
   const joursVacancesTotal = 20 * employe.taux_travail / 100;
   const joursVacancesPris = demandes
-    ?.filter((d: any) => d.statut === "acceptee")
-    .reduce((acc: number, d: any) => acc + d.nb_jours, 0) ?? 0;
+    ?.filter((d) => d.statut === "acceptee")
+    .reduce((acc: number, d) => acc + d.nb_jours, 0) ?? 0;
   const joursVacancesRestants = joursVacancesTotal + bonusFeriers - joursVacancesPris;
 
   return (
@@ -87,7 +87,7 @@ export default async function VacancesPage() {
             {demandes?.length === 0 && (
               <p className="text-[rgba(27,43,94,0.45)] text-sm">Aucune demande.</p>
             )}
-            {demandes?.map((d: any) => (
+            {demandes?.map((d) => (
               <div key={d.id} className="rounded-xl p-4" style={{ border: "1px solid rgba(27,43,94,0.12)" }}>
                 <div className="flex justify-between items-start">
                   <div>
@@ -97,10 +97,10 @@ export default async function VacancesPage() {
                     </p>
                     <p className="text-xs text-[rgba(27,43,94,0.5)]">{d.nb_jours}j</p>
                     {d.note_employe && (
-                      <p className="text-xs text-[rgba(27,43,94,0.45)] mt-1">"{d.note_employe}"</p>
+                      <p className="text-xs text-[rgba(27,43,94,0.45)] mt-1">&quot;{d.note_employe}&quot;</p>
                     )}
                     {d.note_admin && (
-                      <p className="text-xs text-[#1F6E5B] mt-1">Admin : "{d.note_admin}"</p>
+                      <p className="text-xs text-[#1F6E5B] mt-1">Admin : &quot;{d.note_admin}&quot;</p>
                     )}
                   </div>
                   <BadgeStatut statut={d.statut} />

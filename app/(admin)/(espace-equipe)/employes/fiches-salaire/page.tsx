@@ -63,7 +63,7 @@ export default async function FichesSalairePage() {
             <h2 style={titreSection}>📋 Certificats de salaire {anneeActuelle}</h2>
             {employes && employes.length > 0 ? (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "12px" }}>
-                {employes.map((emp: any) => (
+                {employes.map((emp) => (
                   <Bouton
                     key={emp.id}
                     variante="secondaire"
@@ -98,7 +98,7 @@ export default async function FichesSalairePage() {
               />
             ) : (
               <div className="space-y-3">
-                {fiches.map((f: any) => (
+                {fiches.map((f) => (
                   <div
                     key={f.id}
                     style={{

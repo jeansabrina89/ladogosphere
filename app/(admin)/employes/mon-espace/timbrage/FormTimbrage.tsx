@@ -132,7 +132,7 @@ export default function FormTimbrage({
       ) : (
         <div className="border rounded-xl p-4">
           <label className="block font-semibold mb-2 text-sm" style={{ color: "#1B2B5E" }}>
-            Type d'absence
+            Type d&apos;absence
           </label>
           <select value={typeAbsence} onChange={e => setTypeAbsence(e.target.value)}
             className="w-full border rounded-xl p-3 mb-3">

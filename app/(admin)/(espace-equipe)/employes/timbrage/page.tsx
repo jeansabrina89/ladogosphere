@@ -53,7 +53,7 @@ export default async function TimbrageAdminPage({
   const mois = parseInt(moisStr);
   const moisPad = String(mois).padStart(2, "0");
 
-  const emp = employes.find((e: any) => e.id === params.employe) ?? employes[0];
+  const emp = employes.find((e) => e.id === params.employe) ?? employes[0];
 
   const dateDebutMois = `${annee}-${moisPad}-01`;
   const dateFinMois = new Date(annee, mois, 0).toISOString().split("T")[0];
@@ -109,7 +109,7 @@ export default async function TimbrageAdminPage({
   const joursVacancesTotal = 20 * emp.taux_travail / 100;
   const bonusFeriers = feriesTravailles?.length ?? 0;
   const joursVacancesPris = vacancesAcceptees?.reduce(
-    (acc: number, d: any) => acc + (d.nb_jours ?? 0), 0
+    (acc: number, d) => acc + (d.nb_jours ?? 0), 0
   ) ?? 0;
   const joursVacancesRestants = joursVacancesTotal + bonusFeriers - joursVacancesPris;
 
@@ -140,7 +140,7 @@ export default async function TimbrageAdminPage({
               <label className="block text-xs font-semibold mb-1 text-gray-500">Employé</label>
               <select name="employe" defaultValue={emp.id}
                 className="border border-[rgba(27,43,94,0.18)] rounded-xl p-2 text-sm min-w-48">
-                {employes.map((e: any) => (
+                {employes.map((e) => (
                   <option key={e.id} value={e.id}>{e.prenom} {e.nom} — {e.taux_travail}%</option>
                 ))}
               </select>
@@ -256,7 +256,7 @@ export default async function TimbrageAdminPage({
         />
 
         <p className="text-xs text-gray-400 mt-3 text-right">
-          Totaux calculés jusqu'à aujourd'hui uniquement.
+          Totaux calculés jusqu&apos;à aujourd&apos;hui uniquement.
         </p>
 
       </div>

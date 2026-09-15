@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
@@ -28,6 +29,21 @@ export default function FormFicheSalaire({
 
   const employe = employes.find(e => e.id === employeId);
 
+  // Déclarée avant les effets qui s'en servent : lue plus haut qu'elle n'est
+  // écrite, elle ne se mettrait pas à jour quand les modèles changent.
+  const calculerDeductions = (brut: number) => {
+    const lignes = modeles.map((m, i) => ({
+      label: m.label,
+      type: m.type,
+      valeur: m.valeur,
+      montant_calcule: m.type === "pourcentage"
+        ? Math.round(brut * m.valeur / 100 * 100) / 100
+        : m.valeur,
+      ordre: i + 1,
+    }));
+    setDeductions(lignes);
+  };
+
   // Initialiser le salaire brut et les déductions quand l'employé change
   useEffect(() => {
     if (employe) {
@@ -43,19 +59,6 @@ export default function FormFicheSalaire({
       calculerDeductions(salaireBrut);
     }
   }, [salaireBrut]);
-
-  const calculerDeductions = (brut: number) => {
-    const lignes = modeles.map((m, i) => ({
-      label: m.label,
-      type: m.type,
-      valeur: m.valeur,
-      montant_calcule: m.type === "pourcentage"
-        ? Math.round(brut * m.valeur / 100 * 100) / 100
-        : m.valeur,
-      ordre: i + 1,
-    }));
-    setDeductions(lignes);
-  };
 
   const totalDeductions = deductions.reduce((acc, d) => acc + d.montant_calcule, 0);
   const salaireNet = salaireBrut - totalDeductions;
@@ -235,11 +238,11 @@ export default function FormFicheSalaire({
           style={{ backgroundColor: "#2E8B7E" }}>
           {loading ? "Génération..." : "💾 Générer la fiche"}
         </button>
-        <a href="/employes/fiches-salaire"
+        <Link href="/employes/fiches-salaire"
           className="px-6 py-3 rounded-xl font-semibold"
           style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
           ✖ Annuler
-        </a>
+        </Link>
       </div>
     </div>
   );

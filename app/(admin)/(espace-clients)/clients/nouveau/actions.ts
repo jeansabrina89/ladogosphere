@@ -60,7 +60,7 @@ export async function creerClient(
   if (!recherche.ok) return refus(recherche.message, "email");
   const auth_user_id = recherche.id;
 
-  const { data: client, error } = await supabaseAdmin
+  const { error } = await supabaseAdmin
     .from("clients")
     .insert({
       prenom,

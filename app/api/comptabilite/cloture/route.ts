@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     .gte("date_ecriture", `${annee}-01-01`)
     .lte("date_ecriture", `${annee}-12-31`);
   const { data: comptes } = await supabaseAdmin.from("comptes").select("numero, type");
-  const typeDe = new Map((comptes ?? []).map((c: any) => [c.numero, c.type]));
+  const typeDe = new Map((comptes ?? []).map((c) => [c.numero, c.type]));
 
   const pl = new Map<string, { debit: number; credit: number }>();
   for (const e of (ecr ?? []) as any[]) {

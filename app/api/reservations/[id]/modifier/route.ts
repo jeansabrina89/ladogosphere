@@ -106,7 +106,7 @@ export async function POST(
 
     if (resChiens && resChiens.length > 0) {
       await supabaseAdmin.from("occupation_boxes").insert(
-        resChiens.map((rc: any) => ({
+        resChiens.map((rc) => ({
           box_id,
           chien_id: rc.chien_id,
           reservation_id: id,

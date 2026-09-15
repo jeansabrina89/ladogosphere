@@ -167,12 +167,12 @@ export default function Statistiques({
       <div className="bg-white rounded-[18px] p-6 border border-[rgba(27,43,94,0.12)]">
         <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
           <div className="flex gap-2 flex-wrap">
-            {[
+            {([
               { val: "ca", label: "💰 Chiffre d'affaires" },
               { val: "chiens", label: "🐶 Chiens présents" },
               { val: "remplissage", label: "📊 Taux de remplissage" },
-            ].map(v => (
-              <button key={v.val} onClick={() => setVue(v.val as any)}
+            ] as const).map(v => (
+              <button key={v.val} onClick={() => setVue(v.val)}
                 className="px-4 py-2 rounded-lg text-sm font-semibold border-2 transition"
                 style={{
                   borderColor: vue === v.val ? "#4AAEA0" : "#E2E8F0",
@@ -202,7 +202,7 @@ export default function Statistiques({
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="mois" />
               <YAxis />
-              <Tooltip formatter={(v: any) => `${v} CHF`} />
+              <Tooltip formatter={(v) => `${v} CHF`} />
               <Legend />
               <Bar dataKey="ca_facture" name={`Facturé ${annee}`} fill="#4AAEA0" radius={[4,4,0,0]} />
               <Bar dataKey="ca_encaisse" name={`Encaissé ${annee}`} fill="#1B2B5E" radius={[4,4,0,0]} />
@@ -221,7 +221,7 @@ export default function Statistiques({
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="mois" />
               <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} />
-              <Tooltip formatter={(v: any) => `${v}%`} />
+              <Tooltip formatter={(v) => `${v}%`} />
               <Legend />
               <Line
                 type="monotone" dataKey="taux_box"

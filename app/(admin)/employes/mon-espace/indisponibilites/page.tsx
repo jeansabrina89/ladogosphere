@@ -49,7 +49,7 @@ export default async function IndisponibilitesPage() {
             <p className="text-[rgba(27,43,94,0.45)] text-sm">Aucune indisponibilité enregistrée.</p>
           )}
           <div className="space-y-2">
-            {indisponibilites?.map((ind: any) => (
+            {indisponibilites?.map((ind) => (
               <div key={ind.id} className="flex justify-between items-center rounded-xl p-3" style={{ border: "1px solid rgba(27,43,94,0.12)" }}>
                 <div>
                   <p className="text-sm font-semibold" style={{ color: "#1B2B5E" }}>

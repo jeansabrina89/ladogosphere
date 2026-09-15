@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { Eye, EyeOff } from "lucide-react";
 
 const supabase = createBrowserClient(
@@ -34,7 +35,7 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    supabase.auth.verifyOtp({ type: type as any, token_hash }).then(({ error }) => {
+    supabase.auth.verifyOtp({ type: type as EmailOtpType, token_hash }).then(({ error }) => {
       if (error) {
         setEtat("erreur");
         setMessage("Ce lien a expiré ou a déjà été utilisé. Merci de redemander un e-mail.");

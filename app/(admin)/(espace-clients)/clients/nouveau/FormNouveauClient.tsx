@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { creerClient } from "./actions";
 import { LIBELLE_ACCORD_PHOTOS } from "@/src/lib/accordPhotos";
@@ -75,11 +76,11 @@ export default function FormNouveauClient() {
           style={{ backgroundColor: "#2E8B7E" }}>
           💾 Enregistrer
         </button>
-        <a href="/clients"
+        <Link href="/clients"
           className="px-6 py-3 rounded-xl font-semibold"
           style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
           ✖ Annuler
-        </a>
+        </Link>
       </div>
     </form>
   );

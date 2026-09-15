@@ -56,7 +56,7 @@ export default async function GestionVacancesPage() {
             <p className="text-[rgba(27,43,94,0.45)] text-sm">Aucune demande en attente.</p>
           )}
           <div className="space-y-4">
-            {enAttente.map((d: any) => (
+            {enAttente.map((d) => (
               <div key={d.id} className="rounded-xl p-4" style={{ border: "1px solid rgba(201,168,76,0.4)", backgroundColor: "#FBF6E8" }}>
                 <div className="flex justify-between items-start">
                   <div>
@@ -72,7 +72,7 @@ export default async function GestionVacancesPage() {
                       <span className="ml-2 font-semibold">{d.nb_jours}j</span>
                     </p>
                     {d.note_employe && (
-                      <p className="text-xs text-gray-500 mt-1">"{d.note_employe}"</p>
+                      <p className="text-xs text-gray-500 mt-1">&quot;{d.note_employe}&quot;</p>
                     )}
                   </div>
                   <div className="flex gap-2 items-start">
@@ -102,7 +102,7 @@ export default async function GestionVacancesPage() {
             <p className="text-[rgba(27,43,94,0.45)] text-sm">Aucune demande traitée.</p>
           )}
           <div className="space-y-3">
-            {traitees.map((d: any) => (
+            {traitees.map((d) => (
               <div key={d.id} className="rounded-xl p-4" style={{ border: "1px solid rgba(27,43,94,0.12)" }}>
                 <div className="flex justify-between items-center">
                   <div>
@@ -114,7 +114,7 @@ export default async function GestionVacancesPage() {
                       {formatDateFR(d.date_fin)} · {d.nb_jours}j
                     </p>
                     {d.note_admin && (
-                      <p className="text-xs text-[#1F6E5B] mt-1">Note : "{d.note_admin}"</p>
+                      <p className="text-xs text-[#1F6E5B] mt-1">Note : &quot;{d.note_admin}&quot;</p>
                     )}
                   </div>
                   <div className="flex gap-2 items-center">

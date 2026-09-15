@@ -107,7 +107,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: Prom
           {!estAujourdhui && (
             <Link href="/checkin"
               style={{ backgroundColor: "#2E8B7E", color: "#fff", padding: "9px 16px", borderRadius: 12, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
-              Aujourd'hui
+              Aujourd&apos;hui
             </Link>
           )}
         </div>

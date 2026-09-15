@@ -61,7 +61,7 @@ export default async function MonProfilPage() {
                 <div>
                   <label style={labelStyle}>Email</label>
                   <input type="email" defaultValue={client.email || ""} disabled style={champDisabled} />
-                  <p style={muted}>L'email ne peut pas être modifié.</p>
+                  <p style={muted}>L&apos;email ne peut pas être modifié.</p>
                 </div>
                 <div>
                   <label style={labelStyle}>Téléphone</label>
@@ -123,7 +123,7 @@ export default async function MonProfilPage() {
 
             {/* Contact d'urgence */}
             <Carte>
-              <h2 style={titreSection}>🚨 Contact d'urgence</h2>
+              <h2 style={titreSection}>🚨 Contact d&apos;urgence</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <div style={grid2}>
                   <div>

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
@@ -39,9 +40,9 @@ export default async function NouveauChienClientPage() {
       <div style={{ maxWidth: 600, margin: "0 auto" }}>
 
         <div style={{ marginBottom: 18 }}>
-          <a href="/mon-compte/chiens" style={{ color: "#1F6E5B", textDecoration: "none", fontWeight: 600, fontSize: 14 }}>
+          <Link href="/mon-compte/chiens" style={{ color: "#1F6E5B", textDecoration: "none", fontWeight: 600, fontSize: 14 }}>
             ← Mes chiens
-          </a>
+          </Link>
         </div>
 
         <div style={{ marginBottom: 20 }}>

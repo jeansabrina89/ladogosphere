@@ -50,7 +50,7 @@ export default async function PlanningPage({
         if (!index[occ.box_id][jour]) index[occ.box_id][jour] = [];
         if (occ.chiens) {
           const existe = index[occ.box_id][jour].find(
-  (o: any) => JSON.stringify(o.chiens) === JSON.stringify(occ.chiens)
+  (o) => JSON.stringify(o.chiens) === JSON.stringify(occ.chiens)
 );
           if (!existe) index[occ.box_id][jour].push(occ);
         }
@@ -154,7 +154,7 @@ export default async function PlanningPage({
                           <span className="text-gray-300 text-xs">—</span>
                         ) : (
                           <div className="space-y-1">
-                            {occs.map((occ: any) => (
+                            {occs.map((occ) => (
                               <div key={occ.id} className={`text-xs px-2 py-1 rounded-lg font-semibold ${
                                 occ.chiens?.categorie_poids === "moins_15kg" ? "bg-green-100 text-green-800" :
                                 occ.chiens?.categorie_poids === "15_30kg" ? "bg-yellow-100 text-yellow-800" :

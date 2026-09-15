@@ -23,8 +23,8 @@ type Props = {
 
 export default function CertificatEditeur({
   annee, employe, dateDebut,
-  totalBrut, totalNet, avs_ai_apg, ac, aanp, lpp_ordinaire, ijm,
-  remarquesInitiales, isAdmin, employeur,
+  totalBrut, avs_ai_apg, ac, aanp, lpp_ordinaire,
+  remarquesInitiales, employeur,
 }: Props) {
 
   const dateFin = `31.12.${annee}`;
@@ -385,7 +385,7 @@ export default function CertificatEditeur({
             <tr style={{ background: "#d0e8d0" }}>
               <td className="cs-num">11.</td>
               <td style={{ border: "0.5px solid #aaa", padding: "2px 6px", fontWeight: "bold" }}>
-                ➡ Salaire net = (case 8 − cases 9 et 10) — À reporter sur la déclaration d'impôt
+                ➡ Salaire net = (case 8 − cases 9 et 10) — À reporter sur la déclaration d&apos;impôt
               </td>
               <td style={{ border: "0.5px solid #aaa", padding: "2px 6px", textAlign: "right", fontWeight: "bold", fontSize: "13px", color: "#1B2B5E" }}>
                 {s(c11)}
@@ -505,7 +505,7 @@ export default function CertificatEditeur({
               </td>
               <td style={{ border: "0.5px solid #aaa", padding: "6px 8px", width: "25%", fontSize: "9px", color: "#666" }}>
                 Certifié exact et complet<br/>
-                y.c. adresse et n° tél. de l'employeur
+                y.c. adresse et n° tél. de l&apos;employeur
               </td>
               <td style={{ border: "0.5px solid #aaa", padding: "6px 8px", fontSize: "10px" }}>
                 <strong>{employeur.nom}</strong><br/>

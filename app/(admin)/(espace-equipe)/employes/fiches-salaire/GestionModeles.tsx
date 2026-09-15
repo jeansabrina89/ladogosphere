@@ -71,7 +71,7 @@ export default function GestionModeles({ modeles }: { modeles: Modele[] }) {
               placeholder="Label" />
             <select
               value={m.type}
-              onChange={e => setListe(liste.map(x => x.id === m.id ? { ...x, type: e.target.value as any } : x))}
+              onChange={e => setListe(liste.map(x => x.id === m.id ? { ...x, type: e.target.value as Modele["type"] } : x))}
               className="border rounded-lg p-2 text-sm">
               <option value="pourcentage">% du brut</option>
               <option value="montant_fixe">CHF fixe</option>
@@ -109,7 +109,7 @@ export default function GestionModeles({ modeles }: { modeles: Modele[] }) {
         <div className="flex-1 grid grid-cols-3 gap-2">
           <input value={nouveauLabel} onChange={e => setNouveauLabel(e.target.value)}
             className="border rounded-lg p-2 text-sm" placeholder="Ex: Mutuelle" />
-          <select value={nouveauType} onChange={e => setNouveauType(e.target.value as any)}
+          <select value={nouveauType} onChange={e => setNouveauType(e.target.value as Modele["type"])}
             className="border rounded-lg p-2 text-sm">
             <option value="pourcentage">% du brut</option>
             <option value="montant_fixe">CHF fixe</option>

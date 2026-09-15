@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Ce qu'on attend d'un client Supabase ici : lire l'utilisateur et un profil. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SupabaseClientLike = any;
+type SupabaseClientLike = SupabaseClient;
 import { createClient } from "../utils/supabase/server";
 import type { PerimetreStock, NiveauStock } from "./perimetreStock";
 
 // ── API Routes ──────────────────────────────────────────────────────────────
 
-export async function exigerPersonnel(supabase: any): Promise<NextResponse | null> {
+export async function exigerPersonnel(supabase: SupabaseClientLike): Promise<NextResponse | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
   const { data: profile } = await supabase
@@ -22,7 +22,14 @@ export async function exigerPersonnel(supabase: any): Promise<NextResponse | nul
   return null;
 }
 
-export async function exigerPermissionApi(supabase: any, perm: string): Promise<NextResponse | null> {
+/**
+ * Le nom de la colonne lue n’est connu qu’à l’exécution : supabase-js analyse
+ * le `select` comme un littéral et ne sait rien typer d’une chaîne construite.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ClientSelectDynamique = any;
+
+export async function exigerPermissionApi(supabase: ClientSelectDynamique, perm: string): Promise<NextResponse | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
   const { data: profile } = await supabase
@@ -31,7 +38,7 @@ export async function exigerPermissionApi(supabase: any, perm: string): Promise<
     .eq("id", user.id)
     .single();
   if (profile?.role === "admin") return null;
-  if (profile?.role === "employe" && (profile as any)?.[perm] === true) return null;
+  if (profile?.role === "employe" && profile?.[perm] === true) return null;
   return NextResponse.json({ error: "Accès réservé à l'admin" }, { status: 403 });
 }
 
@@ -74,7 +81,7 @@ export async function verifierAdmin(): Promise<{ error?: string; userId?: string
 }
 
 /** Même règle que verifierAdmin, côté Route Handler. */
-export async function exigerAdminApi(supabase: any): Promise<NextResponse | null> {
+export async function exigerAdminApi(supabase: SupabaseClientLike): Promise<NextResponse | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
   const { data: profile } = await supabase

@@ -60,7 +60,7 @@ export default function PlanningNavigation({
 
       <button onClick={() => naviguer(aujourd_hui, vue)}
         className="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 text-sm">
-        Aujourd'hui
+        Aujourd&apos;hui
       </button>
 
       <button onClick={() => naviguer(getNextDate(), vue)}

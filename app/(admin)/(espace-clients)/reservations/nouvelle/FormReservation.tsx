@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { formatDateFR } from "@/src/lib/dates";
@@ -355,7 +356,6 @@ export default function FormReservation({
       const commentaire_admin = formData.get("commentaire_admin") as string;
 
       let nbCreees = 0;
-      let derniereId = "";
 
       for (const dateStr of dates) {
         const fd = new FormData();
@@ -388,8 +388,6 @@ export default function FormReservation({
         });
 
         if (response.ok) {
-          const { id } = await response.json();
-          derniereId = id;
           nbCreees++;
         }
       }
@@ -568,7 +566,7 @@ export default function FormReservation({
               <div className="space-y-2">
                 {chiensRefusesSel.map(c => (
                   <div key={c.id} className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
-                    <strong>{c.nom}</strong> n'a pas été accepté à l'issue de sa journée d'essai et ne peut donc pas faire l'objet d'une réservation. N'hésitez pas à nous contacter pour plus d'informations ou pour envisager une nouvelle journée d'essai.
+                    <strong>{c.nom}</strong> n&apos;a pas été accepté à l&apos;issue de sa journée d&apos;essai et ne peut donc pas faire l&apos;objet d&apos;une réservation. N&apos;hésitez pas à nous contacter pour plus d&apos;informations ou pour envisager une nouvelle journée d&apos;essai.
                   </div>
                 ))}
               </div>
@@ -576,12 +574,12 @@ export default function FormReservation({
               <>
                 <input type="hidden" name="type_reservation" value="essai" />
                 <div className="border rounded-xl p-3 bg-blue-50 text-sm" style={{ color: "#1B2B5E" }}>
-                  🧪 Journée d'essai
+                  🧪 Journée d&apos;essai
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
                   ℹ️ {chiensNonValidesSel.map(c => c.nom).join(", ")}{" "}
-                  {chiensNonValidesSel.length > 1 ? "doivent" : "doit"} d'abord valider{" "}
-                  {chiensNonValidesSel.length > 1 ? "leur" : "sa"} journée d'essai avant de pouvoir réserver une journée ou un séjour. Vous pouvez réserver une journée d'essai.
+                  {chiensNonValidesSel.length > 1 ? "doivent" : "doit"} d&apos;abord valider{" "}
+                  {chiensNonValidesSel.length > 1 ? "leur" : "sa"} journée d&apos;essai avant de pouvoir réserver une journée ou un séjour. Vous pouvez réserver une journée d&apos;essai.
                 </p>
               </>
             ) : (
@@ -590,7 +588,7 @@ export default function FormReservation({
                   value={type} onChange={e => handleTypeChange(e.target.value)}>
                   <option value="journee">Journée</option>
                   <option value="sejour">Séjour</option>
-                  {!tousValidesSel && <option value="essai">🧪 Journée d'essai</option>}
+                  {!tousValidesSel && <option value="essai">🧪 Journée d&apos;essai</option>}
                 </select>
                 {type === "essai" && (
                   <p className="text-xs text-gray-500 mt-1">
@@ -772,7 +770,7 @@ export default function FormReservation({
                     <input name="date_fin" type="date"
                       value={dateDebut} readOnly
                       className="w-full border rounded-xl p-3 bg-gray-100 text-gray-500 cursor-not-allowed" />
-                    <p className="text-xs text-gray-400 mt-1">Même jour que l'arrivée</p>
+                    <p className="text-xs text-gray-400 mt-1">Même jour que l&apos;arrivée</p>
                   </>
                 ) : (
                   <input name="date_fin" type="date" required={!estRecurrente}
@@ -986,11 +984,11 @@ export default function FormReservation({
               style={{ backgroundColor: "#4AAEA0" }}>
               {loading ? "Enregistrement..." : estRecurrente ? `🔁 Créer ${apercu.length} réservation(s)` : "💾 Enregistrer"}
             </button>
-            <a href="/reservations"
+            <Link href="/reservations"
               className="px-6 py-3 rounded-xl font-semibold"
               style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E" }}>
               ✖ Annuler
-            </a>
+            </Link>
           </div>
 
         </form>

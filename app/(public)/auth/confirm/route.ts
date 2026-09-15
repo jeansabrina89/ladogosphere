@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
 
   // Cas 1 : lien avec token_hash (recommandé — marche même entre appareils)
   if (token_hash && type) {
-    const { error } = await supabase.auth.verifyOtp({ type: type as any, token_hash });
+    const { error } = await supabase.auth.verifyOtp({ type: type as EmailOtpType, token_hash });
     if (!error) return NextResponse.redirect(new URL(next, origin));
   }
 

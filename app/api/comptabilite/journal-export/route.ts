@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const fin = mois ? new Date(parseInt(annee), parseInt(mois), 0).toISOString().split("T")[0] : `${annee}-12-31`;
 
   const { data: comptes } = await supabaseAdmin.from("comptes").select("numero, libelle");
-  const libelleCompte = new Map((comptes ?? []).map((c: any) => [c.numero, c.libelle]));
+  const libelleCompte = new Map((comptes ?? []).map((c) => [c.numero, c.libelle]));
 
   const { data: ecritures } = await supabaseAdmin
     .from("ecritures")

@@ -100,7 +100,7 @@ export default async function ARegulariserPage() {
             À clôturer ({aCloturer.length})
           </h3>
           <p style={{ margin: "0 0 12px 0", fontSize: "13px", color: "#6B7280" }}>
-            Séjours dont la date est passée mais encore au statut « validé ». Tant qu'ils ne sont pas passés en « terminé », leur chiffre d'affaires n'est pas comptabilisé.
+            Séjours dont la date est passée mais encore au statut « validé ». Tant qu&apos;ils ne sont pas passés en « terminé », leur chiffre d&apos;affaires n&apos;est pas comptabilisé.
           </p>
           {aCloturer.length === 0 ? (
             <p style={{ margin: 0, color: "#9CA3AF", fontSize: "14px" }}>Rien à clôturer. 🎉</p>

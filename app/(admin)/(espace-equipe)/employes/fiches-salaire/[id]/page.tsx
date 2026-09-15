@@ -155,7 +155,7 @@ export default async function FicheSalairePage({
                 CHF {Number(fiche.salaire_brut).toFixed(2)}
               </td>
             </tr>
-            {deductions?.map((d: any) => (
+            {deductions?.map((d) => (
               <tr key={d.id} className="border-b">
                 <td className="px-4 py-3 text-gray-600">
                   {d.label}

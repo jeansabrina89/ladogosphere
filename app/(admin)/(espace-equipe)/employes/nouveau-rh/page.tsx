@@ -62,7 +62,7 @@ export default async function NouvelEmployeRHPage() {
             </div>
 
             <div>
-              <label className="block font-semibold mb-1">Date d'entrée *</label>
+              <label className="block font-semibold mb-1">Date d&apos;entrée *</label>
               <input name="date_entree" type="date" required className={inputClass}
                 defaultValue="2027-02-01" />
             </div>

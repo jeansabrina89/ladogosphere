@@ -129,7 +129,7 @@ export async function PATCH(req: NextRequest) {
       .lte("date", date_fin);
 
     const timbragesParDate: Record<string, (string | null)[]> = {};
-    timbragesRange?.forEach((t: any) => {
+    timbragesRange?.forEach((t) => {
       if (!timbragesParDate[t.date]) timbragesParDate[t.date] = [];
       timbragesParDate[t.date].push(t.type_absence ?? null);
     });

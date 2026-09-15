@@ -74,8 +74,8 @@ export default function FormModifierVacances({
 
       setOuvert(false);
       router.refresh();
-    } catch (e: any) {
-      setError(e.message ?? "Erreur.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur.");
     } finally {
       setLoading(false);
     }

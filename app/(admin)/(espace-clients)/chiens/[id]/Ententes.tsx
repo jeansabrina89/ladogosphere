@@ -110,12 +110,12 @@ export default function Ententes({
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={familleUniquement} onChange={handleFamilleUniquement} />
             <span className="font-semibold" style={{ color: "#1B2B5E" }}>
-              🏠 Famille uniquement — ne pas mélanger avec d'autres chiens
+              🏠 Famille uniquement — ne pas mélanger avec d&apos;autres chiens
             </span>
           </label>
         ) : (
           <p className="font-semibold" style={{ color: "#1B2B5E" }}>
-            🏠 Famille uniquement — ne pas mélanger avec d'autres chiens{familleUniquement ? " ✅" : " ❌"}
+            🏠 Famille uniquement — ne pas mélanger avec d&apos;autres chiens{familleUniquement ? " ✅" : " ❌"}
           </p>
         )}
       </div>
@@ -127,12 +127,12 @@ export default function Ententes({
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={doitEtreIsole} onChange={handleDoitEtreIsole} />
             <span className="font-semibold" style={{ color: "#1B2B5E" }}>
-              🚫 Doit être isolé — box exclusif, jamais avec d'autres chiens
+              🚫 Doit être isolé — box exclusif, jamais avec d&apos;autres chiens
             </span>
           </label>
         ) : (
           <p className="font-semibold" style={{ color: "#1B2B5E" }}>
-            🚫 Doit être isolé — box exclusif, jamais avec d'autres chiens{doitEtreIsole ? " ✅" : " ❌"}
+            🚫 Doit être isolé — box exclusif, jamais avec d&apos;autres chiens{doitEtreIsole ? " ✅" : " ❌"}
           </p>
         )}
       </div>
@@ -140,7 +140,7 @@ export default function Ententes({
       {/* Explication box_compatible */}
       <div className="mb-4 p-3 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-700">
         💡 <strong>Peut aller au box avec</strong> — prioritaire sur les restrictions générales de compatibilité.
-        Si ce chien et l'autre sont marqués ainsi, ils seront mis ensemble même si leurs profils semblent incompatibles.
+        Si ce chien et l&apos;autre sont marqués ainsi, ils seront mis ensemble même si leurs profils semblent incompatibles.
       </div>
 
       {/* Liste des ententes */}
@@ -180,7 +180,7 @@ export default function Ententes({
               ))}
             </select>
             <select value={type} onChange={e => setType(e.target.value)} className="border rounded-xl p-2 text-sm">
-              <option value="ok">✅ S'entend bien</option>
+              <option value="ok">✅ S&apos;entend bien</option>
               <option value="box_compatible">🏠 Peut aller au box avec</option>
               <option value="interdit">❌ Incompatibles</option>
             </select>

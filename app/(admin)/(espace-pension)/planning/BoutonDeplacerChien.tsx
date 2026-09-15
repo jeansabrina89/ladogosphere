@@ -165,7 +165,7 @@ export default function BoutonDeplacerChien({
                     backgroundColor: mode === "partir_de" ? "#E8F5F4" : "white",
                     color: "#1B2B5E",
                   }}>
-                  ✂️ À partir d'une date
+                  ✂️ À partir d&apos;une date
                 </button>
               </div>
             </div>

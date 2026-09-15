@@ -143,7 +143,7 @@ function CarteEmail({ email }: { email: EmailModele }) {
           onChange={(e) => setTitre(e.target.value)} />
       </div>
       <div>
-        <label style={labelStyle}>Message d'introduction</label>
+        <label style={labelStyle}>Message d&apos;introduction</label>
         <textarea style={{ ...inputStyle, minHeight: "70px", resize: "vertical" }} value={intro}
           placeholder={email.defaut.intro} onChange={(e) => setIntro(e.target.value)} />
       </div>
@@ -160,7 +160,7 @@ function CarteEmail({ email }: { email: EmailModele }) {
       {apercu && (
         <div style={{ background: "#F5F0E8", borderRadius: "12px", padding: "16px" }}>
           <p style={{ margin: "0 0 10px 0", fontSize: "12px", color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-            Aperçu (valeurs d'exemple)
+            Aperçu (valeurs d&apos;exemple)
           </p>
           <p style={{ margin: "0 0 8px 0", fontSize: "13px", color: "#6B7280" }}>
             <strong>Sujet :</strong> {rendu.sujet}
@@ -365,7 +365,7 @@ function MessageMembres({ campagnes }: { campagnes: Campagne[] }) {
             {apercuCorps}
           </div>
           <p style={{ margin: "10px 0 0 0", fontSize: "12px", color: "#9CA3AF" }}>
-            L'en-tête (logo) et la signature La Dogosphère sont ajoutés automatiquement.
+            L&apos;en-tête (logo) et la signature La Dogosphère sont ajoutés automatiquement.
           </p>
         </div>
 

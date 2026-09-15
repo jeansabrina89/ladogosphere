@@ -84,7 +84,7 @@ export async function sauvegarderPlanning(lignes: JourPlanning[]): Promise<{ err
     const pairesAvecTimbrage = new Set<string>();
     const timbragesVacancesObsoletes: string[] = [];
 
-    timbragesExistants?.forEach((t: any) => {
+    timbragesExistants?.forEach((t) => {
       const key = `${t.employe_id}|${t.date}`;
       pairesAvecTimbrage.add(key);
 

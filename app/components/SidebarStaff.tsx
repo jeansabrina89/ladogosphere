@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { CSSProperties } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/src/lib/supabase-browser";
@@ -71,10 +72,10 @@ export default function SidebarStaff({
 
   const sidebarDesktop = (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <a href="/" style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 14px 10px", textDecoration: "none" }}>
+      <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 14px 10px", textDecoration: "none" }}>
         <img src="/logo-compact.webp" alt="La Dogosphère" style={{ height: 36, width: 36, borderRadius: "50%", objectFit: "cover" }} />
         <span style={{ fontFamily: "Georgia, serif", fontWeight: 700, fontSize: 17, color: "#1B2B5E" }}>La Dogosphère</span>
-      </a>
+      </Link>
 
       <nav aria-label="Espaces" style={{ flex: 1, overflowY: "auto", padding: "0 8px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -155,10 +156,10 @@ export default function SidebarStaff({
       <header className="md:hidden flex items-center gap-2"
         style={{ position: "sticky", top: 0, zIndex: 40, padding: "12px 16px",
           background: "#FFFFFF", borderBottom: "1px solid rgba(27,43,94,.10)" }}>
-        <a href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", minHeight: CIBLE }}>
+        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", minHeight: CIBLE }}>
           <img src="/logo-compact.webp" alt="La Dogosphère" style={{ height: 32, width: 32, borderRadius: "50%", objectFit: "cover" }} />
           <span style={{ fontFamily: "Georgia, serif", fontWeight: 700, fontSize: 16, color: "#1B2B5E" }}>La Dogosphère</span>
-        </a>
+        </Link>
       </header>
 
       {/* Sur mobile, l'accueil porte les espaces en tuiles : la barre latérale

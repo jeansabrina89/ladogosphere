@@ -38,7 +38,7 @@ export async function bloquerPeriodeEssai(formData: FormData) {
   revalidatePath("/calendrier-essais");
 }
 
-export async function debloquerPeriodeEssai(id: string, _formData: FormData) {
+export async function debloquerPeriodeEssai(id: string) {
   const verif = await verifierPermission("perm_journee_essai");
   if (verif.error) throw new Error(verif.error);
 

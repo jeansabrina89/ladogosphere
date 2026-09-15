@@ -125,7 +125,7 @@ export default async function ChienPage({
 
         {statutEssai === "refuse" && (
           <div style={{ backgroundColor: "#FBE2DE", color: "#A8453A", padding: "12px 16px", borderRadius: 14, marginBottom: 16, fontWeight: 600 }}>
-            ❌ Journée d'essai non concluante — ce chien ne peut pas être réservé
+            ❌ Journée d&apos;essai non concluante — ce chien ne peut pas être réservé
             {chien.journee_essai_note && (
               <p style={{ fontWeight: 400, fontSize: 14, margin: "4px 0 0" }}>{chien.journee_essai_note}</p>
             )}
@@ -210,7 +210,7 @@ export default async function ChienPage({
 
           {/* Journée d'essai */}
           <Carte>
-            <h2 style={titreSection}>🧪 Journée d'essai</h2>
+            <h2 style={titreSection}>🧪 Journée d&apos;essai</h2>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
               <span style={BADGE_ESSAI[statutEssai].style}>{BADGE_ESSAI[statutEssai].label}</span>
             </div>

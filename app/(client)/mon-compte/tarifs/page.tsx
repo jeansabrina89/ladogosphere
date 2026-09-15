@@ -254,9 +254,9 @@ export default async function TarifsClientPage() {
 
               {/* JOURNÉE D'ESSAI */}
               <Carte>
-                <p style={sSecTitre}>🧪 Journée d'essai</p>
+                <p style={sSecTitre}>🧪 Journée d&apos;essai</p>
                 <p style={sSecSous}>
-                  Obligatoire pour tout nouveau chien avant la première réservation. Facturée au tarif d'une garderie membre, selon le nombre de chiens.
+                  Obligatoire pour tout nouveau chien avant la première réservation. Facturée au tarif d&apos;une garderie membre, selon le nombre de chiens.
                 </p>
                 <div style={{ backgroundColor: "#F5F0E8", borderRadius: 12, padding: "4px 16px" }}>
                   <LigneEssai label="1 chien" prix={essai1} />
@@ -289,7 +289,7 @@ export default async function TarifsClientPage() {
               <p style={{ ...sSecTitre, margin: "0 0 6px" }}>★ Adhésion membre</p>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <p style={{ margin: 0, fontSize: 14, color: "rgba(27,43,94,0.7)", maxWidth: 380 }}>
-                  L'adhésion annuelle donne accès aux tarifs membres sur toutes les formules.
+                  L&apos;adhésion annuelle donne accès aux tarifs membres sur toutes les formules.
                 </p>
                 <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 20, fontWeight: 700, color: "#6E5410", whiteSpace: "nowrap", marginLeft: 12 }}>
                   CHF {cotisation.toFixed(2)} / an

@@ -116,14 +116,6 @@ export default function GenerateurPlanning({
   const moisSuivant = mois === 12 ? 1 : mois + 1;
   const anneeSuivante = mois === 12 ? annee + 1 : annee;
 
-  const getDates = () => {
-    const dates = [];
-    for (let d = 1; d <= joursParMois; d++) {
-      dates.push(`${annee}-${String(mois).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
-    }
-    return dates;
-  };
-
   const estWeekend = (d: string) => [0, 6].includes(new Date(d + "T12:00:00").getDay());
   const estFerie   = (d: string) => joursFeries.includes(d);
   const estEnVacances = (id: string, d: string) =>
@@ -245,7 +237,7 @@ export default function GenerateurPlanning({
       for (let k = 0; k < 8; k++) {
         const ds = toDateStr(cur);
         const ligne = (planningPrecedent ?? []).find(
-          (p: any) => p.employe_id === emp.id && p.date === ds
+          (p) => p.employe_id === emp.id && p.date === ds
         );
         if (ligne && (ligne.statut === "travail" || ligne.statut === "ferie_travaille")) {
           serie++;
@@ -632,7 +624,7 @@ export default function GenerateurPlanning({
       )}
 
       <p className="text-sm mb-3" style={{ color: "rgba(27,43,94,0.6)" }}>
-        Clique sur un prénom pour changer son statut (Repos le retire de la case ; Vacances / Absent / Maladie l'affichent en mention). « + » ajoute une personne en présence.
+        Clique sur un prénom pour changer son statut (Repos le retire de la case ; Vacances / Absent / Maladie l&apos;affichent en mention). « + » ajoute une personne en présence.
       </p>
 
       <div id="zone-impression">
@@ -795,7 +787,7 @@ export default function GenerateurPlanning({
           <span style={{ fontSize: 9, fontWeight: 700, background: "#FEF3C7", borderRadius: 4, padding: "0 4px" }}>seul</span> 1 seule personne
         </span>
         <span className="flex items-center gap-2" style={{ color: "#2E8B7E" }}>
-          <span className="inline-block rounded" style={{ width: 12, height: 12, border: "2px solid #2E8B7E" }} /> aujourd'hui
+          <span className="inline-block rounded" style={{ width: 12, height: 12, border: "2px solid #2E8B7E" }} /> aujourd&apos;hui
         </span>
       </div>
       </div>

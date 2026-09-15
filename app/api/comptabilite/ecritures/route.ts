@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 
-async function idAdmin(supabase: any): Promise<string | null> {
+async function idAdmin(supabase: SupabaseClient): Promise<string | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();

@@ -310,7 +310,7 @@ export default function GestionBoxes({
                   <div>
                     <h3 className="font-semibold mb-2" style={{ color: "#1B2B5E" }}>🚫 Indisponibilités</h3>
                     {indispos.length === 0 ? (
-                      <p className="text-sm text-gray-400 mb-3">Aucune période d'indisponibilité.</p>
+                      <p className="text-sm text-gray-400 mb-3">Aucune période d&apos;indisponibilité.</p>
                     ) : (
                       <div className="space-y-2 mb-3">
                         {indispos.map(i => (

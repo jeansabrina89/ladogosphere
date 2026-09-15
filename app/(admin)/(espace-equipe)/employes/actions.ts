@@ -18,7 +18,7 @@ export async function supprimerEmploye(id: string): Promise<{ error?: string }> 
   // Historique RH lié, puis l'employé
   const { data: fiches } = await supabase
     .from("fiches_salaire").select("id").eq("employe_id", id);
-  const ficheIds = (fiches ?? []).map((f: any) => f.id);
+  const ficheIds = (fiches ?? []).map((f) => f.id);
   if (ficheIds.length) {
     await supabase.from("fiche_salaire_deductions").delete().in("fiche_id", ficheIds);
   }

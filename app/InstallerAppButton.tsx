@@ -10,6 +10,22 @@ type BeforeInstallPromptEvent = Event & {
 
 const TEAL = "#4AAEA0";
 
+// Bloc auto-suffisant (intitulé + séparateur + bouton) : rendu uniquement
+// quand l'installation est réellement proposable.
+//
+// Déclaré hors du composant : créé à chaque rendu, React le prendrait pour un
+// composant neuf et remonterait son contenu à chaque fois.
+function Bloc({ label, children }: { label?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginTop: 24, paddingTop: 24, borderTop: "1px solid rgba(27,43,94,0.1)" }}>
+      {label && (
+        <p style={{ textAlign: "center", fontSize: 12, color: "#6B7280", margin: "0 0 8px" }}>{label}</p>
+      )}
+      {children}
+    </div>
+  );
+}
+
 export default function InstallerAppButton({ label }: { label?: string }) {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIOS, setIsIOS] = useState(false);
@@ -56,17 +72,6 @@ export default function InstallerAppButton({ label }: { label?: string }) {
     cursor: "pointer",
   };
 
-  // Bloc auto-suffisant (intitulé + séparateur + bouton) : rendu uniquement
-  // quand l'installation est réellement proposable.
-  const Bloc = ({ children }: { children: React.ReactNode }) => (
-    <div style={{ marginTop: 24, paddingTop: 24, borderTop: "1px solid rgba(27,43,94,0.1)" }}>
-      {label && (
-        <p style={{ textAlign: "center", fontSize: 12, color: "#6B7280", margin: "0 0 8px" }}>{label}</p>
-      )}
-      {children}
-    </div>
-  );
-
   const installerAndroid = async () => {
     if (!deferred) return;
     await deferred.prompt();
@@ -77,7 +82,7 @@ export default function InstallerAppButton({ label }: { label?: string }) {
   // Android / Chrome / Edge : installation en 1 clic.
   if (deferred) {
     return (
-      <Bloc>
+      <Bloc label={label}>
         <button type="button" onClick={installerAndroid} style={boutonStyle}>
           📲 Installer l&apos;application
         </button>
@@ -88,7 +93,7 @@ export default function InstallerAppButton({ label }: { label?: string }) {
   // iOS Safari : pas d'API → aide manuelle.
   if (isIOS) {
     return (
-      <Bloc>
+      <Bloc label={label}>
         <button type="button" onClick={() => setIosOpen(true)} style={boutonStyle}>
           📲 Installer l&apos;application
         </button>

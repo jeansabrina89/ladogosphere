@@ -29,7 +29,7 @@ function ResultatAcces({ state }: { state: AccesEmployeState | null }) {
             📋 Copier
           </button>
           <p className="text-xs text-orange-600 mt-1">
-            ⚠️ À transmettre à l'employé — affiché une seule fois.
+            ⚠️ À transmettre à l&apos;employé — affiché une seule fois.
           </p>
         </div>
       )}
@@ -95,7 +95,7 @@ export function BoutonCreerAcces({ ficheId }: { ficheId: string }) {
           style={{ backgroundColor: "#FEF2F2", borderColor: "#FCA5A5" }}>
           <p className="text-red-700">
             Un compte client existe déjà pour <strong>{state.email}</strong>.
-            Le transformer en compte employé lui retirera l'accès client.
+            Le transformer en compte employé lui retirera l&apos;accès client.
             Confirmer ?
           </p>
           <button

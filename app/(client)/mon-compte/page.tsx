@@ -132,7 +132,7 @@ export default async function MonComptePage() {
             <BadgeMembre membre={!!client?.membre} aJour={estMembre} montrerStandard />
             {cotisationEnCours && (
               <span style={{ fontSize: 13, color: "rgba(27,43,94,0.6)" }}>
-                Membre jusqu'au <strong style={{ color: "#1B2B5E" }}>{formatDateLong(cotisationEnCours.date_fin)}</strong>
+                Membre jusqu&apos;au <strong style={{ color: "#1B2B5E" }}>{formatDateLong(cotisationEnCours.date_fin)}</strong>
               </span>
             )}
           </div>
@@ -242,7 +242,7 @@ export default async function MonComptePage() {
             <div style={{ backgroundColor: "#F4EAC9", border: "1px solid #C9A84C", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 20 }}>⏳</span>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#6E5410" }}>
-                Ta demande d'adhésion est en cours de traitement par notre équipe.
+                Ta demande d&apos;adhésion est en cours de traitement par notre équipe.
               </p>
             </div>
           </div>

@@ -103,7 +103,7 @@ export default async function MonEspaceRHPage() {
   const bonusFeriers        = feriesTravailles?.length ?? 0;
   const joursVacancesTotal  = 20 * employe.taux_travail / 100;
   const joursVacancesPris   = vacancesAccepteesAnnee
-    ?.reduce((acc: number, d: any) => acc + d.nb_jours, 0) ?? 0;
+    ?.reduce((acc: number, d) => acc + d.nb_jours, 0) ?? 0;
   const joursVacancesRestants = joursVacancesTotal + bonusFeriers - joursVacancesPris;
 
   const soldeMois  = decompteMois.solde;
@@ -125,7 +125,7 @@ export default async function MonEspaceRHPage() {
             <p className="font-bold" style={{ color: "#1B2B5E" }}>⏱️ Timbrage</p>
             <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.45)" }}>Saisir mes heures</p>
             {timbrageAujourdhui && (
-              <p className="text-xs mt-1 font-semibold" style={{ color: "#1F6E5B" }}>✅ Timbré aujourd'hui</p>
+              <p className="text-xs mt-1 font-semibold" style={{ color: "#1F6E5B" }}>✅ Timbré aujourd&apos;hui</p>
             )}
           </Link>
           <Link href="/employes/mon-espace/vacances" className="hover:shadow-md transition"
@@ -140,7 +140,7 @@ export default async function MonEspaceRHPage() {
           </Link>
           <Link href="/employes/planning-equipe" className="hover:shadow-md transition"
             style={{ display: "block", backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderLeft: "4px solid #4AAEA0", borderRadius: "18px", padding: "20px" }}>
-            <p className="font-bold" style={{ color: "#1B2B5E" }}>👥 Planning de l'équipe</p>
+            <p className="font-bold" style={{ color: "#1B2B5E" }}>👥 Planning de l&apos;équipe</p>
             <p className="text-xs mt-1" style={{ color: "rgba(27,43,94,0.45)" }}>Voir qui travaille — et imprimer</p>
           </Link>
           <Link href="/employes/mon-espace/indisponibilites" className="hover:shadow-md transition"
@@ -170,7 +170,7 @@ export default async function MonEspaceRHPage() {
           <div className="mb-6" style={{ backgroundColor: "#FFFFFF", border: "1px solid rgba(27,43,94,0.12)", borderRadius: "18px", padding: "24px" }}>
             <h2 className="font-bold mb-4" style={{ color: "#1B2B5E" }}>🏖️ Mes demandes de vacances</h2>
             <div className="space-y-3">
-              {demandesVacances.map((d: any) => (
+              {demandesVacances.map((d) => (
                 <div key={d.id} className="flex justify-between items-center rounded-xl p-3" style={{ border: "1px solid rgba(27,43,94,0.12)" }}>
                   <div>
                     <p className="text-sm font-semibold" style={{ color: "#1B2B5E" }}>

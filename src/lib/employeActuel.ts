@@ -1,4 +1,6 @@
-export async function getEmployeRhActuel(supabase: any, userId: string, email?: string | null) {
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+export async function getEmployeRhActuel(supabase: SupabaseClient, userId: string, email?: string | null) {
   if (userId) {
     const { data } = await supabase
       .from("employes_rh")

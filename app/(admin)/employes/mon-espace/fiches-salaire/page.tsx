@@ -25,7 +25,7 @@ export default async function MesFichesSalairePage() {
     .order("annee", { ascending: false })
     .order("mois", { ascending: false });
 
-  const annees = [...new Set(fiches?.map((f: any) => f.annee) ?? [])].sort((a, b) => b - a);
+  const annees = [...new Set(fiches?.map((f) => f.annee) ?? [])].sort((a, b) => b - a);
 
   const marine = "#1B2B5E";
   const sousTexte = "rgba(27,43,94,0.6)";
@@ -60,7 +60,7 @@ export default async function MesFichesSalairePage() {
             <EtatVide icone="📄" titre="Aucune fiche de salaire" message="Tes fiches de salaire apparaîtront ici dès qu'elles seront émises." />
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {fiches.map((f: any) => (
+              {fiches.map((f) => (
                 <Link key={f.id} href={`/employes/fiches-salaire/${f.id}`}
                   style={{ display: "flex", justifyContent: "space-between", alignItems: "center", border: bordure, borderRadius: "14px", padding: "16px", textDecoration: "none" }}>
                   <div>

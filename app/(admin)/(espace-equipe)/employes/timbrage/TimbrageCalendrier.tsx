@@ -242,7 +242,7 @@ function FormPanel({
         </div>
       ) : (
         <div className="mb-4">
-          <label className="text-xs text-gray-500 block mb-1">Type d'absence</label>
+          <label className="text-xs text-gray-500 block mb-1">Type d&apos;absence</label>
           <select value={typeAbs} onChange={e => setTypeAbs(e.target.value)} className={inp}>
             <option value="maladie">🤒 Maladie</option>
             <option value="accident">🤕 Accident</option>
@@ -265,7 +265,7 @@ function FormPanel({
               onChange={e => setValideAdmin(e.target.checked)}
               className="w-4 h-4 accent-teal-600" />
             <label htmlFor={`va-${date}`} className="text-sm font-semibold" style={{ color: "#1B2B5E" }}>
-              Validé par l'admin
+              Validé par l&apos;admin
             </label>
           </div>
         )}

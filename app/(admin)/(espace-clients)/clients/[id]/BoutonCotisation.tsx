@@ -57,7 +57,7 @@ export default function BoutonCotisation({
   if (est_exempte) {
     return (
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm font-semibold text-amber-800">
-        🎟️ Client exempté d'adhésion{raison_exemption ? ` — ${raison_exemption}` : ""}
+        🎟️ Client exempté d&apos;adhésion{raison_exemption ? ` — ${raison_exemption}` : ""}
       </div>
     );
   }
@@ -66,7 +66,7 @@ export default function BoutonCotisation({
   if (cotisation_payee) {
     return (
       <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-700 font-semibold">
-        ✅ Adhésion payée — valable jusqu'au {formatDateLong(fin_precedente)}
+        ✅ Adhésion payée — valable jusqu&apos;au {formatDateLong(fin_precedente)}
       </div>
     );
   }
@@ -106,13 +106,13 @@ export default function BoutonCotisation({
               Mode de paiement *
             </label>
             <div className="flex gap-3 flex-wrap">
-              {[
+              {([
                 { value: "cash", label: "💵 Cash" },
                 { value: "virement", label: "🏦 Virement IBAN" },
                 { value: "prochaine_resa", label: "📅 Prochaine réservation" },
-              ].map(opt => (
+              ] as const).map(opt => (
                 <button key={opt.value} type="button"
-                  onClick={() => setMode(opt.value as any)}
+                  onClick={() => setMode(opt.value)}
                   className="px-4 py-2 rounded-xl text-sm font-semibold border-2 transition"
                   style={{
                     backgroundColor: mode === opt.value ? "#4AAEA0" : "white",
@@ -143,7 +143,7 @@ export default function BoutonCotisation({
 
           {mode === "prochaine_resa" && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-sm text-yellow-700">
-              ℹ️ L'adhésion sera ajoutée à la prochaine facture du client. Le statut membre est activé
+              ℹ️ L&apos;adhésion sera ajoutée à la prochaine facture du client. Le statut membre est activé
               immédiatement ; la période de validité définitive sera calculée à l&apos;encaissement.
             </div>
           )}

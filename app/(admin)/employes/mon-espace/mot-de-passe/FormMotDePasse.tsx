@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/src/utils/supabase/client";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
@@ -10,7 +9,6 @@ import Bouton from "@/app/components/ui/Bouton";
 const supabase = createClient();
 
 export default function FormMotDePasse() {
-  const router = useRouter();
   const [nouveau, setNouveau] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [erreur, setErreur] = useState("");

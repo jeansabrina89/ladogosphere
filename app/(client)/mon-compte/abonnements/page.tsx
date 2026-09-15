@@ -84,7 +84,7 @@ export default async function AbonnementsPage() {
                 padding: "6px 10px",
                 marginTop: 6,
               }}>
-                En attente de paiement — réglez par TWINT/virement, l'équipe validera.
+                En attente de paiement — réglez par TWINT/virement, l&apos;équipe validera.
               </div>
             )}
           </div>
@@ -141,8 +141,8 @@ export default async function AbonnementsPage() {
                 Aucune carte disponible
               </p>
               <p style={muted}>
-                Selon le profil de vos chiens, aucune carte n'est disponible pour le moment.
-                Complétez le profil (hébergement) de vos chiens ou contactez l'équipe.
+                Selon le profil de vos chiens, aucune carte n&apos;est disponible pour le moment.
+                Complétez le profil (hébergement) de vos chiens ou contactez l&apos;équipe.
               </p>
             </Carte>
           </section>
@@ -175,7 +175,7 @@ export default async function AbonnementsPage() {
               })}
             </div>
             <p style={{ ...muted, fontSize: 12, marginTop: 10, fontStyle: "italic" }}>
-              Les journées sont créditées après confirmation du paiement par l'équipe.
+              Les journées sont créditées après confirmation du paiement par l&apos;équipe.
             </p>
           </section>
         )}

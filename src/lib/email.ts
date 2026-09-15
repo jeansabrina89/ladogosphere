@@ -316,12 +316,12 @@ async function envoyerEmail(p: {
     sujet: p.sujet,
     statut: error ? "echec" : "envoye",
     resend_id: data?.id ?? null,
-    erreur: error ? String((error as any).message ?? error).slice(0, 500) : null,
+    erreur: error ? String(error.message ?? error).slice(0, 500) : null,
     reservation_id: p.reservationId ?? null,
   });
   if (error) {
     Sentry.captureException(error);
-    throw new Error("Resend: " + ((error as any).message ?? error));
+    throw new Error("Resend: " + (error.message ?? error));
   }
 }
 

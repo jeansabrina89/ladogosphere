@@ -44,7 +44,7 @@ export async function synchroniserComptaCotisation(cotisationId: string, dateOpe
       p_created_by: createdBy ?? null,
     });
     if (error) throw error;
-  } catch (e: any) {
+  } catch (e) {
     Sentry.captureException(e);
     console.error("compta cotisation:", e);
   }

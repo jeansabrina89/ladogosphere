@@ -226,9 +226,9 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
 
         {/* 3. Contact d'urgence */}
         <section style={{ marginBottom: 28 }}>
-          <h2 style={h2}>🚨 Contact d'urgence</h2>
+          <h2 style={h2}>🚨 Contact d&apos;urgence</h2>
           {!client.contact_urgence_nom && !client.contact_urgence_prenom && !client.contact_urgence_telephone ? (
-            <Carte><p style={muted}>Aucun contact d'urgence renseigné.</p></Carte>
+            <Carte><p style={muted}>Aucun contact d&apos;urgence renseigné.</p></Carte>
           ) : (
             <Carte accent="rose">
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

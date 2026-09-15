@@ -139,7 +139,7 @@ export default async function ModifierEmployePage({
                   }}
                 />
                 <div className="mt-4">
-                  <label className="block font-semibold mb-1 text-sm">Date d'entrée</label>
+                  <label className="block font-semibold mb-1 text-sm">Date d&apos;entrée</label>
                   <input name="date_entree" type="date"
                     defaultValue={rhData.date_entree}
                     className={inputClass} />
@@ -253,7 +253,7 @@ export default async function ModifierEmployePage({
                 ))}
 
                 <p className="text-xs text-[rgba(27,43,94,0.5)] italic">
-                  Acquis pour tout employé, sans réglage : son propre espace RH, la lecture des tarifs et la lecture du planning de toute l'équipe.
+                  Acquis pour tout employé, sans réglage : son propre espace RH, la lecture des tarifs et la lecture du planning de toute l&apos;équipe.
                 </p>
                 <p className="text-xs text-[rgba(27,43,94,0.5)] italic">
                   La gestion de la boutique implique la vente : cocher « gestion » seule revient à cocher les deux.

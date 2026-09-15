@@ -856,8 +856,8 @@ export default function TunnelReservation({
     const nonValides = chiensSelectionnes.filter(c => statutDe(c) !== "valide");
     return (
       <>
-        <p style={S.titre}>Qui participe à l'essai ?</p>
-        <p style={S.sousTitre}>Certains chiens sélectionnés ont déjà validé leur journée d'essai.</p>
+        <p style={S.titre}>Qui participe à l&apos;essai ?</p>
+        <p style={S.sousTitre}>Certains chiens sélectionnés ont déjà validé leur journée d&apos;essai.</p>
         {renderErreur()}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -867,7 +867,7 @@ export default function TunnelReservation({
           >
             <span style={{ fontSize: 22, flexShrink: 0 }}>🐾</span>
             <div>
-              <p style={{ margin: 0, fontWeight: 600, color: "#1B2B5E", fontSize: 15 }}>Journée d'essai pour tous</p>
+              <p style={{ margin: 0, fontWeight: 600, color: "#1B2B5E", fontSize: 15 }}>Journée d&apos;essai pour tous</p>
               <p style={{ margin: 0, fontSize: 12, color: "rgba(27,43,94,0.5)" }}>
                 {chiensSelectionnes.map(c => c.nom).join(", ")}
               </p>
@@ -918,7 +918,7 @@ export default function TunnelReservation({
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <label style={S.label}>Heure d'arrivée</label>
+              <label style={S.label}>Heure d&apos;arrivée</label>
               <div style={{ ...S.input, backgroundColor: "#F5F0E8", color: "rgba(27,43,94,0.5)" }}>
                 10:00 (fixe)
               </div>
@@ -1020,7 +1020,7 @@ export default function TunnelReservation({
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={S.label}>
-                Heure d'arrivée *
+                Heure d&apos;arrivée *
                 <span style={{ fontWeight: 400, fontSize: 11, color: "rgba(27,43,94,0.4)", marginLeft: 4 }}>
                   {formule === "journee" ? "(7h35–10h)" : "(9h–10h)"}
                 </span>
@@ -1230,7 +1230,7 @@ export default function TunnelReservation({
     return (
       <>
         <p style={S.titre}>Récapitulatif</p>
-        <p style={S.sousTitre}>Vérifie ta demande avant de l'envoyer.</p>
+        <p style={S.sousTitre}>Vérifie ta demande avant de l&apos;envoyer.</p>
         {renderErreur()}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>

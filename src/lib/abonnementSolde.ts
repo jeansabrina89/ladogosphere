@@ -28,7 +28,7 @@ export async function getAbonnementsClient(clientId: string): Promise<Abonnement
     .eq("client_id", clientId)
     .neq("statut", "annule");
 
-  return (data ?? []).map((abo: any) => ({
+  return (data ?? []).map((abo) => ({
     id: abo.id,
     categorie: abo.categorie,
     statut: abo.statut,

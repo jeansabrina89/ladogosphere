@@ -130,7 +130,7 @@ export default async function JournalPage({
               <p className="text-sm" style={{ color: sousTexte }}>Aucune écriture pour cette période.</p>
             ) : (
               <div className="space-y-4">
-                {ecritures.map((e: any) => (
+                {ecritures.map((e) => (
                   <div key={e.id} className="rounded-xl p-3" style={{ border: bordure }}>
                     <div className="flex justify-between text-sm mb-2">
                       <span className="font-semibold" style={{ color: marine }}>{e.libelle}</span>
@@ -138,7 +138,7 @@ export default async function JournalPage({
                     </div>
                     <table className="w-full text-sm">
                       <tbody>
-                        {(e.ecritures_lignes ?? []).map((l: any, i: number) => (
+                        {(e.ecritures_lignes ?? []).map((l, i: number) => (
                           <tr key={i}>
                             <td className="py-0.5">{l.compte_numero} — {libelleCompte.get(l.compte_numero) ?? ""}</td>
                             <td className="py-0.5 text-right" style={{ width: 110 }}>{Number(l.debit) > 0 ? Number(l.debit).toFixed(2) : ""}</td>

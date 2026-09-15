@@ -133,7 +133,7 @@ export default async function ReservationsPage({
 
         {filtrePersonnel && (
           <BandeauReservationsPersonnel
-            nbAVoir={(reservations ?? []).filter((r: any) => !r.vue_admin_le).length}
+            nbAVoir={(reservations ?? []).filter((r) => !r.vue_admin_le).length}
           />
         )}
 

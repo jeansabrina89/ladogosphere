@@ -81,9 +81,9 @@ export async function synchroniserComptaAbonnement(abonnementId: string, dateOpe
     if (error) throw error;
 
     await marquer(abonnementId, true);
-  } catch (e: any) {
+  } catch (e) {
     Sentry.captureException(e);
-    await marquer(abonnementId, false, String(e?.message ?? e).slice(0, 500));
+    await marquer(abonnementId, false, String(e instanceof Error ? e.message : e).slice(0, 500));
     console.error("compta abonnement:", e);
   }
 }

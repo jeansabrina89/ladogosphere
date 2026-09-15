@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
@@ -14,10 +15,10 @@ export default async function CalendrierEssaisPage() {
         <div className="max-w-2xl mx-auto bg-white rounded-xl p-8 shadow-sm text-center">
           <p className="text-4xl mb-4">🔒</p>
           <h1 className="text-2xl font-bold mb-2" style={{ color: "#1B2B5E" }}>Accès non autorisé</h1>
-          <p className="text-gray-600">Tu n'as pas la permission de gérer les journées d'essai.</p>
-          <a href="/" className="inline-block mt-4 px-6 py-3 rounded-xl font-semibold text-white" style={{ backgroundColor: "#4AAEA0" }}>
+          <p className="text-gray-600">Tu n&apos;as pas la permission de gérer les journées d&apos;essai.</p>
+          <Link href="/" className="inline-block mt-4 px-6 py-3 rounded-xl font-semibold text-white" style={{ backgroundColor: "#4AAEA0" }}>
             ← Retour
-          </a>
+          </Link>
         </div>
       </main>
     );
@@ -36,10 +37,10 @@ export default async function CalendrierEssaisPage() {
 
         <div>
           <h1 className="text-4xl font-bold mb-1" style={{ color: "#1B2B5E" }}>
-            🚫 Journées d'essai fermées
+            🚫 Journées d&apos;essai fermées
           </h1>
           <p className="text-gray-600">
-            Bloque des périodes pendant lesquelles aucune journée d'essai ne peut être réservée
+            Bloque des périodes pendant lesquelles aucune journée d&apos;essai ne peut être réservée
             (vacances, fermeture…). Les séjours et la garderie ne sont pas affectés.
           </p>
         </div>
@@ -73,7 +74,7 @@ export default async function CalendrierEssaisPage() {
           <h2 className="font-bold text-lg mb-4" style={{ color: "#1B2B5E" }}>Périodes bloquées</h2>
 
           {(!periodes || periodes.length === 0) ? (
-            <p className="text-gray-500">Aucune période bloquée pour l'instant.</p>
+            <p className="text-gray-500">Aucune période bloquée pour l&apos;instant.</p>
           ) : (
             <div className="space-y-3">
               {periodes.map((p) => {

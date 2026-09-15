@@ -58,8 +58,8 @@ export async function GET(req: NextRequest) {
         type: res.type_reservation,
       });
       nbVeille++;
-    } catch (e: any) {
-      erreursVeille.push(`${email}: ${e.message}`);
+    } catch (e) {
+      erreursVeille.push(`${email}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -111,8 +111,8 @@ export async function GET(req: NextRequest) {
           .update({ paiement_demande_le: aujourdHui })
           .eq("id", res.id);
         nbPaiement++;
-      } catch (e: any) {
-        erreursPaiement.push(`${email}: ${e.message}`);
+      } catch (e) {
+        erreursPaiement.push(`${email}: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
   }

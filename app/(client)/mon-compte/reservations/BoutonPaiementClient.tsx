@@ -12,7 +12,6 @@ export default function BoutonPaiementClient({
   titulaire,
   montant_final,
   montant_paye,
-  statut_paiement,
   soldeAvoir,
   abonnementDisponible,
   joursAbonnement,
@@ -318,7 +317,7 @@ export default function BoutonPaiementClient({
                   <button onClick={reset}
                     className="flex-1 py-2 rounded-xl font-semibold text-sm text-white"
                     style={{ backgroundColor: "#4AAEA0" }}>
-                    ✅ J'ai noté
+                    ✅ J&apos;ai noté
                   </button>
                 </div>
               </div>

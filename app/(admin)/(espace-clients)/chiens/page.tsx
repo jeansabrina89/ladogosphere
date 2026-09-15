@@ -45,7 +45,7 @@ export default async function ChiensPage() {
 
         {chiens?.length ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {chiens.map((chien: any) => {
+            {chiens.map((chien) => {
               const categorie =
                 chien.categorie_poids === "moins_15kg" ? "🟢 Petit" :
                 chien.categorie_poids === "15_30kg" ? "🟡 Moyen" :

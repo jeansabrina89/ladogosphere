@@ -59,7 +59,7 @@ export default async function PlanningEquipePage({
 
   const couleurParId: Record<string, { bg: string; fg: string }> = {};
   const prenomParId: Record<string, string> = {};
-  (employes ?? []).forEach((e: any, i: number) => {
+  (employes ?? []).forEach((e, i: number) => {
     couleurParId[e.id] = couleurEmploye(e.prenom, i);
     prenomParId[e.id] = e.prenom;
   });
@@ -68,7 +68,7 @@ export default async function PlanningEquipePage({
   const vacancesParJour: Record<string, string[]> = {};
   const absencesParJour: Record<string, { id: string; statut: string }[]> = {};
   const coursParJour: Record<string, string[]> = {};
-  (planning ?? []).forEach((r: any) => {
+  (planning ?? []).forEach((r) => {
     if (STATUTS_PRESENCE.includes(r.statut)) {
       if (!presentsParJour[r.date]) presentsParJour[r.date] = [];
       if (!presentsParJour[r.date].includes(r.employe_id)) presentsParJour[r.date].push(r.employe_id);
@@ -173,7 +173,7 @@ export default async function PlanningEquipePage({
         </div>
 
         <div className="flex flex-wrap gap-3 mt-6">
-          {(employes ?? []).map((e: any) => (
+          {(employes ?? []).map((e) => (
             <div key={e.id} className="flex items-center gap-2 text-sm" style={{ color: "#1B2B5E" }}>
               <span className="inline-block rounded-full" style={{ width: 12, height: 12, background: couleurParId[e.id]?.fg }} />
               {e.prenom} {e.nom}
@@ -195,7 +195,7 @@ export default async function PlanningEquipePage({
           </div>
           <div className="flex items-center gap-2 text-sm" style={{ color: "#2E8B7E" }}>
             <span className="inline-block rounded" style={{ width: 12, height: 12, border: "2px solid #2E8B7E" }} />
-            Aujourd'hui
+            Aujourd&apos;hui
           </div>
         </div>
 
