@@ -34,6 +34,7 @@ import {
   type EtatFormulaire,
 } from "@/src/lib/etatFormulaire";
 import { statutVitrine } from "@/src/lib/statutVitrineLogique";
+import { lireCoutSaisi } from "@/src/lib/coutMoyen";
 
 /**
  * Un champ `datetime-local` rend « 2026-10-12T08:00 » — sans fuseau. On le
@@ -251,12 +252,18 @@ export async function passerMouvement(
     return { erreur: "Le stock compté est déjà celui de la fiche : rien à ajuster.", champ: "quantite", valeurs };
   }
 
+  // Une entrée porte son coût d'achat HT unitaire ; vide, elle passe quand
+  // même — l'historique la signale « coût non renseigné ».
+  const cout = type === "entree" ? lireCoutSaisi(formData.get("cout_unitaire")) : { cout: null };
+  if (cout.refus) return { erreur: cout.refus, champ: "cout_unitaire", valeurs };
+
   const res = await enregistrerMouvement({
     article_id: articleId,
     type,
     quantite,
     motif,
     date_peremption: (formData.get("date_peremption") as string) || null,
+    cout_unitaire: cout.cout,
     user_id: g.userId ?? null,
   });
   if (res.error) {
@@ -264,7 +271,12 @@ export async function passerMouvement(
   }
 
   revalider(perimetre, `/boutique/articles/${articleId}`, "/atelier/entrees");
-  return { erreur: null, message: "Mouvement enregistré." };
+  return {
+    erreur: null,
+    message: type === "entree" && cout.cout === null
+      ? "Entrée enregistrée — coût non renseigné : elle ne compte pas dans le coût moyen."
+      : "Mouvement enregistré.",
+  };
 }
 
 /**
@@ -335,17 +347,20 @@ export async function entrerStock(
   const gDepense = await garde(perimetreDepense);
   if (gDepense.erreur) return { erreur: gDepense.erreur };
 
-  const lignes: { article_id: string; quantite: number; date_peremption?: string | null }[] = [];
+  const lignes: { article_id: string; quantite: number; date_peremption?: string | null; cout_unitaire: number | null }[] = [];
   for (const [cle, brut] of formData.entries()) {
     if (!cle.startsWith("quantite_")) continue;
     const article_id = cle.slice("quantite_".length);
     if (formData.get(`article_${article_id}`) !== "on") continue;
     const quantite = lireNombre(brut);
     if (quantite === null || quantite <= 0) continue;
+    const cout = lireCoutSaisi(formData.get(`cout_${article_id}`));
+    if (cout.refus) return { erreur: cout.refus };
     lignes.push({
       article_id,
       quantite,
       date_peremption: (formData.get(`peremption_${article_id}`) as string) || null,
+      cout_unitaire: cout.cout,
     });
   }
 
@@ -362,9 +377,11 @@ export async function entrerStock(
   for (const p of new Set([perimetreDepense, ...g.perimetres])) {
     revalider(p, `/comptabilite/depenses/${depenseId}`, "/atelier/entrees");
   }
+  const sansCout = lignes.filter((l) => l.cout_unitaire === null).length;
   return {
     erreur: null,
-    message: `${res.entrees} entrée${res.entrees > 1 ? "s" : ""} en stock enregistrée${res.entrees > 1 ? "s" : ""}.`,
+    message: `${res.entrees} entrée${res.entrees > 1 ? "s" : ""} en stock enregistrée${res.entrees > 1 ? "s" : ""}.`
+      + (sansCout > 0 ? ` Coût non renseigné sur ${sansCout} ligne${sansCout > 1 ? "s" : ""}.` : ""),
   };
 }
 

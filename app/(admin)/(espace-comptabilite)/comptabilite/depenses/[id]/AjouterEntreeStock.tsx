@@ -18,9 +18,12 @@ export default function AjouterEntreeStock({
   depenseId,
   articles,
   privilegie,
+  montantDepenseHt,
 }: {
   depenseId: string;
   articles: ArticleEntree[];
+  /** Montant HT de la dépense : base du coût unitaire proposé s'il n'y a qu'un article. */
+  montantDepenseHt?: number | null;
   /** Ce que la catégorie de la dépense rend probable. */
   privilegie?: Privilegie;
 }) {
@@ -73,7 +76,7 @@ export default function AjouterEntreeStock({
     <form action={action} style={{ display: "grid", gap: 14 }}>
       <AlerteFormulaire etat={etat} />
       <EntreeEnStock articles={articles} lignes={lignes} onChange={setLignes}
-        privilegie={privilegie} />
+        privilegie={privilegie} montantDepenseHt={montantDepenseHt} />
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <button

@@ -363,6 +363,24 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           {perms.perm_clients_modifier && (
             <Bouton variante="principal" href={`/clients/${client.id}/modifier`}>✏️ Modifier le client</Bouton>
           )}
+          {/* La fiche de locataire n'avait aucune porte depuis la fiche client. */}
+          {perms.perm_prestations && (
+            <Bouton variante="secondaire" href={`/prestations/locataires/${client.id}`}>
+              {client.locataire_box ? (
+                <>
+                  🏠 Fiche de locataire
+                  <span style={{
+                    marginLeft: 8, fontSize: 12, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+                    background: "#E4E7F0", color: "#1B2B5E",
+                  }}>
+                    Box {client.box_loue ?? "—"}
+                  </span>
+                </>
+              ) : (
+                "🏠 Locataire de box"
+              )}
+            </Bouton>
+          )}
           {perms.isAdmin && <BoutonArchiverClient id={client.id} actif={client.actif} />}
           {perms.isAdmin && <BoutonSupprimerClient id={client.id} nom={`${client.prenom} ${client.nom}`} />}
           <Bouton variante="secondaire" href="/clients">← Retour à la liste</Bouton>

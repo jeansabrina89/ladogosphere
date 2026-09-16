@@ -7,6 +7,7 @@ import { aujourdhuiISO, formatDateFR } from "@/src/lib/dates";
 import { listeLocataires } from "@/src/lib/prestationsDb";
 import { MENTION_HORS_PENSION } from "@/src/lib/prestationsLogique";
 import { bornesDuMois } from "@/src/lib/factureLocataireLogique";
+import AjouterLocataire from "./AjouterLocataire";
 
 export const dynamic = "force-dynamic";
 
@@ -69,10 +70,16 @@ export default async function LocatairesPage() {
           sousTitre={`${locataires.length} locataire(s) · montants du mois en cours`}
         />
 
+        {/* La porte d'entrée : un client qui n'est pas encore coché n'apparaît
+            pas dans la liste, il faut pouvoir le chercher. */}
+        <div style={{ marginBottom: 16 }}>
+          <AjouterLocataire />
+        </div>
+
         {locataires.length === 0 ? (
           <EtatVide
             titre="Aucun locataire de box"
-            message="Cochez « locataire de box » sur une fiche client pour lui ouvrir le catalogue."
+            message="Ajoutez un locataire : cherchez le client, puis cochez « Locataire de box » sur sa fiche de locataire."
           />
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 10 }}>

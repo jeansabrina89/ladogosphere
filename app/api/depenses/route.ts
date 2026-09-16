@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { deposerPiece } from "@/src/lib/pieces";
 import { validerDepense } from "@/src/lib/depenses";
 import { entrerStockDepuisDepense, type LigneEntreeStock } from "@/src/lib/boutique";
+import { lireCoutSaisi } from "@/src/lib/coutMoyen";
 import {
   COMPTES_DEPENSE,
   MODES_PAIEMENT,
@@ -118,6 +119,8 @@ function lireEntrees(brut: FormDataEntryValue | null): LigneEntreeStock[] {
         article_id: String(l?.article_id ?? ""),
         quantite: Number(String(l?.quantite ?? "").replace(",", ".")),
         date_peremption: l?.date_peremption ? String(l.date_peremption) : null,
+        // Coût unitaire HT saisi (ou proposé) ; vide ou illisible : non renseigné.
+        cout_unitaire: lireCoutSaisi(l?.cout_unitaire).cout,
       }))
       .filter((l) => l.article_id && Number.isFinite(l.quantite) && l.quantite > 0);
   } catch {

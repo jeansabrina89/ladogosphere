@@ -126,7 +126,7 @@ describe("navigation secondaire", () => {
 
 describe("champs réservés du catalogue", () => {
   it("nomme ce que le comptoir ne reçoit jamais", () => {
-    expect([...CHAMPS_RESERVES_GESTION].sort()).toEqual(["fournisseur_id", "prix_achat"]);
+    expect([...CHAMPS_RESERVES_GESTION].sort()).toEqual(["cout_moyen", "fournisseur_id", "prix_achat"]);
   });
 
   it("ne les demande pas au SELECT de la vente — le filtrage est côté serveur", () => {

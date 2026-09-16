@@ -6,6 +6,8 @@ import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import { TYPES_EMAIL_TEST } from "@/src/lib/emailsDeTest";
 import { LIBELLE_AVIS_GOOGLE } from "@/src/lib/avisGoogle";
+import { usePathname, useRouter } from "next/navigation";
+import { ONGLETS_EMAILS, requeteOnglet, type OngletEmails } from "@/src/lib/ongletsEmails";
 
 type Champs = {
   sujet: string;
@@ -624,6 +626,7 @@ export default function GestionEmails({
   campagnes = [],
   emailAdmin = "",
   avisGoogleUrl = "",
+  ongletInitial = "modeles",
 }: {
   emails: EmailModele[];
   campagnes?: Campagne[];
@@ -631,8 +634,19 @@ export default function GestionEmails({
   emailAdmin?: string;
   /** Lien d'avis Google enregistré, vide s'il n'y en a pas. */
   avisGoogleUrl?: string;
+  /** L'onglet lu dans l'adresse (?onglet=…). */
+  ongletInitial?: OngletEmails;
 }) {
-  const [onglet, setOnglet] = useState<"modeles" | "message">("modeles");
+  const [onglet, setOnglet] = useState<OngletEmails>(ongletInitial);
+  const router = useRouter();
+  const chemin = usePathname();
+
+  // L'onglet actif se garde dans l'adresse : un lien direct rouvre le bon, et
+  // le retour arrière du navigateur ne perd pas la place.
+  function choisir(o: OngletEmails) {
+    setOnglet(o);
+    router.replace(`${chemin}${requeteOnglet(o)}`, { scroll: false });
+  }
 
   const ongletStyle = (actif: boolean): React.CSSProperties => ({
     background: "transparent",
@@ -652,27 +666,35 @@ export default function GestionEmails({
         sousTitre="Personnalisez les emails automatiques et envoyez un message à vos clients."
       />
 
-      <EnvoiDeTest emailAdmin={emailAdmin} />
-
-      <LienAvisGoogle valeurInitiale={avisGoogleUrl} />
-
-      <div style={{ display: "flex", gap: "20px", borderBottom: "1px solid #EDE8DF", margin: "0 0 20px 0" }}>
-        <button type="button" style={ongletStyle(onglet === "modeles")} onClick={() => setOnglet("modeles")}>
-          Modèles automatiques
-        </button>
-        <button type="button" style={ongletStyle(onglet === "message")} onClick={() => setOnglet("message")}>
-          Message aux membres
-        </button>
+      <div role="tablist" aria-label="Réglages des e-mails"
+        style={{ display: "flex", gap: "20px", flexWrap: "wrap", borderBottom: "1px solid #EDE8DF", margin: "0 0 20px 0" }}>
+        {ONGLETS_EMAILS.map((o) => (
+          <button key={o.valeur} type="button" role="tab" aria-selected={onglet === o.valeur}
+            style={ongletStyle(onglet === o.valeur)} onClick={() => choisir(o.valeur)}>
+            {o.libelle}
+          </button>
+        ))}
       </div>
 
-      {onglet === "modeles" ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          {emails.map((email) => (
-            <CarteEmail key={email.type} email={email} />
-          ))}
+      {onglet === "modeles" && (
+        <div role="tabpanel">
+          <LienAvisGoogle valeurInitiale={avisGoogleUrl} />
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {emails.map((email) => (
+              <CarteEmail key={email.type} email={email} />
+            ))}
+          </div>
         </div>
-      ) : (
-        <MessageMembres campagnes={campagnes} />
+      )}
+      {onglet === "message" && (
+        <div role="tabpanel">
+          <MessageMembres campagnes={campagnes} />
+        </div>
+      )}
+      {onglet === "test" && (
+        <div role="tabpanel">
+          <EnvoiDeTest emailAdmin={emailAdmin} />
+        </div>
       )}
     </div>
   );

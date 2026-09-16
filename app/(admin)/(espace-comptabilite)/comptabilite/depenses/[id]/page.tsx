@@ -28,6 +28,7 @@ import {
   FormAnnulation,
   BoutonSupprimerBrouillon,
 } from "./ActionsDepense";
+import { formatCoutUnitaire } from "@/src/lib/coutMoyen";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,7 @@ export default async function DepensePage({
   const { data: depense } = await supabaseAdmin
     .from("depenses")
     .select(`
-      id, numero, date_depense, libelle, montant, compte_charge, mode_paiement, date_paiement,
+      id, numero, date_depense, libelle, montant, montant_ht, compte_charge, mode_paiement, date_paiement,
       statut, exercice, ecriture_id, ecriture_paiement_id, motif_annulation, created_at,
       fournisseurs (id, nom)
     `)
@@ -103,7 +104,7 @@ export default async function DepensePage({
         .filter((a) => accesStockAccorde(acces.permissions, perimetreDeArticle(a), "gestion"))
         .map((a) => ({
           id: a.id, nom: a.nom, reference: a.reference, unite: a.unite,
-          categorie: a.categorie, composant: a.composant,
+          categorie: a.categorie, composant: a.composant, prix_achat: a.prix_achat,
         }))
     : [];
 
@@ -195,6 +196,10 @@ export default async function DepensePage({
                       <span style={{ color: sousTexte }}>
                         {" "}— {libelleMouvement(m.type)} de {formatQuantite(m.quantite)} {article?.unite ?? ""}
                         {m.date_peremption ? ` · à consommer avant le ${formatDateFR(m.date_peremption)}` : ""}
+                        {" · "}
+                        <span style={{ color: m.cout_unitaire === null ? "#A8453A" : sousTexte }}>
+                          {m.cout_unitaire === null ? "coût non renseigné" : `${formatCoutUnitaire(m.cout_unitaire)} l'unité`}
+                        </span>
                       </span>
                     </li>
                   );
@@ -204,6 +209,7 @@ export default async function DepensePage({
 
             {articlesEntree.length > 0 && !estBrouillon ? (
               <AjouterEntreeStock depenseId={id} articles={articlesEntree}
+                montantDepenseHt={Number(depense.montant_ht ?? depense.montant)}
                 privilegie={estMatieres ? "composants" : "vendables"} />
             ) : (
               mouvements.length === 0 && (

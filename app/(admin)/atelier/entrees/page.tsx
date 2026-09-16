@@ -3,6 +3,7 @@ import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { formatDateFR } from "@/src/lib/dates";
 import { formatQuantite, libelleMouvement } from "@/src/lib/boutiqueLogique";
+import { formatCoutUnitaire } from "@/src/lib/coutMoyen";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
@@ -38,7 +39,7 @@ export default async function EntreesAtelierPage() {
   const { data: mouvements } = parId.size > 0
     ? await supabaseAdmin
         .from("mouvements_stock")
-        .select("id, article_id, type, quantite, quantite_apres, motif, depense_id, created_at")
+        .select("id, article_id, type, quantite, quantite_apres, motif, depense_id, cout_unitaire, created_at")
         .in("article_id", [...parId.keys()])
         .eq("type", "entree")
         .order("created_at", { ascending: false })
@@ -48,7 +49,7 @@ export default async function EntreesAtelierPage() {
   const lignes = (mouvements ?? []) as unknown as {
     id: string; article_id: string; type: string; quantite: number | string;
     quantite_apres: number | string | null; motif: string | null;
-    depense_id: string | null; created_at: string;
+    depense_id: string | null; cout_unitaire: number | string | null; created_at: string;
   }[];
 
   return (
@@ -83,6 +84,7 @@ export default async function EntreesAtelierPage() {
                     <th className="py-2 font-medium">Fourniture</th>
                     <th className="py-2 font-medium text-right">Quantité</th>
                     <th className="py-2 font-medium text-right">Stock après</th>
+                    <th className="py-2 font-medium text-right">Coût unitaire HT</th>
                     <th className="py-2 font-medium">Origine</th>
                   </tr>
                 </thead>
@@ -105,6 +107,9 @@ export default async function EntreesAtelierPage() {
                         </td>
                         <td className="py-2 text-right" style={{ color: SOUS, whiteSpace: "nowrap" }}>
                           {m.quantite_apres !== null ? formatQuantite(m.quantite_apres) : "—"}
+                        </td>
+                        <td className="py-2 text-right" style={{ color: m.cout_unitaire === null ? "#A8453A" : SOUS, whiteSpace: "nowrap" }}>
+                          {formatCoutUnitaire(m.cout_unitaire)}
                         </td>
                         <td className="py-2" style={{ color: SOUS }}>
                           {m.depense_id ? (

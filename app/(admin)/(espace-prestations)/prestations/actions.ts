@@ -14,7 +14,7 @@ import {
   unitePrestation,
 } from "@/src/lib/prestationsLogique";
 import { datesDe } from "@/src/lib/prestationsLogique";
-import { gardeQuiChevauche, regenererAbonnement } from "@/src/lib/prestationsDb";
+import { chercherClientsLocation, gardeQuiChevauche, regenererAbonnement } from "@/src/lib/prestationsDb";
 
 /**
  * Les gestes de l'espace Prestations.
@@ -346,4 +346,14 @@ export async function enregistrerLocataire(formData: FormData): Promise<Resultat
   revalidatePath(`/prestations/locataires/${clientId}`);
   revalidatePath("/prestations/locataires");
   return { ok: true };
+}
+
+/**
+ * La recherche de « + Ajouter un locataire » : voir, c'est perm_prestations ;
+ * enregistrer passe ensuite par enregistrerLocataire et sa garde de facturation.
+ */
+export async function chercherClientsPourLocation(q: string) {
+  const verif = await verifierPermission("perm_prestations");
+  if (verif.error) return [];
+  return chercherClientsLocation(String(q ?? ""));
 }

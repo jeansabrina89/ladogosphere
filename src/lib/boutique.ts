@@ -12,6 +12,7 @@ import {
 } from "@/src/lib/boutiqueLogique";
 import { PERIMETRES, type PerimetreStock } from "@/src/lib/perimetreStock";
 import { disponibleDe } from "@/src/lib/alertesStockLogique";
+import { coutMatieres, type ChoixAvecFourniture } from "@/src/lib/coutMoyen";
 
 /**
  * Boutique — couche base. Elle ne décide rien : les règles viennent de
@@ -33,6 +34,8 @@ export type Article = {
   secteur_tdfn: string | null;
   prix_vente: number | string;
   prix_achat: number | string | null;
+  /** Coût moyen pondéré des unités en stock, tenu par le trigger du stock. */
+  cout_moyen: number | string | null;
   stock_actuel: number | string;
   stock_alerte: number | string | null;
   unite: string;
@@ -62,6 +65,8 @@ export type MouvementStock = {
   depense_id: string | null;
   vente_id: string | null;
   date_peremption: string | null;
+  /** Coût d'achat HT d'une unité, sur une entrée. Null : coût non renseigné. */
+  cout_unitaire: number | string | null;
   user_id: string | null;
   created_at: string;
 };
@@ -79,11 +84,11 @@ const COLONNES_ARTICLE_VENTE = colonnesArticle("vente");
  * pas à null. Absents — pour qu'une lecture distraite ne les prenne pas pour
  * « zéro » ou « aucun fournisseur ».
  */
-export type ArticleVente = Omit<Article, "prix_achat" | "fournisseur_id">;
+export type ArticleVente = Omit<Article, "prix_achat" | "cout_moyen" | "fournisseur_id">;
 
 const COLONNES_MOUVEMENT = `
   id, article_id, type, quantite, quantite_apres, motif, depense_id, vente_id,
-  date_peremption, user_id, created_at
+  date_peremption, cout_unitaire, user_id, created_at
 `;
 
 export async function lireArticle(id: string): Promise<Article | null> {
@@ -180,6 +185,8 @@ export async function enregistrerMouvement(m: {
   motif?: string | null;
   depense_id?: string | null;
   date_peremption?: string | null;
+  /** Coût d'achat HT d'une unité — seulement sur une entrée ; vide = non renseigné. */
+  cout_unitaire?: number | null;
   user_id?: string | null;
 }): Promise<ResultatMouvement> {
   const article = await lireArticle(m.article_id);
@@ -209,6 +216,10 @@ export async function enregistrerMouvement(m: {
       motif: m.motif?.trim() || null,
       depense_id: m.depense_id ?? null,
       date_peremption: m.date_peremption || null,
+      // Le trigger du stock repondère le coût moyen et met à jour le dernier
+      // prix d'achat. Un coût ne se pose que sur une entrée.
+      cout_unitaire: m.type === "entree" && m.cout_unitaire !== null && m.cout_unitaire !== undefined
+        ? m.cout_unitaire : null,
       user_id: m.user_id ?? null,
     })
     .select("id, quantite_apres")
@@ -253,6 +264,8 @@ export type LigneEntreeStock = {
   article_id: string;
   quantite: number;
   date_peremption?: string | null;
+  /** Coût d'achat HT d'une unité. Null : l'entrée passe, « coût non renseigné ». */
+  cout_unitaire?: number | null;
 };
 
 /**
@@ -280,6 +293,7 @@ export async function entrerStockDepuisDepense(
       quantite,
       depense_id: depenseId,
       date_peremption: ligne.date_peremption ?? null,
+      cout_unitaire: ligne.cout_unitaire ?? null,
       user_id: userId ?? null,
     });
     if (res.error) erreurs.push(res.error);
@@ -367,4 +381,21 @@ export async function lireChiffresBoutique(jourISO: string, niveau: NiveauCatalo
     articles: (articles ?? []) as never,
     jourISO,
   });
+}
+
+/**
+ * Le coût des matières d'une pièce sur mesure, depuis ses fournitures et leur
+ * coût moyen du moment. Null s'il n'est pas calculable : l'écran dira « coût non
+ * renseigné », il n'invente rien.
+ */
+export async function coutMatieresDeChoix(choix: ChoixAvecFourniture[]): Promise<number | null> {
+  const ids = [...new Set(choix.map((c) => c.composant_article_id).filter((x): x is string => !!x))];
+  if (ids.length === 0) return null;
+  const { data, error } = await supabaseAdmin.from("articles").select("id, cout_moyen").in("id", ids);
+  if (error) return null;
+  const couts = new Map(
+    ((data ?? []) as { id: string; cout_moyen: number | string | null }[])
+      .map((a) => [a.id, a.cout_moyen === null ? null : Number(a.cout_moyen)])
+  );
+  return coutMatieres(choix, couts);
 }

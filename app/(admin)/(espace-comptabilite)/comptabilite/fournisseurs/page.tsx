@@ -6,13 +6,27 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
+import {
+  USAGES,
+  basculerUsage,
+  fournisseurRetenu,
+  infoUsage,
+  lireUsages,
+  usageDuCompte,
+} from "@/src/lib/usagesFournisseurs";
 
 export const dynamic = "force-dynamic";
 
 const chf = (n: number) => `${n.toFixed(2)} CHF`;
 
-export default async function FournisseursPage() {
+export default async function FournisseursPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ usages?: string | string[] }>;
+}) {
   await exigerAccesAdmin("perm_depenses");
+  // Pastilles cochables : union des usages cochés, rien de coché = tout.
+  const coches = lireUsages((await searchParams).usages);
 
   const [{ data: fournisseurs }, { data: depenses }] = await Promise.all([
     supabaseAdmin
@@ -34,7 +48,8 @@ export default async function FournisseursPage() {
     totaux.set(id, t);
   }
 
-  const liste = fournisseurs ?? [];
+  const tous = fournisseurs ?? [];
+  const liste = tous.filter((f) => fournisseurRetenu(f.compte_charge_defaut as string | null, coches));
   const marine = "#1B2B5E";
   const sousTexte = "rgba(27,43,94,0.55)";
   const bordure = "1px solid rgba(27,43,94,0.12)";
@@ -44,7 +59,9 @@ export default async function FournisseursPage() {
       <div className="max-w-4xl mx-auto">
         <EnTete
           titre="🏢 Fournisseurs"
-          sousTitre={`${liste.length} fiche${liste.length > 1 ? "s" : ""}`}
+          sousTitre={coches.length === 0
+            ? `${tous.length} fiche${tous.length > 1 ? "s" : ""}`
+            : `${liste.length} fiche${liste.length > 1 ? "s" : ""} sur ${tous.length}`}
           action={
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <Bouton href="/comptabilite/fournisseurs/nouveau" variante="principal">+ Fournisseur</Bouton>
@@ -53,7 +70,41 @@ export default async function FournisseursPage() {
           }
         />
 
-        {liste.length === 0 ? (
+        <nav aria-label="Filtrer par usage" style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "0 0 14px" }}>
+          {USAGES.map((u) => {
+            const actif = coches.includes(u.valeur);
+            return (
+              <Link
+                key={u.valeur}
+                href={`/comptabilite/fournisseurs${basculerUsage(coches, u.valeur)}`}
+                aria-pressed={actif}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6, minHeight: 36, padding: "0 12px",
+                  borderRadius: 999, fontSize: 13, fontWeight: 600, textDecoration: "none",
+                  backgroundColor: actif ? u.texte : u.fond, color: actif ? "#FFFFFF" : u.texte,
+                  border: `1px solid ${u.texte}`,
+                }}
+              >
+                {actif ? "✓ " : ""}{u.libelle}
+              </Link>
+            );
+          })}
+          {coches.length > 0 && (
+            <Link href="/comptabilite/fournisseurs" style={{ alignSelf: "center", fontSize: 13, color: sousTexte }}>
+              Tout afficher
+            </Link>
+          )}
+        </nav>
+
+        {tous.length > 0 && liste.length === 0 ? (
+          <Carte>
+            <EtatVide
+              icone="🏢"
+              titre="Aucun fournisseur pour cet usage"
+              message="Décochez une pastille, ou renseignez la catégorie habituelle d'un fournisseur."
+            />
+          </Carte>
+        ) : liste.length === 0 ? (
           <Carte>
             <EtatVide
               icone="🏢"
@@ -86,6 +137,17 @@ export default async function FournisseursPage() {
                           {!f.actif && (
                             <span style={{ color: sousTexte, fontSize: 12 }}> — désactivé</span>
                           )}
+                          {(() => {
+                            const u = infoUsage(usageDuCompte(f.compte_charge_defaut as string | null));
+                            return (
+                              <span style={{
+                                display: "inline-block", marginLeft: 8, fontSize: 11, fontWeight: 600,
+                                padding: "1px 8px", borderRadius: 999, backgroundColor: u.fond, color: u.texte,
+                              }}>
+                                {u.libelle}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="py-2" style={{ color: sousTexte }}>{(f.localite as string) ?? "—"}</td>
                         <td className="py-2" style={{ color: sousTexte }}>

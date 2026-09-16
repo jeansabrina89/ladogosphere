@@ -406,12 +406,12 @@ export type NiveauCatalogue = "vente" | "gestion";
 /**
  * Les champs d'un article réservés à la gestion.
  *
- * Le prix d'achat et le fournisseur sont des données de négociation : elles ne
- * regardent pas le comptoir, et une marge lue à voix haute devant un client
- * est un incident. Ils sont nommés ici, une fois, pour que le SELECT et les
- * tests parlent de la même liste.
+ * Le prix d'achat, le coût moyen et le fournisseur sont des données de
+ * négociation : elles ne regardent pas le comptoir, et une marge lue à voix
+ * haute devant un client est un incident. Ils sont nommés ici, une fois, pour
+ * que le SELECT et les tests parlent de la même liste.
  */
-export const CHAMPS_RESERVES_GESTION = ["prix_achat", "fournisseur_id"] as const;
+export const CHAMPS_RESERVES_GESTION = ["prix_achat", "cout_moyen", "fournisseur_id"] as const;
 
 const COLONNES_COMMUNES = `
   id, reference, nom, description, categorie, marque, taux_tva, secteur_tdfn,

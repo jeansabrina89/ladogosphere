@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import EnTete from "@/app/components/ui/EnTete";
 import { aujourdhuiISO, formatDateFR } from "@/src/lib/dates";
 import {
+  clientPourLocation,
   ficheLocataire,
   loyerPayeDuMois,
   tachesDuClient,
@@ -16,6 +17,7 @@ import {
 } from "@/src/lib/prestationsLogique";
 import { bornesDuMois, libelleMois, proratLoyer } from "@/src/lib/factureLocataireLogique";
 import FicheLocataireForms, { type LignePerso } from "./FicheLocataire";
+import FormLocation from "./FormLocation";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +41,46 @@ export default async function FicheLocatairePage({
   const { id } = await params;
 
   const fiche = await ficheLocataire(id);
-  if (!fiche) notFound();
+  if (!fiche) {
+    // Pas (encore) locataire : la fiche s'ouvre quand même, sur la seule
+    // location, case décochée. Rien du catalogue n'en sort tant qu'elle ne
+    // l'est pas — c'est ficheLocataire qui garde cette porte.
+    const client = await clientPourLocation(id);
+    if (!client) notFound();
+    const peutEnregistrer = acces.isAdmin || acces.permissions.perm_encaissements === true;
+    return (
+      <main className="min-h-screen px-4 py-6 md:px-8 md:py-8" style={{ backgroundColor: "#F5F0E8" }}>
+        <div style={{ maxWidth: 860, margin: "0 auto", minWidth: 0 }}>
+          <EnTete
+            titre={`🏠 ${client.prenom ?? ""} ${client.nom ?? ""}`.trim()}
+            sousTitre="Fiche de locataire · pas encore locataire de box"
+          />
+          <p style={{ color: SOUS, fontSize: 14, margin: "0 0 16px" }}>
+            Cochez « Locataire de box » et enregistrez pour lui ouvrir les prestations.{" "}
+            <Link href={`/clients/${client.id}`} style={{ color: MARINE, fontWeight: 600 }}>Fiche client</Link>
+          </p>
+          {peutEnregistrer ? (
+            <FormLocation
+              client={{
+                id: client.id,
+                prenom: client.prenom,
+                nom: client.nom,
+                box_loue: client.box_loue,
+                loyer_refacture: client.loyer_refacture === null ? null : Number(client.loyer_refacture),
+                locataire_depuis: client.locataire_depuis,
+                locataire_jusqu_au: client.locataire_jusqu_au,
+              }}
+              locataire={client.locataire_box === true}
+            />
+          ) : (
+            <p style={{ color: SOUS, fontSize: 13 }}>
+              Faire d&apos;un client un locataire demande la permission des encaissements.
+            </p>
+          )}
+        </div>
+      </main>
+    );
+  }
 
   const { client, abonnement } = fiche;
   const jour = aujourdhuiISO();

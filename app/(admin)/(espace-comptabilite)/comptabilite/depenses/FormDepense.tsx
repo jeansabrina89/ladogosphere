@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import EntreeEnStock, { type ArticleEntree, type LigneEntree } from "@/app/components/EntreeEnStock";
+import EntreeEnStock, { coutDeLigne, type ArticleEntree, type LigneEntree } from "@/app/components/EntreeEnStock";
 import {
   CATEGORIES_DEPENSE,
   MODES_PAIEMENT,
@@ -75,6 +75,9 @@ export default function FormDepense({
   const [fournisseurId, setFournisseurId] = useState("");
   const [libelle, setLibelle] = useState("");
   const [montant, setMontant] = useState("");
+  // La TVA des dépenses n'est pas suivie : le montant saisi tient lieu de HT
+  // pour proposer le coût unitaire d'une entrée en stock.
+  const montantHt = Number(montant.replace(",", ".")) > 0 ? Number(montant.replace(",", ".")) : null;
   const [compte, setCompte] = useState("");
   const [mode, setMode] = useState("banque");
   const [fichier, setFichier] = useState<File | null>(null);
@@ -135,6 +138,11 @@ export default function FormDepense({
           article_id,
           quantite: l.quantite,
           date_peremption: l.peremption || null,
+          // Le coût tel qu'affiché : la saisie, sinon la proposition.
+          cout_unitaire: (() => {
+            const article = articles.find((a) => a.id === article_id);
+            return article ? coutDeLigne(article, l, { montantDepenseHt: montantHt, nbLignes: Object.keys(entrees).length }) : "";
+          })(),
         }))
       ));
     }
@@ -251,6 +259,7 @@ export default function FormDepense({
               lignes={entrees}
               onChange={setEntrees}
               privilegie={compte === COMPTE_MATIERES ? "composants" : "vendables"}
+              montantDepenseHt={montantHt}
             />
           </div>
         )}

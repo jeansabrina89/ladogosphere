@@ -41,6 +41,7 @@ export default async function NouvelleDepensePage() {
             .map((a) => ({
               id: a.id, nom: a.nom, reference: a.reference,
               unite: a.unite, categorie: a.categorie, composant: a.composant,
+              prix_achat: a.prix_achat,
             })) as ArticleEntree[]}
         />
       </div>

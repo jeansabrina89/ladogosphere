@@ -7,7 +7,7 @@ import { verifierPermissionBoutique } from "@/src/lib/permissions";
 // la facture d'un client n'est pas le même geste que d'encaisser au comptoir.
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { aujourdhuiISO } from "@/src/lib/dates";
-import { lireArticle } from "@/src/lib/boutique";
+import { lireArticle, coutMatieresDeChoix } from "@/src/lib/boutique";
 import { factureCibleClient } from "@/src/lib/caisse";
 import {
   encaissementVente,
@@ -112,6 +112,9 @@ export async function commanderSurMesure(entree: {
     prix_unitaire: prix,
     taux_tva: Number(article.taux_tva),
     montant: prix,
+    // Un article personnalisable ne tient pas de stock : son coût est celui de
+    // ses matières, s'il est calculable — sinon null, « coût non renseigné ».
+    cout_unitaire_fige: await coutMatieresDeChoix(choixFiges),
   };
 
   const res = await creerCommande({

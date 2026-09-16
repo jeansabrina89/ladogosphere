@@ -3,6 +3,8 @@ import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { lireChiffresBoutique } from "@/src/lib/boutique";
 import { aujourdhuiISO, formatDateFR } from "@/src/lib/dates";
 import { debutDuMois } from "@/src/lib/tableauBoutique";
+import { statistiquesBoutique } from "@/src/lib/statistiquesBoutique";
+import { bornesPeriode } from "@/src/lib/statistiquesBoutiqueLogique";
 import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
 
@@ -78,6 +80,10 @@ export default async function BoutiquePage() {
 
   const jour = aujourdhuiISO();
   const c = await lireChiffresBoutique(jour, gestion ? "gestion" : "vente");
+  // La marge est une donnée de gestion : elle n'est ni calculée ni montrée au comptoir.
+  const mois = gestion
+    ? await statistiquesBoutique({ ...bornesPeriode("mois", jour), canal: "tous", vendeuse: null }, false)
+    : null;
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -111,6 +117,17 @@ export default async function BoutiquePage() {
             valeur={chf(c.ventesMoisTotal)}
             detail={`Depuis le ${formatDateFR(debutDuMois(jour))}`}
           />
+
+          {mois && (
+            <Tuile
+              href="/boutique/statistiques?periode=mois"
+              titre="Ce mois"
+              valeur={`CA ${chf(mois.totaux.caTtc)}`}
+              detail={mois.totaux.marge === null
+                ? "marge : coût non renseigné"
+                : `marge ${chf(mois.totaux.marge)}${mois.couverture.lignesSansCout > 0 ? ` (sur ${mois.couverture.pourcentage ?? 0} % des ventes)` : ""}`}
+            />
+          )}
 
           <Tuile
             href="/boutique/ventes?mode=especes"

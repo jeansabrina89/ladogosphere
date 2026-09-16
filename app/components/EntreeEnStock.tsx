@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { estPerissable } from "@/src/lib/boutiqueLogique";
+import { estPerissable, lireNombre } from "@/src/lib/boutiqueLogique";
+import { coutUnitairePropose } from "@/src/lib/coutMoyen";
 
 export type ArticleEntree = {
   id: string;
@@ -11,12 +12,34 @@ export type ArticleEntree = {
   categorie: string;
   /** Une fourniture qu'on transforme, par opposition à un article revendu. */
   composant?: boolean;
+  /** Dernier prix d'achat connu : la proposition de coût quand la dépense n'en donne pas. */
+  prix_achat?: number | string | null;
 };
 
 /** Ce que la catégorie de dépense rend probable — sans jamais l'imposer. */
 export type Privilegie = "composants" | "vendables";
 
-export type LigneEntree = { quantite: string; peremption: string };
+/**
+ * `cout` n'est retenu que si on l'a tapé (`coutTouche`) : tant qu'on n'y a pas
+ * touché, le champ montre la proposition et la suit quand la quantité change.
+ */
+export type LigneEntree = { quantite: string; peremption: string; cout?: string; coutTouche?: boolean };
+
+/** Le coût affiché — et envoyé — pour une ligne : la saisie, sinon la proposition. */
+export function coutDeLigne(
+  article: ArticleEntree,
+  ligne: LigneEntree,
+  contexte: { montantDepenseHt?: number | null; nbLignes: number },
+): string {
+  if (ligne.coutTouche) return ligne.cout ?? "";
+  const propose = coutUnitairePropose({
+    montantDepenseHt: contexte.montantDepenseHt ?? null,
+    nbArticlesDepense: contexte.nbLignes,
+    quantite: lireNombre(ligne.quantite),
+    prixAchat: article.prix_achat === null || article.prix_achat === undefined ? null : Number(article.prix_achat),
+  });
+  return propose === null ? "" : String(propose);
+}
 
 /**
  * « Entrée en stock » d'une dépense de matières ou de marchandises.
@@ -44,11 +67,17 @@ export default function EntreeEnStock({
   lignes,
   onChange,
   privilegie,
+  montantDepenseHt,
 }: {
   articles: ArticleEntree[];
   lignes: Record<string, LigneEntree>;
   onChange: (lignes: Record<string, LigneEntree>) => void;
   privilegie?: Privilegie;
+  /**
+   * Montant HT de la dépense : si elle ne porte qu'un article, le coût
+   * unitaire proposé est ce montant divisé par la quantité.
+   */
+  montantDepenseHt?: number | null;
 }) {
   const [recherche, setRecherche] = useState("");
 
@@ -79,14 +108,19 @@ export default function EntreeEnStock({
 
   function basculer(id: string, coche: boolean) {
     const suite = { ...lignes };
-    if (coche) suite[id] = { quantite: "", peremption: "" };
+    if (coche) suite[id] = { quantite: "", peremption: "", cout: "", coutTouche: false };
     else delete suite[id];
     onChange(suite);
   }
 
-  function majLigne(id: string, champ: keyof LigneEntree, valeur: string) {
-    onChange({ ...lignes, [id]: { ...lignes[id], [champ]: valeur } });
+  function majLigne(id: string, champ: "quantite" | "peremption" | "cout", valeur: string) {
+    onChange({
+      ...lignes,
+      [id]: { ...lignes[id], [champ]: valeur, ...(champ === "cout" ? { coutTouche: true } : {}) },
+    });
   }
+
+  const nbLignes = Object.keys(lignes).length;
 
   return (
     <div style={{ display: "grid", gap: 12 }}>
@@ -170,6 +204,34 @@ export default function EntreeEnStock({
                         backgroundColor: "#FFFFFF", fontFamily: "inherit", textAlign: "center",
                       }}
                     />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor={`cout_${a.id}`}
+                      style={{ display: "block", fontSize: 12, color: SOUS, marginBottom: 4 }}
+                    >
+                      Coût unitaire HT (CHF)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      id={`cout_${a.id}`}
+                      name={`cout_${a.id}`}
+                      value={coutDeLigne(a, ligne, { montantDepenseHt, nbLignes })}
+                      onChange={(e) => majLigne(a.id, "cout", e.target.value)}
+                      placeholder="à saisir"
+                      style={{
+                        width: 130, minHeight: 48, padding: "10px 12px", border: BORDURE,
+                        borderRadius: 12, fontSize: 16, color: MARINE,
+                        backgroundColor: "#FFFFFF", fontFamily: "inherit", textAlign: "center",
+                      }}
+                    />
+                    {coutDeLigne(a, ligne, { montantDepenseHt, nbLignes }) === "" && (
+                      <span style={{ display: "block", fontSize: 12, color: "#A8453A", marginTop: 4 }}>
+                        coût non renseigné
+                      </span>
+                    )}
                   </div>
 
                   {estPerissable(a.categorie) && (

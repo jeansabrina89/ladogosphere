@@ -299,6 +299,47 @@ export async function ficheLocataire(clientId: string) {
 }
 
 /**
+ * Le client tel que le montre la fiche de locataire AVANT qu'il le soit :
+ * rien d'autre que ce que la case « Locataire de box » enregistre. Aucun
+ * élément du catalogue n'en sort — c'est `ficheLocataire` qui l'ouvre, et
+ * seulement à un locataire.
+ */
+export async function clientPourLocation(clientId: string) {
+  const { data } = await supabaseAdmin
+    .from("clients")
+    .select("id, prenom, nom, locataire_box, box_loue, loyer_refacture, locataire_depuis, locataire_jusqu_au")
+    .eq("id", clientId)
+    .maybeSingle();
+  return (data as {
+    id: string; prenom: string | null; nom: string | null; locataire_box: boolean | null;
+    box_loue: string | null; loyer_refacture: number | string | null;
+    locataire_depuis: string | null; locataire_jusqu_au: string | null;
+  } | null) ?? null;
+}
+
+/** Recherche de clients pour en faire des locataires : le nom, l'adresse, et s'ils le sont déjà. */
+export async function chercherClientsLocation(q: string) {
+  const recherche = q.trim().replace(/[%,()]/g, " ").trim();
+  if (recherche.length < 2) return [];
+  const motif = `%${recherche}%`;
+  const { data } = await supabaseAdmin
+    .from("clients")
+    .select("id, prenom, nom, email, locataire_box, box_loue")
+    .or(`prenom.ilike.${motif},nom.ilike.${motif},email.ilike.${motif}`)
+    .eq("actif", true)
+    .order("nom")
+    .limit(8);
+  return ((data ?? []) as { id: string; prenom: string | null; nom: string | null; email: string | null; locataire_box: boolean | null; box_loue: string | null }[])
+    .map((c) => ({
+      id: c.id,
+      nom: `${c.prenom ?? ""} ${c.nom ?? ""}`.trim() || "Client",
+      email: c.email,
+      locataire: c.locataire_box === true,
+      box: c.box_loue,
+    }));
+}
+
+/**
  * Le loyer réellement payé à la propriétaire sur un mois, lu dans les dépenses.
  *
  * Il s'affiche À CÔTÉ du montant refacturé, jamais à sa place : les deux

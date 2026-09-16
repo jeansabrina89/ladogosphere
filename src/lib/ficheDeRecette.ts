@@ -81,3 +81,12 @@ export function refusRattachementFiche({
   if (estAdresseDeTest(emailCompte)) return null; // recette sur recette : permis
   return MESSAGE_FICHE_DE_RECETTE;
 }
+
+/**
+ * Un article de recette : même marque que les fiches, « ZZ » en tête du nom.
+ * Les statistiques de la boutique l'excluent, comme les ventes à une fiche de
+ * recette — beaucoup de ventes de contrôle au comptoir n'ont pas de client.
+ */
+export function estArticleDeRecette(article: { nom?: string | null } | null | undefined): boolean {
+  return estFicheDeRecette(article ? { nom: article.nom } : null);
+}

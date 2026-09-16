@@ -6,6 +6,8 @@ import { verifierPermissionBoutique } from "@/src/lib/permissions";
 import { envoyerEmailCommandeExpediee } from "@/src/lib/email";
 import { lignesEcritureVente, encaissementVente } from "@/src/lib/caisseLogique";
 import { lireCommande, lignesDeCommande } from "@/src/lib/venteEnLigne";
+import { coutMatieresDeChoix } from "@/src/lib/boutique";
+import { choixDeCommande } from "@/src/lib/personnalisation";
 import { statutSortie, type StatutCommandeLigne } from "@/src/lib/venteEnLigneLogique";
 import type { ModeReglementVente } from "@/src/lib/caisseLogique";
 
@@ -117,7 +119,8 @@ export async function remettreCommande(entree: {
   const lignesVente: {
     article_id: string | null; libelle: string; quantite: number;
     prix_unitaire: number; taux_tva: number; montant: number;
-  }[] = lignes.map((l) => ({
+    cout_unitaire_fige?: number | null;
+  }[] = await Promise.all(lignes.map(async (l) => ({
     // Un article sur mesure ne sort pas du stock : il vient d'être fabriqué.
     article_id: l.article_id,
     libelle: l.libelle,
@@ -125,7 +128,12 @@ export async function remettreCommande(entree: {
     prix_unitaire: Number(l.prix_unitaire),
     taux_tva: Number(l.taux_tva),
     montant: Number(l.montant),
-  }));
+    // Le coût d'un article ordinaire se fige en base (coût moyen) ; celui d'une
+    // pièce sur mesure est le coût de ses matières, s'il est calculable.
+    ...(l.commande_personnalisee_id
+      ? { cout_unitaire_fige: await coutMatieresDeChoix(await choixDeCommande(l.commande_personnalisee_id)) }
+      : {}),
+  })));
 
   const remise = Number(commande.remise_membre ?? 0);
   if (remise > 0) {

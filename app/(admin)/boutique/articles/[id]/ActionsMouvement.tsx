@@ -10,6 +10,7 @@ import {
   lireNombre,
   type TypeMouvement,
 } from "@/src/lib/boutiqueLogique";
+import { coutUnitairePropose } from "@/src/lib/coutMoyen";
 
 /**
  * Les trois gestes du local : une entrée, un comptage, une casse.
@@ -44,11 +45,14 @@ export default function ActionsMouvement({
   stockActuel,
   unite,
   perissable,
+  prixAchat = null,
 }: {
   articleId: string;
   stockActuel: number;
   unite: string;
   perissable: boolean;
+  /** Dernier prix d'achat connu : le coût proposé d'une entrée manuelle. */
+  prixAchat?: number | null;
 }) {
   const [etat, action, enCours] = useActionState<EtatBoutique, FormData>(
     passerMouvement.bind(null, articleId),
@@ -57,12 +61,14 @@ export default function ActionsMouvement({
 
   const [geste, setGeste] = useState<TypeMouvement | null>(null);
   const [quantite, setQuantite] = useState("");
+  const coutPropose = coutUnitairePropose({ quantite: null, prixAchat });
+  const [cout, setCout] = useState(coutPropose === null ? "" : String(coutPropose));
 
   // Après un enregistrement réussi, le formulaire se referme de lui-même.
   const [messageVu, setMessageVu] = useState<string | null | undefined>(etat.message);
   if (etat.message !== messageVu) {
     setMessageVu(etat.message);
-    if (etat.message) { setGeste(null); setQuantite(""); }
+    if (etat.message) { setGeste(null); setQuantite(""); setCout(coutPropose === null ? "" : String(coutPropose)); }
   }
 
   const saisie = lireNombre(quantite);
@@ -140,6 +146,25 @@ export default function ActionsMouvement({
                 required
                 placeholder={geste === "perte" ? "Sac déchiré à la réception" : "Comptage du rayon"}
               />
+            </div>
+          )}
+
+          {geste === "entree" && (
+            <div>
+              <label htmlFor="cout_unitaire" style={etiquette}>Coût unitaire HT (CHF)</label>
+              <input
+                {...marqueChamp(etat, "cout_unitaire", champ)}
+                type="text"
+                inputMode="decimal"
+                value={cout}
+                onChange={(e) => setCout(e.target.value)}
+                placeholder="à saisir"
+              />
+              <p style={{ fontSize: 14, color: cout.trim() === "" ? "#A8453A" : SOUS, margin: "8px 0 0" }}>
+                {cout.trim() === ""
+                  ? "Coût non renseigné : l'entrée passe, mais elle ne compte pas dans le coût moyen."
+                  : "Proposé depuis le dernier prix d'achat, modifiable. Il met à jour le coût moyen et le prix d'achat."}
+              </p>
             </div>
           )}
 

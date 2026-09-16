@@ -24,6 +24,7 @@ import Bouton from "@/app/components/ui/Bouton";
 import ActionsMouvement from "./ActionsMouvement";
 import PhotoArticle from "./PhotoArticle";
 import { libelleSecteur } from "@/src/lib/tvaLogique";
+import { formatCoutUnitaire } from "@/src/lib/coutMoyen";
 
 export const dynamic = "force-dynamic";
 
@@ -201,6 +202,19 @@ export default async function ArticlePage({
               }
             />
           )}
+          {gestion && (
+            <Ligne
+              cle="Coût moyen"
+              valeur={
+                <>
+                  {(article as Article).cout_moyen === null ? "—" : chf(Number((article as Article).cout_moyen))}
+                  <span style={{ display: "block", fontSize: 12, fontWeight: 400, color: sousTexte }}>
+                    Pondéré sur les entrées chiffrées ; c&apos;est lui qui se fige à chaque vente.
+                  </span>
+                </>
+              }
+            />
+          )}
           <Ligne cle="Seuil d'alerte" valeur={Number(article.stock_alerte ?? 0) > 0 ? `${formatQuantite(article.stock_alerte)} ${article.unite}` : "—"} />
           {gestion && (
             <Ligne
@@ -271,6 +285,7 @@ export default async function ArticlePage({
               stockActuel={stock}
               unite={article.unite}
               perissable={estPerissable(article.categorie)}
+              prixAchat={(article as Article).prix_achat === null ? null : Number((article as Article).prix_achat)}
             />
           </Carte>
         ) : (
@@ -324,6 +339,12 @@ export default async function ArticlePage({
                                 </Link>
                               )}
                               {m.date_peremption && ` · à consommer avant le ${formatDateFR(m.date_peremption)}`}
+                            </span>
+                          )}
+                          {/* Le coût d'achat est une donnée de gestion : le comptoir ne le voit pas. */}
+                          {gestion && m.type === "entree" && (
+                            <span style={{ display: "block", fontSize: 12, color: m.cout_unitaire === null ? "#A8453A" : sousTexte }}>
+                              {m.cout_unitaire === null ? "coût non renseigné" : `${formatCoutUnitaire(m.cout_unitaire)} l'unité`}
                             </span>
                           )}
                         </td>

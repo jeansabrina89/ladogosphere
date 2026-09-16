@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import {
   ajouterPrestation,
   attribuerFormule,
-  enregistrerLocataire,
   personnaliserSemaine,
 } from "../../actions";
+import FormLocation from "./FormLocation";
 import { JOURS_SEMAINE, MENTION_GARDE, estGarde } from "@/src/lib/prestationsLogique";
 
 const MARINE = "#1B2B5E";
@@ -205,44 +205,7 @@ export default function FicheLocataire({
       )}
 
       {ouvert === "fiche" && (
-        <form onSubmit={soumettre(enregistrerLocataire)} style={{
-          background: "#FFF", border: "1px solid rgba(27,43,94,.10)",
-          borderRadius: 16, padding: 16, marginBottom: 16,
-        }}>
-          <input type="hidden" name="client_id" value={client.id} />
-          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <input type="checkbox" name="locataire_box" defaultChecked />
-            <span style={{ fontSize: 14, fontWeight: 600, color: MARINE }}>Locataire de box</span>
-          </label>
-          <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-            <div>
-              <label style={label} htmlFor="el-box">Box loué</label>
-              <input id="el-box" name="box_loue" defaultValue={client.box_loue ?? ""} style={champ} />
-            </div>
-            <div>
-              <label style={label} htmlFor="el-loyer">Loyer refacturé (CHF / mois)</label>
-              <input id="el-loyer" name="loyer_refacture" type="number" step="0.05" min="0"
-                defaultValue={client.loyer_refacture ?? ""} placeholder="— à saisir —" style={champ} />
-            </div>
-            <div>
-              <label style={label} htmlFor="el-depuis">Locataire depuis</label>
-              <input id="el-depuis" name="locataire_depuis" type="date"
-                defaultValue={client.locataire_depuis ?? ""} style={champ} />
-            </div>
-            <div>
-              <label style={label} htmlFor="el-jusqu">Jusqu&apos;au</label>
-              <input id="el-jusqu" name="locataire_jusqu_au" type="date"
-                defaultValue={client.locataire_jusqu_au ?? ""} style={champ} />
-            </div>
-          </div>
-          <p style={{ color: SOUS, fontSize: 12, margin: "8px 0 0" }}>
-            Le loyer refacturé se SAISIT, il ne se calcule pas depuis la dépense : les deux peuvent
-            différer. Le prorata d&apos;un mois incomplet suit les jours réels sur les jours du mois.
-          </p>
-          <button type="submit" disabled={enCours} style={{ ...bouton("#4AAEA0"), marginTop: 12 }}>
-            {enCours ? "Enregistrement…" : "💾 Enregistrer"}
-          </button>
-        </form>
+        <FormLocation client={client} locataire onEnregistre={() => setOuvert(null)} />
       )}
 
       {/* Les jours de la semaine à venir : jongler sans changer d'abonnement. */}

@@ -131,6 +131,8 @@ export type ProfilePerms = {
   perm_planning: boolean;
   perm_timbrage_equipe: boolean;
   perm_vacances_equipe: boolean;
+  /** Les prestations des locataires de box (tâches du jour, fiche de locataire). */
+  perm_prestations: boolean;
 };
 
 export async function getProfilePerms(): Promise<ProfilePerms> {
@@ -147,7 +149,7 @@ export async function getProfilePerms(): Promise<ProfilePerms> {
       perm_reservations_creer, perm_reservations_modifier, perm_reservations_annuler,
       perm_journee_essai, perm_encaissements, perm_factures, perm_tarifs_urgence,
       perm_checkin, perm_box, perm_planning,
-      perm_timbrage_equipe, perm_vacances_equipe`)
+      perm_timbrage_equipe, perm_vacances_equipe, perm_prestations`)
     .eq("id", user.id)
     .single();
 
@@ -179,6 +181,7 @@ export async function getProfilePerms(): Promise<ProfilePerms> {
     perm_planning: isAdmin || !!profile.perm_planning,
     perm_timbrage_equipe: isAdmin || !!profile.perm_timbrage_equipe,
     perm_vacances_equipe: isAdmin || !!profile.perm_vacances_equipe,
+    perm_prestations: isAdmin || !!profile.perm_prestations,
   };
 }
 
@@ -205,6 +208,7 @@ function falsePerms(): ProfilePerms {
     perm_planning: false,
     perm_timbrage_equipe: false,
     perm_vacances_equipe: false,
+    perm_prestations: false,
   };
 }
 

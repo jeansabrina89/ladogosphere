@@ -3,11 +3,17 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { MODELES_META, DEFAUTS_MODELES } from "@/src/lib/email";
 import { CLE_AVIS_GOOGLE } from "@/src/lib/avisGoogle";
 import GestionEmails from "./GestionEmails";
+import { ongletEmails } from "@/src/lib/ongletsEmails";
 
 export const dynamic = "force-dynamic";
 
-export default async function EmailsPage() {
+export default async function EmailsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ onglet?: string | string[] }>;
+}) {
   const acces = await exigerAdminPage();
+  const { onglet } = await searchParams;
 
   const { data: modeles } = await supabaseAdmin
     .from("modeles_email")
@@ -39,6 +45,7 @@ export default async function EmailsPage() {
       campagnes={campagnes ?? []}
       emailAdmin={acces.email ?? ""}
       avisGoogleUrl={(avis?.valeur as string | null) ?? ""}
+      ongletInitial={ongletEmails(onglet)}
     />
   );
 }
