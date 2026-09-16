@@ -7,6 +7,8 @@ import { calculerPeriodeCotisation } from "@/src/lib/cotisationPeriode";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { verifierDatePaiement } from "@/src/lib/datePaiement";
 import { anneesExercicesOuverts } from "@/src/lib/exercices";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { idUtilisateurCourant } from "@/src/lib/permissions";
 
 // Confirmer le paiement d'une adhésion : passe en "payee"
 export async function POST(
@@ -88,6 +90,13 @@ export async function POST(
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+    await tracerEvenement({
+      entite: "client", entiteId: cotisation.client_id,
+      evenement: "adhesion_payee",
+      apres: { cotisation_id: id, ...updateData },
+      userId: await idUtilisateurCourant(),
+    });
+
     // Comptabiliser l'encaissement (3005) — sans effet si liée à une réservation.
     await synchroniserComptaCotisation(id);
 
@@ -110,12 +119,28 @@ export async function PATCH(
     if (garde) return garde;
     const { id } = await params;
 
+    const { data: avant } = await supabaseAdmin
+      .from("cotisations_membres")
+      .select("client_id, statut, date_paiement")
+      .eq("id", id)
+      .maybeSingle();
+
     const { error } = await supabaseAdmin
       .from("cotisations_membres")
       .update({ statut: "en_attente", date_paiement: null })
       .eq("id", id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    if (avant?.client_id) {
+      await tracerEvenement({
+        entite: "client", entiteId: avant.client_id,
+        evenement: "adhesion_paiement_annule",
+        avant: { cotisation_id: id, statut: avant.statut, date_paiement: avant.date_paiement },
+        apres: { statut: "en_attente" },
+        userId: await idUtilisateurCourant(),
+      });
+    }
 
     // Contre-passer automatiquement l'écriture d'adhésion (delta → statut non payé).
     await synchroniserComptaCotisation(id);

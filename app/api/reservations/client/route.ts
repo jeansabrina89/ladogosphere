@@ -12,6 +12,7 @@ import { verifierPlaceDisponible } from "@/src/lib/suggestionBox";
 import { selectionMixteRefusee, estPrivatifPourSelection } from "@/src/lib/cohabitation";
 import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { creerReservationsPersonnel } from "@/src/lib/reservationPersonnel";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
 
 export async function POST(req: NextRequest) {
   const supabaseServer = await createSupabaseServerClient();
@@ -80,6 +81,7 @@ export async function POST(req: NextRequest) {
       heure_arrivee,
       heure_depart,
       commentaire_client,
+      auteur: user.id,
     });
     if (!res.ok) return NextResponse.json({ error: res.erreur }, { status: 400 });
     return NextResponse.json({ id: res.ids[0], ids: res.ids });
@@ -141,6 +143,13 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Faite par le client depuis son espace : l'auteur est son compte.
+  await tracerEvenement({
+    entite: "reservation", entiteId: reservation.id, evenement: "creation",
+    apres: { client_id: fiche.id, type_reservation, date_debut, date_fin, chien_ids, statut: "en_attente" },
+    userId: user.id,
+  });
 
   // Lier les chiens
   const { error: errorChiens } = await supabaseAdmin.from("reservation_chiens").insert(

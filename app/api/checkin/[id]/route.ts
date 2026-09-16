@@ -30,7 +30,7 @@ export async function POST(
   let resultat: { error?: string };
   switch (action) {
     case "checkin":
-      resultat = await appliquerCheckin(id);
+      resultat = await appliquerCheckin(id, user?.id ?? null);
       break;
     case "checkout":
       resultat = await appliquerCheckout(id, {
@@ -40,10 +40,10 @@ export async function POST(
       });
       break;
     case "annuler_checkin":
-      resultat = await annulerCheckin(id);
+      resultat = await annulerCheckin(id, user?.id ?? null);
       break;
     case "annuler_checkout":
-      resultat = await annulerCheckout(id);
+      resultat = await annulerCheckout(id, user?.id ?? null);
       break;
     default:
       return NextResponse.json(

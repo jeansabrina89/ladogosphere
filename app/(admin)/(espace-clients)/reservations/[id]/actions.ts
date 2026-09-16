@@ -13,6 +13,8 @@ import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { factureEmisePourReservation } from "@/src/lib/factureResa";
 import { recalculerTotalEtPaiement, type RecalculResult } from "@/src/lib/prixReservation";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { idUtilisateurCourant } from "@/src/lib/permissions";
 
 async function verifierAdmin(): Promise<{ error?: string; userId?: string }> {
   const supabase = await createSupabaseServerClient();
@@ -53,7 +55,7 @@ export async function enregistrerMontantCalcule(reservationId: string, montant: 
 
   const { data: reservation, error: resError } = await supabaseAdmin
     .from("reservations")
-    .select("statut")
+    .select("statut, montant_calcule")
     .eq("id", reservationId)
     .single();
   if (resError || !reservation) return { error: "Réservation introuvable." };
@@ -67,6 +69,17 @@ export async function enregistrerMontantCalcule(reservationId: string, montant: 
     .update({ montant_calcule: montant })
     .eq("id", reservationId);
   if (updateError) return { error: updateError.message };
+
+  // L'écran de calcul enregistre ce montant à chaque ouverture : seul un
+  // changement réel se trace, sinon le journal se remplirait de lectures.
+  if (Number(reservation.montant_calcule ?? 0) !== Number(montant)) {
+    await tracerEvenement({
+      entite: "reservation", entiteId: reservationId, evenement: "prix_recalcule",
+      avant: { montant_calcule: reservation.montant_calcule ?? null },
+      apres: { montant_calcule: montant },
+      userId: verif.userId ?? null,
+    });
+  }
 
   const result = await recalculerTotalEtPaiement(reservationId, verif.userId);
   revalidatePath(`/reservations/${reservationId}`);
@@ -91,7 +104,7 @@ export async function recalculerMontantSejour(reservationId: string): Promise<Re
     .from("reservations")
     .select(`
       statut, type_reservation, type_sejour, date_debut, date_fin, heure_arrivee, heure_depart,
-      client_id,
+      client_id, montant_calcule,
       clients (membre),
       reservation_chiens (chiens (id, doit_etre_isole))
     `)
@@ -142,6 +155,16 @@ export async function recalculerMontantSejour(reservationId: string): Promise<Re
     .eq("id", reservationId);
   if (updateError) return { error: updateError.message };
 
+  const montantAvant = (reservation as { montant_calcule?: number | null }).montant_calcule ?? null;
+  if (Number(montantAvant ?? 0) !== Number(montant)) {
+    await tracerEvenement({
+      entite: "reservation", entiteId: reservationId, evenement: "prix_recalcule",
+      avant: { montant_calcule: montantAvant },
+      apres: { montant_calcule: montant },
+      userId: verif.userId ?? null,
+    });
+  }
+
   const result = await recalculerTotalEtPaiement(reservationId, verif.userId);
   revalidatePath(`/reservations/${reservationId}`);
   return result;
@@ -160,7 +183,7 @@ export async function modifierPrixSejour(reservationId: string, nouveauPrixSejou
 
   const { data: reservation, error: resError } = await supabaseAdmin
     .from("reservations")
-    .select("statut, montant_calcule")
+    .select("statut, montant_calcule, ajustement_manuel")
     .eq("id", reservationId)
     .single();
   if (resError || !reservation) return { error: "Réservation introuvable." };
@@ -177,6 +200,13 @@ export async function modifierPrixSejour(reservationId: string, nouveauPrixSejou
     .update({ ajustement_manuel })
     .eq("id", reservationId);
   if (updateError) return { error: updateError.message };
+
+  await tracerEvenement({
+    entite: "reservation", entiteId: reservationId, evenement: "prix_modifie",
+    avant: { prix_sejour: montantCalcule + (Number(reservation.ajustement_manuel) || 0) },
+    apres: { prix_sejour: nouveauPrixSejour },
+    userId: verif.userId ?? null,
+  });
 
   const result = await recalculerTotalEtPaiement(reservationId, verif.userId);
   revalidatePath(`/reservations/${reservationId}`);
@@ -213,6 +243,12 @@ export async function ajouterExtraReservation(reservationId: string, libelle: st
   });
   if (insertError) return { error: insertError.message };
 
+  await tracerEvenement({
+    entite: "reservation", entiteId: reservationId, evenement: "extra_ajoute",
+    apres: { libelle: libelleTrim, montant },
+    userId: verif.userId ?? null,
+  });
+
   const result = await recalculerTotalEtPaiement(reservationId, verif.userId);
   revalidatePath(`/reservations/${reservationId}`);
   return result;
@@ -229,7 +265,7 @@ export async function supprimerExtraReservation(extraId: string): Promise<Recalc
 
   const { data: extra, error: extraError } = await supabaseAdmin
     .from("reservation_extras")
-    .select("reservation_id")
+    .select("reservation_id, libelle, montant")
     .eq("id", extraId)
     .single();
   if (extraError || !extra) return { error: "Ligne introuvable." };
@@ -251,6 +287,12 @@ export async function supprimerExtraReservation(extraId: string): Promise<Recalc
     .eq("id", extraId);
   if (deleteError) return { error: deleteError.message };
 
+  await tracerEvenement({
+    entite: "reservation", entiteId: extra.reservation_id, evenement: "extra_retire",
+    avant: { libelle: extra.libelle, montant: extra.montant },
+    userId: verif.userId ?? null,
+  });
+
   const result = await recalculerTotalEtPaiement(extra.reservation_id, verif.userId);
   revalidatePath(`/reservations/${extra.reservation_id}`);
   return result;
@@ -264,6 +306,13 @@ export async function basculerOffreReservation(reservationId: string, offrir: bo
     .update({ offerte: offrir })
     .eq("id", reservationId);
   if (error) return { error: error.message };
+
+  await tracerEvenement({
+    entite: "reservation", entiteId: reservationId,
+    evenement: offrir ? "offerte" : "offerte_retiree",
+    apres: { offerte: offrir },
+    userId: await idUtilisateurCourant(),
+  });
   const result = await recalculerTotalEtPaiement(reservationId);
   revalidatePath(`/reservations/${reservationId}`);
   return result;
@@ -336,6 +385,13 @@ export async function supprimerReservationDefinitivement(formData: FormData): Pr
 
   const { error: e5 } = await supabaseAdmin.from("reservations").delete().eq("id", id);
   if (e5) return { error: `Erreur suppression réservation : ${e5.message}` };
+
+  // La réservation disparaît ; sa trace, non. Le journal ne se supprime pas.
+  await tracerEvenement({
+    entite: "reservation", entiteId: id, evenement: "suppression",
+    avant: { statut: reservation.statut },
+    userId: verif.userId ?? null,
+  });
 
   revalidatePath("/reservations");
   redirect("/reservations");

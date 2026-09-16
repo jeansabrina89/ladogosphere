@@ -1,5 +1,8 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { formatDateFR } from "@/src/lib/dates";
+import AuteurGeste from "@/app/components/AuteurGeste";
+import { lireAuteurs } from "@/src/lib/auteursDb";
+import { auteurAffiche } from "@/src/lib/auteur";
 import { montantDuReservation } from "@/src/lib/montants";
 import { getSoldeAvoir } from "@/src/lib/avoirs";
 import { libelleMode, etatFacture, libelleEtatFacture, couleursEtatFacture } from "@/src/lib/factureStatut";
@@ -60,9 +63,11 @@ export default async function BlocFacturation({
 
   const { data: paiements } = await supabaseAdmin
     .from("paiements_resa")
-    .select("id, date_paiement, mode, montant, arrondi, motif")
+    .select("id, date_paiement, mode, montant, arrondi, motif, created_by")
     .eq("reservation_id", reservation.id)
     .order("date_paiement");
+  // Qui a encaissé chaque versement.
+  const encaisseurs = await lireAuteurs((paiements ?? []).map((p) => p.created_by as string | null));
 
   const soldeAvoir = reservation.client_id
     ? await getSoldeAvoir(supabaseAdmin, reservation.client_id)
@@ -135,6 +140,10 @@ export default async function BlocFacturation({
                 <span className="text-sm ml-2" style={{ color: GRIS }}>{libelleMode(p.mode as string)}</span>
                 <span className="text-sm ml-2" style={{ color: GRIS }}>
                   {formatDateFR(p.date_paiement as string)}
+                  {" · "}
+                  <AuteurGeste auteur={auteurAffiche(
+                    typeof p.created_by === "string" ? encaisseurs.get(p.created_by) ?? null : null
+                  )} />
                 </span>
                 {Number(p.arrondi ?? 0) !== 0 && (
                   <span className="text-xs ml-2" style={{ color: "#6E5410" }}>

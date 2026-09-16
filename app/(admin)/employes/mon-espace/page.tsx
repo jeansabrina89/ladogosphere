@@ -7,6 +7,7 @@ import Link from "next/link";
 import EnTete from "@/app/components/ui/EnTete";
 import EtatVide from "@/app/components/ui/EtatVide";
 import BadgeStatut from "@/app/components/ui/BadgeStatut";
+import MesInitiales from "./MesInitiales";
 
 export default async function MonEspaceRHPage() {
   const supabase       = await createClient();
@@ -14,9 +15,15 @@ export default async function MonEspaceRHPage() {
 
   const employe = await getEmployeRhActuel(supabase, acces.userId, acces.email);
 
+  // Les initiales de l'administratrice se règlent ici, fiche RH ou pas.
+  const { data: monProfil } = acces.isAdmin
+    ? await supabase.from("profiles").select("initiales").eq("id", acces.userId).maybeSingle()
+    : { data: null };
+
   if (!employe) return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-2xl mx-auto">
+        {acces.isAdmin && <MesInitiales initiales={monProfil?.initiales ?? null} />}
         <EtatVide
           icone="👷"
           titre="Fiche RH non créée"
@@ -117,6 +124,8 @@ export default async function MonEspaceRHPage() {
           titre="👋 Mon espace RH"
           sousTitre={`${employe.prenom} ${employe.nom} — ${employe.taux_travail}%`}
         />
+
+        {acces.isAdmin && <MesInitiales initiales={monProfil?.initiales ?? null} />}
 
         {/* Actions rapides */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

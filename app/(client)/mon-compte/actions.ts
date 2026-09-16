@@ -8,6 +8,7 @@ import { estMembreActif } from "@/src/lib/membre";
 import { cotisationActive, cotisationEnAttente } from "@/src/lib/cotisation";
 import { calculerPeriodeCotisation, joursEntre, JOURS_FENETRE_RENOUVELLEMENT } from "@/src/lib/cotisationPeriode";
 import { aujourdhuiISO, formatDateLong } from "@/src/lib/dates";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
 
 export async function demanderAdhesion(mode: "virement" | "prochaine_resa") {
   const supabase = await createSupabaseServerClient();
@@ -47,14 +48,14 @@ export async function demanderAdhesion(mode: "virement" | "prochaine_resa") {
   // où la règle du renouvellement anticipé s'appliquera.
   const periode = calculerPeriodeCotisation(aujourdhui);
 
-  const { error } = await supabaseAdmin.from("cotisations_membres").insert({
+  const { data: cotisCreee, error } = await supabaseAdmin.from("cotisations_membres").insert({
     client_id: client.id,
     montant,
     mode_paiement: mode,
     statut: "en_attente",
     date_debut: periode.date_debut,
     date_fin: periode.date_fin,
-  });
+  }).select("id").maybeSingle();
   if (error) return { error: error.message };
 
   // Flag « membre » activé seulement si l'adhésion donne déjà accès à la
@@ -64,6 +65,12 @@ export async function demanderAdhesion(mode: "virement" | "prochaine_resa") {
   if (mode === "prochaine_resa") {
     await supabaseAdmin.from("clients").update({ membre: true }).eq("id", client.id);
   }
+
+  await tracerEvenement({
+    entite: "client", entiteId: client.id, evenement: "adhesion_demandee",
+    apres: { cotisation_id: cotisCreee?.id ?? null, montant, mode_paiement: mode, membre: mode === "prochaine_resa" },
+    userId: user.id,
+  });
 
   revalidatePath("/mon-compte");
   revalidatePath("/mon-compte/tarifs");
@@ -123,7 +130,7 @@ export async function commanderAbonnement(categorie: string): Promise<{ ok?: boo
   const prix_paye = JOURS_PAYES * tarif_unitaire;
   const date_commande = new Date().toISOString().split("T")[0];
 
-  const { error } = await supabaseAdmin.from("abonnements").insert({
+  const { data: aboCree, error } = await supabaseAdmin.from("abonnements").insert({
     client_id: client.id,
     categorie,
     tarif_unitaire,
@@ -132,8 +139,14 @@ export async function commanderAbonnement(categorie: string): Promise<{ ok?: boo
     jours_offerts: 1,
     statut: "en_attente_paiement",
     date_commande,
-  });
+  }).select("id").single();
   if (error) return { error: error.message };
+
+  await tracerEvenement({
+    entite: "abonnement", entiteId: aboCree.id, evenement: "abonnement_commande",
+    apres: { client_id: client.id, categorie, prix_paye },
+    userId: user.id,
+  });
 
   revalidatePath("/mon-compte");
   revalidatePath("/mon-compte/abonnements");

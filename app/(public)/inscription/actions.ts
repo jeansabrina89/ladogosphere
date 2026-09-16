@@ -10,6 +10,7 @@ import {
   type IdentiteInscription,
 } from "@/src/lib/inscriptionClient";
 import { refusRattachementFiche } from "@/src/lib/ficheDeRecette";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
 
 export type ResultatFicheClient = { ok: true; client_id: string } | { ok: false; error: string };
 
@@ -152,6 +153,11 @@ export async function creerOuLierFicheClient(input: {
     const { error } = await supabaseAdmin.from("clients").update(maj).eq("id", decision.id);
     if (error) return { ok: false, error: error.message };
     clientId = decision.id;
+    await tracerEvenement({
+      entite: "client", entiteId: clientId, evenement: "inscription",
+      apres: { lien: "fiche_existante", ...maj },
+      userId: utilisateur.id,
+    });
   } else {
     const { data, error } = await supabaseAdmin
       .from("clients")
@@ -175,6 +181,11 @@ export async function creerOuLierFicheClient(input: {
       return { ok: false, error: error.message };
     }
     clientId = data.id;
+    await tracerEvenement({
+      entite: "client", entiteId: clientId, evenement: "inscription",
+      apres: { lien: "fiche_creee", prenom: identite.prenom, nom: identite.nom, email: emailCompte },
+      userId: utilisateur.id,
+    });
   }
 
   // Profil applicatif — créé ici, jamais depuis le navigateur.

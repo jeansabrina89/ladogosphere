@@ -9,7 +9,7 @@ import GestionPrix from "./GestionPrix";
 import BoutonValiderReservation from "@/app/components/BoutonValiderReservation";
 import BoutonEmail from "./BoutonEmail";
 import BlocFacturation from "./BlocFacturation";
-import { formatDateFR, formatHeure } from "@/src/lib/dates";
+import { formatDateFR, formatHeure, formatHorodatage, instantUtc } from "@/src/lib/dates";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { estMembreActif } from "@/src/lib/membre";
@@ -25,8 +25,12 @@ import ContactEmail from "@/app/components/ContactEmail";
 import ContactTelephone from "@/app/components/ContactTelephone";
 import MessageProprietaire from "@/app/components/MessageProprietaire";
 import { compteDansActivite, infoTypeSejour } from "@/src/lib/typeSejour";
-import { lireHistorique, libelleEvenement } from "@/src/lib/journalEvenements";
-import { EVENEMENT_REQUALIFICATION } from "@/src/lib/typeSejour";
+import { lireHistoriqueReservation, lireGestesCheckin } from "@/src/lib/journalEvenements";
+import { lireAuteurs } from "@/src/lib/auteursDb";
+import { auteurAffiche } from "@/src/lib/auteur";
+import HistoriqueGestes from "@/app/components/HistoriqueGestes";
+import AuteurGeste from "@/app/components/AuteurGeste";
+import ResultatEssaiSaisi from "@/app/components/ResultatEssaiSaisi";
 
 function badgeCheckin(statut: string) {
   const map: Record<string, { label: string; bg: string; color: string }> = {
@@ -63,17 +67,20 @@ export default async function ReservationPage({
       clients (id, prenom, nom, membre, telephone, email, auth_user_id),
       boxes (numero, nom),
       reservation_chiens (
-        chiens (id, nom, race, poids, categorie_poids, sexe, sterilisation, doit_etre_isole)
+        chiens (id, nom, race, poids, categorie_poids, sexe, sterilisation, doit_etre_isole,
+          statut_essai, journee_essai_resultat_le, journee_essai_resultat_par)
       ),
       reservation_extras (id, libelle, montant, created_at)
     `)
     .eq("id", id)
     .single();
 
-  // La trace des requalifications de type : elle explique pourquoi un séjour
-  // ne pèse plus dans le chiffre d’affaires, ou y est revenu.
-  const requalifications = (await lireHistorique("reservation", id))
-    .filter((h) => h.evenement === EVENEMENT_REQUALIFICATION);
+  // Tout ce qui est arrivé à cette réservation, et qui l'a fait. Les
+  // requalifications de type y figurent, avec leur motif.
+  const [historique, gestesCheckin] = await Promise.all([
+    lireHistoriqueReservation(id),
+    lireGestesCheckin([id]),
+  ]);
 
   const { data: tarifs } = await supabase
     .from("tarifs")
@@ -93,6 +100,12 @@ export default async function ReservationPage({
   const colisEnAttente = await commandesARemettre({ clientId: res.client_id });
 
   const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens).filter(Boolean) ?? [];
+  // Journée d'essai : « validé le … par SJ » sous chaque chien.
+  const auteursEssai = res.type_reservation === "essai"
+    ? await lireAuteurs(
+        (chiens as { journee_essai_resultat_par?: string | null }[]).map((c) => c.journee_essai_resultat_par)
+      )
+    : new Map();
   // « Privatif » = un chien isolé, OU un chien « famille uniquement » réservé
   // sans compagnon du foyer : dans les deux cas il occupe le box entier.
   const chien_isole = estPrivatifPourSelection(
@@ -179,28 +192,8 @@ export default async function ReservationPage({
           </div>
         )}
 
-        {/* Les requalifications : qui a changé le type, quand et pourquoi. */}
-        {requalifications.length > 0 && (
-          <div className="border rounded-xl p-4 mb-6" style={{ borderColor: "rgba(27,43,94,0.15)" }}>
-            <h2 className="font-bold mb-2" style={{ color: "#1B2B5E" }}>
-              Requalifications
-            </h2>
-            <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-              {requalifications.map((h) => (
-                <li key={h.id} className="text-sm" style={{ padding: "6px 0" }}>
-                  <span style={{ color: "#1B2B5E", fontWeight: 600 }}>
-                    {libelleEvenement(h.evenement)}
-                  </span>
-                  <span style={{ color: "rgba(27,43,94,0.6)" }}>
-                    {" "}— {new Date(h.created_at).toLocaleString("fr-CH")}
-                    {h.auteur ? ` · ${h.auteur}` : ""}
-                  </span>
-                  {h.motif && <div style={{ color: "rgba(27,43,94,0.6)" }}>{h.motif}</div>}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {/* Chaque geste sur cette réservation : quand, quoi, qui, et pourquoi. */}
+        <HistoriqueGestes lignes={historique} />
 
         {/* Alerte cotisation en attente */}
         {cotisation && (
@@ -231,6 +224,17 @@ export default async function ReservationPage({
                 <div>
                   <p className="font-bold" style={{ color: "#1B2B5E" }}>{chien.nom}</p>
                   <p className="text-sm text-gray-500">{chien.race || "—"}</p>
+                  {res.type_reservation === "essai" && chien.journee_essai_resultat_le && (
+                    <p className="text-xs mt-0.5" style={{ color: "rgba(27,43,94,0.6)" }}>
+                      <ResultatEssaiSaisi
+                        statut={chien.statut_essai}
+                        le={chien.journee_essai_resultat_le}
+                        auteur={chien.journee_essai_resultat_par
+                          ? auteurAffiche(auteursEssai.get(chien.journee_essai_resultat_par) ?? null)
+                          : null}
+                      />
+                    </p>
+                  )}
                 </div>
                 <div className="text-right text-sm">
                   <p>{chien.poids ? `${chien.poids} kg` : "—"}</p>
@@ -325,8 +329,22 @@ export default async function ReservationPage({
                     {badgeCheckin(cc.statut)}
                     {(cc.date_arrivee_reelle || cc.date_depart_reel) && (
                       <p className="text-xs text-gray-400 mt-0.5">
-                        {cc.date_arrivee_reelle ? `Arrivé le ${formatDateFR(cc.date_arrivee_reelle)}` : ""}
-                        {cc.date_depart_reel ? `${cc.date_arrivee_reelle ? " · " : ""}Parti le ${formatDateFR(cc.date_depart_reel)}` : ""}
+                        {cc.date_arrivee_reelle && (
+                          <>
+                            Arrivé le {formatHorodatage(instantUtc(cc.date_arrivee_reelle))}
+                            {gestesCheckin.get(cc.id)?.arrivee && (
+                              <>{" · "}<AuteurGeste auteur={gestesCheckin.get(cc.id)!.arrivee!.auteur} /></>
+                            )}
+                          </>
+                        )}
+                        {cc.date_depart_reel && (
+                          <>
+                            {cc.date_arrivee_reelle ? " — " : ""}Parti le {formatHorodatage(instantUtc(cc.date_depart_reel))}
+                            {gestesCheckin.get(cc.id)?.depart && (
+                              <>{" · "}<AuteurGeste auteur={gestesCheckin.get(cc.id)!.depart!.auteur} /></>
+                            )}
+                          </>
+                        )}
                       </p>
                     )}
                   </div>

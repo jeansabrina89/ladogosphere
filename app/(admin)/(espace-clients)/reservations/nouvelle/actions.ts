@@ -7,6 +7,7 @@ import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "
 import { verifierChiensPourReservation, marquerChiensEssaiProgramme } from "@/src/lib/essaiReservation";
 import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
 import { assurerMontantCalcule } from "@/src/lib/prixReservation";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
 import {
   champsTypeSejour,
   infoTypeSejour,
@@ -117,6 +118,17 @@ export async function creerReservation(formData: FormData) {
 
   if (error) throw new Error(error.message);
 
+  await tracerEvenement({
+    entite: "reservation", entiteId: reservation.id, evenement: "creation",
+    apres: {
+      client_id, type_reservation, type_sejour, date_debut, date_fin,
+      box_id: box_id || null, chien_ids, statut,
+      essai_force: forcer || essaiHorsSujet,
+    },
+    motif: forcer ? forcer_raison!.trim() : null,
+    userId: verif.userId ?? null,
+  });
+
   // Lier les chiens à la réservation
   if (chien_ids.length > 0) {
     const { error: errorChiens } = await supabaseAdmin
@@ -154,6 +166,12 @@ export async function creerReservation(formData: FormData) {
           .from("reservations")
           .update({ statut: "en_attente" })
           .eq("id", reservation.id);
+        await tracerEvenement({
+          entite: "reservation", entiteId: reservation.id, evenement: "statut",
+          avant: { statut: "validee" }, apres: { statut: "en_attente" },
+          motif: `Prix non calculable : ${prix.erreur}`,
+          userId: verif.userId ?? null,
+        });
         throw new Error(
           `Le prix n'a pas pu être calculé : ${prix.erreur} La réservation reste en attente.`
         );

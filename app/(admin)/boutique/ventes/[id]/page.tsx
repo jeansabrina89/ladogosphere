@@ -5,7 +5,11 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { formatDateFR } from "@/src/lib/dates";
 import { lireVente, lignesDeVente, retoursDeVente } from "@/src/lib/caisse";
 import { libelleModeVente, resteARendre, chf } from "@/src/lib/caisseLogique";
-import { lireHistorique, libelleEvenement } from "@/src/lib/journalEvenements";
+import { lireHistorique } from "@/src/lib/journalEvenements";
+import AuteurGeste from "@/app/components/AuteurGeste";
+import { lireAuteurs } from "@/src/lib/auteursDb";
+import { auteurAffiche } from "@/src/lib/auteur";
+import { formatHorodatage } from "@/src/lib/dates";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
@@ -46,13 +50,11 @@ export default async function VentePage({
   const estRetour = !!vente.vente_origine_id;
   const reste = resteARendre(lignes, retours.lignes);
 
-  const [{ data: client }, { data: vendeur }, { data: origine }, { data: facture }] = await Promise.all([
+  const [{ data: client }, vendeuses, { data: origine }, { data: facture }] = await Promise.all([
     vente.client_id
       ? supabaseAdmin.from("clients").select("id, prenom, nom, email").eq("id", vente.client_id).maybeSingle()
       : Promise.resolve({ data: null }),
-    vente.vendu_par
-      ? supabaseAdmin.from("profiles").select("prenom, nom").eq("id", vente.vendu_par).maybeSingle()
-      : Promise.resolve({ data: null }),
+    lireAuteurs([vente.vendu_par as string | null]),
     vente.vente_origine_id
       ? supabaseAdmin.from("ventes").select("id, numero").eq("id", vente.vente_origine_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -144,8 +146,8 @@ export default async function VentePage({
               }
             />
           )}
-          {vendeur && (
-            <Ligne cle="Servi par" valeur={`${vendeur.prenom ?? ""} ${vendeur.nom ?? ""}`.trim()} />
+          {vente.vendu_par && vendeuses.get(vente.vendu_par) && (
+            <Ligne cle="Servi par" valeur={<AuteurGeste auteur={auteurAffiche(vendeuses.get(vente.vendu_par))} />} />
           )}
           {arrondi !== 0 && (
             <Ligne cle="Arrondi des espèces" valeur={`${arrondi > 0 ? "+" : ""}${arrondi.toFixed(2)} CHF`} />
@@ -265,10 +267,9 @@ export default async function VentePage({
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {historique.map((h) => (
                 <li key={h.id} style={{ borderTop: bordure, padding: "8px 0", fontSize: 14 }}>
-                  <span style={{ color: marine, fontWeight: 600 }}>{libelleEvenement(h.evenement)}</span>
+                  <span style={{ color: marine, fontWeight: 600 }}>{h.libelle}</span>
                   <span style={{ color: sousTexte }}>
-                    {" "}— {new Date(h.created_at).toLocaleString("fr-CH")}
-                    {h.auteur ? ` · ${h.auteur}` : ""}
+                    {" "}— {formatHorodatage(h.created_at)} · <AuteurGeste auteur={h.auteur} />
                   </span>
                   {h.motif && <div style={{ color: sousTexte }}>{h.motif}</div>}
                 </li>

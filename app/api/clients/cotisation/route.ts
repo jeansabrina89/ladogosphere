@@ -7,6 +7,8 @@ import { synchroniserComptaCotisation } from "@/src/lib/comptaCotisation";
 import { cotisationEnAttente, cotisationActive } from "@/src/lib/cotisation";
 import { calculerPeriodeCotisation, refusNouvelleAdhesion } from "@/src/lib/cotisationPeriode";
 import { aujourdhuiISO } from "@/src/lib/dates";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { idUtilisateurCourant } from "@/src/lib/permissions";
 
 /**
  * Période à poser pour une cotisation PAYÉE : règle des 12 mois glissants,
@@ -115,6 +117,13 @@ export async function POST(req: NextRequest) {
   if (errClient) {
     return NextResponse.json({ error: errClient.message }, { status: 500 });
   }
+
+  await tracerEvenement({
+    entite: "client", entiteId: client_id,
+    evenement: "adhesion_enregistree",
+    apres: { cotisation_id: cotisationId, montant, statut, mode_paiement: mode_paiement ?? null, ...periode },
+    userId: await idUtilisateurCourant(),
+  });
 
   // Comptabiliser si payée cash/virement (3005) ; sans effet sinon.
   if (cotisationId) await synchroniserComptaCotisation(cotisationId);

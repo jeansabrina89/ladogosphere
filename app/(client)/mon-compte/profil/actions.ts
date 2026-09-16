@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { ecart } from "@/src/lib/journalLogique";
 
 export async function modifierProfil(_id: string, formData: FormData) {
   const supabase = await createSupabaseServerClient();
@@ -43,11 +45,26 @@ export async function modifierProfil(_id: string, formData: FormData) {
     champs.emails_info_modifie_le = new Date().toISOString();
   }
 
+  const { data: avant } = await supabaseAdmin
+    .from("clients")
+    .select("*")
+    .eq("id", monClient.id)
+    .maybeSingle();
+
   const { error } = await supabaseAdmin
     .from("clients")
     .update(champs)
     .eq("id", monClient.id);
 
   if (error) throw new Error(error.message);
+
+  const change = ecart(avant as Record<string, unknown> | null, champs);
+  if (change) {
+    await tracerEvenement({
+      entite: "client", entiteId: monClient.id, evenement: "modification",
+      avant: change.avant, apres: change.apres,
+      userId: user.id,
+    });
+  }
   redirect("/mon-compte");
 }

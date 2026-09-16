@@ -8,6 +8,8 @@ import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import NomClientLien from "@/app/components/NomClientLien";
 import NomChienLien from "@/app/components/NomChienLien";
 import MessageProprietaire from "@/app/components/MessageProprietaire";
+import PointageFait from "@/app/components/PointageFait";
+import { lireGestesCheckin, type GesteCheckin } from "@/src/lib/journalEvenements";
 
 const SERIF = "Georgia, 'Times New Roman', serif";
 
@@ -80,6 +82,11 @@ export default async function CheckinPage({ searchParams }: { searchParams: Prom
 
   const totalPresents = presents.length;
 
+  // Qui a pointé, et à quelle heure : sur les cartes des pointages faits.
+  const gestes = await lireGestesCheckin(
+    [...(checkins ?? []), ...(departs ?? [])].map((c) => c.reservation_id as string)
+  );
+
   const dateLisible = new Date(`${dateActive}T12:00:00`).toLocaleDateString("fr-CH", {
     weekday: "long", day: "numeric", month: "long", year: "numeric"
   });
@@ -135,20 +142,23 @@ export default async function CheckinPage({ searchParams }: { searchParams: Prom
 
           <Colonne titre="🟢 Présents" compteur={presents.length} cat={CATS.present} vide="Aucun chien présent">
             {presents.map(c => (
-              <CarteCheckin key={c.id} checkin={c} accent={CATS.present.accent} />
+              <CarteCheckin key={c.id} checkin={c} accent={CATS.present.accent}
+                arrivee={gestes.get(c.id)?.arrivee} />
             ))}
           </Colonne>
 
           <Colonne titre="🏁 Départs prévus" compteur={departsAttendus.length} cat={CATS.depart} vide="Aucun départ prévu">
             {departsAttendus.map(c => (
               <CarteCheckin key={c.id} checkin={c} accent={CATS.depart.accent}
+                arrivee={gestes.get(c.id)?.arrivee}
                 action={perms.perm_checkin ? <BoutonCheckout checkin_id={c.id} est_essai={c.reservations?.type_reservation === "essai"} nom_chien={c.chiens?.nom ?? "ce chien"} /> : undefined} />
             ))}
           </Colonne>
 
           <Colonne titre="✔️ Partis" compteur={partis.length} cat={CATS.parti} vide="Aucun départ effectué">
             {partis.map(c => (
-              <CarteCheckin key={c.id} checkin={c} accent={CATS.parti.accent} />
+              <CarteCheckin key={c.id} checkin={c} accent={CATS.parti.accent}
+                arrivee={gestes.get(c.id)?.arrivee} depart={gestes.get(c.id)?.depart} />
             ))}
           </Colonne>
 
@@ -181,7 +191,13 @@ function Colonne({ titre, compteur, cat, vide, children }: { titre: string; comp
   );
 }
 
-function CarteCheckin({ checkin, action, accent }: { checkin: any; action?: React.ReactNode; accent: string }) {
+function CarteCheckin({ checkin, action, accent, arrivee, depart }: {
+  checkin: any;
+  action?: React.ReactNode;
+  accent: string;
+  arrivee?: GesteCheckin | null;
+  depart?: GesteCheckin | null;
+}) {
   const chien = checkin.chiens;
   const res = checkin.reservations;
   const sexeF = chien?.sexe === "F";
@@ -225,6 +241,14 @@ function CarteCheckin({ checkin, action, accent }: { checkin: any; action?: Reac
       {/* L'arrivée est le moment où l'information sert : une boiterie, un
           traitement, une peur se lisent ici, pas dans un autre écran. */}
       <MessageProprietaire commentaire={res?.commentaire_client} taille="petite" />
+      {checkin.statut !== "attendu" && checkin.date_arrivee_reelle && (
+        <p style={{ margin: "6px 0 0" }}>
+          <PointageFait verbe="Arrivé" le={checkin.date_arrivee_reelle} geste={arrivee} />
+          {checkin.statut === "parti" && checkin.date_depart_reel && (
+            <>{" — "}<PointageFait verbe="Parti" le={checkin.date_depart_reel} geste={depart} /></>
+          )}
+        </p>
+      )}
       {action && <div className="mt-2">{action}</div>}
     </div>
   );

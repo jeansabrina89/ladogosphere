@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { messageErreurBase } from "@/src/lib/validationChien";
 import { compteAuthParEmail } from "@/src/lib/compteAuth";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { refusRattachementFiche } from "@/src/lib/ficheDeRecette";
 import { decisionProfilPourFiche } from "@/src/lib/profilPourFicheClient";
 import {
@@ -78,7 +79,7 @@ export async function creerClient(
     : { data: null };
   const decision = decisionProfilPourFiche(profilExistant?.role);
 
-  const { error } = await supabaseAdmin
+  const { data: creee, error } = await supabaseAdmin
     .from("clients")
     .insert({
       prenom,
@@ -102,6 +103,15 @@ export async function creerClient(
     }
     return refus(messageErreurBase(error));
   }
+
+  await tracerEvenement({
+    entite: "client", entiteId: creee.id as string, evenement: "creation",
+    apres: {
+      prenom, nom: nomClient, email: email || null,
+      interne: decision.ficheInterne, rattachee_a_un_compte: !!auth_user_id,
+    },
+    userId: verif.userId ?? null,
+  });
 
   // Le profil ne reçoit « client » que s'il n'a pas déjà un rôle. Un compte
   // `admin` ou `employe` n'est JAMAIS rétrogradé : il perdrait son espace de

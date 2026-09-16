@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { tracerEvenement, PAR_CLIENT_SANS_COMPTE } from "@/src/lib/journalEvenements";
 
 // Page publique : aucune session. Tout passe par supabaseAdmin, et la seule
 // clé d'entrée est le jeton reçu dans l'e-mail — jamais une adresse saisie.
@@ -30,10 +31,20 @@ export async function lireEtat(token: string | undefined): Promise<EtatDesinscri
 async function definirConsentement(token: string, valeur: boolean): Promise<void> {
   if (!TOKEN_UUID.test(token)) return;
 
-  await supabaseAdmin
+  const { data: fiches } = await supabaseAdmin
     .from("clients")
     .update({ emails_info_ok: valeur, emails_info_modifie_le: new Date().toISOString() })
-    .eq("desinscription_token", token);
+    .eq("desinscription_token", token)
+    .select("id");
+
+  // Aucune session ici : le geste est celui du client, par le lien de son e-mail.
+  for (const f of fiches ?? []) {
+    await tracerEvenement({
+      entite: "client", entiteId: f.id, evenement: "consentement_emails",
+      apres: { emails_info_ok: valeur, ...PAR_CLIENT_SANS_COMPTE },
+      userId: null,
+    });
+  }
 
   revalidatePath("/desinscription");
 }

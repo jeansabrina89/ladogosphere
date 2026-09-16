@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { permissionsDepuisFormulaire } from "@/src/lib/permissionsCatalogue";
+import { enregistrerInitiales } from "@/src/lib/auteursDb";
 
 async function verifierAdmin(): Promise<{ error?: string }> {
   const supabase = await createClient();
@@ -22,6 +23,17 @@ export async function modifierEmploye(
 ) {
   const verif = await verifierAdmin();
   if (verif.error) throw new Error(verif.error);
+
+  // Les initiales d'abord : refusées, rien d'autre n'est enregistré, et le
+  // formulaire revient avec la raison.
+  const initialesProfilId = String(formData.get("initiales_profil_id") ?? "");
+  const initiales = formData.get("initiales");
+  if (initialesProfilId && typeof initiales === "string") {
+    const res = await enregistrerInitiales(initialesProfilId, initiales);
+    if (res.error) {
+      redirect(`/employes/${profil_id}/modifier?erreur=${encodeURIComponent(res.error)}`);
+    }
+  }
 
   const supabase = await createClient();
   const prenom = formData.get("prenom") as string;

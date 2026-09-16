@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
 import {
   validerChampsChien,
   categorieDepuisPoids,
@@ -67,7 +68,7 @@ export async function creerChien(
     .maybeSingle();
   const statutEssaiInitial = ficheProprietaire?.interne ? { statut_essai: "valide" } : {};
 
-  const { error } = await supabaseAdmin
+  const { data: cree, error } = await supabaseAdmin
     .from("chiens")
     .insert({
       client_id,
@@ -101,8 +102,16 @@ export async function creerChien(
       doit_etre_isole: formData.get("doit_etre_isole") === "on",
       // Décision de la PENSION dès qu'elle isole le chien.
       cohabitation_source: formData.get("doit_etre_isole") === "on" ? "pension" : null,
-    });
+    })
+    .select("id")
+    .single();
 
   if (error) return refus(messageErreurBase(error));
+
+  await tracerEvenement({
+    entite: "chien", entiteId: cree.id as string, evenement: "creation",
+    apres: { nom, client_id, race, poids },
+    userId: verif.userId ?? null,
+  });
   redirect("/chiens");
 }

@@ -77,7 +77,6 @@ export type TicketProps = {
   } | null;
   /** Achat porté sur une facture : rien n'a été encaissé au comptoir. */
   surFacture: boolean;
-  vendeur?: string | null;
 };
 
 const chf = (n: number) =>
@@ -238,7 +237,6 @@ export function TicketPdf(p: TicketProps) {
         {p.tva?.numero && <Text style={[s.detail, s.centre, { marginTop: 6 }]}>{p.tva.numero}</Text>}
 
         {p.motif && <Text style={s.motif}>Motif : {pourPdf(p.motif)}</Text>}
-        {p.vendeur && <Text style={s.motif}>Servi par {p.vendeur}</Text>}
 
         <Text style={s.mention}>Merci de votre visite</Text>
       </Page>

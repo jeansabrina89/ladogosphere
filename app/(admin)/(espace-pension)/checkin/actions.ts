@@ -10,7 +10,7 @@ export async function fairerCheckin(formData: FormData) {
 
   const checkin_id = formData.get("checkin_id") as string;
 
-  const { error } = await appliquerCheckin(checkin_id);
+  const { error } = await appliquerCheckin(checkin_id, verif.userId ?? null);
   if (error) throw new Error(error);
 
   revalidatePath("/checkin");

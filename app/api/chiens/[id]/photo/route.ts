@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { lireCorpsFormulaire } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
 
 const EXT: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -52,6 +53,13 @@ export async function POST(
     .update({ photo_principale: pub.publicUrl })
     .eq("id", id);
   if (updErr) return NextResponse.json({ error: "Échec de l'enregistrement." }, { status: 500 });
+
+  // Le client comme le personnel peuvent changer la photo : l'auteur est le compte connecté.
+  await tracerEvenement({
+    entite: "chien", entiteId: id, evenement: "photo",
+    apres: { photo_principale: pub.publicUrl },
+    userId: user.id,
+  });
 
   return NextResponse.json({ ok: true, url: pub.publicUrl });
 }

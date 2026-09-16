@@ -11,12 +11,15 @@ import CasesPermissions from "./CasesPermissions";
 
 export default async function ModifierEmployePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ erreur?: string }>;
 }) {
   await exigerAdminPage();
   const supabase = await createClient();
   const { id } = await params;
+  const { erreur } = await searchParams;
 
   const { data: emp } = await supabase
     .from("profiles")
@@ -65,6 +68,13 @@ export default async function ModifierEmployePage({
           action={<Bouton href="/employes" variante="secondaire">← Équipe</Bouton>}
         />
 
+        {erreur && (
+          <p role="alert" className="mb-4 rounded-xl p-3 text-sm font-semibold"
+            style={{ backgroundColor: "#FDECEA", color: "#B42318" }}>
+            {erreur}
+          </p>
+        )}
+
         <Carte>
           <form action={actionModifier} className="space-y-6">
 
@@ -85,6 +95,20 @@ export default async function ModifierEmployePage({
                     className={inputClass} />
                 </div>
               </div>
+              {empResolu && (
+                <div className="mt-4">
+                  <input type="hidden" name="initiales_profil_id" value={empResolu.id} />
+                  <label htmlFor="initiales" className="block font-semibold mb-1 text-sm">
+                    Initiales
+                    <span className="font-normal ml-2 text-[rgba(27,43,94,0.45)]">— affichées à côté de chaque geste</span>
+                  </label>
+                  <input id="initiales" name="initiales" type="text" required
+                    minLength={2} maxLength={3}
+                    pattern="[A-Za-z]{2,3}"
+                    defaultValue={empResolu.initiales || ""}
+                    className={`${inputClass} uppercase max-w-[8rem]`} />
+                </div>
+              )}
               <div className="mt-4">
                 <label className="block font-semibold mb-1 text-sm">Email</label>
                 <input name="email" type="email"

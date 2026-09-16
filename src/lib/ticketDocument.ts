@@ -42,14 +42,6 @@ export async function genererTicket(
     client = (data as ClientTicket | null) ?? null;
   }
 
-  let vendeur: string | null = null;
-  if (vente.vendu_par) {
-    const { data } = await supabaseAdmin
-      .from("profiles").select("prenom, nom").eq("id", vente.vendu_par).maybeSingle();
-    const p = data as { prenom?: string; nom?: string } | null;
-    vendeur = p ? `${p.prenom ?? ""} ${p.nom ?? ""}`.trim() || null : null;
-  }
-
   let venteOrigine: string | null = null;
   if (vente.vente_origine_id) {
     const { data } = await supabaseAdmin
@@ -114,7 +106,6 @@ export async function genererTicket(
     modeLibelle: libelleModeVente(vente.mode_reglement),
     tva,
     surFacture: vente.mode_reglement === "facture_client",
-    vendeur,
   });
 
   const { renderToBuffer } = await import("@react-pdf/renderer");

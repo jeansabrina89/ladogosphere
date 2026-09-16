@@ -6,7 +6,11 @@ import { lireParametresTva, affichage } from "@/src/lib/tva";
 import { piedTva, ventilerPanier, type LigneVentilable } from "@/src/lib/tvaLogique";
 import { genererQrBillSvg } from "@/src/lib/qrFacture";
 import { estMembreActif } from "@/src/lib/membre";
-import { lireHistorique, libelleEvenement } from "@/src/lib/journalEvenements";
+import { lireHistorique } from "@/src/lib/journalEvenements";
+import AuteurGeste from "@/app/components/AuteurGeste";
+import { lireAuteurs } from "@/src/lib/auteursDb";
+import { auteurAffiche } from "@/src/lib/auteur";
+import { formatHorodatage } from "@/src/lib/dates";
 import { listerPieces } from "@/src/lib/pieces";
 import PiecesJointes from "@/app/components/PiecesJointes";
 import { libelleMode, libelleCompteProduit } from "@/src/lib/factureStatut";
@@ -69,7 +73,7 @@ export default async function FacturePage({
 
   const { data: paiements } = await supabaseAdmin
     .from("paiements_resa")
-    .select("id, date_paiement, mode, montant, arrondi, motif")
+    .select("id, date_paiement, mode, montant, arrondi, motif, created_by")
     .eq("facture_id", id)
     .order("date_paiement");
 
@@ -99,8 +103,16 @@ export default async function FacturePage({
   // Avoirs déjà émis sur cette facture.
   const { data: avoirs } = await supabaseAdmin
     .from("factures")
-    .select("id, numero, date_facture, montant_total, motif")
+    .select("id, numero, date_facture, montant_total, motif, emise_par")
     .eq("facture_origine_id", id).not("numero", "is", null);
+
+  // Qui a encaissé chaque paiement, qui a émis chaque avoir.
+  const auteurs = await lireAuteurs([
+    ...(paiements ?? []).map((p) => p.created_by as string | null),
+    ...(avoirs ?? []).map((a) => a.emise_par as string | null),
+  ]);
+  const auteurDe = (userId: unknown) =>
+    auteurAffiche(typeof userId === "string" ? auteurs.get(userId) ?? null : null);
 
   const dateISO = facture.date_facture ? String(facture.date_facture).split("T")[0] : null;
   // La ventilation se lit sur les LIGNES, chacune avec son taux figé — jamais
@@ -354,6 +366,7 @@ export default async function FacturePage({
                     </div>
                     <span className="text-xs" style={{ color: GRIS }}>
                       {formatDateFR(p.date_paiement as string)}
+                      {" · "}<AuteurGeste auteur={auteurDe(p.created_by)} />
                     </span>
                     <div style={{ flexBasis: "100%", marginTop: 8 }}>
                       <PiecesJointes
@@ -375,7 +388,12 @@ export default async function FacturePage({
                      className="flex justify-between items-baseline py-1.5 border-b last:border-0"
                      style={{ borderColor: "rgba(27,43,94,0.08)" }}>
                     <span className="text-sm font-semibold" style={{ color: "#0369A1" }}>{String(a.numero)}</span>
-                    <span className="text-sm" style={{ color: MARINE }}>{chf(Number(a.montant_total))}</span>
+                    <span className="text-sm" style={{ color: MARINE }}>
+                      {chf(Number(a.montant_total))}
+                      <span className="text-xs ml-2" style={{ color: GRIS }}>
+                        <AuteurGeste auteur={auteurDe(a.emise_par)} />
+                      </span>
+                    </span>
                   </a>
                 ))}
               </Bloc>
@@ -396,10 +414,9 @@ export default async function FacturePage({
               ) : (
                 historique.map((h) => (
                   <div key={h.id} className="py-1.5 border-b last:border-0" style={{ borderColor: "rgba(27,43,94,0.08)" }}>
-                    <p className="text-sm font-semibold" style={{ color: MARINE }}>{libelleEvenement(h.evenement)}</p>
+                    <p className="text-sm font-semibold" style={{ color: MARINE }}>{h.libelle}</p>
                     <p className="text-xs" style={{ color: GRIS }}>
-                      {new Date(h.created_at).toLocaleString("fr-CH")}
-                      {h.auteur ? ` — ${h.auteur}` : ""}
+                      {formatHorodatage(h.created_at)} — <AuteurGeste auteur={h.auteur} />
                     </p>
                     {h.motif && <p className="text-xs italic" style={{ color: GRIS }}>{h.motif}</p>}
                   </div>

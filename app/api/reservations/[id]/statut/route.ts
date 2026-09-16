@@ -11,6 +11,15 @@ import { marquerChiensEssaiProgramme } from "@/src/lib/essaiReservation";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
 import { assurerMontantCalcule } from "@/src/lib/prixReservation";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { idUtilisateurCourant } from "@/src/lib/permissions";
+
+/** Le code du geste, selon le statut visé : chacun a son libellé. */
+const EVENEMENT_PAR_STATUT: Record<string, string> = {
+  validee: "validation",
+  refusee: "refus",
+  annulee: "annulation",
+};
 
 export async function POST(
   req: NextRequest,
@@ -28,11 +37,14 @@ export async function POST(
   if (!statut) return NextResponse.json({ error: "statut manquant" }, { status: 400 });
   if (!STATUTS_VALIDES.includes(statut)) return NextResponse.json({ error: "statut invalide" }, { status: 400 });
 
+  const auteur = await idUtilisateurCourant();
+  const { data: avant } = await supabaseAdmin
+    .from("reservations").select("statut").eq("id", id).maybeSingle();
+
   // Le prix se calcule AVANT de valider : une réservation validée sans prix
   // calculé ne doit pas exister. L'échec est visible, jamais avalé.
   if (statut === "validee") {
-    const { data: { user } } = await supabase.auth.getUser();
-    const prix = await assurerMontantCalcule(id, user?.id ?? null);
+    const prix = await assurerMontantCalcule(id, auteur);
     if (prix.erreur) {
       return NextResponse.json(
         { error: `Le prix n'a pas pu être calculé : ${prix.erreur}` },
@@ -47,6 +59,15 @@ export async function POST(
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (avant?.statut !== statut) {
+    await tracerEvenement({
+      entite: "reservation", entiteId: id,
+      evenement: EVENEMENT_PAR_STATUT[statut] ?? "statut",
+      avant: { statut: avant?.statut ?? null }, apres: { statut },
+      userId: auteur,
+    });
+  }
 
   // Lignes de check-in : une réservation validée doit être pointable, quel que
   // soit le chemin par lequel elle a été créée. Idempotent.

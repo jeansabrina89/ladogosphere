@@ -4,6 +4,7 @@ import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { estResultatEssai } from "@/src/lib/journeeEssai";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
 
 /**
  * Correction du résultat d'une journée d'essai depuis la fiche chien.
@@ -50,5 +51,15 @@ export async function POST(
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // Correction depuis la fiche chien : même geste qu'au départ, même trace.
+  await tracerEvenement({
+    entite: "chien", entiteId: id,
+    evenement: updateData.statut_essai !== undefined ? "resultat_essai" : "modification",
+    apres: updateData.statut_essai !== undefined
+      ? { statut_essai: updateData.statut_essai, correction: true }
+      : { journee_essai_note: updateData.journee_essai_note },
+    motif: typeof data.journee_essai_note === "string" ? data.journee_essai_note : null,
+    userId: user?.id ?? null,
+  });
   return NextResponse.json({ ok: true });
 }

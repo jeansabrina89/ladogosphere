@@ -7,6 +7,8 @@ import { factureEmisePourReservation } from "@/src/lib/factureResa";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { resteAPayer } from "@/src/lib/montants";
 import { niveauRelanceDu } from "@/src/lib/relances";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { idUtilisateurCourant } from "@/src/lib/permissions";
 
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient();
@@ -77,6 +79,12 @@ export async function POST(req: NextRequest) {
     .from("reservations")
     .update({ relance_niveau: niveau, relance_le: today })
     .eq("id", reservation_id);
+
+  await tracerEvenement({
+    entite: "reservation", entiteId: reservation_id, evenement: "relance",
+    avant: { relance_niveau: dejaEnvoye }, apres: { relance_niveau: niveau, montant },
+    userId: await idUtilisateurCourant(),
+  });
 
   return NextResponse.json({ ok: true, niveau });
 }

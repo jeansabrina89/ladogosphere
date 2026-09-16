@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { envoyerMessageLibre } from "@/src/lib/email";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { clientsMembresAJour } from "@/src/lib/membre";
 import { trierDestinataires, type CibleCampagne } from "@/src/lib/destinatairesCampagne";
 
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  await supabaseAdmin.from("emails_campagnes").insert({
+  const { data: campagne } = await supabaseAdmin.from("emails_campagnes").insert({
     sujet,
     corps,
     cible,
@@ -94,7 +95,15 @@ export async function POST(req: NextRequest) {
     nb_echecs: echecs,
     nb_exclus: exclus.length,
     created_by: user.id,
-  });
+  }).select("id").maybeSingle();
+
+  if (campagne?.id) {
+    await tracerEvenement({
+      entite: "campagne", entiteId: campagne.id, evenement: "message_libre",
+      apres: { sujet, cible, nb_destinataires: destinataires.length, nb_echecs: echecs },
+      userId: user.id,
+    });
+  }
 
   return NextResponse.json({
     total: destinataires.length,

@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { ecart } from "@/src/lib/journalLogique";
 import {
   validerChampsChien,
   categorieDepuisPoids,
@@ -44,9 +46,7 @@ export async function modifierChien(
   );
   if (invalide) return refus(invalide.message, invalide.champ);
 
-  const { error } = await supabaseAdmin
-    .from("chiens")
-    .update({
+  const champs = {
       nom,
       race,
       couleur,
@@ -75,9 +75,26 @@ export async function modifierChien(
       compatible_moins_15kg: formData.get("compatible_moins_15kg") === "on",
       compatible_15_30kg: formData.get("compatible_15_30kg") === "on",
       compatible_30_40kg: formData.get("compatible_30_40kg") === "on",
-    })
+  };
+
+  // Ce qui change se lit au journal : on relit la fiche avant de l'écrire.
+  const { data: avant } = await supabaseAdmin
+    .from("chiens").select(Object.keys(champs).join(", ")).eq("id", id).maybeSingle();
+
+  const { error } = await supabaseAdmin
+    .from("chiens")
+    .update(champs)
     .eq("id", id);
 
   if (error) return refus(messageErreurBase(error));
+
+  const change = ecart(avant as Record<string, unknown> | null, champs);
+  if (change) {
+    await tracerEvenement({
+      entite: "chien", entiteId: id, evenement: "modification",
+      avant: change.avant, apres: change.apres,
+      userId: verif.userId ?? null,
+    });
+  }
   redirect(`/chiens/${id}`);
 }

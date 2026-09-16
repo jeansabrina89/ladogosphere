@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { appliquerCohabitationClient } from "@/src/lib/cohabitationDb";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { ecart } from "@/src/lib/journalLogique";
 import {
   validerChampsChien,
   categorieDepuisPoids,
@@ -57,26 +59,43 @@ export async function modifierChienClient(
   const poidsValide = Number(poids);
 
   // Mise à jour via supabaseAdmin — UNIQUEMENT les champs de base/santé (liste blanche)
+  const champs = {
+    nom,
+    race,
+    couleur,
+    poids: poidsValide,
+    categorie_poids: categorieDepuisPoids(poidsValide),
+    sexe,
+    sterilisation,
+    sterilise: sterilisation === "oui",
+    date_naissance: formData.get("date_naissance") as string || null,
+    numero_puce: numero_puce || null,
+    allergies: formData.get("allergies") as string || null,
+    traitements: formData.get("traitements") as string || null,
+    remarques: formData.get("remarques") as string || null,
+  };
+  const { data: avant } = await supabaseAdmin
+    .from("chiens")
+    .select(Object.keys(champs).join(", "))
+    .eq("id", chien.id)
+    .maybeSingle();
+
   const { error } = await supabaseAdmin
     .from("chiens")
-    .update({
-      nom,
-      race,
-      couleur,
-      poids: poidsValide,
-      categorie_poids: categorieDepuisPoids(poidsValide),
-      sexe,
-      sterilisation,
-      sterilise: sterilisation === "oui",
-      date_naissance: formData.get("date_naissance") as string || null,
-      numero_puce: numero_puce || null,
-      allergies: formData.get("allergies") as string || null,
-      traitements: formData.get("traitements") as string || null,
-      remarques: formData.get("remarques") as string || null,
-    })
+    .update(champs)
     .eq("id", chien.id);
 
   if (error) return refus(messageErreurBase(error));
+
+  const change = ecart(avant as unknown as Record<string, unknown> | null, champs);
+  if (change) {
+    // Faite par le client : l'auteur est son compte.
+    await tracerEvenement({
+      entite: "chien", entiteId: chien.id, evenement: "modification",
+      avant: change.avant, apres: change.apres,
+      userId: user.id,
+    });
+  }
 
   // Cohabitation en box, déclarée par le propriétaire. Sans effet si la pension
   // a tranché : sa décision prime (cf. appliquerCohabitationClient).

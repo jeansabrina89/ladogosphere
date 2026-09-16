@@ -9,6 +9,9 @@ import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 import FiltresVentes from "./FiltresVentes";
+import AuteurGeste from "@/app/components/AuteurGeste";
+import { lireAuteurs } from "@/src/lib/auteursDb";
+import { auteurAffiche } from "@/src/lib/auteur";
 
 export const dynamic = "force-dynamic";
 
@@ -53,14 +56,8 @@ export default async function VentesPage({
     resume_lignes.set(l.vente_id, actuel ? `${actuel}, ${texte}` : texte);
   }
 
-  // Les vendeurs, pour la colonne « qui ».
-  const vendeurs = [...new Set(ventes.map((v) => v.vendu_par).filter(Boolean))] as string[];
-  const { data: profils } = vendeurs.length
-    ? await supabaseAdmin.from("profiles").select("id, prenom, nom").in("id", vendeurs)
-    : { data: [] };
-  const nomVendeur = new Map(
-    (profils ?? []).map((p) => [p.id as string, `${p.prenom ?? ""} ${p.nom ?? ""}`.trim()])
-  );
+  // Les vendeuses, pour la colonne « qui » : leurs initiales, le nom au survol.
+  const vendeuses = await lireAuteurs(ventes.map((v) => v.vendu_par as string | null));
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -126,7 +123,9 @@ export default async function VentesPage({
                       </span>
                       <span style={{ display: "block", color: sousTexte, fontSize: 12 }}>
                         {libelleModeVente(v.mode_reglement)}
-                        {v.vendu_par && nomVendeur.get(v.vendu_par) ? ` · ${nomVendeur.get(v.vendu_par)}` : ""}
+                        {v.vendu_par && vendeuses.get(v.vendu_par) && (
+                          <>{" · "}<AuteurGeste auteur={auteurAffiche(vendeuses.get(v.vendu_par))} /></>
+                        )}
                       </span>
                     </span>
                     <span style={{

@@ -10,6 +10,8 @@ import {
   typeSejour,
 } from "@/src/lib/typeSejour";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { ecartModificationReservation } from "@/src/lib/journalLogique";
+import { idUtilisateurCourant } from "@/src/lib/permissions";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
 
 export async function POST(
@@ -39,7 +41,7 @@ export async function POST(
   // déclencher le recalcul de montant_calcule.
   const { data: avant } = await supabaseAdmin
     .from("reservations")
-    .select("type_reservation, date_debut, date_fin, heure_arrivee, heure_depart, type_sejour, numero")
+    .select("type_reservation, date_debut, date_fin, heure_arrivee, heure_depart, type_sejour, numero, statut, box_id, commentaire_admin")
     .eq("id", id)
     .single();
 
@@ -69,13 +71,27 @@ export async function POST(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  const auteur = await idUtilisateurCourant();
+
+  // Dates, box, heures, statut, commentaire : ce qui a bougé, et rien d'autre.
+  const change = ecartModificationReservation(avant as Record<string, unknown> | null, {
+    statut, box_id, commentaire_admin, heure_arrivee, heure_depart, date_debut, date_fin,
+  });
+  if (change) {
+    await tracerEvenement({
+      entite: "reservation", entiteId: id, evenement: "modification",
+      avant: change.avant, apres: change.apres,
+      userId: auteur,
+    });
+  }
+
   if (typeAvant !== typeApres) {
     await tracerEvenement({
       entite: "reservation", entiteId: id, evenement: EVENEMENT_REQUALIFICATION,
       avant: { type_sejour: typeAvant },
       apres: { type_sejour: typeApres, numero: avant?.numero ?? null },
       motif: motifType,
-      userId: (await supabase.auth.getUser()).data.user?.id ?? null,
+      userId: auteur,
     });
   }
 

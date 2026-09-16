@@ -48,15 +48,46 @@ async function lireReservationId(checkinId: string): Promise<string | null> {
   return data?.reservation_id ?? null;
 }
 
+/**
+ * Trace un geste de pointage sur la reservation de la ligne. checkin_checkout
+ * ne porte pas d'auteur : c'est cette trace (apres.checkin_id) qui dit qui a
+ * pointe, et quand.
+ */
+async function tracerPointage(
+  checkinId: string,
+  evenement: "arrivee" | "arrivee_annulee" | "depart" | "depart_annule",
+  profilId: string | null,
+): Promise<void> {
+  const { data } = await supabaseAdmin
+    .from("checkin_checkout")
+    .select("reservation_id, chien_id")
+    .eq("id", checkinId)
+    .maybeSingle();
+  if (!data?.reservation_id) return;
+  await tracerEvenement({
+    entite: "reservation",
+    entiteId: data.reservation_id,
+    evenement,
+    apres: { checkin_id: checkinId, chien_id: data.chien_id ?? null },
+    userId: profilId,
+  });
+}
+
 // Check-in : la ligne passe a "arrive".
 // Le statut d'essai du chien n'est PLUS touche ici : il reste 'programme' jusqu'a
 // la saisie du resultat au depart (cf. appliquerCheckout). Les colonnes
 // historiques journee_essai_effectuee / _invalide sont derivees par trigger SQL.
-export async function appliquerCheckin(checkinId: string): Promise<Resultat> {
-  return majCheckinCheckout(checkinId, {
+export async function appliquerCheckin(
+  checkinId: string,
+  profilId: string | null = null,
+): Promise<Resultat> {
+  const res = await majCheckinCheckout(checkinId, {
     statut: "arrive",
     date_arrivee_reelle: new Date().toISOString(),
   });
+  if (res.error) return res;
+  await tracerPointage(checkinId, "arrivee", profilId);
+  return {};
 }
 
 /** Ligne de check-in avec ce qu'il faut pour traiter une journee d'essai. */
@@ -106,6 +137,15 @@ async function enregistrerResultatEssai(
     })
     .eq("id", chienId);
   if (error) return { error: error.message };
+
+  await tracerEvenement({
+    entite: "chien",
+    entiteId: chienId,
+    evenement: "resultat_essai",
+    apres: { statut_essai: resultat, reservation_id: ligne.reservation_id },
+    motif: note,
+    userId: profilId,
+  });
 
   // La note interne n'est JAMAIS envoyee au client.
   const email = ligne.reservations?.clients?.email;
@@ -166,6 +206,16 @@ export async function appliquerCheckout(
     const statutAvant = avant?.statut ?? "validee";
 
     await supabaseAdmin.from("reservations").update({ statut: "terminee" }).eq("id", reservationId);
+    // Tracé avant l'émission : si elle échoue, la trace « emission_facture_echouee »
+    // qui suit dit que le départ a été défait.
+    await tracerEvenement({
+      entite: "reservation",
+      entiteId: reservationId,
+      evenement: "depart",
+      avant: { statut: statutAvant },
+      apres: { checkin_id: checkinId, chien_id: ligne?.chien_id ?? null, statut: "terminee" },
+      userId: options.profilId ?? null,
+    });
 
     // Le check-out EMET la facture : numero, echeance, ecritures, PDF et e-mail.
     // Un echec ici n'est JAMAIS avale : c'est un chemin qui produit de l'argent.
@@ -209,11 +259,17 @@ export async function appliquerCheckout(
 }
 
 // Annulation du check-in : retour a l'etat "attendu".
-export async function annulerCheckin(checkinId: string): Promise<Resultat> {
-  return majCheckinCheckout(checkinId, {
+export async function annulerCheckin(
+  checkinId: string,
+  profilId: string | null = null,
+): Promise<Resultat> {
+  const res = await majCheckinCheckout(checkinId, {
     statut: "attendu",
     date_arrivee_reelle: null,
   });
+  if (res.error) return res;
+  await tracerPointage(checkinId, "arrivee_annulee", profilId);
+  return {};
 }
 
 // Annulation du check-out : la reservation est rouverte, la facture defigee,
@@ -221,7 +277,10 @@ export async function annulerCheckin(checkinId: string): Promise<Resultat> {
 // La resynchronisation de la reservation est indispensable : le sejour n'est plus
 // "terminee", le produit ne doit donc plus etre reconnu et les encaissements
 // repassent en acompte (2030).
-export async function annulerCheckout(checkinId: string): Promise<Resultat> {
+export async function annulerCheckout(
+  checkinId: string,
+  profilId: string | null = null,
+): Promise<Resultat> {
   const res = await majCheckinCheckout(checkinId, {
     statut: "arrive",
     date_depart_reel: null,
@@ -231,6 +290,14 @@ export async function annulerCheckout(checkinId: string): Promise<Resultat> {
   const reservationId = await lireReservationId(checkinId);
   if (reservationId) {
     await supabaseAdmin.from("reservations").update({ statut: "validee" }).eq("id", reservationId);
+    await tracerEvenement({
+      entite: "reservation",
+      entiteId: reservationId,
+      evenement: "depart_annule",
+      avant: { statut: "terminee" },
+      apres: { checkin_id: checkinId, statut: "validee" },
+      userId: profilId,
+    });
     await defigerFactureResa(reservationId);
     await synchroniserComptaResa(reservationId);
     const { data: resaAbo } = await supabaseAdmin

@@ -13,7 +13,9 @@ import EtatVide from "@/app/components/ui/EtatVide";
 import ContactTelephone from "@/app/components/ContactTelephone";
 import BadgePhotos from "@/app/components/BadgePhotos";
 import { statutEssaiDe, type StatutEssai } from "@/src/lib/journeeEssai";
-import { formatDateFR } from "@/src/lib/dates";
+import ResultatEssaiSaisi from "@/app/components/ResultatEssaiSaisi";
+import { lireAuteurs } from "@/src/lib/auteursDb";
+import { auteurAffiche } from "@/src/lib/auteur";
 
 export default async function ChienPage({
   params,
@@ -27,7 +29,7 @@ export default async function ChienPage({
 
   const { data: chien } = await supabase
     .from("chiens")
-    .select(`*, clients (id, prenom, nom, photos_ok, photos_ok_modifie_le), profil_resultat:profiles!chiens_journee_essai_resultat_par_fkey (prenom, nom)`)
+    .select(`*, clients (id, prenom, nom, photos_ok, photos_ok_modifie_le)`)
     .eq("id", id)
     .single();
 
@@ -92,8 +94,10 @@ export default async function ChienPage({
     valide:          { label: "✅ Validé",                 style: pill("#DBEFEA", "#1F6E5B") },
     refuse:          { label: "❌ Refusé",                 style: pill("#FBE2DE", "#A8453A") },
   };
-  const saisiPar = [chien.profil_resultat?.prenom, chien.profil_resultat?.nom]
-    .filter(Boolean).join(" ") || null;
+  // Qui a saisi le résultat : ses initiales, le nom au survol.
+  const saisiPar = chien.journee_essai_resultat_par
+    ? auteurAffiche((await lireAuteurs([chien.journee_essai_resultat_par])).get(chien.journee_essai_resultat_par) ?? null)
+    : null;
 
   const sterilisationTxt =
     chien.sterilisation === "oui" ? "Stérilisé" :
@@ -216,8 +220,11 @@ export default async function ChienPage({
             </div>
             {chien.journee_essai_resultat_le && (
               <p style={{ ...muted, marginBottom: 8 }}>
-                Résultat saisi le {formatDateFR(chien.journee_essai_resultat_le)}
-                {saisiPar ? ` par ${saisiPar}` : ""}
+                <ResultatEssaiSaisi
+                  statut={chien.statut_essai}
+                  le={chien.journee_essai_resultat_le}
+                  auteur={saisiPar}
+                />
               </p>
             )}
             {chien.journee_essai_note && (

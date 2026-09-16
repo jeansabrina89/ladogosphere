@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
 
 export async function POST(
   req: NextRequest,
@@ -33,5 +34,10 @@ export async function POST(
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await tracerEvenement({
+    entite: "chien", entiteId: id, evenement: "isolement",
+    apres: { doit_etre_isole: !!doit_etre_isole },
+    userId: user.id,
+  });
   return NextResponse.json({ ok: true });
 }

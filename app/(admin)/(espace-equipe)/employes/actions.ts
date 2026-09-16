@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "crypto";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
 
 export async function supprimerEmploye(id: string): Promise<{ error?: string }> {
   const supabase = await createSupabaseServerClient();
@@ -165,10 +166,19 @@ export async function creerAccesEmploye(
     .eq("id", ficheId);
   if (updateError) return { error: updateError.message };
 
-  await supabaseAdmin
+  const { data: fichesClient } = await supabaseAdmin
     .from("clients")
     .update({ prenom: fiche.prenom, nom: fiche.nom })
-    .eq("auth_user_id", userId);
+    .eq("auth_user_id", userId)
+    .select("id");
+
+  for (const fc of fichesClient ?? []) {
+    await tracerEvenement({
+      entite: "client", entiteId: fc.id, evenement: "acces_employe",
+      apres: { profile_id: userId, employe_rh_id: ficheId, prenom: fiche.prenom, nom: fiche.nom },
+      userId: user.id,
+    });
+  }
 
   revalidatePath("/employes");
   return { password: motDePasseProvisoire };

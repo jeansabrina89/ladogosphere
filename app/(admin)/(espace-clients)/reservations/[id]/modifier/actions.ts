@@ -6,6 +6,7 @@ import { verifierPermission } from "@/src/lib/verifierPermission";
 import { getAvoirAppliqueReservation } from "@/src/lib/avoirs";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { ecartModificationReservation } from "@/src/lib/journalLogique";
 import { recalculerMontantSejour } from "../actions";
 import {
   EVENEMENT_REQUALIFICATION,
@@ -32,7 +33,10 @@ export async function modifierReservation(id: string, formData: FormData) {
   // montants hors du chiffre d'affaires, ou les y ramène. Motif obligatoire,
   // trace au journal.
   const { data: avant } = await supabaseAdmin
-    .from("reservations").select("type_sejour, numero").eq("id", id).maybeSingle();
+    .from("reservations")
+    .select("type_sejour, numero, statut, box_id, commentaire_admin, heure_arrivee, heure_depart, date_debut, date_fin")
+    .eq("id", id)
+    .maybeSingle();
 
   const typeAvant = typeSejour(avant?.type_sejour as string | undefined);
   const typeApres = typeSejour(formData.get("type_sejour") as string);
@@ -62,6 +66,19 @@ export async function modifierReservation(id: string, formData: FormData) {
     .eq("id", id);
 
   if (error) throw new Error(error.message);
+
+  // Dates, box, heures, statut, commentaire : ce qui a bougé, et rien d'autre.
+  // Le type de séjour a sa propre trace juste en dessous, avec son motif.
+  const change = ecartModificationReservation(avant as Record<string, unknown> | null, {
+    statut, box_id, commentaire_admin, heure_arrivee, heure_depart, date_debut, date_fin,
+  });
+  if (change) {
+    await tracerEvenement({
+      entite: "reservation", entiteId: id, evenement: "modification",
+      avant: change.avant, apres: change.apres,
+      userId: verif.userId ?? null,
+    });
+  }
 
   // La trace ne part qu'APRÈS l'écriture, et seulement si le type a bougé :
   // un journal qui note des non-changements ne se lit plus.
@@ -136,7 +153,7 @@ export async function annulerReservation(formData: FormData) {
   // Charger l'état de paiement
   const { data: resa } = await supabaseAdmin
     .from("reservations")
-    .select("montant_paye, numero")
+    .select("montant_paye, numero, statut")
     .eq("id", id)
     .single();
   const montantPaye = Number(resa?.montant_paye || 0);
@@ -202,6 +219,16 @@ export async function annulerReservation(formData: FormData) {
     .update({ statut: "annulee" })
     .eq("id", id);
   if (error) throw new Error(error.message);
+
+  await tracerEvenement({
+    entite: "reservation", entiteId: id, evenement: "annulation",
+    avant: { statut: resa?.statut ?? null, montant_paye: montantPaye },
+    apres: {
+      statut: "annulee",
+      mis_en_avoir: mettreEnAvoir && montantPaye > 0 && client_id ? montantPaye : 0,
+    },
+    userId: verif.userId ?? null,
+  });
 
   await supabaseAdmin.from("occupation_boxes").delete().eq("reservation_id", id);
 

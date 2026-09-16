@@ -20,6 +20,7 @@ import { calculerPeriodeCotisation, formatPeriodeCotisation } from "@/src/lib/co
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { peutReserverPension, MESSAGE_ESSAI_REQUIS, MESSAGE_ADHESION_A_REGLER } from "@/src/lib/adhesionReservation";
 import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
 
 /**
  * Libellé de l'extra « adhésion » sur une réservation. La période posée à la
@@ -128,6 +129,7 @@ export async function creerDemandeReservation(
       heure_arrivee: input.heure_arrivee,
       heure_depart: input.heure_depart,
       commentaire_client: input.commentaire_client,
+      auteur: user.id,
     });
     if (!res.ok) return res;
     revalidatePath("/mon-compte");
@@ -245,6 +247,20 @@ export async function creerDemandeReservation(
 
   const reservationIds = (reservationsCreees as { id: string }[]).map((r) => r.id);
 
+  // Faites par le client depuis son espace : l'auteur est son compte. Une trace
+  // par réservation, pour que chacune ait la sienne.
+  for (const r of reservationsCreees as { id: string; date_debut: string; date_fin: string }[]) {
+    await tracerEvenement({
+      entite: "reservation", entiteId: r.id, evenement: "creation",
+      apres: {
+        client_id: fiche.id, type_reservation: input.type_reservation,
+        date_debut: r.date_debut, date_fin: r.date_fin,
+        chien_ids: input.chien_ids, statut: "en_attente",
+      },
+      userId: user.id,
+    });
+  }
+
   // 7. INSERT groupé : toutes les liaisons chiens × réservations en une seule requête
   const lignesChiens = reservationIds.flatMap((reservation_id) =>
     input.chien_ids.map((chien_id) => ({ reservation_id, chien_id }))
@@ -319,6 +335,14 @@ export async function creerDemandeReservation(
         });
         // Membre à jour immédiatement.
         await supabaseAdmin.from("clients").update({ membre: true }).eq("id", fiche.id);
+        await tracerEvenement({
+          entite: "client", entiteId: fiche.id, evenement: "adhesion_demandee",
+          apres: {
+            cotisation_id: cotisCreee.id, reservation_id: resaPorteuse,
+            montant: montantAdhesion, via: "premiere_reservation",
+          },
+          userId: user.id,
+        });
       }
     }
   }
@@ -361,7 +385,7 @@ export async function annulerMaReservationInterne(
     .maybeSingle();
   if (!fiche?.interne) return { error: "Réservé aux fiches du personnel." };
 
-  const res = await annulerReservationPersonnel(reservationId, fiche.id);
+  const res = await annulerReservationPersonnel(reservationId, fiche.id, user.id);
   if (res.error) return res;
 
   revalidatePath("/mon-compte");
@@ -385,6 +409,12 @@ export async function reglerReservationAvecAbonnement(
 
   const res = await consommerAbonnementResa(reservationId, client.id);
   if (res?.error) return res;
+
+  await tracerEvenement({
+    entite: "paiement", entiteId: reservationId, evenement: "paiement_abonnement",
+    apres: { client_id: client.id },
+    userId: user.id,
+  });
 
   revalidatePath(`/mon-compte/reservations/${reservationId}`);
   return {};

@@ -328,15 +328,28 @@ export function estActif(chemin: string, href: string, exact = false): boolean {
 /**
  * L'espace auquel appartient une adresse : celui dont un écran correspond le
  * plus précisément. Sert à allumer la bonne entrée de la barre latérale.
+ *
+ * À précision égale — un même écran rangé dans deux espaces, comme la fiche
+ * fournisseur —, l'espace dont l'accueil préfixe l'adresse l'emporte :
+ * /comptabilite/fournisseurs allume Comptabilité, pas Boutique. L'accueil « / »
+ * préfixe tout et ne départage donc rien.
  */
 export function espaceDuChemin(chemin: string, espaces: Espace[] = ESPACES): CleEspace | null {
-  let meilleur: { cle: CleEspace; longueur: number } | null = null;
+  const c = chemin.split("?")[0].replace(/\/+$/, "") || "/";
+  const accueilPrefixe = (espace: Espace) => {
+    const a = espace.accueil.href.replace(/\/+$/, "");
+    return a !== "" && (c === a || c.startsWith(a + "/"));
+  };
+  let meilleur: { espace: Espace; longueur: number } | null = null;
   for (const espace of espaces) {
     for (const ecran of [espace.accueil, ...espace.ecrans]) {
       if (!estActif(chemin, ecran.href, ecran.exact)) continue;
       const longueur = ecran.href.length;
-      if (!meilleur || longueur > meilleur.longueur) meilleur = { cle: espace.cle, longueur };
+      const plusPrecis = !meilleur || longueur > meilleur.longueur;
+      const departage = !!meilleur && longueur === meilleur.longueur
+        && accueilPrefixe(espace) && !accueilPrefixe(meilleur.espace);
+      if (plusPrecis || departage) meilleur = { espace, longueur };
     }
   }
-  return meilleur?.cle ?? null;
+  return meilleur?.espace.cle ?? null;
 }

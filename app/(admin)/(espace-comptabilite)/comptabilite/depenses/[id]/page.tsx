@@ -13,7 +13,9 @@ import { mouvementsDeDepense, listerArticles } from "@/src/lib/boutique";
 import { perimetreDuCompte, perimetreDeArticle, accesStockAccorde } from "@/src/lib/perimetreStock";
 import { libelleMouvement, formatQuantite } from "@/src/lib/boutiqueLogique";
 import { listerPieces } from "@/src/lib/pieces";
-import { lireHistorique, libelleEvenement } from "@/src/lib/journalEvenements";
+import { lireHistorique } from "@/src/lib/journalEvenements";
+import AuteurGeste from "@/app/components/AuteurGeste";
+import { formatHorodatage } from "@/src/lib/dates";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
@@ -277,10 +279,9 @@ export default async function DepensePage({
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {historique.map((h) => (
                 <li key={h.id} style={{ borderTop: bordure, padding: "8px 0", fontSize: 14 }}>
-                  <span style={{ color: marine, fontWeight: 600 }}>{libelleEvenement(h.evenement)}</span>
+                  <span style={{ color: marine, fontWeight: 600 }}>{h.libelle}</span>
                   <span style={{ color: sousTexte }}>
-                    {" "}— {new Date(h.created_at).toLocaleString("fr-CH")}
-                    {h.auteur ? ` · ${h.auteur}` : ""}
+                    {" "}— {formatHorodatage(h.created_at)} · <AuteurGeste auteur={h.auteur} />
                   </span>
                   {h.motif && <div style={{ color: sousTexte }}>{h.motif}</div>}
                 </li>

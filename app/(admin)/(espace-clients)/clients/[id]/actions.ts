@@ -13,6 +13,7 @@ import { synchroniserProduitAbonnement } from "@/src/lib/abonnementCompta";
 import { encaisser } from "@/app/(admin)/(espace-comptabilite)/factures/actions";
 import { creerAvoir } from "@/app/(admin)/(espace-comptabilite)/factures/actionsCreation";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { idUtilisateurCourant } from "@/src/lib/permissions";
 import { synchroniserComptaAvoir, contrePasserComptaAvoir } from "@/src/lib/comptaAvoir";
 
 // Types crédit (montant positif) vs débit (montant négatif)
@@ -53,6 +54,12 @@ export async function ajouterAvoir(formData: FormData): Promise<{ error?: string
   // Geste commercial : D 3800 diminutions de produits / C 2035 avoirs clients.
   await synchroniserComptaAvoir(mvt.id, verif.userId ?? null);
 
+  await tracerEvenement({
+    entite: "client", entiteId: client_id, evenement: "avoir_ajoute",
+    apres: { mouvement_id: mvt.id, montant }, motif,
+    userId: verif.userId ?? null,
+  });
+
   revalidatePath(`/clients/${client_id}`);
   return {};
 }
@@ -90,6 +97,12 @@ export async function retirerAvoir(formData: FormData): Promise<{ error?: string
 
   // Reprise : D 2035 avoirs clients / C 3800 diminutions de produits.
   await synchroniserComptaAvoir(mvt.id, verif.userId ?? null);
+
+  await tracerEvenement({
+    entite: "client", entiteId: client_id, evenement: "avoir_retire",
+    apres: { mouvement_id: mvt.id, montant: -montant }, motif,
+    userId: verif.userId ?? null,
+  });
 
   revalidatePath(`/clients/${client_id}`);
   return {};
@@ -150,6 +163,14 @@ export async function modifierMouvementAvoir(formData: FormData): Promise<{ erro
   // Le grand livre suit le nouveau montant (delta, pas de doublon).
   await synchroniserComptaAvoir(mouvement_id, verif.userId ?? null);
 
+  await tracerEvenement({
+    entite: "client", entiteId: client_id, evenement: "avoir_corrige",
+    avant: { mouvement_id, montant: Number(ligne.montant) },
+    apres: { mouvement_id, montant: nouveauMontantSigne },
+    motif: nouveau_motif,
+    userId: verif.userId ?? null,
+  });
+
   revalidatePath(`/clients/${client_id}`);
   return {};
 }
@@ -201,6 +222,12 @@ export async function supprimerMouvementAvoir(formData: FormData): Promise<{ err
 
   if (deleteErr) return { error: deleteErr.message };
 
+  await tracerEvenement({
+    entite: "client", entiteId: client_id, evenement: "avoir_supprime",
+    avant: { mouvement_id, montant: Number(ligne.montant), type: ligne.type },
+    userId: verif.userId ?? null,
+  });
+
   revalidatePath(`/clients/${client_id}`);
   return {};
 }
@@ -236,6 +263,13 @@ export async function confirmerPaiementAbonnement(
     .update({ statut: "actif", mode_paiement: mode, date_paiement: datePaiement, date_expiration: dateExpiration })
     .eq("id", abonnementId);
   if (upErr) return { error: upErr.message };
+
+  await tracerEvenement({
+    entite: "abonnement", entiteId: abonnementId, evenement: "abonnement_paye",
+    avant: { statut: abo.statut },
+    apres: { statut: "actif", mode, date_paiement: datePaiement, client_id: abo.client_id },
+    userId: verif.userId ?? null,
+  });
 
   const { error: mvErr } = await supabaseAdmin.from("abonnements_mouvements").insert({
     abonnement_id: abonnementId,
@@ -290,6 +324,14 @@ export async function archiverClient(formData: FormData) {
     .eq("id", id);
 
   if (error) throw new Error(error.message);
+
+  await tracerEvenement({
+    entite: "client", entiteId: id,
+    // Le même bouton archive et désarchive : le sens se lit dans avant/après.
+    evenement: "archive",
+    avant: { actif }, apres: { actif: !actif },
+    userId: await idUtilisateurCourant(),
+  });
   redirect(`/clients/${id}`);
 }
 
@@ -350,6 +392,12 @@ export async function ajusterJoursAbonnement(
   });
   if (mvErr) return { error: mvErr.message };
 
+  await tracerEvenement({
+    entite: "abonnement", entiteId: abonnementId, evenement: "abonnement_jours",
+    avant: { solde: soldeActuel }, apres: { solde: nouveauSolde, delta },
+    userId: verif.userId ?? null,
+  });
+
   // Cohérence du statut (on ne touche pas à 'expire')
   if (nouveauSolde <= 0 && abo.statut === "actif") {
     await supabaseAdmin.from("abonnements").update({ statut: "epuise" }).eq("id", abonnementId);
@@ -399,6 +447,12 @@ export async function supprimerAbonnement(
     .eq("id", abonnementId);
   if (upErr) return { error: upErr.message };
 
+  await tracerEvenement({
+    entite: "abonnement", entiteId: abonnementId, evenement: "abonnement_supprime",
+    avant: { statut: abo.statut }, apres: { statut: "annule" },
+    userId: verif.userId ?? null,
+  });
+
   // Contre-passe la compta si la carte avait été payée (idempotent, ne throw pas).
   await synchroniserComptaAbonnement(abonnementId, undefined, verif.userId ?? null);
 
@@ -447,6 +501,12 @@ export async function cloturerAbonnement(
     .update({ statut: "expire" })
     .eq("id", abonnementId);
   if (upErr) return { error: upErr.message };
+
+  await tracerEvenement({
+    entite: "abonnement", entiteId: abonnementId, evenement: "abonnement_cloture",
+    avant: { statut: abo.statut, solde }, apres: { statut: "expire", solde: 0 },
+    userId: verif.userId ?? null,
+  });
 
   // Ce qui restait en 2031 devient un produit, à la date de l'expiration : le
   // client a payé, il n'a pas utilisé, la prestation n'est plus due. Aucun

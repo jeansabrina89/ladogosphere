@@ -5,6 +5,7 @@ import { factureEmisePourReservation } from "@/src/lib/factureResa";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { resteAPayer } from "@/src/lib/montants";
 import { TYPES_RAPPEL_VEILLE, doitRecevoirRappelVeille } from "@/src/lib/rappelVeilleLogique";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
 
 export async function GET(req: NextRequest) {
   // Vérification sécurité — token Vercel cron
@@ -113,6 +114,12 @@ export async function GET(req: NextRequest) {
           .from("reservations")
           .update({ paiement_demande_le: aujourdHui })
           .eq("id", res.id);
+        // Tâche planifiée : pas d'auteur, l'écran affiche « automatique ».
+        await tracerEvenement({
+          entite: "reservation", entiteId: res.id, evenement: "demande_paiement",
+          apres: { montant, paiement_demande_le: aujourdHui },
+          userId: null,
+        });
         nbPaiement++;
       } catch (e) {
         erreursPaiement.push(`${email}: ${e instanceof Error ? e.message : String(e)}`);

@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { appliquerCohabitationClient } from "@/src/lib/cohabitationDb";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { idUtilisateurCourant } from "@/src/lib/permissions";
 import {
   validerChampsChien,
   categorieDepuisPoids,
@@ -101,6 +103,15 @@ export async function creerChienClient(
   // aucune décision de la pension ne peut encore le verrouiller).
   if (chienCree?.id) {
     await appliquerCohabitationClient(chienCree.id, formData.get("cohabitation"));
+    // Faite par le client : l'auteur est son compte.
+    await tracerEvenement({
+      entite: "chien", entiteId: chienCree.id, evenement: "creation",
+      apres: {
+        client_id: fiche.id, nom, race, poids: poidsValide, sexe,
+        cohabitation: formData.get("cohabitation") ?? null,
+      },
+      userId: await idUtilisateurCourant(),
+    });
   }
   redirect("/mon-compte");
 }

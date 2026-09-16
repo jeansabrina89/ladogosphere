@@ -7,6 +7,7 @@ import {
 import { suggererBox, boxesInternesLibres, fichesInternesQuiTravaillent } from "@/src/lib/suggestionBox";
 import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
 import { champsTypeSejour, typeSejourPropose } from "@/src/lib/typeSejour";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
 
 export type OccurrencePersonnel = { date_debut: string; date_fin: string };
 
@@ -31,6 +32,7 @@ export async function creerReservationsPersonnel({
   heure_arrivee,
   heure_depart,
   commentaire_client,
+  auteur,
 }: {
   client_id: string;
   chien_ids: string[];
@@ -39,6 +41,8 @@ export async function creerReservationsPersonnel({
   heure_arrivee: string | null;
   heure_depart: string | null;
   commentaire_client?: string | null;
+  /** Compte qui fait la demande (celui de la fiche interne). */
+  auteur: string | null;
 }): Promise<ResultatReservationPersonnel> {
   const champs = champsReservationPersonnel();
   const idsCrees: string[] = [];
@@ -97,6 +101,15 @@ export async function creerReservationsPersonnel({
     }
     idsCrees.push(resa.id);
 
+    await tracerEvenement({
+      entite: "reservation", entiteId: resa.id, evenement: "creation",
+      apres: {
+        client_id, type_reservation, date_debut: occ.date_debut, date_fin: occ.date_fin,
+        box_id: decision.box_id, chien_ids, statut: champs.statut, interne: true,
+      },
+      userId: auteur,
+    });
+
     // 3. Chiens, occupations et check-in — comme la création côté personnel.
     const { error: errLiens } = await supabaseAdmin
       .from("reservation_chiens")
@@ -136,7 +149,8 @@ async function annulerReservations(ids: string[]): Promise<void> {
  */
 export async function annulerReservationPersonnel(
   reservationId: string,
-  client_id: string
+  client_id: string,
+  auteur: string | null,
 ): Promise<{ ok?: boolean; error?: string }> {
   const { data: resa } = await supabaseAdmin
     .from("reservations")
@@ -157,6 +171,12 @@ export async function annulerReservationPersonnel(
     .update({ statut: "annulee", box_id: null })
     .eq("id", reservationId);
   if (error) return { error: error.message };
+
+  await tracerEvenement({
+    entite: "reservation", entiteId: reservationId, evenement: "annulation",
+    avant: { statut: resa.statut }, apres: { statut: "annulee", interne: true },
+    userId: auteur,
+  });
 
   await supabaseAdmin.from("occupation_boxes").delete().eq("reservation_id", reservationId);
   await supabaseAdmin.from("checkin_checkout").delete().eq("reservation_id", reservationId);

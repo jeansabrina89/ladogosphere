@@ -3,6 +3,8 @@ import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { exigerPersonnel } from "@/src/lib/apiAuth";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { idUtilisateurCourant } from "@/src/lib/permissions";
 
 export async function GET(
   req: NextRequest,
@@ -67,6 +69,11 @@ export async function POST(
     }
     // Décision de la PENSION : elle prime et verrouille le choix du client.
     await supabaseAdmin.from("chiens").update({ cohabitation_source: "pension" }).eq("id", id);
+    await tracerEvenement({
+      entite: "chien", entiteId: id, evenement: "ententes",
+      avant: { famille_uniquement: !!existing }, apres: { famille_uniquement: !existing },
+      userId: await idUtilisateurCourant(),
+    });
     return NextResponse.json({ ok: true });
   }
 
@@ -80,5 +87,10 @@ export async function POST(
     });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await tracerEvenement({
+    entite: "chien", entiteId: id, evenement: "ententes",
+    apres: { chien_cible_id, type, note: note || null },
+    userId: await idUtilisateurCourant(),
+  });
   return NextResponse.json({ ok: true });
 }

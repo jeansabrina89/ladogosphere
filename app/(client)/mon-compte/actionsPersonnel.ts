@@ -5,6 +5,8 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getEmployeRhActuel } from "@/src/lib/employeActuel";
 import { refusRattachementFiche } from "@/src/lib/ficheDeRecette";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { idUtilisateurCourant } from "@/src/lib/permissions";
 
 export type ResultatFicheInterne = { ok: true; client_id: string } | { ok: false; error: string };
 
@@ -84,6 +86,12 @@ export async function creerFicheInterne(): Promise<ResultatFicheInterne> {
     return { ok: false, error: error.message };
   }
 
+  await tracerEvenement({
+    entite: "client", entiteId: creee.id, evenement: "fiche_interne",
+    apres: { prenom, nom, email, interne: true },
+    userId: user.id,
+  });
+
   revalidatePath("/mon-compte");
   return { ok: true, client_id: creee.id };
 }
@@ -94,6 +102,11 @@ export async function creerFicheInterne(): Promise<ResultatFicheInterne> {
  * encore une fiche ordinaire. Le sens inverse n'existe pas.
  */
 export async function basculerFicheEnInterne(client_id: string): Promise<void> {
+  await tracerEvenement({
+    entite: "client", entiteId: client_id, evenement: "bascule_interne",
+    apres: { interne: true, cotisation_exemptee: true, membre: true, chiens_valides: true },
+    userId: await idUtilisateurCourant(),
+  });
   await supabaseAdmin
     .from("clients")
     .update({

@@ -10,6 +10,9 @@ import NomClientLien from "@/app/components/NomClientLien";
 import NomChienLien from "@/app/components/NomChienLien";
 import BadgePhotos from "@/app/components/BadgePhotos";
 import MessageProprietaire from "@/app/components/MessageProprietaire";
+import PointageFait from "@/app/components/PointageFait";
+import AuteurGeste from "@/app/components/AuteurGeste";
+import { lireGestesCheckin } from "@/src/lib/journalEvenements";
 
 const TYPE_LABELS: Record<string, string> = {
   journee: "Journée",
@@ -18,7 +21,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const SELECT = `
-  id, statut, date_arrivee_prevue, date_depart_prevu, date_arrivee_reelle,
+  id, statut, reservation_id, date_arrivee_prevue, date_depart_prevu, date_arrivee_reelle, date_depart_reel,
   reservations ( type_reservation, heure_arrivee, heure_depart, commentaire_client, clients (id, prenom, nom, photos_ok) ),
   chiens ( id, nom )
 ` as const;
@@ -89,6 +92,12 @@ export default async function ChiensDuJourPage({
   )];
   const colis = await clientsAvecCommandeARemettre(clientsDuJour);
 
+  // Qui a pointé l'arrivée et le départ, et à quelle heure.
+  const gestes = await lireGestesCheckin(
+    [...(arrivees ?? []), ...(presents ?? []), ...(departs ?? [])]
+      .map((cc) => (cc as { reservation_id?: string | null }).reservation_id ?? "")
+  );
+
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-5xl mx-auto">
@@ -134,6 +143,9 @@ export default async function ChiensDuJourPage({
                           {cc.reservations?.type_reservation && ` · ${TYPE_LABELS[cc.reservations.type_reservation] ?? cc.reservations.type_reservation}`}
                           {heure && ` · ${heure}`}
                         </p>
+                        {cc.statut !== "attendu" && (
+                          <PointageFait verbe="Arrivé" le={cc.date_arrivee_reelle} geste={gestes.get(cc.id)?.arrivee} />
+                        )}
                         {/* Ce que le propriétaire a signalé : sur la ligne du
                             chien concerné, sans clic. */}
                         <MessageProprietaire
@@ -182,6 +194,9 @@ export default async function ChiensDuJourPage({
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">
                           {arriveLe && `Arrivé le ${arriveLe}`}
+                          {arriveLe && gestes.get(cc.id)?.arrivee && (
+                            <>{" · "}<AuteurGeste auteur={gestes.get(cc.id)!.arrivee!.auteur} /></>
+                          )}
                           {departPrevu && ` · Départ prévu le ${departPrevu}`}
                           {heureDep && ` à ${heureDep}`}
                         </p>
@@ -230,6 +245,9 @@ export default async function ChiensDuJourPage({
                           {cc.reservations?.type_reservation && ` · ${TYPE_LABELS[cc.reservations.type_reservation] ?? cc.reservations.type_reservation}`}
                           {heure && ` · ${heure}`}
                         </p>
+                        {cc.statut === "parti" && (
+                          <PointageFait verbe="Parti" le={cc.date_depart_reel} geste={gestes.get(cc.id)?.depart} />
+                        )}
                         {/* Ce que le propriétaire a signalé : sur la ligne du
                             chien concerné, sans clic. */}
                         <MessageProprietaire

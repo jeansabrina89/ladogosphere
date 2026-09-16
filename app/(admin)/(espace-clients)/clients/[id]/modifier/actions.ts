@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { ecart } from "@/src/lib/journalLogique";
 import { messageErreurBase } from "@/src/lib/validationChien";
 import {
   valeursFormulaire,
@@ -49,9 +51,10 @@ export async function modifierClient(
 
   // Accord photos : horodaté seulement s'il change réellement.
   const photosOk = formData.get("photos_ok") === "on";
+  // Toute la fiche : l'accord photos, et ce qui change pour le journal.
   const { data: avant } = await supabaseAdmin
     .from("clients")
-    .select("photos_ok")
+    .select("*")
     .eq("id", id)
     .maybeSingle();
 
@@ -89,6 +92,15 @@ export async function modifierClient(
       return refus("Un client existe déjà avec cette adresse e-mail.", "email");
     }
     return refus(messageErreurBase(error));
+  }
+
+  const change = ecart(avant as Record<string, unknown> | null, updateData);
+  if (change) {
+    await tracerEvenement({
+      entite: "client", entiteId: id, evenement: "modification",
+      avant: change.avant, apres: change.apres,
+      userId: verif.userId ?? null,
+    });
   }
 
   redirect(`/clients/${id}`);

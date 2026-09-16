@@ -241,8 +241,9 @@ describe("l'entrée allumée", () => {
     expect(espaceDuChemin("/boutique/caisse")).toBe("boutique");
     expect(espaceDuChemin("/atelier/inventaire")).toBe("atelier");
     // Un écran partagé : la fiche fournisseur est nommée dans deux espaces ;
-    // c'est le premier déclaré qui allume, et il en faut UN seul.
-    expect(["boutique", "comptabilite"]).toContain(espaceDuChemin("/comptabilite/fournisseurs"));
+    // à précision égale, l'espace dont l'accueil préfixe l'adresse l'emporte.
+    expect(espaceDuChemin("/comptabilite/fournisseurs")).toBe("comptabilite");
+    expect(espaceDuChemin("/comptabilite/fournisseurs/abc")).toBe("comptabilite");
     expect(espaceDuChemin("/comptabilite/depenses/abc")).toBe("comptabilite");
     expect(espaceDuChemin("/employes/mon-espace")).toBe(null);
     expect(espaceDuChemin("/")).toBe("aujourdhui");
@@ -402,5 +403,31 @@ describe("l'espace Prestations", () => {
     expect(labels("prestations", avecFactures)).toContain("🧾 Facturer le mois");
     expect(labels("prestations", droits({ perm_prestations: true })))
       .not.toContain("🧾 Facturer le mois");
+  });
+});
+
+describe("espaceDuChemin : départage à précision égale", () => {
+  const ecran = (href: string) => ({ href, label: href, exigence: () => true });
+  const espace = (cle: string, accueil: string, ecrans: string[]) =>
+    ({ cle, label: cle, accueil: { ...ecran(accueil), exact: true }, ecrans: ecrans.map(ecran) }) as never;
+
+  it("l'espace dont l'accueil préfixe l'adresse l'emporte, quel que soit l'ordre de déclaration", () => {
+    const boutique = espace("boutique", "/boutique", ["/comptabilite/fournisseurs"]);
+    const compta = espace("comptabilite", "/comptabilite", ["/comptabilite/fournisseurs"]);
+    expect(espaceDuChemin("/comptabilite/fournisseurs", [boutique, compta])).toBe("comptabilite");
+    expect(espaceDuChemin("/comptabilite/fournisseurs", [compta, boutique])).toBe("comptabilite");
+  });
+
+  it("l'écran le plus précis gagne toujours avant le départage", () => {
+    const a = espace("a", "/a", ["/b/c/d"]);
+    const b = espace("b", "/b", ["/b/c"]);
+    expect(espaceDuChemin("/b/c/d", [b, a])).toBe("a");
+  });
+
+  it("l'accueil « / » ne départage rien : sans préfixe, le premier déclaré reste", () => {
+    const racine = espace("racine", "/", ["/x/y"]);
+    const autre = espace("autre", "/z", ["/x/y"]);
+    expect(espaceDuChemin("/x/y", [autre, racine])).toBe("autre");
+    expect(espaceDuChemin("/x/y", [racine, autre])).toBe("racine");
   });
 });

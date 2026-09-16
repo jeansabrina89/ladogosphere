@@ -4,6 +4,8 @@ import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { placementBoxAutorise } from "@/src/lib/personnel";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { idUtilisateurCourant } from "@/src/lib/permissions";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -80,6 +82,20 @@ export async function POST(req: NextRequest) {
       });
 
     if (errorInsert) return NextResponse.json({ error: errorInsert.message }, { status: 500 });
+  }
+
+  // Le box d'une réservation se change ici par glisser-déposer : c'est une
+  // attribution de box comme une autre.
+  if (occupation.reservation_id) {
+    await tracerEvenement({
+      entite: "reservation", entiteId: occupation.reservation_id, evenement: "box",
+      avant: { box_id: occupation.box_id },
+      apres: {
+        box_id: nouveau_box_id, chien_id: occupation.chien_id,
+        a_partir_du: mode === "partir_de" ? date_changement : null,
+      },
+      userId: await idUtilisateurCourant(),
+    });
   }
 
   return NextResponse.json({ ok: true });

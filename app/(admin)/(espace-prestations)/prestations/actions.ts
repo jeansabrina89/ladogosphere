@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { aujourdhuiISO } from "@/src/lib/dates";
+import { ecart } from "@/src/lib/journalLogique";
 import {
   catalogueVisible,
   estGarde,
@@ -313,18 +314,34 @@ export async function enregistrerLocataire(formData: FormData): Promise<Resultat
   const clientId = String(formData.get("client_id") ?? "");
   const loyerBrut = String(formData.get("loyer_refacture") ?? "").trim();
 
+  const champs = {
+    locataire_box: formData.get("locataire_box") === "on",
+    box_loue: String(formData.get("box_loue") ?? "").trim() || null,
+    // Laissé à null tant que Sabrina ne l'a pas saisi : aucun montant deviné.
+    loyer_refacture: loyerBrut === "" ? null : Number(loyerBrut),
+    locataire_depuis: String(formData.get("locataire_depuis") ?? "") || null,
+    locataire_jusqu_au: String(formData.get("locataire_jusqu_au") ?? "") || null,
+  };
+  const { data: avant } = await supabaseAdmin
+    .from("clients")
+    .select("locataire_box, box_loue, loyer_refacture, locataire_depuis, locataire_jusqu_au")
+    .eq("id", clientId)
+    .maybeSingle();
+
   const { error } = await supabaseAdmin
     .from("clients")
-    .update({
-      locataire_box: formData.get("locataire_box") === "on",
-      box_loue: String(formData.get("box_loue") ?? "").trim() || null,
-      // Laissé à null tant que Sabrina ne l'a pas saisi : aucun montant deviné.
-      loyer_refacture: loyerBrut === "" ? null : Number(loyerBrut),
-      locataire_depuis: String(formData.get("locataire_depuis") ?? "") || null,
-      locataire_jusqu_au: String(formData.get("locataire_jusqu_au") ?? "") || null,
-    })
+    .update(champs)
     .eq("id", clientId);
   if (error) return { error: error.message };
+
+  const change = ecart(avant as Record<string, unknown> | null, champs);
+  if (change) {
+    await tracerEvenement({
+      entite: "client", entiteId: clientId, evenement: "locataire",
+      avant: change.avant, apres: change.apres,
+      userId: verif.userId ?? null,
+    });
+  }
 
   revalidatePath(`/prestations/locataires/${clientId}`);
   revalidatePath("/prestations/locataires");

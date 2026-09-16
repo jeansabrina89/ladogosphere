@@ -8,6 +8,8 @@ import { heureCourte, MESSAGE_DATE_ESSAI_PRISE } from "@/src/lib/journeeEssai";
 import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
 import { MESSAGE_TYPE_RESERVE, champsTypeSejour, typeSejour } from "@/src/lib/typeSejour";
 import { assurerMontantCalcule } from "@/src/lib/prixReservation";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { idUtilisateurCourant } from "@/src/lib/permissions";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -110,6 +112,18 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  const auteur = await idUtilisateurCourant();
+  await tracerEvenement({
+    entite: "reservation", entiteId: reservation.id, evenement: "creation",
+    apres: {
+      client_id, type_reservation, type_sejour, date_debut, date_fin,
+      box_id: box_id || null, chien_ids, statut,
+      essai_force: forcer || !!essai_force_heure,
+    },
+    motif: forcer ? forcer_raison!.trim() : (essai_force_heure ? "Seconde journée d'essai forcée" : null),
+    userId: auteur,
+  });
+
   if (chien_ids.length > 0) {
     // Lier les chiens à la réservation
     await supabaseAdmin.from("reservation_chiens").insert(
@@ -133,8 +147,7 @@ export async function POST(req: NextRequest) {
     // Une réservation créée directement « Validée » doit porter son prix : le
     // calcul ne peut pas attendre un passage par /statut qui n'aura pas lieu.
     if (statut === "validee") {
-      const { data: { user } } = await supabase.auth.getUser();
-      const prix = await assurerMontantCalcule(reservation.id, user?.id ?? null);
+      const prix = await assurerMontantCalcule(reservation.id, auteur);
       if (prix.erreur) {
         // On ne laisse pas une réservation validée à 0 CHF : elle repasse en
         // attente et l'erreur est affichée au lieu d'être avalée.
@@ -142,6 +155,12 @@ export async function POST(req: NextRequest) {
           .from("reservations")
           .update({ statut: "en_attente" })
           .eq("id", reservation.id);
+        await tracerEvenement({
+          entite: "reservation", entiteId: reservation.id, evenement: "statut",
+          avant: { statut: "validee" }, apres: { statut: "en_attente" },
+          motif: `Prix non calculable : ${prix.erreur}`,
+          userId: auteur,
+        });
         return NextResponse.json(
           {
             error: `Le prix n'a pas pu être calculé : ${prix.erreur} La réservation reste en attente.`,
