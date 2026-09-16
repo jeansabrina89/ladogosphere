@@ -7,7 +7,7 @@ import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 import BadgeFacture from "./BadgeFacture";
 import FiltresFactures from "./FiltresFactures";
-import { etatFacture } from "@/src/lib/factureStatut";
+import { etatFacture, libelleEtatFacture } from "@/src/lib/factureStatut";
 
 const chf = (n: number) => `${(Number(n) || 0).toFixed(2)} CHF`;
 
@@ -97,7 +97,7 @@ export default async function FacturesListePage({
 
         <div className="grid gap-4 mb-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
           <Tuile titre="À encaisser" valeur={chf(aEncaisser)} couleur={marine} />
-          <Tuile titre="En retard" valeur={chf(enRetard)} couleur={enRetard > 0 ? "#A8453A" : marine} />
+          <Tuile titre={libelleEtatFacture("en_retard")} valeur={chf(enRetard)} couleur={enRetard > 0 ? "#A8453A" : marine} />
           <Tuile titre="Encaissé ce mois" valeur={chf(encaisseCeMois)} couleur="#1F6E5B" />
         </div>
 

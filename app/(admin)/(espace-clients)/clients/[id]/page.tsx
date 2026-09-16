@@ -24,6 +24,7 @@ import ListeReservations from "../../reservations/ListeReservations";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import BadgeStatut from "@/app/components/ui/BadgeStatut";
+import BadgeFacture from "@/app/(admin)/(espace-comptabilite)/factures/BadgeFacture";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 
@@ -91,7 +92,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
 
   const { data: facturesClient } = await supabase
     .from("factures")
-    .select("id, numero, date_facture, montant_total, statut")
+    .select("id, numero, type, date_facture, date_echeance, montant_total, montant_restant, statut")
     .eq("client_id", id)
     .order("date_facture", { ascending: false });
 
@@ -113,12 +114,6 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
 
   const categorieLabel = (c: string | null) =>
     c === "moins_15kg" ? "🟢 Petit" : c === "15_30kg" ? "🟡 Moyen" : c === "30_40kg" ? "🔴 Grand" : "—";
-
-  const factureBadge = (s: string) => {
-    if (s === "acquittee") return <span style={pill("#F4EAC9", "#6E5410")}>Réglée</span>;
-    if (s === "annulee") return <span style={pill("#EDE8DF", "rgba(27,43,94,0.6)")}>Annulée</span>;
-    return <span style={pill("#E4E7F1", "#2A3B6B")}>Émise</span>;
-  };
 
   return (
     <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -347,7 +342,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <p style={{ color: "#1B2B5E", fontWeight: 700, fontSize: 14, margin: 0 }}>CHF {Number(f.montant_total).toFixed(2)}</p>
-                        {factureBadge(f.statut)}
+                        <BadgeFacture facture={f} aujourdhui={aujourdhui} />
                       </div>
                     </div>
                   </Carte>

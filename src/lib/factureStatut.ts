@@ -63,6 +63,11 @@ const COULEURS: Record<EtatFacture, { fond: string; texte: string }> = {
   avoir:               { fond: "#E0F2FE", texte: "#0369A1" },
 };
 
+/** Les états, dans l'ordre où les écrans les proposent (filtres de la liste). */
+export const ETATS_FACTURE: EtatFacture[] = [
+  "brouillon", "envoyee", "en_retard", "partiellement_payee", "payee", "avoir", "annulee",
+];
+
 export function libelleEtatFacture(etat: EtatFacture): string {
   return LIBELLES[etat];
 }

@@ -94,12 +94,12 @@ describe("aucun libellé visible n’associe encore le statut envoyee à « Envo
     expect(fautifs).toEqual([]);
   });
 
-  it("le filtre de la liste et la fiche client disent « Émise »", () => {
+  it("le filtre de la liste et la fiche client lisent le vocabulaire central", () => {
     const code = (chemin: string) => SOURCES.find((f) => f.chemin === chemin)!.code;
     expect(code("app/(admin)/(espace-comptabilite)/factures/FiltresFactures.tsx"))
-      .toContain('{ val: "envoyee", label: "Émise" }');
+      .toContain("libelleEtatFacture(e)");
     expect(code("app/(admin)/(espace-clients)/clients/[id]/page.tsx"))
-      .toContain('<span style={pill("#E4E7F1", "#2A3B6B")}>Émise</span>');
+      .toMatch(/<BadgeFacture facture={f}/);
   });
 });
 

@@ -2,19 +2,12 @@
 
 import { useState, type CSSProperties } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ETATS_FACTURE, libelleEtatFacture } from "@/src/lib/factureStatut";
 
 // Filtres de la liste des factures : statut (le même vocabulaire qu'ailleurs),
 // recherche par client ou numéro, et période.
 
-const VUES: { val: string; label: string }[] = [
-  { val: "brouillon", label: "Brouillon" },
-  { val: "envoyee", label: "Émise" },
-  { val: "en_retard", label: "En retard" },
-  { val: "partiellement_payee", label: "Partiellement payée" },
-  { val: "payee", label: "Payée" },
-  { val: "avoir", label: "Avoir" },
-  { val: "annulee", label: "Annulée" },
-];
+const VUES: { val: string; label: string }[] = ETATS_FACTURE.map((e) => ({ val: e, label: libelleEtatFacture(e) }));
 
 const sLigne: CSSProperties = { display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 };
 const sLabel: CSSProperties = { fontSize: 13, fontWeight: 700, color: "#1B2B5E", marginRight: 4 };
