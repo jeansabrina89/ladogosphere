@@ -8,7 +8,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const VUES: { val: string; label: string }[] = [
   { val: "brouillon", label: "Brouillon" },
-  { val: "envoyee", label: "Envoyée" },
+  { val: "envoyee", label: "Émise" },
   { val: "en_retard", label: "En retard" },
   { val: "partiellement_payee", label: "Partiellement payée" },
   { val: "payee", label: "Payée" },

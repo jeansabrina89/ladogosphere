@@ -117,7 +117,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const factureBadge = (s: string) => {
     if (s === "acquittee") return <span style={pill("#F4EAC9", "#6E5410")}>Réglée</span>;
     if (s === "annulee") return <span style={pill("#EDE8DF", "rgba(27,43,94,0.6)")}>Annulée</span>;
-    return <span style={pill("#E4E7F1", "#2A3B6B")}>Envoyée</span>;
+    return <span style={pill("#E4E7F1", "#2A3B6B")}>Émise</span>;
   };
 
   return (

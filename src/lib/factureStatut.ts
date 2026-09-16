@@ -42,7 +42,10 @@ export function etatFacture(f: FacturePourEtat, aujourdhui: string): EtatFacture
 
 const LIBELLES: Record<EtatFacture, string> = {
   brouillon: "Brouillon",
-  envoyee: "Envoyée",
+  // La valeur `envoyee` date du temps où émettre, c'était envoyer. Une facture
+  // ne part plus à son émission : l'état dit « Émise », et l'e-mail a sa propre
+  // information (`email_envoye_le`), affichée à part.
+  envoyee: "Émise",
   en_retard: "En retard",
   partiellement_payee: "Partiellement payée",
   payee: "Payée",
