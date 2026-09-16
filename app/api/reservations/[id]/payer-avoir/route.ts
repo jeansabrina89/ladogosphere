@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
+import { rafraichirPaiementFacture } from "@/src/lib/comptaFacture";
+import { recalculerPaiementReservation, recalculerPaiementsDeFacture } from "@/src/lib/paiementReservation";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 
 export async function POST(
@@ -46,9 +48,26 @@ export async function POST(
     userId: user.id,
   });
 
-  // 5. Comptabilité : la ligne paiements_resa est désormais posée par la RPC,
-  // la synchro impute la contrepartie avoir (compte 2035). Ne lève jamais.
-  await synchroniserComptaResa(id, new Date().toISOString().split("T")[0]);
+  // 5. La RPC a rattaché le paiement à la facture ouverte de la réservation s'il y
+  // en a une, sinon à la réservation seule. La pièce touchée se recalcule, puis
+  // la réservation se dérive (la RPC n'écrit plus ni payé ni statut).
+  const { data: dernier } = await supabaseAdmin
+    .from("paiements_resa")
+    .select("facture_id")
+    .eq("client_id", fiche.id)
+    .eq("mode", "avoir")
+    .eq("motif", "Paiement par avoir (espace client)")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (dernier?.facture_id) {
+    await rafraichirPaiementFacture(dernier.facture_id as string, user.id);
+    await recalculerPaiementsDeFacture(dernier.facture_id as string);
+  } else {
+    // Comptabilité de l'acompte : la synchro impute la contrepartie avoir (2035).
+    await synchroniserComptaResa(id, new Date().toISOString().split("T")[0]);
+  }
+  await recalculerPaiementReservation(id);
 
   return NextResponse.json({ ok: true, nouveauSolde });
 }

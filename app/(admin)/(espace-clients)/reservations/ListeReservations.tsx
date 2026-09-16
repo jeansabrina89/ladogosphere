@@ -4,7 +4,7 @@ import Link from "next/link";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import { formatDateFR } from "@/src/lib/dates";
 import { formatBoxLabel } from "@/src/lib/boxes";
-import { montantDuReservation } from "@/src/lib/montants";
+import { resteAPayer } from "@/src/lib/montants";
 import Carte from "@/app/components/ui/Carte";
 import BadgeStatut from "@/app/components/ui/BadgeStatut";
 import EtatVide from "@/app/components/ui/EtatVide";
@@ -29,6 +29,7 @@ type Reservation = {
   montant_calcule?: number | string | null;
   ajustement_manuel?: number | string | null;
   montant_paye?: number | string | null;
+  montant_restant?: number | string | null;
   clients?: { prenom?: string; nom?: string; membre?: boolean; aJour?: boolean } | null;
   boxes?: { numero?: number | null; nom?: string | null } | null;
   reservation_chiens?: { chiens: Chien | null }[] | null;
@@ -37,7 +38,7 @@ type Reservation = {
 const muted = { fontSize: 14, color: "rgba(27,43,94,0.6)", margin: 0 };
 
 function resteDu(res: Reservation): number {
-  return Math.max(0, montantDuReservation(res) - Number(res.montant_paye ?? 0));
+  return Math.max(0, resteAPayer(res));
 }
 
 function libelleType(t: string): string {

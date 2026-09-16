@@ -130,6 +130,20 @@ vi.mock("@/src/lib/factureDocument", () => ({
 }));
 vi.mock("@sentry/nextjs", () => ({ captureException: () => {} }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {} }));
+// La dérivation du paiement des réservations a ses propres tests
+// (paiementReservation.test.ts) : ici, une réservation sans facture ouverte,
+// dont le reste est son prix moins les acomptes du journal.
+vi.mock("@/src/lib/paiementReservation", () => ({
+  factureOuverteDeReservation: () => Promise.resolve(null),
+  recalculerPaiementsDeFacture: () => Promise.resolve(),
+  recalculerPaiementReservation: (id: string) => {
+    const r = H.reservations[id];
+    if (!r) return Promise.resolve(null);
+    const paye = H.paiements.filter((p) => p.reservation_id === id).reduce((s, p) => s + Number(p.montant), 0);
+    const du = Number(r.montant_final ?? 0);
+    return Promise.resolve({ du, paye, reste: Math.max(0, du - paye), statut: "impaye", facturee: false });
+  },
+}));
 
 import { encaisser, annulerPaiement } from "@/app/(admin)/(espace-comptabilite)/factures/actions";
 

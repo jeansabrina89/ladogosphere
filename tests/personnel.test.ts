@@ -147,8 +147,6 @@ describe("règle « fiche interne ⇒ validee, montant 0, pas de facture »", ()
       statut: "validee",
       montant_calcule: 0,
       montant_final: 0,
-      statut_paiement: "paye",
-      montant_paye: 0,
     });
   });
 

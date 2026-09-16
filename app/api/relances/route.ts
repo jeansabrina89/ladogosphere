@@ -5,7 +5,7 @@ import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { envoyerEmailRelancePaiement } from "@/src/lib/email";
 import { factureEmisePourReservation } from "@/src/lib/factureResa";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
-import { resteAPayer } from "@/src/lib/montants";
+import { recalculerPaiementReservation } from "@/src/lib/paiementReservation";
 import { niveauRelanceDu } from "@/src/lib/relances";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { idUtilisateurCourant } from "@/src/lib/permissions";
@@ -37,13 +37,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Relance reservee aux sejours." }, { status: 400 });
   }
   if (res.offerte) return NextResponse.json({ error: "Reservation offerte." }, { status: 400 });
-  if (res.statut_paiement === "paye") {
-    return NextResponse.json({ error: "Reservation deja payee." }, { status: 400 });
-  }
 
-  const montant = resteAPayer(res);
-  if (montant <= 0) {
-    return NextResponse.json({ error: "Rien a relancer (solde nul)." }, { status: 400 });
+  // Le reste à payer DÉRIVÉ des factures, recalculé à l'instant : jamais le
+  // drapeau enregistré, qui a pu mentir.
+  const derive = await recalculerPaiementReservation(reservation_id);
+  const montant = derive?.reste ?? 0;
+  if (!derive || derive.statut === "paye" || montant <= 0) {
+    return NextResponse.json({ error: "Reservation deja payee (solde nul)." }, { status: 400 });
   }
 
   const niveau = niveauRelanceDu(res.date_fin);

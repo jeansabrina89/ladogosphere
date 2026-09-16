@@ -16,6 +16,7 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
+import { resteAPayer as resteRestant } from "@/src/lib/montants";
 
 const MARINE = "#1B2B5E";
 const SERIF = "Georgia,'Times New Roman',serif";
@@ -101,7 +102,8 @@ export default async function DetailReservationClientPage({
   }
 
   const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens?.nom).filter(Boolean) ?? [];
-  const resteAPayer = (res.montant_final || 0) - (res.montant_paye || 0);
+  // Le reste dérivé des factures (un avoir a pu effacer la dette sans changer le prix).
+  const resteAPayer = resteRestant(res);
 
   const regleParAbo = !!res.abonnement_id;
   const dogs = (res.reservation_chiens ?? []).map((rc: any) => rc.chiens).filter(Boolean) as ChienSociabilite[];

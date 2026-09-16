@@ -288,6 +288,7 @@ const LIBELLES_PAR_ENTITE: Record<string, Record<string, string>> = {
     suppression: "Supprimée définitivement",
     extra_ajoute: "Ligne ajoutée au prix",
     extra_retire: "Ligne retirée du prix",
+    paiement_derive: "Statut de paiement recalculé depuis les factures",
   },
   chien: {
     creation: "Chien ajouté",

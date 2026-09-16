@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { getAvoirAppliqueReservation } from "@/src/lib/avoirs";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
+import { recalculerPaiementReservation } from "@/src/lib/paiementReservation";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { ecartModificationReservation } from "@/src/lib/journalLogique";
 import { recalculerMontantSejour } from "../actions";
@@ -205,10 +206,11 @@ export async function annulerReservation(formData: FormData) {
         created_by: verif.userId ?? null,
       });
     }
-    // c) remettre le paiement à zéro sur la résa
+    // c) le mode et la date de paiement ne disent plus rien ; le payé et le
+    //    statut, eux, se dérivent des contre-passations ci-dessus.
     const { error: e3 } = await supabaseAdmin
       .from("reservations")
-      .update({ montant_paye: 0, statut_paiement: "impaye", mode_paiement: null, date_paiement: null })
+      .update({ mode_paiement: null, date_paiement: null })
       .eq("id", id);
     if (e3) throw new Error(e3.message);
   }
@@ -233,6 +235,7 @@ export async function annulerReservation(formData: FormData) {
   await supabaseAdmin.from("occupation_boxes").delete().eq("reservation_id", id);
 
   await synchroniserComptaResa(id);
+  await recalculerPaiementReservation(id);
 
   redirect(`/reservations/${id}`);
 }

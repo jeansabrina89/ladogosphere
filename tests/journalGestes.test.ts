@@ -29,8 +29,8 @@ const ECRITURES = new Set(["insert", "update", "upsert"]);
 const EXCEPTIONS: Record<string, string> = {
   "app/(admin)/(espace-clients)/reservations/actionsPersonnel.ts::marquerReservationsPersonnelVues":
     "Marque des réservations comme vues pour éteindre un badge : un état d'écran, rien ne change pour la réservation.",
-  "app/(admin)/(espace-comptabilite)/factures/actions.ts::rafraichirPaiementReservation":
-    "Recalcule montant_paye depuis paiements_resa ; appelée par encaisser et annulerPaiement, qui tracent le geste.",
+  "src/lib/paiementReservation.ts::recalculerPaiementsReservations":
+    "Dérive statut_paiement, montant_paye et montant_restant des factures ; toujours appelée après un geste tracé (encaissement, avoir, émission…).",
   "src/lib/comptaResa.ts::marquerStatutCompta":
     "État technique de la synchronisation comptable (compta_synchronisee, compta_erreur).",
   "src/lib/prixReservation.ts::recalculerTotalEtPaiement":

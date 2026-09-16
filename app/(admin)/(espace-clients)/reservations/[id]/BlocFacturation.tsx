@@ -3,7 +3,7 @@ import { formatDateFR } from "@/src/lib/dates";
 import AuteurGeste from "@/app/components/AuteurGeste";
 import { lireAuteurs } from "@/src/lib/auteursDb";
 import { auteurAffiche } from "@/src/lib/auteur";
-import { montantDuReservation } from "@/src/lib/montants";
+import { lirePaiementsReservations } from "@/src/lib/paiementReservation";
 import { getSoldeAvoir } from "@/src/lib/avoirs";
 import { libelleMode, etatFacture, libelleEtatFacture, couleursEtatFacture } from "@/src/lib/factureStatut";
 import Encaisser from "@/app/(admin)/(espace-comptabilite)/factures/Encaisser";
@@ -11,8 +11,9 @@ import AnnulerPaiement from "./AnnulerPaiement";
 import DemanderAcompte from "./DemanderAcompte";
 
 // Un seul bloc « Facturation » : où en est la facture, ce qu'il reste à payer,
-// et par où encaisser. Le montant payé n'est plus saisi nulle part — il est la
-// somme des versements du journal.
+// et par où encaisser. Rien n'y est saisi : dû, payé et reste se DÉRIVENT des
+// factures qui couvrent la réservation (src/lib/paiementReservation.ts), et le
+// bouton Encaisser enregistre sur la facture émise, comme la fiche facture.
 
 const MARINE = "#1B2B5E";
 const GRIS = "rgba(27,43,94,0.6)";
@@ -39,9 +40,12 @@ export default async function BlocFacturation({
   /** Les outils de tarif (calcul et prix retenu) vivent dans ce même bloc. */
   enfants?: React.ReactNode;
 }) {
-  const total = montantDuReservation(reservation);
-  const paye = Number(reservation.montant_paye ?? 0);
-  const reste = Math.max(0, Math.round((total - paye) * 100) / 100);
+  // Lu à l'instant depuis les factures et le journal : l'écran ne croit pas un
+  // champ enregistré, il refait le compte.
+  const derive = (await lirePaiementsReservations([reservation.id])).get(reservation.id);
+  const total = derive?.du ?? 0;
+  const paye = derive?.paye ?? 0;
+  const reste = derive?.reste ?? 0;
   const aujourdhui = new Date().toISOString().split("T")[0];
 
   // Factures qui portent cette réservation (définitive et acomptes).
@@ -57,14 +61,20 @@ export default async function BlocFacturation({
       .map((f) => [(f as { id: string }).id, f as Record<string, unknown>]),
   ).values()];
 
-  const definitive = factures.find((f) => f.type !== "acompte" && f.numero);
+  const emises = factures.filter((f) => f.numero && (f.type === "facture" || f.type === "libre"));
+  // La facture qui reçoit un encaissement : émise et encore ouverte.
+  const ouverte = emises.find((f) => f.statut === "envoyee" || f.statut === "partiellement_reglee");
+  const definitive = ouverte ?? emises.find((f) => f.statut !== "annulee") ?? emises[0];
   const acomptes = factures.filter((f) => f.type === "acompte" && f.numero);
   const brouillon = factures.find((f) => !f.numero);
 
+  // Les versements qui comptent pour ce séjour : ceux de ses factures
+  // (définitive et acomptes) et ceux rattachés à la réservation seule.
+  const idsPieces = factures.filter((f) => f.numero && f.type !== "avoir").map((f) => f.id as string);
   const { data: paiements } = await supabaseAdmin
     .from("paiements_resa")
     .select("id, date_paiement, mode, montant, arrondi, motif, created_by")
-    .eq("reservation_id", reservation.id)
+    .or([`reservation_id.eq.${reservation.id}`, ...(idsPieces.length ? [`facture_id.in.(${idsPieces.join(",")})`] : [])].join(","))
     .order("date_paiement");
   // Qui a encaissé chaque versement.
   const encaisseurs = await lireAuteurs((paiements ?? []).map((p) => p.created_by as string | null));
@@ -73,7 +83,7 @@ export default async function BlocFacturation({
     ? await getSoldeAvoir(supabaseAdmin, reservation.client_id)
     : 0;
 
-  const peutAcompte = permEncaissements && reservation.statut === "validee" && !definitive;
+  const peutAcompte = permEncaissements && reservation.statut === "validee" && emises.length === 0;
 
   return (
     <div className="bg-white rounded-2xl p-6 mb-6 border" style={{ borderColor: "rgba(27,43,94,0.12)" }}>
@@ -111,13 +121,15 @@ export default async function BlocFacturation({
       </div>
 
       {/* Encaisser */}
+      {/* Le bouton disparaît dès que le reste dérivé est nul. Avec une facture
+          ouverte, il encaisse SUR ELLE — le même geste que la fiche facture. */}
       {permEncaissements && reste > 0 && reservation.statut !== "annulee" && (
         <div className="flex gap-3 flex-wrap mb-5">
           <Encaisser
-            factureId={definitive ? (definitive.id as string) : null}
-            reservationId={definitive ? null : reservation.id}
-            resteDu={definitive ? Number(definitive.montant_restant ?? reste) : reste}
-            libellePiece={definitive ? `Facture ${definitive.numero}` : `Réservation #${reservation.numero ?? ""}`.trim()}
+            factureId={ouverte ? (ouverte.id as string) : null}
+            reservationId={ouverte ? null : reservation.id}
+            resteDu={ouverte ? Math.min(reste, Number(ouverte.montant_restant ?? reste)) : reste}
+            libellePiece={ouverte ? `Facture ${ouverte.numero}` : `Acompte — réservation #${reservation.numero ?? ""}`.trim()}
           />
           {peutAcompte && <DemanderAcompte reservationId={reservation.id} maximum={reste} />}
         </div>

@@ -3,13 +3,14 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
 import AssistantFacture from "./AssistantFacture";
-import { montantDuReservation } from "@/src/lib/montants";
+import { resteAPayer } from "@/src/lib/montants";
 
 type ResaImpayee = {
   id: string; numero: number | null; client_id: string;
   date_debut: string; date_fin: string; type_reservation: string;
   montant_final: number | string | null; montant_calcule: number | string | null;
   ajustement_manuel: number | string | null; montant_paye: number | string | null;
+  montant_restant: number | string | null;
 };
 
 export default async function NouvelleFacturePage() {
@@ -26,7 +27,7 @@ export default async function NouvelleFacturePage() {
     .from("reservations")
     .select(`
       id, numero, client_id, date_debut, date_fin, type_reservation,
-      montant_final, montant_calcule, ajustement_manuel, montant_paye
+      montant_final, montant_calcule, ajustement_manuel, montant_paye, montant_restant
     `)
     .in("statut", ["validee", "terminee"])
     .neq("statut_paiement", "paye")
@@ -58,7 +59,7 @@ export default async function NouvelleFacturePage() {
     date_debut: r.date_debut,
     date_fin: r.date_fin,
     type_reservation: r.type_reservation,
-    reste: Math.max(0, montantDuReservation(r) - Number(r.montant_paye ?? 0)),
+    reste: Math.max(0, resteAPayer(r)),
     dejaFacturee: dejaFacturees.get(r.id) ?? null,
   })).filter((r) => r.reste > 0 || r.dejaFacturee);
 

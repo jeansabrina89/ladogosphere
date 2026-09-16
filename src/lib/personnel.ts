@@ -145,13 +145,14 @@ export function placementBoxAutorise({
 /**
  * Ce qu'il faut poser sur une réservation d'une fiche interne :
  * validée d'office, gratuite, et sans facture ni adhésion.
+ *
+ * Le statut de paiement n'y est pas : il se dérive (src/lib/paiementReservation.ts),
+ * et une fiche interne ne doit rien — la dérivation la dit « payée ».
  */
 export type ReservationPersonnel = {
   statut: "validee";
   montant_calcule: number;
   montant_final: number;
-  statut_paiement: "paye";
-  montant_paye: number;
 };
 
 export function champsReservationPersonnel(): ReservationPersonnel {
@@ -159,8 +160,6 @@ export function champsReservationPersonnel(): ReservationPersonnel {
     statut: "validee",
     montant_calcule: 0,
     montant_final: 0,
-    statut_paiement: "paye",
-    montant_paye: 0,
   };
 }
 

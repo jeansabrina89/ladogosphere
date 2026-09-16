@@ -6,6 +6,7 @@ import {
 } from "@/src/lib/personnel";
 import { suggererBox, boxesInternesLibres, fichesInternesQuiTravaillent } from "@/src/lib/suggestionBox";
 import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
+import { recalculerPaiementReservation } from "@/src/lib/paiementReservation";
 import { champsTypeSejour, typeSejourPropose } from "@/src/lib/typeSejour";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 
@@ -130,6 +131,8 @@ export async function creerReservationsPersonnel({
     );
 
     await assurerLignesCheckin(resa.id);
+    // Fiche interne : rien n'est dû, la dérivation la dit payée.
+    await recalculerPaiementReservation(resa.id);
   }
 
   return { ok: true, ids: idsCrees };

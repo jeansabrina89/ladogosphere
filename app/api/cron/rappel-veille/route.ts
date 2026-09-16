@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { envoyerEmailRappelVeille, envoyerEmailPaiement } from "@/src/lib/email";
 import { factureEmisePourReservation } from "@/src/lib/factureResa";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
-import { resteAPayer } from "@/src/lib/montants";
+import { recalculerPaiementsReservations } from "@/src/lib/paiementReservation";
 import { TYPES_RAPPEL_VEILLE, doitRecevoirRappelVeille } from "@/src/lib/rappelVeilleLogique";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 
@@ -81,7 +81,8 @@ export async function GET(req: NextRequest) {
     .eq("date_debut", dateCible)
     .eq("statut", "validee")
     .eq("type_reservation", "sejour")
-    .neq("statut_paiement", "paye")
+    // Pas de filtre sur statut_paiement : le reste à payer se DÉRIVE ci-dessous,
+    // depuis les factures. Une facture payée n'appelle aucune demande.
     .is("paiement_demande_le", null);
 
   let nbPaiement = 0;
@@ -91,11 +92,12 @@ export async function GET(req: NextRequest) {
     console.error("Erreur cron demande paiement:", errPay);
   } else if ((aFacturer ?? []).length > 0) {
     const coords = await getCoordonneesPaiement(supabaseAdmin);
+    const derives = await recalculerPaiementsReservations((aFacturer ?? []).map((r) => r.id as string));
     for (const res of aFacturer ?? []) {
       const email = res.clients?.email;
       const prenom = res.clients?.prenom || "Client";
       if (!email || res.offerte) continue;
-      const montant = resteAPayer(res);
+      const montant = derives.get(res.id)?.reste ?? 0;
       if (montant <= 0) continue;
 
       try {

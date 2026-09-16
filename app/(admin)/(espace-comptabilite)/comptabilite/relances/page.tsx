@@ -2,7 +2,7 @@ import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
-import { resteAPayer } from "@/src/lib/montants";
+import { recalculerPaiementsReservations } from "@/src/lib/paiementReservation";
 import { niveauRelanceDu } from "@/src/lib/relances";
 import RelancesClient from "./RelancesClient";
 
@@ -23,12 +23,13 @@ export default async function RelancesPage() {
     )
     .eq("type_reservation", "sejour")
     .in("statut", ["validee", "terminee"])
-    .neq("statut_paiement", "paye")
     .order("date_fin", { ascending: true });
 
+  // Le reste se dérive des factures, pour chaque séjour, à l'ouverture de la page.
+  const derives = await recalculerPaiementsReservations(((resasRaw ?? []) as { id: string }[]).map((r) => r.id));
   const today = new Date();
   const candidats = ((resasRaw ?? []) as any[])
-    .map((r) => ({ r, reste: resteAPayer(r), niveau: niveauRelanceDu(r.date_fin, today) }))
+    .map((r) => ({ r, reste: derives.get(r.id)?.reste ?? 0, niveau: niveauRelanceDu(r.date_fin, today) }))
     .filter(
       ({ r, reste, niveau }) =>
         !r.offerte && reste > 0 && niveau > 0 && niveau > Number(r.relance_niveau ?? 0)

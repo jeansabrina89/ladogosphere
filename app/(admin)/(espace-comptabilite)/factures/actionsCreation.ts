@@ -13,6 +13,7 @@ import { COMPTES_PRODUIT } from "@/src/lib/factureStatut";
 import { secteurParDefautCompte } from "@/src/lib/tvaLogique";
 import { tvaDeLaPrestation } from "@/src/lib/tva";
 import { figerLigneLibre } from "@/src/lib/ligneLibre";
+import { recalculerPaiementsDeFacture } from "@/src/lib/paiementReservation";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const COMPTES = COMPTES_PRODUIT.map((c) => c.numero) as readonly string[];
@@ -179,6 +180,8 @@ export async function creerAvoir(formData: FormData): Promise<{ error?: string; 
       .eq("id", factureId);
   }
   await synchroniserComptaFacture(factureId, verif.userId ?? null);
+  // L'avoir efface tout ou partie du dû : les réservations couvertes se dérivent à nouveau.
+  await recalculerPaiementsDeFacture(avoir.id);
 
   await tracerEvenement({
     entite: "facture", entiteId: factureId, evenement: "avoir",
@@ -326,6 +329,7 @@ export async function creerFactureLibre(formData: FormData): Promise<{ error?: s
     if (errEmission) return { error: errEmission.message };
     for (const resaId of reservations) await synchroniserComptaResa(resaId, undefined, verif.userId ?? null);
     await synchroniserComptaFacture(facture.id, verif.userId ?? null);
+    await recalculerPaiementsDeFacture(facture.id);
     await finaliserEmission(facture.id, verif.userId ?? null);
   }
 
@@ -391,6 +395,7 @@ export async function creerFactureAcompte(formData: FormData): Promise<{ error?:
   if (errEmission) return { error: errEmission.message };
 
   await synchroniserComptaFacture(facture.id, verif.userId ?? null);
+  await recalculerPaiementsDeFacture(facture.id);
   await finaliserEmission(facture.id, verif.userId ?? null);
 
   await tracerEvenement({

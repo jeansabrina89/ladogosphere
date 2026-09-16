@@ -1,6 +1,5 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { calculerMontant } from "@/src/lib/calculTarif";
-import { calculerStatut } from "@/src/lib/factures";
 import { estMembreActif } from "@/src/lib/membre";
 import { estPrivatifPourSelection } from "@/src/lib/cohabitation";
 import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
@@ -9,6 +8,7 @@ import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 import { synchroniserComptaAvoir } from "@/src/lib/comptaAvoir";
 import type { EcartType } from "@/src/lib/facturation";
 import { reglesFacturation, urgenceDerivee } from "@/src/lib/typeSejour";
+import { recalculerPaiementReservation } from "@/src/lib/paiementReservation";
 
 /**
  * Prix d'une réservation — couche métier, sans session.
@@ -32,7 +32,7 @@ export type RecalculResult = {
 
 /**
  * Recalcule montant_final = montant_calcule + ajustement_manuel + Σ(extras)
- * (plancher 0), puis réévalue montant_paye / statut_paiement.
+ * (plancher 0), puis laisse le paiement se DÉRIVER (src/lib/paiementReservation.ts).
  * - Trop-perçu (montant_paye > nouveau_total) : crédite l'avoir du client.
  * - Manque (0 < montant_paye < nouveau_total) : reste 'partiel', sans mouvement.
  * À appeler après toute modif de montant_calcule, ajustement_manuel ou extras.
@@ -61,8 +61,6 @@ export async function recalculerTotalEtPaiement(
   if (reservation.offerte) nouveauTotal = 0;
   const montantPaye = Number(reservation.montant_paye) || 0;
 
-  let nouveauMontantPaye = montantPaye;
-  let statut: string;
   let ecart = 0;
   let type_ecart: EcartType = "aucun";
 
@@ -89,30 +87,24 @@ export async function recalculerTotalEtPaiement(
     // Le trop-perçu devient une dette envers le client : D 1100 / C 2035.
     await synchroniserComptaAvoir(mvt.id, createdBy ?? null);
 
-    nouveauMontantPaye = nouveauTotal;
-    statut = "paye";
+    // Le trop-perçu reversé en avoir ne compte plus comme payé : la dérivation
+    // le retire (avoirs_mouvements de type trop_percu).
     ecart = tropPercu;
     type_ecart = "trop_percu";
-  } else {
-    statut = nouveauTotal === 0 ? "paye" : calculerStatut(nouveauMontantPaye, nouveauTotal);
-    if (nouveauMontantPaye > 0 && nouveauMontantPaye < nouveauTotal) {
-      ecart = nouveauTotal - nouveauMontantPaye;
-      type_ecart = "complement";
-    }
+  } else if (montantPaye > 0 && montantPaye < nouveauTotal) {
+    ecart = nouveauTotal - montantPaye;
+    type_ecart = "complement";
   }
 
   const { error: updateError } = await supabaseAdmin
     .from("reservations")
-    .update({
-      montant_final: nouveauTotal,
-      montant_paye: nouveauMontantPaye,
-      statut_paiement: statut,
-    })
+    .update({ montant_final: nouveauTotal })
     .eq("id", reservationId);
   if (updateError) return { error: updateError.message };
 
   await rafraichirFactureBrouillon(reservationId);
   await synchroniserComptaResa(reservationId);
+  await recalculerPaiementReservation(reservationId);
 
   return { nouveau_total: nouveauTotal, ecart, type_ecart };
 }

@@ -5,6 +5,7 @@ import { synchroniserComptaFacture } from "@/src/lib/comptaFacture";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 import { secteurParDefautCompte, type CodePrestation } from "@/src/lib/tvaLogique";
 import { tvaDeLaPrestation } from "@/src/lib/tva";
+import { recalculerPaiementsDeFacture } from "@/src/lib/paiementReservation";
 
 // La facture est la pièce pivot : elle porte des LIGNES, et c'est l'émission
 // (RPC emettre_facture) qui lui donne son numéro, son échéance et ses écritures.
@@ -269,6 +270,8 @@ export async function figerFactureResa(
   // La réservation ne porte plus le produit : elle se resynchronise en acompte.
   await synchroniserComptaResa(reservationId);
   await synchroniserComptaFacture(active.facture_id, userId ?? null);
+  // Émise, la facture devient ce qui est dû : la réservation se dérive d'elle.
+  await recalculerPaiementsDeFacture(active.facture_id);
 
   return { factureId: active.facture_id, numero: (data as string) ?? undefined };
 }

@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { assujettieALaDate } from "@/src/lib/tva";
 import { synchroniserComptaFacture } from "@/src/lib/comptaFacture";
+import { recalculerPaiementsDeFacture } from "@/src/lib/paiementReservation";
 import { estMembreActif } from "@/src/lib/membre";
 import { contextePrix, prixDe } from "@/src/lib/prix";
 import { remiseLigne } from "@/src/lib/prixLogique";
@@ -335,7 +336,12 @@ export async function finaliserVente(entree: EntreeVente): Promise<ResultatVente
   // La facture reste un brouillon : la synchronisation ne produit rien
   // aujourd'hui, et c'est l'émission qui portera le produit. On l'appelle
   // quand même, pour que le moteur reste seul maître des écritures.
-  if (factureId && !res.deja) await synchroniserComptaFacture(factureId, entree.user_id ?? null);
+  if (factureId && !res.deja) {
+    await synchroniserComptaFacture(factureId, entree.user_id ?? null);
+    // Une ligne de plus sur la facture d'un séjour change la part de chaque
+    // versement qui revient à la réservation : elle se dérive à nouveau.
+    await recalculerPaiementsDeFacture(factureId);
+  }
 
   return {
     id: res.id,
@@ -428,6 +434,7 @@ export async function retournerVente(entree: EntreeRetour): Promise<ResultatVent
 
   if (vente.facture_id && !res.deja) {
     await synchroniserComptaFacture(vente.facture_id, entree.user_id ?? null);
+    await recalculerPaiementsDeFacture(vente.facture_id);
   }
 
   return { id: res.id, numero: res.numero, deja: res.deja, total: retour.total, arrondi };

@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { envoyerEmailPaiement, envoyerEmailSatisfactionEssai } from "@/src/lib/email";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { exigerPersonnel } from "@/src/lib/apiAuth";
+import { recalculerPaiementReservation } from "@/src/lib/paiementReservation";
 
 export async function POST(
   req: NextRequest,
@@ -36,15 +37,17 @@ export async function POST(
 
   try {
     if (type === "paiement") {
-      // Vérifier que la résa n'est pas payée
-      if (res.statut_paiement === "paye") {
+      // Le reste à payer DÉRIVÉ des factures : une facture payée n'appelle
+      // aucune demande, et la demande porte sur ce qui reste, pas sur le prix.
+      const derive = await recalculerPaiementReservation(id);
+      if (!derive || derive.reste <= 0) {
         return NextResponse.json({ error: "La réservation est déjà payée" }, { status: 400 });
       }
       const coords = await getCoordonneesPaiement(supabaseAdmin);
       await envoyerEmailPaiement({
         email,
         prenom,
-        montant: res.montant_final || 0,
+        montant: derive.reste,
         date_debut: res.date_debut,
         date_fin: res.date_fin,
         type: res.type_reservation,

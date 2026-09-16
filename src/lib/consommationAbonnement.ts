@@ -4,6 +4,7 @@ import { calculerSolde } from "@/src/lib/abonnementSolde";
 import { categorieJourneePourChiens, type ChienSociabilite } from "@/src/lib/abonnementsTypes";
 import { synchroniserComptaAbonnement } from "@/src/lib/comptaAbonnement";
 import { synchroniserProduitAbonnement } from "@/src/lib/abonnementCompta";
+import { recalculerPaiementReservation } from "@/src/lib/paiementReservation";
 
 export async function trouverAbonnementUtilisable(clientId: string, categorie: string) {
   const today = new Date().toISOString().split("T")[0];
@@ -77,9 +78,11 @@ export async function consommerAbonnementResa(
 
   const { error: errResa } = await supabaseAdmin
     .from("reservations")
-    .update({ abonnement_id: abo.id, statut_paiement: "paye", mode_paiement: "abonnement" })
+    .update({ abonnement_id: abo.id, mode_paiement: "abonnement" })
     .eq("id", reservationId);
   if (errResa) return { error: errResa.message };
+  // Réglée par la carte : rien n'est plus dû, la dérivation le dit.
+  await recalculerPaiementReservation(reservationId);
 
   if (abo.jours_restants - 1 <= 0) {
     await supabaseAdmin.from("abonnements").update({ statut: "epuise" }).eq("id", abo.id);
@@ -113,8 +116,9 @@ export async function recrediterAbonnementResa(reservationId: string): Promise<v
 
   await supabaseAdmin
     .from("reservations")
-    .update({ abonnement_id: null, statut_paiement: "impaye", mode_paiement: null })
+    .update({ abonnement_id: null, mode_paiement: null })
     .eq("id", reservationId);
+  await recalculerPaiementReservation(reservationId);
 
   const { data: aboData } = await supabaseAdmin
     .from("abonnements")

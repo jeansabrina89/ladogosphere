@@ -12,6 +12,7 @@ import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { finaliserEmission, envoyerFactureParEmail, genererPdfFacture } from "@/src/lib/factureDocument";
 import { getSoldeAvoir } from "@/src/lib/avoirs";
 import { MODES_ENCAISSEMENT } from "@/src/lib/factureStatut";
+import { factureOuverteDeReservation, recalculerPaiementReservation, recalculerPaiementsDeFacture } from "@/src/lib/paiementReservation";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const MODES = MODES_ENCAISSEMENT.map((m) => m.valeur) as readonly string[];
@@ -48,8 +49,22 @@ export async function encaisser(formData: FormData): Promise<ResultatEncaissemen
   const verif = await verifierPermission("perm_encaissements");
   if (verif.error) return { error: verif.error };
 
-  const factureId = ((formData.get("facture_id") as string) || "").trim() || null;
-  const reservationId = ((formData.get("reservation_id") as string) || "").trim() || null;
+  let factureId = ((formData.get("facture_id") as string) || "").trim() || null;
+  let reservationId = ((formData.get("reservation_id") as string) || "").trim() || null;
+  // Pour rafraîchir la fiche d'où vient le geste, même si l'encaissement va à la facture.
+  const reservationAffichee = reservationId;
+
+  // Depuis la fiche de réservation : si une facture émise et ouverte la couvre,
+  // l'encaissement s'enregistre SUR LA FACTURE, exactement comme depuis la
+  // fiche facture. La réservation se met à jour par dérivation. Sans facture
+  // émise, c'est un acompte, rattaché à la réservation seule.
+  if (!factureId && reservationId) {
+    const ouverte = await factureOuverteDeReservation(reservationId);
+    if (ouverte) {
+      factureId = ouverte.id;
+      reservationId = null;
+    }
+  }
   const mode = ((formData.get("mode") as string) || "").trim();
   const datePaiement = ((formData.get("date_paiement") as string) || "").trim();
   const reference = ((formData.get("reference") as string) || "").trim() || null;
@@ -96,14 +111,15 @@ export async function encaisser(formData: FormData): Promise<ResultatEncaissemen
   } else {
     const { data: r } = await supabaseAdmin
       .from("reservations")
-      .select("id, client_id, created_at, statut, montant_final, montant_calcule, montant_paye")
+      .select("id, client_id, created_at, statut")
       .eq("id", reservationId!)
       .maybeSingle();
     if (!r) return { error: "Réservation introuvable." };
     if (r.statut === "annulee") return { error: "Réservation annulée : aucun encaissement possible." };
     clientId = r.client_id as string | null;
     datePiece = ((r.created_at as string) ?? "").slice(0, 10) || null;
-    resteDu = r2(Number(r.montant_final ?? r.montant_calcule ?? 0) - Number(r.montant_paye ?? 0));
+    // Le reste dérivé, recalculé à l'instant : jamais un champ qui peut mentir.
+    resteDu = (await recalculerPaiementReservation(reservationId!))?.reste ?? 0;
   }
 
   if (!clientId) return { error: "Pièce sans client : encaissement impossible." };
@@ -147,7 +163,7 @@ export async function encaisser(formData: FormData): Promise<ResultatEncaissemen
   if (insErr) {
     // Doublon de clé : le versement est déjà enregistré, ce n'est pas une erreur.
     if (insErr.code !== "23505") return { error: insErr.message };
-    rafraichir(factureId, reservationId);
+    rafraichir(factureId, reservationAffichee);
     return { ok: true, arrondi: 0 };
   }
 
@@ -167,8 +183,7 @@ export async function encaisser(formData: FormData): Promise<ResultatEncaissemen
     // Aucune ecriture propre a ce mouvement : le versement porte deja le 2035.
   }
 
-  if (factureId) await rafraichirPaiementFacture(factureId, verif.userId ?? null);
-  if (reservationId) await rafraichirPaiementReservation(reservationId, verif.userId ?? null);
+  await apresMouvementDePaiement(factureId, reservationId, verif.userId ?? null);
 
   await tracerEvenement({
     entite: "paiement",
@@ -178,27 +193,28 @@ export async function encaisser(formData: FormData): Promise<ResultatEncaissemen
     userId: verif.userId ?? null,
   });
 
-  rafraichir(factureId, reservationId);
+  rafraichir(factureId, reservationAffichee);
   return { ok: true, arrondi };
 }
 
-/** Recalcule le paiement d'une réservation depuis son journal (jamais saisi). */
-async function rafraichirPaiementReservation(reservationId: string, userId?: string | null) {
-  const { data: paiements } = await supabaseAdmin
-    .from("paiements_resa").select("montant").eq("reservation_id", reservationId);
-  const paye = r2((paiements ?? []).reduce(
-    (s: number, p: { montant: number | string }) => s + Number(p.montant), 0));
-
-  const { data: r } = await supabaseAdmin
-    .from("reservations").select("montant_final, montant_calcule").eq("id", reservationId).maybeSingle();
-  const total = Number(r?.montant_final ?? r?.montant_calcule ?? 0);
-  const { calculerStatut } = await import("@/src/lib/factures");
-
-  await supabaseAdmin
-    .from("reservations")
-    .update({ montant_paye: paye, statut_paiement: calculerStatut(paye, total) })
-    .eq("id", reservationId);
-  await synchroniserComptaResa(reservationId, undefined, userId ?? null);
+/**
+ * Après un versement ou sa contre-passation : la pièce touchée se recalcule
+ * depuis le journal, puis les réservations qu'elle couvre se dérivent d'elle.
+ */
+async function apresMouvementDePaiement(
+  factureId: string | null,
+  reservationId: string | null,
+  userId: string | null,
+) {
+  if (factureId) {
+    await rafraichirPaiementFacture(factureId, userId);
+    await recalculerPaiementsDeFacture(factureId);
+  }
+  if (reservationId) {
+    // Un acompte sans facture : la comptabilité de la réservation le porte.
+    await synchroniserComptaResa(reservationId, undefined, userId);
+    await recalculerPaiementReservation(reservationId);
+  }
 }
 
 /**
@@ -261,8 +277,11 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
     // Aucune ecriture propre a ce mouvement : le versement porte deja le 2035.
   }
 
-  if (p.facture_id) await rafraichirPaiementFacture(p.facture_id as string, verif.userId ?? null);
-  if (p.reservation_id) await rafraichirPaiementReservation(p.reservation_id as string, verif.userId ?? null);
+  await apresMouvementDePaiement(
+    (p.facture_id as string | null) ?? null,
+    (p.reservation_id as string | null) ?? null,
+    verif.userId ?? null,
+  );
 
   await tracerEvenement({
     entite: "paiement",
@@ -300,6 +319,8 @@ export async function emettreFactureAction(factureId: string): Promise<{ error?:
   }
 
   await synchroniserComptaFacture(factureId, verif.userId ?? null);
+  // Émise, la facture devient ce qui est dû : les réservations qu'elle couvre se dérivent d'elle.
+  await recalculerPaiementsDeFacture(factureId);
   await finaliserEmission(factureId, verif.userId ?? null);
 
   rafraichir(factureId);

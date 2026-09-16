@@ -16,6 +16,7 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
+import { resteAPayer } from "@/src/lib/montants";
 
 const sTopnavA: CSSProperties = { color: "#1F6E5B", textDecoration: "none", fontWeight: 600, fontSize: 14 };
 const sCarteHaut: CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 };
@@ -118,7 +119,8 @@ export default async function MesReservationsPage({
 
   const aujourd_hui = aujourdhuiISO();
   const estAnnulee = (r: any) => r.statut === "annulee" || r.statut === "refusee";
-  const reste = (r: any) => (r.montant_final || 0) - (r.montant_paye || 0);
+  // Le reste dérivé des factures (un avoir a pu effacer la dette sans changer le prix).
+  const reste = (r: any) => resteAPayer(r);
   const peutPayer = (r: any) =>
     (r.statut === "validee" || r.statut === "terminee") &&
     (!r.statut_paiement || r.statut_paiement === "impaye" || r.statut_paiement === "partiel") &&
