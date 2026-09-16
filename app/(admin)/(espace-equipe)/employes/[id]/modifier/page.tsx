@@ -7,6 +7,7 @@ import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import RaccourciVendeuse from "./RaccourciVendeuse";
 import ChampsRh from "./ChampsRh";
+import CasesPermissions from "./CasesPermissions";
 
 export default async function ModifierEmployePage({
   params,
@@ -177,80 +178,8 @@ export default async function ModifierEmployePage({
 
                 <RaccourciVendeuse />
 
-                {[
-                  {
-                    titre: "Opérationnel — chiens & clients",
-                    items: [
-                      { key: "perm_chiens_creer", label: "Ajouter des chiens" },
-                      { key: "perm_chiens_modifier", label: "Modifier les chiens" },
-                      { key: "perm_clients_creer", label: "Créer des clients" },
-                      { key: "perm_clients_modifier", label: "Modifier les clients" },
-                    ],
-                  },
-                  {
-                    titre: "Réservations & journées d'essai",
-                    items: [
-                      { key: "perm_reservations_creer", label: "Créer des réservations" },
-                      { key: "perm_reservations_modifier", label: "Modifier des réservations" },
-                      { key: "perm_reservations_annuler", label: "Annuler des réservations" },
-                      { key: "perm_journee_essai", label: "Gérer les journées d'essai (valider / invalider)" },
-                    ],
-                  },
-                  {
-                    titre: "Encaissements",
-                    items: [
-                      {
-                        key: "perm_encaissements",
-                        label: "Encaissements — le geste au comptoir : encaisser un paiement, créer un avoir, enregistrer une adhésion ou un abonnement. Depuis la fiche de réservation, l'écran de départ et la caisse.",
-                      },
-                      {
-                        key: "perm_factures",
-                        label: "Factures — le travail administratif : la liste des factures, les relances, l'émission d'une facture libre. Distincte de l'encaissement, et volontairement rare.",
-                      },
-                      { key: "perm_depenses", label: "Dépenses (saisir, valider et payer, carnet de fournisseurs)" },
-                      {
-                        key: "perm_boutique_vente",
-                        label: "Boutique — vente : la caisse, les retours, le catalogue en lecture, les commandes sur mesure et en ligne.",
-                      },
-                      {
-                        key: "perm_boutique_gestion",
-                        label: "Boutique — gestion : créer et modifier des articles, les options et les modèles, l'inventaire, les entrées de stock et les prix d'achat. Elle ouvre aussi la vente.",
-                      },
-                      {
-                        key: "perm_atelier",
-                        label: "Atelier : les fournitures de fabrication (sangle, boucles, rivets, puces), leur inventaire et leurs entrées de stock. Indépendante des permissions boutique.",
-                      },
-                      { key: "perm_tarifs_urgence", label: "Appliquer le tarif d'urgence" },
-                    ],
-                  },
-                  {
-                    titre: "Check-in & box",
-                    items: [
-                      { key: "perm_checkin", label: "Check-in / check-out" },
-                      { key: "perm_box", label: "Attribuer / gérer les box" },
-                    ],
-                  },
-                  {
-                    titre: "Planning & équipe (responsable)",
-                    items: [
-                      { key: "perm_timbrage_equipe", label: "Gérer le timbrage de l'équipe" },
-                      { key: "perm_vacances_equipe", label: "Approuver les vacances de l'équipe" },
-                    ],
-                  },
-                ].map(({ titre, items }) => (
-                  <div key={titre}>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[rgba(27,43,94,0.5)] mb-2">{titre}</p>
-                    <div className="space-y-1.5 pl-1">
-                      {items.map(({ key, label }) => (
-                        <label key={key} className="flex items-center gap-2 cursor-pointer">
-                          <input type="checkbox" name={key}
-                            defaultChecked={(empResolu as any)[key] ?? false} />
-                          <span className="text-sm">{label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                {/* Les cases viennent du catalogue : aucune liste écrite ici. */}
+                <CasesPermissions valeurs={empResolu as Record<string, unknown>} />
 
                 <p className="text-xs text-[rgba(27,43,94,0.5)] italic">
                   Acquis pour tout employé, sans réglage : son propre espace RH, la lecture des tarifs et la lecture du planning de toute l&apos;équipe.

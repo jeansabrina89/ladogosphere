@@ -53,8 +53,13 @@ export type PermissionPersonnel = (typeof PERMISSIONS_PERSONNEL)[number];
 
 export type EntreePermission = {
   cle: PermissionPersonnel;
-  /** Le nom court, celui qui tient dans une pastille. */
+  /** Le nom court, celui qui tient dans une pastille — et le libellé de la case. */
   court: string;
+  /**
+   * Ce que la case ouvre, en une phrase, sous son libellé dans la fiche d'un
+   * employé. Absente quand le libellé dit déjà tout.
+   */
+  aide?: string;
 };
 
 export type DomainePermissions = {
@@ -68,9 +73,15 @@ export const DOMAINES: DomainePermissions[] = [
     entrees: [
       { cle: "perm_checkin", court: "Check-in / départ" },
       { cle: "perm_planning", court: "Planning" },
-      { cle: "perm_box", court: "Box" },
-      { cle: "perm_journee_essai", court: "Journées d'essai" },
-      { cle: "perm_prestations", court: "Prestations locataires" },
+      { cle: "perm_box", court: "Box", aide: "Attribuer et gérer les box." },
+      {
+        cle: "perm_journee_essai", court: "Journées d'essai",
+        aide: "Valider ou invalider une journée d'essai.",
+      },
+      {
+        cle: "perm_prestations", court: "Prestations locataires",
+        aide: "Voir et cocher les tâches du jour des locataires de box (repas, passages, nettoyages). Pas la facturation.",
+      },
       { cle: "perm_reservations_creer", court: "Créer résa" },
       { cle: "perm_reservations_modifier", court: "Modifier résa" },
       { cle: "perm_reservations_annuler", court: "Annuler résa" },
@@ -88,28 +99,46 @@ export const DOMAINES: DomainePermissions[] = [
   {
     nom: "Comptoir",
     entrees: [
-      { cle: "perm_encaissements", court: "Encaissements" },
-      { cle: "perm_factures", court: "Factures" },
-      { cle: "perm_tarifs_urgence", court: "Tarif d'urgence" },
-      { cle: "perm_depenses", court: "Dépenses" },
+      {
+        cle: "perm_encaissements", court: "Encaissements",
+        aide: "Le geste au comptoir : encaisser un paiement, créer un avoir, enregistrer une adhésion ou un abonnement. Depuis la fiche de réservation, l'écran de départ et la caisse.",
+      },
+      {
+        cle: "perm_factures", court: "Factures",
+        aide: "Le travail administratif : la liste des factures, les relances, l'émission d'une facture libre. Distincte de l'encaissement, et volontairement rare.",
+      },
+      { cle: "perm_tarifs_urgence", court: "Tarif d'urgence", aide: "Appliquer le tarif d'urgence." },
+      {
+        cle: "perm_depenses", court: "Dépenses",
+        aide: "Saisir, valider et payer, carnet de fournisseurs.",
+      },
     ],
   },
   {
     nom: "Boutique",
     entrees: [
-      { cle: "perm_boutique_vente", court: "Boutique — vente" },
-      { cle: "perm_boutique_gestion", court: "Boutique — gestion" },
+      {
+        cle: "perm_boutique_vente", court: "Boutique — vente",
+        aide: "La caisse, les retours, le catalogue en lecture, les commandes sur mesure et en ligne.",
+      },
+      {
+        cle: "perm_boutique_gestion", court: "Boutique — gestion",
+        aide: "Créer et modifier des articles, les options et les modèles, l'inventaire, les entrées de stock et les prix d'achat. Elle ouvre aussi la vente.",
+      },
     ],
   },
   {
     nom: "Atelier",
-    entrees: [{ cle: "perm_atelier", court: "Atelier" }],
+    entrees: [{
+      cle: "perm_atelier", court: "Atelier",
+      aide: "Les fournitures de fabrication (sangle, boucles, rivets, puces), leur inventaire et leurs entrées de stock. Indépendante des permissions boutique.",
+    }],
   },
   {
     nom: "Équipe",
     entrees: [
-      { cle: "perm_timbrage_equipe", court: "Timbrage équipe" },
-      { cle: "perm_vacances_equipe", court: "Vacances équipe" },
+      { cle: "perm_timbrage_equipe", court: "Timbrage équipe", aide: "Gérer le timbrage de l'équipe." },
+      { cle: "perm_vacances_equipe", court: "Vacances équipe", aide: "Approuver les vacances de l'équipe." },
     ],
   },
 ];
@@ -117,6 +146,22 @@ export const DOMAINES: DomainePermissions[] = [
 /** Toutes les permissions du catalogue, dans l'ordre des domaines. */
 export const TOUTES_PERMISSIONS: PermissionPersonnel[] =
   DOMAINES.flatMap((d) => d.entrees.map((e) => e.cle));
+
+/**
+ * Les permissions telles que le formulaire d'un employé les envoie.
+ *
+ * Une case décochée n'envoie rien : elle vaut `false`. Toutes les clés du
+ * catalogue sont écrites, à chaque enregistrement — une clé oubliée ici serait
+ * une case qu'on coche sans effet, ou pire, une permission remise à zéro par un
+ * formulaire qui ne l'affiche pas.
+ */
+export function permissionsDepuisFormulaire(
+  formData: { get(nom: string): unknown }
+): Record<PermissionPersonnel, boolean> {
+  return Object.fromEntries(
+    PERMISSIONS_PERSONNEL.map((p) => [p, formData.get(p) === "on"])
+  ) as Record<PermissionPersonnel, boolean>;
+}
 
 /** Le nombre affiché dans « 13 sur 20 » — jamais écrit en dur. */
 export const NOMBRE_PERMISSIONS = PERMISSIONS_PERSONNEL.length;
@@ -153,6 +198,8 @@ export const SOIGNEUSE: PermissionPersonnel[] = [
   "perm_planning",
   "perm_box",
   "perm_journee_essai",
+  // Les passages chez les locataires de box sont un geste de terrain.
+  "perm_prestations",
   "perm_reservations_creer",
   "perm_reservations_modifier",
   "perm_chiens_creer",
@@ -188,7 +235,7 @@ export const POSTES: Poste[] = [
     cle: "soigneuse",
     bouton: "🐾 Soigneuse",
     cases: SOIGNEUSE,
-    aide: "Check-in, planning, box, journées d'essai, créer et modifier réservations, chiens et clients.",
+    aide: "Check-in, planning, box, journées d'essai, tâches des locataires, créer et modifier réservations, chiens et clients.",
   },
   {
     cle: "vendeuse",

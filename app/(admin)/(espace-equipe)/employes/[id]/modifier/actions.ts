@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { permissionsDepuisFormulaire } from "@/src/lib/permissionsCatalogue";
 
 async function verifierAdmin(): Promise<{ error?: string }> {
   const supabase = await createClient();
@@ -94,26 +95,9 @@ export async function modifierEmploye(
         email,
         telephone: formData.get("telephone") as string || null,
         actif: formData.get("actif") === "on",
-        perm_chiens_creer: formData.get("perm_chiens_creer") === "on",
-        perm_chiens_modifier: formData.get("perm_chiens_modifier") === "on",
-        perm_clients_creer: formData.get("perm_clients_creer") === "on",
-        perm_clients_modifier: formData.get("perm_clients_modifier") === "on",
-        perm_reservations_creer: formData.get("perm_reservations_creer") === "on",
-        perm_reservations_modifier: formData.get("perm_reservations_modifier") === "on",
-        perm_reservations_annuler: formData.get("perm_reservations_annuler") === "on",
-        perm_journee_essai: formData.get("perm_journee_essai") === "on",
-        perm_encaissements: formData.get("perm_encaissements") === "on",
-        perm_factures: formData.get("perm_factures") === "on",
-        perm_depenses: formData.get("perm_depenses") === "on",
-        perm_boutique_vente: formData.get("perm_boutique_vente") === "on",
-        perm_boutique_gestion: formData.get("perm_boutique_gestion") === "on",
-        perm_atelier: formData.get("perm_atelier") === "on",
-        perm_tarifs_urgence: formData.get("perm_tarifs_urgence") === "on",
-        perm_checkin: formData.get("perm_checkin") === "on",
-        perm_box: formData.get("perm_box") === "on",
-        perm_planning: formData.get("perm_planning") === "on",
-        perm_timbrage_equipe: formData.get("perm_timbrage_equipe") === "on",
-        perm_vacances_equipe: formData.get("perm_vacances_equipe") === "on",
+        // Toutes les clés du catalogue, et elles seules : le formulaire les
+        // affiche toutes, l'action les écrit toutes.
+        ...permissionsDepuisFormulaire(formData),
       })
       .eq("id", profil_id);
   }

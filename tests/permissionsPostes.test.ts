@@ -85,11 +85,15 @@ describe("les trois postes", () => {
   });
 
   it("la soigneuse : la pension et les fiches, rien de l'argent", () => {
+    // Les passages chez les locataires de box sont un geste de terrain :
+    // toute soigneuse les fait, donc toute vendeuse et toute responsable.
     expect([...SOIGNEUSE].sort()).toEqual([
       "perm_box", "perm_checkin", "perm_chiens_creer", "perm_chiens_modifier",
       "perm_clients_creer", "perm_clients_modifier", "perm_journee_essai",
-      "perm_planning", "perm_reservations_creer", "perm_reservations_modifier",
+      "perm_planning", "perm_prestations", "perm_reservations_creer", "perm_reservations_modifier",
     ]);
+    expect(VENDEUSE).toContain("perm_prestations");
+    expect(RESPONSABLE).toContain("perm_prestations");
     expect(SOIGNEUSE).not.toContain("perm_encaissements");
     expect(SOIGNEUSE).not.toContain("perm_boutique_vente");
   });
