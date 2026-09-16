@@ -35,6 +35,7 @@ vi.mock("@/src/lib/supabase-admin", () => {
         return H.paiements.filter((p) =>
           (!ctx.filters.facture_id || p.facture_id === ctx.filters.facture_id) &&
           (!ctx.filters.reservation_id || p.reservation_id === ctx.filters.reservation_id) &&
+          (!ctx.filters.rattache_de || p.rattache_de === ctx.filters.rattache_de) &&
           (!ctx.filters.cle_idempotence || p.cle_idempotence === ctx.filters.cle_idempotence));
       }
       if (table === "exercices") return H.exercices;
@@ -109,6 +110,22 @@ vi.mock("@/src/lib/supabase-admin", () => {
   }
   function rpc(nom: string, args: Record<string, unknown>) {
     H.rpcAppels.push({ nom, args });
+    // recalculer_paiement_facture, tel qu'il est écrit en base (sans avoir ici) :
+    // payé = somme des paiements de la facture, reste = total − payé.
+    if (nom === "recalculer_paiement_facture") {
+      const id = args.p_facture_id as string;
+      const f = H.factures[id];
+      if (!f) return Promise.resolve({ data: null, error: null });
+      const r2 = (n: number) => Math.round(n * 100) / 100;
+      const paye = r2(H.paiements.filter((p) => p.facture_id === id).reduce((s, p) => s + Number(p.montant), 0));
+      const reste = Math.max(r2(Number(f.montant_total) - paye), 0);
+      const statut = !f.numero || f.type === "avoir" || ["annulee", "annulee_par_avoir"].includes(f.statut as string)
+        ? f.statut : reste <= 0 ? "acquittee" : paye > 0 ? "partiellement_reglee" : "envoyee";
+      const vals = { montant_paye: paye, montant_restant: reste, statut };
+      H.majFactures.push({ id, vals });
+      Object.assign(f, vals);
+      return Promise.resolve({ data: { paye, avoirs: 0, reste, statut }, error: null });
+    }
     return Promise.resolve({ data: null, error: null });
   }
   return { supabaseAdmin: { from, rpc } };
@@ -217,7 +234,8 @@ describe("un versement, jamais un cumul", () => {
 
   it("un versement partiel laisse la facture partiellement payée", async () => {
     await encaisser(fd({ montant: "100" }));
-    const maj = H.majFactures.find((m) => m.id === "f1");
+    // Le reste est recalculé avant (pour plafonner) et après le versement : on lit le dernier.
+    const maj = H.majFactures.filter((m) => m.id === "f1").at(-1);
     expect(maj?.vals.montant_paye).toBe(100);
     expect(maj?.vals.montant_restant).toBe(150);
     expect(maj?.vals.statut).toBe("partiellement_reglee");
@@ -364,6 +382,22 @@ describe("annulation d'un encaissement", () => {
     expect(res.error).toBeUndefined();
     expect(H.paiements).toHaveLength(2);
     expect(Number(H.paiements[1].montant)).toBe(-250);
+  });
+
+  it("un acompte rattaché à une facture ne s'annule pas : ni la ligne de transfert, ni le versement d'origine", async () => {
+    H.paiements.push(
+      { id: "p0", reservation_id: "r1", facture_id: null, client_id: "c9", mode: "cash", montant: 100 },
+      { id: "t1", reservation_id: "r1", facture_id: null, client_id: "c9", mode: "rattachement", montant: -100, rattache_de: "p0" },
+      { id: "t2", reservation_id: null, facture_id: "f1", client_id: "c9", mode: "rattachement", montant: 100, rattache_de: "p0" },
+    );
+    for (const id of ["p0", "t2"]) {
+      const f = new FormData();
+      f.set("paiement_id", id);
+      f.set("motif", "Erreur");
+      const res = await annulerPaiement(f);
+      expect(res.error, id).toContain("rattaché à une facture");
+    }
+    expect(H.paiements).toHaveLength(4);
   });
 
   it("mise en avoir : la trésorerie ne bouge pas, le client est crédité", async () => {

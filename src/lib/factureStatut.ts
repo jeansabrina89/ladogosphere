@@ -93,6 +93,8 @@ const MODES: Record<string, string> = {
   virement: "Virement",
   stripe: "Carte",
   avoir: "Avoir",
+  // Un acompte versé sur la réservation, porté par la facture à son émission.
+  rattachement: "Acompte rattaché",
 };
 
 export const MODES_ENCAISSEMENT = [

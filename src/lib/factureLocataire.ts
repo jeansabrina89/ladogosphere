@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
-import { synchroniserComptaFacture } from "@/src/lib/comptaFacture";
+import { recalculerResteFacture, synchroniserComptaFacture } from "@/src/lib/comptaFacture";
 import { finaliserEmission } from "@/src/lib/factureDocument";
 import { figerLigneLibre } from "@/src/lib/ligneLibre";
 import type { LigneLibreSaisie } from "@/src/lib/ligneLibreLogique";
@@ -223,8 +223,9 @@ export async function emettreFactureMois({
     (posees ?? []).reduce((s: number, l: { montant: number | string }) => s + Number(l.montant), 0) * 100
   ) / 100;
   await supabaseAdmin.from("factures").update({
-    montant_total: total, montant_ttc: total, montant_ht: total, montant_restant: total,
+    montant_total: total, montant_ttc: total, montant_ht: total,
   }).eq("id", facture.id);
+  await recalculerResteFacture(facture.id);
 
   // Le forfait ne s'appuie sur aucune tâche : c'est cette marque, et elle
   // seule, qui l'empêche de repartir sur la facture du mois suivant.

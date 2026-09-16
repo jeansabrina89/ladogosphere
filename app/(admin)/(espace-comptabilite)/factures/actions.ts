@@ -6,7 +6,7 @@ import { verifierPermission } from "@/src/lib/verifierPermission";
 import { verifierDatePaiement } from "@/src/lib/datePaiement";
 import { anneesExercicesOuverts } from "@/src/lib/exercices";
 import { arrondirEspeces } from "@/src/lib/comptaFactureLogique";
-import { rafraichirPaiementFacture, synchroniserComptaFacture } from "@/src/lib/comptaFacture";
+import { rafraichirPaiementFacture, recalculerResteFacture, synchroniserComptaFacture } from "@/src/lib/comptaFacture";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { finaliserEmission, envoyerFactureParEmail, genererPdfFacture } from "@/src/lib/factureDocument";
@@ -97,7 +97,7 @@ export async function encaisser(formData: FormData): Promise<ResultatEncaissemen
   if (factureId) {
     const { data: f } = await supabaseAdmin
       .from("factures")
-      .select("id, client_id, numero, statut, type, date_facture, montant_total, montant_paye")
+      .select("id, client_id, numero, statut, type, date_facture")
       .eq("id", factureId)
       .maybeSingle();
     if (!f) return { error: "Facture introuvable." };
@@ -107,7 +107,9 @@ export async function encaisser(formData: FormData): Promise<ResultatEncaissemen
     }
     clientId = f.client_id as string | null;
     datePiece = (f.date_facture as string) ?? null;
-    resteDu = r2(Number(f.montant_total ?? 0) - Number(f.montant_paye ?? 0));
+    // Le reste de la facture, recalculé à l'endroit unique : total − payé
+    // (acomptes rattachés compris) − avoirs émis. Un avoir partiel tient bon.
+    resteDu = (await recalculerResteFacture(factureId))?.reste ?? 0;
   } else {
     const { data: r } = await supabaseAdmin
       .from("reservations")
@@ -240,6 +242,19 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
     .eq("id", paiementId)
     .maybeSingle();
   if (!p) return { error: "Paiement introuvable." };
+
+  // Un acompte rattaché à une facture ne s'annule plus comme un versement :
+  // il a quitté la réservation, et la facture le porte. On corrige par un avoir.
+  if (p.mode === "rattachement") {
+    return { error: "Cet acompte est rattaché à une facture : corrigez-le par un avoir sur la facture." };
+  }
+  const { count: rattachements } = await supabaseAdmin
+    .from("paiements_resa")
+    .select("id", { count: "exact", head: true })
+    .eq("rattache_de", paiementId);
+  if ((rattachements ?? 0) > 0) {
+    return { error: "Cet acompte est rattaché à une facture : corrigez-le par un avoir sur la facture." };
+  }
 
   const montant = r2(Number(p.montant));
   if (montant <= 0) return { error: "Ce mouvement n'est pas un encaissement." };

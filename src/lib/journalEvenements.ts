@@ -226,6 +226,7 @@ const LIBELLES: Record<string, string> = {
   envoi_echec: "Échec de l'envoi par e-mail",
   paiement: "Encaissement",
   paiement_annule: "Encaissement annulé",
+  acompte_rattache: "Acompte rattaché à la facture",
   paiement_avoir: "Réglée par l'avoir du client",
   avoir: "Avoir créé",
   avoir_recu: "Soldée par un avoir",

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
-import { synchroniserComptaFacture } from "@/src/lib/comptaFacture";
+import { rafraichirPaiementFacture, recalculerResteFacture, synchroniserComptaFacture } from "@/src/lib/comptaFacture";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { genererPdfFacture, finaliserEmission } from "@/src/lib/factureDocument";
@@ -54,7 +54,7 @@ export async function creerAvoir(formData: FormData): Promise<{ error?: string; 
 
   const { data: origine } = await supabaseAdmin
     .from("factures")
-    .select("id, numero, type, client_id, statut, date_facture, montant_total, montant_paye")
+    .select("id, numero, type, client_id, statut, date_facture, montant_total, montant_restant")
     .eq("id", factureId)
     .maybeSingle();
   if (!origine) return { error: "Facture introuvable." };
@@ -63,14 +63,14 @@ export async function creerAvoir(formData: FormData): Promise<{ error?: string; 
 
   const { data: lignesOrigine } = await supabaseAdmin
     .from("facture_lignes")
-    .select("id, libelle, quantite, prix_unitaire, montant, compte_produit, taux_tva, motif_tva, secteur_tdfn, reservation_id, cotisation_id")
+    .select("id, libelle, quantite, prix_unitaire, montant, compte_produit, taux_tva, motif_tva, secteur_tdfn, reservation_id, cotisation_id, origine")
     .eq("facture_id", factureId)
     .order("ordre");
 
   type LigneOrigine = {
     id: string; libelle: string; quantite: number | string; prix_unitaire: number | string;
     compte_produit: string; taux_tva: number | string; motif_tva: string | null; secteur_tdfn: string | null;
-    reservation_id: string | null; cotisation_id: string | null;
+    reservation_id: string | null; cotisation_id: string | null; origine: string | null;
   };
 
   const choisies = new Map(lignes.map((l) => [l.ligne_id, Number(l.quantite)]));
@@ -127,14 +127,15 @@ export async function creerAvoir(formData: FormData): Promise<{ error?: string; 
       secteur_tdfn: l.secteur_tdfn ?? null,
       reservation_id: l.reservation_id ?? null,
       cotisation_id: l.cotisation_id ?? null,
+      origine: l.origine ?? "manuelle",
     })),
   );
 
   // Un avoir efface d'abord ce qui restait DÛ ; seule la part déjà encaissée
   // peut devenir un crédit utilisable. Créditer un client qui n'a rien payé
   // lui donnerait un avoir tout en lui laissant sa dette.
-  const resteOrigine = Math.max(
-    r2(Number(origine.montant_total ?? 0) - Number(origine.montant_paye ?? 0) - dejaCredite), 0);
+  // Le reste dû se lit : il est calculé à un seul endroit (total − payé − avoirs).
+  const resteOrigine = Math.max(r2(Number(origine.montant_restant ?? 0)), 0);
   const partSurDette = Math.min(montantAvoir, resteOrigine);
   const partCreditable = r2(montantAvoir - partSurDette);
 
@@ -164,22 +165,15 @@ export async function creerAvoir(formData: FormData): Promise<{ error?: string; 
 
   await synchroniserComptaFacture(avoir.id, verif.userId ?? null);
 
-  // Le reste dû de l'origine tombe de ce que l'avoir a effacé sur la dette.
-  // Entièrement créditée, elle sort du poste « à encaisser ».
+  // Entièrement créditée, la facture d'origine passe « annulée par avoir ».
+  // Son reste, lui, se recalcule à l'endroit unique : total − payé − avoirs.
   const totalCredite = r2(dejaCredite + montantAvoir);
-  const resteApres = Math.max(
-    r2(Number(origine.montant_total ?? 0) - Number(origine.montant_paye ?? 0) - totalCredite), 0);
-
   if (totalCredite >= Number(origine.montant_total ?? 0) - 0.005) {
     await supabaseAdmin.from("factures")
-      .update({ statut: "annulee_par_avoir", montant_restant: 0 })
-      .eq("id", factureId);
-  } else {
-    await supabaseAdmin.from("factures")
-      .update({ montant_restant: resteApres })
+      .update({ statut: "annulee_par_avoir" })
       .eq("id", factureId);
   }
-  await synchroniserComptaFacture(factureId, verif.userId ?? null);
+  await rafraichirPaiementFacture(factureId, verif.userId ?? null);
   // L'avoir efface tout ou partie du dû : les réservations couvertes se dérivent à nouveau.
   await recalculerPaiementsDeFacture(avoir.id);
 
@@ -283,6 +277,7 @@ export async function creerFactureLibre(formData: FormData): Promise<{ error?: s
       facture_id: facture.id, ordre: ++ordre, libelle: l.libelle,
       quantite: l.quantite, prix_unitaire: l.prix_unitaire, compte_produit: l.compte_produit,
       ...(await figerLigneLibre(l.compte_produit, dateFacture)),
+      origine: "manuelle",
     });
   }
   for (const resaId of reservations) {
@@ -295,6 +290,7 @@ export async function creerFactureLibre(formData: FormData): Promise<{ error?: s
         motif_tva: tva.motif,
         secteur_tdfn: secteurParDefautCompte(l.compte_produit),
         reservation_id: l.reservation_id ?? null, cotisation_id: l.cotisation_id ?? null,
+        origine: "reservation",
       });
     }
     await supabaseAdmin.from("facture_reservations").insert({
@@ -313,8 +309,9 @@ export async function creerFactureLibre(formData: FormData): Promise<{ error?: s
   const total = r2((lignesPosees ?? []).reduce(
     (s: number, l: { montant: number | string }) => s + Number(l.montant), 0));
   await supabaseAdmin.from("factures").update({
-    montant_total: total, montant_ttc: total, montant_ht: total, montant_restant: total,
+    montant_total: total, montant_ttc: total, montant_ht: total,
   }).eq("id", facture.id);
+  await recalculerResteFacture(facture.id);
 
   await tracerEvenement({
     entite: "facture", entiteId: facture.id, evenement: "creation",
@@ -382,12 +379,12 @@ export async function creerFactureAcompte(formData: FormData): Promise<{ error?:
     facture_id: facture.id, ordre: 1,
     libelle: `Acompte sur la réservation #${resa.numero ?? ""}`.trim(),
     quantite: 1, prix_unitaire: r2(montant), compte_produit: "3000",
-    reservation_id: reservationId,
+    reservation_id: reservationId, origine: "reservation",
   });
   await supabaseAdmin.from("factures").update({
     montant_total: r2(montant), montant_ttc: r2(montant), montant_ht: r2(montant),
-    montant_restant: r2(montant),
   }).eq("id", facture.id);
+  await recalculerResteFacture(facture.id);
 
   const { error: errEmission } = await supabaseAdmin.rpc("emettre_facture", {
     p_facture_id: facture.id, p_user_id: verif.userId ?? null,

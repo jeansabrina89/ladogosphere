@@ -1,7 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { calculerLignesFacture, type FactureCompta } from "@/src/lib/comptaFactureLogique";
-import { statutApresPaiement } from "@/src/lib/factureStatut";
 import { lireParametresTva } from "@/src/lib/tva";
 
 export const PIECE_TYPE_FACTURE = "facture";
@@ -127,43 +126,33 @@ export async function synchroniserComptaFacture(
   }
 }
 
+export type ResteFacture = { paye: number; avoirs: number; reste: number; statut: string };
+
 /**
- * Recalcule montant_paye / montant_restant / statut d'une facture depuis le
- * journal des paiements, puis resynchronise sa comptabilité.
+ * Payé, reste et statut d'une facture — calculés à UN seul endroit, la
+ * fonction SQL `recalculer_paiement_facture` :
+ *   reste = total − paiements rattachés (acomptes compris) − avoirs émis.
+ * L'émission, la caisse et le retour l'appellent en base ; l'application
+ * l'appelle ici. Personne d'autre n'écrit montant_paye ni montant_restant :
+ * un test relit le dépôt.
+ */
+export async function recalculerResteFacture(factureId: string): Promise<ResteFacture | null> {
+  const { data, error } = await supabaseAdmin.rpc("recalculer_paiement_facture", { p_facture_id: factureId });
+  if (error) throw new Error(`Reste de la facture non recalculé : ${error.message}`);
+  if (!data) return null;
+  const r = data as { paye: number | string; avoirs: number | string; reste: number | string; statut: string };
+  return { paye: Number(r.paye), avoirs: Number(r.avoirs), reste: Number(r.reste), statut: r.statut };
+}
+
+/**
+ * Après un encaissement, un avoir ou une annulation de paiement : le reste se
+ * recalcule, puis la comptabilité de la facture se resynchronise.
  * Le montant payé n'est JAMAIS saisi : il est toujours la somme des versements.
  */
 export async function rafraichirPaiementFacture(
   factureId: string,
   createdBy?: string | null,
 ): Promise<void> {
-  const { data: f } = await supabaseAdmin
-    .from("factures")
-    .select("id, numero, statut, montant_total")
-    .eq("id", factureId)
-    .maybeSingle();
-  if (!f) return;
-
-  const { data: paiements } = await supabaseAdmin
-    .from("paiements_resa")
-    .select("montant")
-    .eq("facture_id", factureId);
-
-  const paye = Math.round(
-    (paiements ?? []).reduce((s: number, p: { montant: number | string }) => s + Number(p.montant), 0) * 100) / 100;
-  const total = Number(f.montant_total ?? 0);
-  const reste = Math.round((total - paye) * 100) / 100;
-
-  // Une facture soldée par un avoir garde son statut : elle n'a pas été payée.
-  const statut = f.statut === "annulee" || f.statut === "annulee_par_avoir"
-    ? f.statut
-    : f.numero
-      ? statutApresPaiement(paye, total)
-      : "brouillon";
-
-  await supabaseAdmin
-    .from("factures")
-    .update({ montant_paye: paye, montant_restant: reste, statut })
-    .eq("id", factureId);
-
+  await recalculerResteFacture(factureId);
   await synchroniserComptaFacture(factureId, createdBy);
 }

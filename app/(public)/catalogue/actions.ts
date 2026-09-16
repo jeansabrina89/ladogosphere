@@ -5,7 +5,7 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { estMembreActif } from "@/src/lib/membre";
-import { synchroniserComptaFacture } from "@/src/lib/comptaFacture";
+import { recalculerResteFacture, synchroniserComptaFacture } from "@/src/lib/comptaFacture";
 import { finaliserEmission, marquerFactureEnvoyee, telechargerPdf } from "@/src/lib/factureDocument";
 import { envoyerConfirmationCommande } from "@/src/lib/confirmationCommande";
 import { envoyerEmailCommandeConfirmee } from "@/src/lib/email";
@@ -645,10 +645,12 @@ async function emettreFactureCommande(
     }
   }
 
-  await supabaseAdmin.from("facture_lignes").insert(aInserer);
+  // Une vente de la boutique : ses lignes sont d'origine « caisse ».
+  await supabaseAdmin.from("facture_lignes").insert(aInserer.map((l) => ({ ...l, origine: "caisse" })));
   await supabaseAdmin.from("factures").update({
-    montant_total: total, montant_ttc: total, montant_ht: total, montant_restant: total,
+    montant_total: total, montant_ttc: total, montant_ht: total,
   }).eq("id", facture.id);
+  await recalculerResteFacture(facture.id);
 
   const { error: erreurEmission } = await supabaseAdmin.rpc("emettre_facture", {
     p_facture_id: facture.id, p_user_id: null,

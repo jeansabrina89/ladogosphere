@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { factureCibleClient } from "@/src/lib/caisse";
-import { synchroniserComptaFacture } from "@/src/lib/comptaFacture";
+import { recalculerResteFacture, synchroniserComptaFacture } from "@/src/lib/comptaFacture";
 import { finaliserEmission } from "@/src/lib/factureDocument";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { tvaDeLaPrestation } from "@/src/lib/tva";
@@ -122,7 +122,7 @@ export async function porterAbonnementSurFacture(
   return { factureId: cible.factureId, numero: null, emise: false };
 }
 
-/** Les montants de la facture suivent ses lignes, toujours. */
+/** Les montants de la facture suivent ses lignes, toujours ; le reste suit l'endroit unique. */
 async function rafraichirTotaux(factureId: string): Promise<void> {
   const { data: lignes } = await supabaseAdmin
     .from("facture_lignes").select("montant").eq("facture_id", factureId);
@@ -130,12 +130,8 @@ async function rafraichirTotaux(factureId: string): Promise<void> {
     (lignes ?? []).reduce((s: number, l: { montant: number | string }) => s + Number(l.montant), 0) * 100
   ) / 100;
 
-  const { data: f } = await supabaseAdmin
-    .from("factures").select("montant_paye").eq("id", factureId).maybeSingle();
-  const paye = Number(f?.montant_paye ?? 0);
-
   await supabaseAdmin.from("factures").update({
     montant_total: total, montant_ttc: total, montant_ht: total,
-    montant_restant: Math.round((total - paye) * 100) / 100,
   }).eq("id", factureId);
+  await recalculerResteFacture(factureId);
 }

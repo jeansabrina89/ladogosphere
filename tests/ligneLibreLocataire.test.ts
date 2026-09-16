@@ -70,7 +70,10 @@ vi.mock("@/src/lib/tva", () => ({
   tauxAFiger: async (_date: string | null, taux: number | string | null | undefined) => Number(taux ?? 0),
 }));
 vi.mock("@/src/lib/journalEvenements", () => ({ tracerEvenement: async () => {} }));
-vi.mock("@/src/lib/comptaFacture", () => ({ synchroniserComptaFacture: async () => {} }));
+vi.mock("@/src/lib/comptaFacture", () => ({
+  synchroniserComptaFacture: async () => {},
+  recalculerResteFacture: async () => null,
+}));
 vi.mock("@/src/lib/factureDocument", () => ({ finaliserEmission: async () => {} }));
 
 import { emettreFactureMois } from "@/src/lib/factureLocataire";

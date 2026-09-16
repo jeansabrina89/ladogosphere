@@ -6,6 +6,7 @@ import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 import { secteurParDefautCompte, type CodePrestation } from "@/src/lib/tvaLogique";
 import { tvaDeLaPrestation } from "@/src/lib/tva";
 import { recalculerPaiementsDeFacture } from "@/src/lib/paiementReservation";
+import { recalculerResteFacture } from "@/src/lib/comptaFacture";
 
 // La facture est la pièce pivot : elle porte des LIGNES, et c'est l'émission
 // (RPC emettre_facture) qui lui donne son numéro, son échéance et ses écritures.
@@ -149,12 +150,19 @@ export async function lignesDepuisReservation(reservationId: string): Promise<Li
   return lignes;
 }
 
-/** Remplace les lignes d'un BROUILLON (une facture émise est figée par trigger). */
+/**
+ * Remplace les lignes venues de la RÉSERVATION dans un brouillon (une facture
+ * émise est figée par trigger). Les achats reportés par la caisse et les lignes
+ * saisies à la main restent : seules les lignes d'origine « reservation » se
+ * régénèrent quand le prix du séjour bouge.
+ */
 export async function remplacerLignesBrouillon(
   factureId: string,
   lignes: LigneAInserer[],
 ): Promise<number> {
-  await supabaseAdmin.from("facture_lignes").delete().eq("facture_id", factureId);
+  await supabaseAdmin.from("facture_lignes").delete()
+    .eq("facture_id", factureId)
+    .eq("origine", "reservation");
 
   if (lignes.length > 0) {
     // Le taux, son motif et le secteur sont FIGÉS ici, à l'écriture de la
@@ -176,6 +184,7 @@ export async function remplacerLignesBrouillon(
         secteur_tdfn: secteurParDefautCompte(l.compte_produit),
         reservation_id: l.reservation_id ?? null,
         cotisation_id: l.cotisation_id ?? null,
+        origine: "reservation",
       })),
     );
   }
@@ -184,25 +193,22 @@ export async function remplacerLignesBrouillon(
   return total;
 }
 
-/** Aligne les montants d'un brouillon sur ses lignes et ses encaissements. */
+/**
+ * Aligne le total d'un brouillon sur TOUTES ses lignes — celles de la
+ * réservation comme celles de la caisse — puis laisse le reste se recalculer à
+ * l'endroit unique.
+ */
 async function rafraichirTotauxBrouillon(factureId: string): Promise<void> {
   const { data: lignes } = await supabaseAdmin
     .from("facture_lignes").select("montant").eq("facture_id", factureId);
   const total = arrondi((lignes ?? []).reduce(
     (s: number, l: { montant: number | string }) => s + Number(l.montant), 0));
 
-  const { data: paiements } = await supabaseAdmin
-    .from("paiements_resa").select("montant").eq("facture_id", factureId);
-  const paye = arrondi((paiements ?? []).reduce(
-    (s: number, p: { montant: number | string }) => s + Number(p.montant), 0));
-
   await supabaseAdmin
     .from("factures")
-    .update({
-      montant_total: total, montant_ttc: total, montant_ht: total, montant_tva: 0,
-      montant_paye: paye, montant_restant: arrondi(total - paye),
-    })
+    .update({ montant_total: total, montant_ttc: total, montant_ht: total, montant_tva: 0 })
     .eq("id", factureId);
+  await recalculerResteFacture(factureId);
 }
 
 /** Crée (ou rafraîchit) le brouillon de facture d'une réservation. */

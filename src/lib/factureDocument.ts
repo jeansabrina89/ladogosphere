@@ -9,6 +9,7 @@ import { lireParametresTva, affichage } from "@/src/lib/tva";
 import { piedTva, ventilerPanier, type LigneVentilable } from "@/src/lib/tvaLogique";
 import { genererQrBillSvg } from "@/src/lib/qrFacture";
 import { FacturePdf, type LignePdf } from "@/src/lib/facturePdf";
+import { montantsDuDocument, type AcompteRattache } from "@/src/lib/factureMontantsDocument";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 
 export const BUCKET_FACTURES = "factures";
@@ -123,24 +124,34 @@ export async function genererPdfFacture(
   );
 
   // Acomptes imputés : la même règle que la comptabilité, pour que le document
-  // et le grand livre disent le même chiffre.
-  const { data: acomptesRpc } = await supabaseAdmin
-    .rpc("acomptes_a_imputer", { p_facture_id: factureId });
-  let acomptes = Math.round(Number(acomptesRpc ?? 0) * 100) / 100;
+  // et le grand livre disent le même chiffre. Les acomptes versés sur la
+  // réservation et rattachés à l'émission s'impriment un par un, avec leur date.
+  const [{ data: acomptesRpc }, { data: rattachements }] = await Promise.all([
+    supabaseAdmin.rpc("acomptes_a_imputer", { p_facture_id: factureId }),
+    supabaseAdmin.from("paiements_resa").select("date_paiement, montant")
+      .eq("facture_id", factureId).eq("mode", "rattachement"),
+  ]);
 
   const total = Number(f.montant_total ?? 0);
-  const dejaPaye = Number(f.montant_paye ?? 0);
-  acomptes = Math.min(Math.max(acomptes, 0), total);
+  const montants = montantsDuDocument({
+    type: (f.type as string) ?? "facture",
+    total,
+    montantPaye: Number(f.montant_paye ?? 0),
+    montantRestant: f.montant_restant === null || f.montant_restant === undefined ? null : Number(f.montant_restant),
+    acomptesImputes: Number(acomptesRpc ?? 0),
+    rattachements: (rattachements ?? []) as AcompteRattache[],
+  });
 
   const nomClient = `${client?.prenom ?? ""} ${client?.nom ?? ""}`.trim() || "Client";
   const adresseClient = (client?.adresse ?? "").split("\n").map((l) => l.trim()).filter(Boolean);
 
-  // Bulletin QR : avec le débiteur, cette fois.
-  const bulletinSvg = f.type === "avoir" ? null : genererQrBillSvg({
+  // Bulletin QR : avec le débiteur, et le RESTE — jamais le total. Rien à
+  // verser, pas de bulletin.
+  const bulletinSvg = montants.montantQr === null ? null : genererQrBillSvg({
     iban: coords.iban,
     titulaire: coords.titulaire,
     adresse: coords.adresse,
-    montant: Math.max(Number(f.montant_restant ?? total), 0),
+    montant: montants.montantQr,
     numeroFacture: f.numero as string,
     referenceStockee: (f.reference_qr as string) ?? null,
     debiteur: adresseClient.length > 0 ? { nom: nomClient, adresse: adresseClient } : null,
@@ -175,9 +186,11 @@ export async function genererPdfFacture(
     },
     lignes,
     total,
-    acomptes,
-    dejaPaye: Math.max(dejaPaye - acomptes, 0),
-    reste: Number(f.montant_restant ?? total),
+    acomptesRecus: montants.acomptesRecus,
+    acomptes: montants.acomptes,
+    dejaPaye: montants.dejaPaye,
+    reste: montants.reste,
+    mentionReglee: montants.mentionReglee,
     delaiJours: parseInt(params.delai_paiement_jours || "30", 10) || 30,
     tva,
     logo,

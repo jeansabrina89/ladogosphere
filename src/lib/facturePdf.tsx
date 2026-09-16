@@ -67,9 +67,13 @@ export type FacturePdfProps = {
   };
   lignes: LignePdf[];
   total: number;
+  /** Acomptes versés sur la réservation, rattachés à l'émission : une ligne chacun. */
+  acomptesRecus?: { date: string; montant: number }[];
   acomptes: number;
   dejaPaye: number;
   reste: number;
+  /** « Réglée — aucun montant à verser » : remplace le délai et le bulletin. */
+  mentionReglee?: string | null;
   delaiJours: number;
   /**
    * La ventilation par taux, ou null quand l'entreprise n'est pas assujettie.
@@ -187,6 +191,11 @@ export function FacturePdf(p: FacturePdfProps) {
           <View style={s.ligneTotal}>
             <Text>Total</Text><Text>{chf(p.total)} CHF</Text>
           </View>
+          {(p.acomptesRecus ?? []).map((a, i) => (
+            <View key={i} style={s.ligneTotal}>
+              <Text>Acompte reçu le {jolieDate(a.date)}</Text><Text>{pourPdf("− ")}{chf(a.montant)} CHF</Text>
+            </View>
+          ))}
           {p.acomptes > 0 && (
             <View style={s.ligneTotal}>
               <Text>Acomptes déjà versés</Text><Text>{pourPdf("− ")}{chf(p.acomptes)} CHF</Text>
@@ -242,11 +251,13 @@ export function FacturePdf(p: FacturePdfProps) {
         ) : null}
 
         <Text style={s.mention}>{pourPdf(p.emetteur.mentionTva)}</Text>
-        {!estAvoir && (
+        {!estAvoir && p.mentionReglee ? (
+          <Text style={[s.mention, s.gras]}>{pourPdf(p.mentionReglee)}</Text>
+        ) : !estAvoir ? (
           <Text style={s.mention}>Payable à {p.delaiJours} jours, sans escompte.</Text>
-        )}
+        ) : null}
 
-        {p.bulletinSvg && !estAvoir ? (
+        {p.bulletinSvg && !estAvoir && !p.mentionReglee ? (
           <View style={s.bulletin} fixed={false}>
             <BulletinQr svg={p.bulletinSvg} />
           </View>

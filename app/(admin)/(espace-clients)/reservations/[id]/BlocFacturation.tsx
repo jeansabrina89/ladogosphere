@@ -73,11 +73,18 @@ export default async function BlocFacturation({
   const idsPieces = factures.filter((f) => f.numero && f.type !== "avoir").map((f) => f.id as string);
   const { data: paiements } = await supabaseAdmin
     .from("paiements_resa")
-    .select("id, date_paiement, mode, montant, arrondi, motif, created_by")
+    .select("id, date_paiement, mode, montant, arrondi, motif, created_by, rattache_de")
     .or([`reservation_id.eq.${reservation.id}`, ...(idsPieces.length ? [`facture_id.in.(${idsPieces.join(",")})`] : [])].join(","))
     .order("date_paiement");
+  // Un acompte rattaché à la facture à son émission laisse deux lignes de
+  // transfert (−x sur la réservation, +x sur la facture) : on ne les montre
+  // pas, le versement d'origine suffit — marqué « rattaché », sans annulation.
+  const rattaches = new Set((paiements ?? [])
+    .filter((p) => p.mode === "rattachement" && p.rattache_de)
+    .map((p) => String(p.rattache_de)));
+  const versements = (paiements ?? []).filter((p) => p.mode !== "rattachement");
   // Qui a encaissé chaque versement.
-  const encaisseurs = await lireAuteurs((paiements ?? []).map((p) => p.created_by as string | null));
+  const encaisseurs = await lireAuteurs(versements.map((p) => p.created_by as string | null));
 
   const soldeAvoir = reservation.client_id
     ? await getSoldeAvoir(supabaseAdmin, reservation.client_id)
@@ -136,12 +143,12 @@ export default async function BlocFacturation({
       )}
 
       {/* Versements */}
-      {(paiements ?? []).length > 0 && (
+      {versements.length > 0 && (
         <div className="mb-5">
           <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "rgba(27,43,94,0.5)" }}>
             Versements
           </p>
-          {(paiements ?? []).map((p: Record<string, unknown>) => (
+          {versements.map((p: Record<string, unknown>) => (
             <div key={String(p.id)}
                  className="flex items-center justify-between gap-3 py-2 border-b last:border-0 flex-wrap"
                  style={{ borderColor: "rgba(27,43,94,0.08)" }}>
@@ -163,8 +170,11 @@ export default async function BlocFacturation({
                   </span>
                 )}
                 {p.motif ? <span className="text-xs ml-2 italic" style={{ color: GRIS }}>{String(p.motif)}</span> : null}
+                {rattaches.has(String(p.id)) && (
+                  <span className="text-xs ml-2" style={{ color: "#1F6E5B" }}>rattaché à la facture</span>
+                )}
               </div>
-              {permEncaissements && Number(p.montant) > 0 && (
+              {permEncaissements && Number(p.montant) > 0 && !rattaches.has(String(p.id)) && (
                 <AnnulerPaiement paiementId={String(p.id)} montant={Number(p.montant)} />
               )}
             </div>
