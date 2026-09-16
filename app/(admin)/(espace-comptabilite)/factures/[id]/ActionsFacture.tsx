@@ -11,7 +11,7 @@ const MARINE = "#1B2B5E";
 type LigneAvoir = { id: string; libelle: string; quantite: number; prix_unitaire: number };
 
 export default function ActionsFacture({
-  factureId, numero, type, estClose, reste, peutEncaisser, aUnPdf, aUnEmail, nbLignes, lignes,
+  factureId, numero, type, estClose, reste, peutEncaisser, aUnPdf, aUnEmail, emailEnvoyeLe = null, nbLignes, lignes,
 }: {
   factureId: string;
   numero: string | null;
@@ -21,6 +21,8 @@ export default function ActionsFacture({
   peutEncaisser: boolean;
   aUnPdf: boolean;
   aUnEmail: boolean;
+  /** Dernier envoi réussi par e-mail. Null : la facture n'est jamais partie. */
+  emailEnvoyeLe?: string | null;
   nbLignes: number;
   lignes: LigneAvoir[];
 }) {
@@ -112,8 +114,10 @@ export default function ActionsFacture({
           )}
 
           {peutEncaisser && aUnEmail && (
+            // Une facture ne part plus à son émission : tant qu'elle n'est pas
+            // partie, on l'ENVOIE, on ne la renvoie pas.
             <BoutonAction
-              libelle={enCours === "renvoyer" ? "Envoi…" : "Renvoyer par e-mail"}
+              libelle={enCours === "renvoyer" ? "Envoi…" : emailEnvoyeLe ? "Renvoyer par e-mail" : "Envoyer par e-mail"}
               couleur="#C9A84C"
               disabled={enCours !== null}
               onClick={() => lancer("renvoyer", async () => {
@@ -122,6 +126,17 @@ export default function ActionsFacture({
                 return r;
               })}
             />
+          )}
+
+          {!estBrouillon && !estAvoir && (
+            <p className="text-xs" style={{ color: "rgba(27,43,94,0.55)" }}>
+              {emailEnvoyeLe
+                ? `Envoyée par e-mail le ${new Intl.DateTimeFormat("fr-CH", {
+                    timeZone: "Europe/Zurich", day: "2-digit", month: "2-digit", year: "numeric",
+                    hour: "2-digit", minute: "2-digit",
+                  }).format(new Date(emailEnvoyeLe))}.`
+                : "Pas encore envoyée par e-mail."}
+            </p>
           )}
 
           {peutEncaisser && !estAvoir && !estClose && (

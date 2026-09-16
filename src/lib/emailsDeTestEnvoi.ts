@@ -68,7 +68,10 @@ export type FonctionsEnvoi = {
   envoyerEmailFactureEmise: (p: { email: string; prenom: string; numero: string; date: string; echeance: string; montant: number; pdf?: Buffer | null }) => Promise<unknown>;
   envoyerEmailTicketBoutique: (p: { email: string; prenom: string; numero: string; date: string; montant: number; pdf: Buffer }) => Promise<unknown>;
   envoyerEmailCommandePrete: (p: { email: string; prenom: string; numero: string; article: string; recapitulatif: string[] }) => Promise<unknown>;
-  envoyerEmailCommandeConfirmee: (commandeId: string, destinataire?: string | null) => Promise<unknown>;
+  envoyerEmailCommandeConfirmee: (
+    commandeId: string,
+    options?: { destinataire?: string | null; facture?: { numero: string; pdf: Buffer | null } | null },
+  ) => Promise<unknown>;
   envoyerEmailCommandeExpediee: (commandeId: string, destinataire?: string | null) => Promise<unknown>;
   envoyerEmailRetourEnStock: (p: { email: string; article: string; prix: number | string; articleId: string; token: string; photoUrl?: string | null }) => Promise<unknown>;
 };
@@ -179,6 +182,17 @@ function etapes(c: ContexteEnvoiTest, e: FonctionsEnvoi): Etape[] {
       },
     },
     {
+      cle: "rappel_veille_essai",
+      executer: async () => {
+        // La journée d'essai a son propre texte : l'heure, le carnet, le repas.
+        await e.envoyerEmailRappelVeille({
+          ...commun, nom_chien: d.nomChien, date_debut: d.dateDebut,
+          heure_arrivee: "10:00", type: "essai",
+        });
+        return null;
+      },
+    },
+    {
       cle: "cotisation_echue",
       executer: async () => {
         await e.envoyerEmailRappelCotisation({
@@ -233,7 +247,17 @@ function etapes(c: ContexteEnvoiTest, e: FonctionsEnvoi): Etape[] {
       cle: "commande_confirmee",
       executer: async () => {
         if (!c.commandeId) return MESSAGE_SANS_COMMANDE;
-        await e.envoyerEmailCommandeConfirmee(c.commandeId, c.destinataire);
+        // La confirmation voyage avec la facture, PDF joint : c'est ce qu'on
+        // vient vérifier. Sans PDF réel, celui de démonstration montre au moins
+        // que la pièce part et s'ouvre.
+        const f = c.facture;
+        await e.envoyerEmailCommandeConfirmee(c.commandeId, {
+          destinataire: c.destinataire,
+          facture: {
+            numero: f?.numero ?? d.numeroFacture,
+            pdf: f?.pdf ?? pdfDemonstration(`Facture de demonstration ${f?.numero ?? d.numeroFacture}`),
+          },
+        });
         return null;
       },
     },

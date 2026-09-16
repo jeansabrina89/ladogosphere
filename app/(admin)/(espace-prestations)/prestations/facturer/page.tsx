@@ -3,7 +3,7 @@ import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { listeLocataires, lireReglagesPrestations } from "@/src/lib/prestationsDb";
-import { proposerFactureMois } from "@/src/lib/factureLocataire";
+import { proposerFactureMois, facturesLocatairesDuMois } from "@/src/lib/factureLocataire";
 import { libelleMois } from "@/src/lib/factureLocataireLogique";
 import Facturation, { type Proposition } from "./Facturation";
 
@@ -22,8 +22,12 @@ function moisPrecedent(mois: string): string {
  *
  * Une facture par locataire : une ligne pour le forfait, une ligne par type de
  * prestation à l'acte avec sa quantité, et le loyer du box refacturé sur son
- * propre compte. L'émission passe par le moteur existant — numérotation, PDF,
- * bulletin QR, e-mail. Rien de neuf côté comptable.
+ * propre compte. Sabrina peut y ajouter des lignes libres avant d'émettre.
+ * L'émission passe par le moteur existant — numérotation, PDF, bulletin QR.
+ * Rien de neuf côté comptable.
+ *
+ * Aucun e-mail ne part à l'émission : chaque facture émise attend en bas de
+ * l'écran, avec son bouton d'envoi.
  */
 export default async function FacturerPage({
   searchParams,
@@ -55,6 +59,7 @@ export default async function FacturerPage({
   }
 
   const total = propositions.reduce((s, p) => s + p.total, 0);
+  const emises = await facturesLocatairesDuMois(mois);
 
   return (
     <main className="min-h-screen px-4 py-6 md:px-8 md:py-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -84,7 +89,7 @@ export default async function FacturerPage({
           <strong>{reglages.commandeLocataire ? "autorisée" : "fermée"}</strong>.
         </p>
 
-        <Facturation propositions={propositions} mois={mois} />
+        <Facturation propositions={propositions} emises={emises} mois={mois} />
       </div>
     </main>
   );

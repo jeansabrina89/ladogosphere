@@ -38,7 +38,7 @@ export default async function FacturePage({
   const { data: facture } = await supabaseAdmin
     .from("factures")
     .select(`
-      id, numero, type, statut, date_facture, date_echeance, motif, pdf_path,
+      id, numero, type, statut, date_facture, date_echeance, motif, pdf_path, email_envoye_le,
       montant_total, montant_paye, montant_restant, reference_qr, facture_origine_id,
       clients (id, prenom, nom, adresse, email, telephone, membre)
     `)
@@ -324,6 +324,7 @@ export default async function FacturePage({
               peutEncaisser={peutEncaisser}
               aUnPdf={!!facture.pdf_path}
               aUnEmail={!!client?.email}
+              emailEnvoyeLe={(facture.email_envoye_le as string | null) ?? null}
               nbLignes={lignes.length}
               lignes={lignes.map((l) => ({
                 id: l.id, libelle: l.libelle,

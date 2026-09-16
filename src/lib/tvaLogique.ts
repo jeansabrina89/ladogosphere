@@ -161,7 +161,9 @@ export const PRESTATIONS_TVA: {
     aide: "La première journée, facturée à part du reste.",
   },
   {
-    code: "prestation_annexe", libelle: "Prestations annexes", comptes: ["3020"],
+    // 3022 et 3023 : alimentation et frais vétérinaires refacturés à un
+    // locataire de box. Ils suivent le taux des prestations annexes.
+    code: "prestation_annexe", libelle: "Prestations annexes", comptes: ["3020", "3022", "3023"],
     aide: "Ce qui s'ajoute au séjour sans en faire partie.",
   },
   {

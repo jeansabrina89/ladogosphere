@@ -50,7 +50,7 @@ export default function DemanderAcompte({
           <div className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-sm">
             <h2 className="text-xl font-bold mb-1" style={{ color: MARINE }}>Demander un acompte</h2>
             <p className="text-sm mb-4" style={{ color: "rgba(27,43,94,0.6)" }}>
-              Une facture d&apos;acompte est émise et envoyée au client. Elle sera déduite de la facture finale.
+              Une facture d&apos;acompte est émise. Si elle est encore impayée le lendemain matin, elle part au client par e-mail. Elle sera déduite de la facture finale.
             </p>
 
             <label className="block text-sm font-semibold mb-1" style={{ color: MARINE }}>Montant</label>

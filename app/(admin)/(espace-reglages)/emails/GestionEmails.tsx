@@ -5,6 +5,7 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import { TYPES_EMAIL_TEST } from "@/src/lib/emailsDeTest";
+import { LIBELLE_AVIS_GOOGLE } from "@/src/lib/avisGoogle";
 
 type Champs = {
   sujet: string;
@@ -540,15 +541,96 @@ function EnvoiDeTest({ emailAdmin }: { emailAdmin: string }) {
   );
 }
 
+/**
+ * Le lien pour donner un avis Google. Vide, il ne change rien ; rempli, il
+ * ajoute une ligne au pied de chaque e-mail, sous « ladogosphere.ch ».
+ */
+function LienAvisGoogle({ valeurInitiale }: { valeurInitiale: string }) {
+  const [valeur, setValeur] = useState(valeurInitiale);
+  const [enregistre, setEnregistre] = useState(valeurInitiale);
+  const [etat, setEtat] = useState<"" | "enregistrement" | "ok">("");
+  const [erreur, setErreur] = useState("");
+
+  async function enregistrer() {
+    setErreur("");
+    setEtat("enregistrement");
+    try {
+      const res = await fetch("/api/emails/reglages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avis_google_url: valeur }),
+      });
+      const corps = await res.json();
+      if (!res.ok) {
+        setErreur(corps?.error ?? "Enregistrement impossible.");
+        setEtat("");
+        return;
+      }
+      setValeur(corps.avis_google_url ?? "");
+      setEnregistre(corps.avis_google_url ?? "");
+      setEtat("ok");
+      setTimeout(() => setEtat(""), 2500);
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : String(e));
+      setEtat("");
+    }
+  }
+
+  return (
+    <div style={{ margin: "0 0 20px 0" }}>
+      <Carte>
+        <label htmlFor="avis-google" style={{ ...labelStyle, fontSize: 14, color: "#1B2B5E" }}>
+          Lien pour donner un avis Google
+        </label>
+        <p style={{ fontSize: 13, color: "#6B7280", margin: "0 0 10px" }}>
+          Vide, rien ne change. Rempli, chaque e-mail porte en pied de page une ligne
+          « {LIBELLE_AVIS_GOOGLE} » vers ce lien.
+        </p>
+        <input
+          id="avis-google"
+          type="url"
+          inputMode="url"
+          placeholder="https://g.page/r/…"
+          style={{ ...inputStyle, marginBottom: 10 }}
+          value={valeur}
+          onChange={(e) => setValeur(e.target.value)}
+        />
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <Bouton
+            variante="principal"
+            onClick={enregistrer}
+            disabled={etat === "enregistrement" || valeur.trim() === enregistre.trim()}
+          >
+            {etat === "enregistrement" ? "Enregistrement…" : "Enregistrer"}
+          </Bouton>
+          {etat === "ok" && (
+            <span style={{ color: "#2E8B7E", fontSize: 13, fontWeight: 600 }}>
+              {enregistre ? "✅ Lien enregistré" : "✅ Lien retiré"}
+            </span>
+          )}
+        </div>
+        {erreur && (
+          <p role="alert" style={{ color: "#A8453A", fontSize: 14, fontWeight: 600, margin: "10px 0 0" }}>
+            {erreur}
+          </p>
+        )}
+      </Carte>
+    </div>
+  );
+}
+
 export default function GestionEmails({
   emails,
   campagnes = [],
   emailAdmin = "",
+  avisGoogleUrl = "",
 }: {
   emails: EmailModele[];
   campagnes?: Campagne[];
   /** Adresse du compte connecté : ce que le bloc de test propose d'emblée. */
   emailAdmin?: string;
+  /** Lien d'avis Google enregistré, vide s'il n'y en a pas. */
+  avisGoogleUrl?: string;
 }) {
   const [onglet, setOnglet] = useState<"modeles" | "message">("modeles");
 
@@ -571,6 +653,8 @@ export default function GestionEmails({
       />
 
       <EnvoiDeTest emailAdmin={emailAdmin} />
+
+      <LienAvisGoogle valeurInitiale={avisGoogleUrl} />
 
       <div style={{ display: "flex", gap: "20px", borderBottom: "1px solid #EDE8DF", margin: "0 0 20px 0" }}>
         <button type="button" style={ongletStyle(onglet === "modeles")} onClick={() => setOnglet("modeles")}>

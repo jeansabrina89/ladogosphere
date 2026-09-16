@@ -164,8 +164,13 @@ function contexte(sur: Partial<ContexteEnvoiTest> = {}): ContexteEnvoiTest {
 /** Des doublures qui enregistrent, et journalisent comme le fait la vraie. */
 function doublures(base = baseSimulee(), echouer: string[] = []) {
   const appels: { fonction: string; destinataire: string }[] = [];
-  const faire = (nom: string) => async (p: { email?: string } | string, d?: string | null) => {
-    const destinataire = typeof p === "string" ? (d ?? "(depuis la commande)") : (p.email ?? "");
+  const faire = (nom: string) => async (
+    p: { email?: string } | string,
+    // Selon la fonction de commande : l'adresse seule, ou des options qui la portent.
+    d?: string | null | { destinataire?: string | null },
+  ) => {
+    const surCommande = typeof d === "object" && d !== null ? d.destinataire : d;
+    const destinataire = typeof p === "string" ? (surCommande ?? "(depuis la commande)") : (p.email ?? "");
     appels.push({ fonction: nom, destinataire });
     if (echouer.includes(nom)) throw new Error(`Resend: échec complet et non tronqué pour ${nom}`);
     base.journaliser();

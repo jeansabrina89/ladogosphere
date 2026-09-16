@@ -9,6 +9,8 @@ import {
   META_RETOUR_EN_STOCK,
 } from "@/src/lib/alertesStockLogique";
 import { ajouterJoursISO } from "@/src/lib/cotisationPeriode";
+import { phrasesRappelVeilleEssai } from "@/src/lib/rappelVeilleLogique";
+import { CLE_AVIS_GOOGLE, ligneAvisGooglePiedDePage } from "@/src/lib/avisGoogle";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -30,6 +32,21 @@ async function raisonSocialeDuJour(): Promise<string> {
   const { entiteA } = await import("@/src/lib/entiteJuridique");
   const { raisonSocialeAffichee } = await import("@/src/lib/entiteJuridiqueLogique");
   return raisonSocialeAffichee(await entiteA());
+}
+
+/**
+ * Le lien d'avis Google réglé dans Réglages → E-mails, ou une chaîne vide.
+ * Une lecture qui échoue ne doit jamais empêcher un e-mail de partir : elle
+ * rend le pied de page tel qu'il était.
+ */
+async function lienAvisGoogle(): Promise<string> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("parametres").select("valeur").eq("cle", CLE_AVIS_GOOGLE).maybeSingle();
+    return (data?.valeur as string | null) ?? "";
+  } catch {
+    return "";
+  }
 }
 
 // Template de base commun à tous les emails
@@ -75,7 +92,7 @@ const emailTemplate = async (contenu: string) => `
                     </p>
                     <p style="margin:0; font-size:13px;">
                       <a href="https://ladogosphere.ch" style="color:#4AAEA0; text-decoration:none;">🌐 ladogosphere.ch</a>
-                    </p>
+                    </p>${ligneAvisGooglePiedDePage(await lienAvisGoogle())}
                   </td>
                   <td style="text-align:right; vertical-align:top;">
                     <img src="${SITE_URL}/Logo.png" alt="Logo" style="height:50px; opacity:0.3;" />
@@ -863,6 +880,29 @@ export async function envoyerEmailRappelVeille({
   const m = await modeleEmail("rappel_veille", {
     prenom, nom_chien, date_debut: formatDate(date_debut),
   });
+
+  // La journée d'essai a son propre corps : l'heure, et ce qu'il faut apporter
+  // pour UNE journée. La liste du séjour (nourriture pour toute la durée,
+  // médicaments, horaires des séjours) n'a rien à y faire.
+  if (type === "essai") {
+    const [quand, quoi] = phrasesRappelVeilleEssai(nom_chien, heure_arrivee);
+    await envoyerEmail({
+      destinataire: email,
+      type: "rappel_veille",
+      sujet: m.sujet,
+      html: await emailTemplate(`
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
+      <p style="color:#6B7280; margin:0 0 16px 0;">${echapper(quand)}</p>
+      <p style="color:#6B7280; margin:0 0 24px 0;">${echapper(quoi)}</p>
+
+      <p style="color:#6B7280; font-size:14px; margin:0;">
+        ${m.message_final}
+      </p>
+    `),
+    });
+    return;
+  }
+
   await envoyerEmail({
     destinataire: email,
     type: "rappel_veille",
@@ -1234,21 +1274,42 @@ function consigneRemise(mode: string | null, delaiJours: number): string {
  * et le délai. Le modèle « commande_confirmee » est éditable depuis l'écran
  * des e-mails, comme les autres.
  */
+/** La facture d'une commande, telle qu'elle voyage avec sa confirmation. */
+export type FactureJointeCommande = {
+  numero: string;
+  /** Le PDF déposé à l'émission, ou null s'il n'est pas (encore) disponible. */
+  pdf: Buffer | null;
+};
+
+/**
+ * « Commande enregistrée » — UN seul e-mail, facture comprise.
+ *
+ * Quand la commande est payable sur facture et que le PDF existe, il part en
+ * pièce jointe avec la confirmation : le client n'en reçoit pas un second. Sans
+ * PDF, l'e-mail l'annonce pour plus tard, et c'est l'envoi du matin qui s'en
+ * charge si elle est encore impayée.
+ *
+ * Rend ce qui s'est passé : l'appelant en a besoin pour marquer la facture.
+ */
 export async function envoyerEmailCommandeConfirmee(
   commandeId: string,
-  /**
-   * Remplace l'adresse du client, et elle seule : le contenu reste celui de la
-   * vraie commande. Sert à l'envoi de test, qui vise la boîte de qui le
-   * déclenche plutôt que celle du client.
-   */
-  destinataire?: string | null,
-): Promise<void> {
+  options: {
+    /**
+     * Remplace l'adresse du client, et elle seule : le contenu reste celui de
+     * la vraie commande. Sert à l'envoi de test, qui vise la boîte de qui le
+     * déclenche plutôt que celle du client.
+     */
+    destinataire?: string | null;
+    facture?: FactureJointeCommande | null;
+  } = {},
+): Promise<{ envoye: boolean; pdfJoint: boolean; destinataire: string | null }> {
+  const { destinataire, facture } = options;
   const { data: cmd } = await supabaseAdmin
     .from("commandes")
     .select("id, numero, mode_remise, mode_paiement, frais_port, remise_membre, montant_total, client_id")
     .eq("id", commandeId)
     .maybeSingle();
-  if (!cmd) return;
+  if (!cmd) return { envoye: false, pdfJoint: false, destinataire: null };
 
   const [{ data: client }, { data: lignes }, { data: params }] = await Promise.all([
     supabaseAdmin.from("clients").select("prenom, email").eq("id", cmd.client_id).maybeSingle(),
@@ -1257,7 +1318,7 @@ export async function envoyerEmailCommandeConfirmee(
       .eq("commande_id", commandeId).order("created_at"),
     supabaseAdmin.from("parametres").select("valeur").eq("cle", "delai_preparation_jours").maybeSingle(),
   ]);
-  if (!client?.email) return;
+  if (!client?.email) return { envoye: false, pdfJoint: false, destinataire: null };
 
   const delai = Math.max(Number(params?.valeur ?? 2) || 2, 1);
   const m = await modeleEmail("commande_confirmee", {
@@ -1275,11 +1336,16 @@ export async function envoyerEmailCommandeConfirmee(
 
   const remise = Number(cmd.remise_membre ?? 0);
   const port = Number(cmd.frais_port ?? 0);
+  const adresse = destinataire?.trim() || client.email;
+  const pdfJoint = cmd.mode_paiement === "facture" && !!facture?.pdf;
 
   await envoyerEmail({
-    destinataire: destinataire?.trim() || client.email,
+    destinataire: adresse,
     type: "commande_confirmee",
     sujet: m.sujet,
+    ...(pdfJoint
+      ? { piecesJointes: [{ filename: `${facture!.numero}.pdf`, content: facture!.pdf! }] }
+      : {}),
     html: await emailTemplate(`
       <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
@@ -1302,13 +1368,17 @@ export async function envoyerEmailCommandeConfirmee(
         <p style="margin:0; color:#1B5E4F; font-size:14px;">${consigneRemise(cmd.mode_remise, delai)}</p>
       </div>
 
-      ${cmd.mode_paiement === "facture"
-        ? '<p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">Votre facture vous parvient par un second e-mail, avec son bulletin de versement QR.</p>'
-        : '<p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">Vous réglerez votre commande au retrait.</p>'}
+      ${cmd.mode_paiement !== "facture"
+        ? '<p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">Vous réglerez votre commande au retrait.</p>'
+        : pdfJoint
+          ? `<p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">Votre facture n° ${echapper(facture!.numero)} est jointe ; vous la retrouvez aussi dans votre espace client.</p>`
+          : '<p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">Votre facture vous parvient par un second e-mail, avec son bulletin de versement QR.</p>'}
 
       <p style="color:#6B7280; font-size:14px; margin:0;">${m.message_final}</p>
     `),
   });
+
+  return { envoye: true, pdfJoint, destinataire: adresse };
 }
 
 /** Expédition : le numéro de suivi, quand il existe. */

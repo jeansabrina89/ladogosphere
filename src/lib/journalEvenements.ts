@@ -18,7 +18,9 @@ export type EntiteJournal =
   // APP 16 : les rubriques de la boutique et la remise d'adhésion.
   | "promotion" | "remise_membre"
   // APP 18 : l’identité juridique de l’entreprise, et ses changements.
-  | "entite_juridique";
+  | "entite_juridique"
+  // Un réglage de la table clé/valeur qui touche ce que les clients reçoivent.
+  | "parametre";
 
 export type EvenementJournal = {
   entite: EntiteJournal;

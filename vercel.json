@@ -5,7 +5,7 @@
       "schedule": "0 10 * * *"
     },
     {
-      "path": "/api/cron/rappel-cotisation",
+      "path": "/api/cron/quotidien-matin",
       "schedule": "0 7 * * *"
     }
   ]

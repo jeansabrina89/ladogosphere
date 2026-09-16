@@ -54,7 +54,10 @@ export type DonneesFacturePdf = {
  * enregistre son chemin et son empreinte. Un PDF déjà généré n'est JAMAIS
  * régénéré : c'est la pièce, elle ne bouge plus.
  */
-export async function genererPdfFacture(factureId: string): Promise<DonneesFacturePdf | null> {
+export async function genererPdfFacture(
+  factureId: string,
+  userId?: string | null,
+): Promise<DonneesFacturePdf | null> {
   const { data: f } = await supabaseAdmin
     .from("factures")
     .select(`
@@ -203,6 +206,7 @@ export async function genererPdfFacture(factureId: string): Promise<DonneesFactu
   await tracerEvenement({
     entite: "facture", entiteId: factureId, evenement: "pdf",
     apres: { chemin, sha256 },
+    userId: userId ?? null,
   });
 
   return infos;
@@ -238,29 +242,69 @@ export async function telechargerPdf(factureId: string): Promise<Buffer | null> 
 }
 
 /**
- * Après l'émission : PDF, dépôt dans le bucket, e-mail au client avec la pièce
- * jointe, et trace dans le journal. Ne throw jamais — une facture émise reste
- * émise même si l'envoi échoue ; le bouton « Renvoyer par e-mail » rattrape.
+ * Après l'émission : le PDF, son dépôt dans le bucket, et la trace au journal.
+ *
+ * Plus AUCUN e-mail ici. Une facture émise part le lendemain matin si elle est
+ * encore impayée (cf. le cron quotidien), ou à la main depuis l'écran. Envoyer
+ * à l'émission faisait partir une facture que le client venait souvent de
+ * régler au comptoir, et doublait l'e-mail de confirmation d'une commande.
+ *
+ * Le nom reste : finaliser une émission, c'est en produire le document. Il n'a
+ * jamais promis d'envoi. Ne throw jamais — une facture émise reste émise même
+ * si le PDF manque ; l'écran permet de le régénérer.
  */
 export async function finaliserEmission(
   factureId: string,
   userId?: string | null,
 ): Promise<void> {
   try {
-    const infos = await genererPdfFacture(factureId);
-    if (!infos) return;
-    if (infos.type === "avoir") return; // l'avoir a son propre envoi
-    await envoyerFactureParEmail(factureId, userId);
+    await genererPdfFacture(factureId, userId);
   } catch (e) {
     Sentry.captureException(e);
     console.error("finalisation emission facture:", e);
   }
 }
 
-/** Envoie (ou renvoie) la facture par e-mail, PDF joint. */
+/**
+ * La facture est arrivée chez le client : on le note, une fois pour toutes.
+ *
+ * Appelée APRÈS un envoi réussi, et seulement là. `email_envoye_le` est ce que
+ * l'envoi du matin regarde : une facture qui le porte ne repart jamais d'elle-
+ * même. `exclureAuto` ferme la porte définitivement — c'est le cas d'une
+ * commande en ligne dont le PDF est parti avec la confirmation.
+ */
+export async function marquerFactureEnvoyee(
+  factureId: string,
+  options: {
+    destinataire: string;
+    userId?: string | null;
+    exclureAuto?: boolean;
+    /** Par où l'envoi est passé, pour le journal. */
+    via?: string;
+  },
+): Promise<void> {
+  const maj: Record<string, unknown> = { email_envoye_le: new Date().toISOString() };
+  if (options.exclureAuto) maj.envoi_auto_exclu = true;
+  await supabaseAdmin.from("factures").update(maj).eq("id", factureId);
+
+  await tracerEvenement({
+    entite: "facture", entiteId: factureId, evenement: "envoi",
+    apres: { destinataire: options.destinataire, via: options.via ?? "manuel" },
+    userId: options.userId ?? null,
+  });
+}
+
+/**
+ * Envoie (ou renvoie) la facture par e-mail, PDF joint.
+ *
+ * Un envoi réussi pose `email_envoye_le`. Un envoi qui échoue ne pose rien :
+ * la facture reste « jamais arrivée », et l'envoi du matin la reprendra si elle
+ * est encore impayée.
+ */
 export async function envoyerFactureParEmail(
   factureId: string,
   userId?: string | null,
+  options: { via?: string } = {},
 ): Promise<{ error?: string }> {
   const { data: f } = await supabaseAdmin
     .from("factures")
@@ -290,9 +334,10 @@ export async function envoyerFactureParEmail(
     return { error: "L'envoi de l'e-mail a échoué." };
   }
 
-  await tracerEvenement({
-    entite: "facture", entiteId: factureId, evenement: "envoi",
-    apres: { destinataire: client.email }, userId: userId ?? null,
+  await marquerFactureEnvoyee(factureId, {
+    destinataire: client.email,
+    userId: userId ?? null,
+    via: options.via,
   });
   return {};
 }

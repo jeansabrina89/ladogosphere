@@ -10,8 +10,9 @@ import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { genererPdfFacture, finaliserEmission } from "@/src/lib/factureDocument";
 import { lignesDepuisReservation } from "@/src/lib/factureResa";
 import { COMPTES_PRODUIT } from "@/src/lib/factureStatut";
-import { secteurParDefautCompte, prestationDuCompte } from "@/src/lib/tvaLogique";
+import { secteurParDefautCompte } from "@/src/lib/tvaLogique";
 import { tvaDeLaPrestation } from "@/src/lib/tva";
+import { figerLigneLibre } from "@/src/lib/ligneLibre";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const COMPTES = COMPTES_PRODUIT.map((c) => c.numero) as readonly string[];
@@ -273,14 +274,12 @@ export async function creerFactureLibre(formData: FormData): Promise<{ error?: s
   const aInserer: Record<string, unknown>[] = [];
   for (const l of saisie.lignes) {
     // Taux, motif et secteur figés à l'écriture de la ligne, comme le prix.
-    // Une ligne libre suit la prestation de son compte de produit.
-    const tva = await tvaDeLaPrestation(prestationDuCompte(l.compte_produit) ?? "sejour", dateFacture);
+    // Une ligne libre suit la prestation de son compte de produit — la même
+    // fonction fige celles des factures de locataires.
     aInserer.push({
       facture_id: facture.id, ordre: ++ordre, libelle: l.libelle,
       quantite: l.quantite, prix_unitaire: l.prix_unitaire, compte_produit: l.compte_produit,
-      taux_tva: tva.taux,
-      motif_tva: tva.motif,
-      secteur_tdfn: secteurParDefautCompte(l.compte_produit),
+      ...(await figerLigneLibre(l.compte_produit, dateFacture)),
     });
   }
   for (const resaId of reservations) {

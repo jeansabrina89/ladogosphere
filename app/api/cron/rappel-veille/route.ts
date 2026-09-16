@@ -4,6 +4,7 @@ import { envoyerEmailRappelVeille, envoyerEmailPaiement } from "@/src/lib/email"
 import { factureEmisePourReservation } from "@/src/lib/factureResa";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { resteAPayer } from "@/src/lib/montants";
+import { TYPES_RAPPEL_VEILLE, doitRecevoirRappelVeille } from "@/src/lib/rappelVeilleLogique";
 
 export async function GET(req: NextRequest) {
   // Vérification sécurité — token Vercel cron
@@ -14,7 +15,8 @@ export async function GET(req: NextRequest) {
 
   const aujourdHui = new Date().toISOString().split("T")[0];
 
-  // ===== Tâche 1 : rappel la veille (SÉJOURS uniquement) =====
+  // ===== Tâche 1 : rappel la veille (SÉJOURS et JOURNÉES D'ESSAI) =====
+  // La journée de garderie n'en reçoit pas : elle se réserve souvent la veille.
   const demain = new Date();
   demain.setDate(demain.getDate() + 1);
   const dateDemain = demain.toISOString().split("T")[0];
@@ -30,7 +32,7 @@ export async function GET(req: NextRequest) {
     `)
     .eq("date_debut", dateDemain)
     .eq("statut", "validee")
-    .eq("type_reservation", "sejour");
+    .in("type_reservation", [...TYPES_RAPPEL_VEILLE]);
 
   if (error) {
     console.error("Erreur cron rappel veille:", error);
@@ -40,7 +42,8 @@ export async function GET(req: NextRequest) {
   let nbVeille = 0;
   const erreursVeille: string[] = [];
 
-  for (const res of reservations ?? []) {
+  // La base filtre ; la règle, elle, est écrite une fois et testée.
+  for (const res of (reservations ?? []).filter((r) => doitRecevoirRappelVeille(r, dateDemain))) {
     const email = res.clients?.email;
     const prenom = res.clients?.prenom || "Client";
     const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens?.nom).filter(Boolean);

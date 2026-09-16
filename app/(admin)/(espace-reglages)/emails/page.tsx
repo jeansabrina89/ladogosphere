@@ -1,6 +1,7 @@
 import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { MODELES_META, DEFAUTS_MODELES } from "@/src/lib/email";
+import { CLE_AVIS_GOOGLE } from "@/src/lib/avisGoogle";
 import GestionEmails from "./GestionEmails";
 
 export const dynamic = "force-dynamic";
@@ -29,5 +30,15 @@ export default async function EmailsPage() {
     .order("created_at", { ascending: false })
     .limit(10);
 
-  return <GestionEmails emails={emails} campagnes={campagnes ?? []} emailAdmin={acces.email ?? ""} />;
+  const { data: avis } = await supabaseAdmin
+    .from("parametres").select("valeur").eq("cle", CLE_AVIS_GOOGLE).maybeSingle();
+
+  return (
+    <GestionEmails
+      emails={emails}
+      campagnes={campagnes ?? []}
+      emailAdmin={acces.email ?? ""}
+      avisGoogleUrl={(avis?.valeur as string | null) ?? ""}
+    />
+  );
 }

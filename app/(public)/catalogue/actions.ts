@@ -6,7 +6,8 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { estMembreActif } from "@/src/lib/membre";
 import { synchroniserComptaFacture } from "@/src/lib/comptaFacture";
-import { finaliserEmission } from "@/src/lib/factureDocument";
+import { finaliserEmission, marquerFactureEnvoyee, telechargerPdf } from "@/src/lib/factureDocument";
+import { envoyerConfirmationCommande } from "@/src/lib/confirmationCommande";
 import { envoyerEmailCommandeConfirmee } from "@/src/lib/email";
 import {
   articleEnLigne,
@@ -361,8 +362,10 @@ export async function confirmerCommande(entree: EntreeConfirmation): Promise<Ret
     return { id: res.id, numero: res.numero, message: "Cette commande était déjà enregistrée." };
   }
 
+  let factureId: string | null = null;
   if (entree.mode_paiement === "facture") {
     const facture = await emettreFactureCommande(res.id, client.id, total.aPayer);
+    factureId = facture.factureId ?? null;
     if (facture.error) {
       // La commande tient : c'est la facture qui a manqué, et on le dit.
       rafraichir();
@@ -373,7 +376,17 @@ export async function confirmerCommande(entree: EntreeConfirmation): Promise<Ret
     }
   }
 
-  await envoyerEmailCommandeConfirmee(res.id).catch(() => {});
+  // Un seul e-mail : la confirmation, avec la facture jointe si elle existe.
+  // Une confirmation qui échoue ne défait pas la commande.
+  await envoyerConfirmationCommande(res.id, factureId, {
+    lireNumeroFacture: async (id) => {
+      const { data } = await supabaseAdmin.from("factures").select("numero").eq("id", id).maybeSingle();
+      return (data?.numero as string | null) ?? null;
+    },
+    telechargerPdf,
+    envoyerConfirmation: envoyerEmailCommandeConfirmee,
+    marquerFactureEnvoyee,
+  });
 
   rafraichir();
   return { id: res.id, numero: res.numero, message: `Commande ${res.numero} confirmée.` };
@@ -526,13 +539,15 @@ async function creerCommandesAtelier(panierId: string, clientId: string): Promis
 
 /**
  * Facture d'une commande en ligne : le moteur de factures fait tout, y compris
- * le bulletin QR et l'envoi. On ne fabrique rien à côté.
+ * le PDF et le bulletin QR. On ne fabrique rien à côté.
+ *
+ * Elle ne part pas d'ici : elle voyage avec la confirmation de commande.
  */
 async function emettreFactureCommande(
   commandeId: string,
   clientId: string,
   total: number
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; factureId?: string }> {
   const { data: client } = await supabaseAdmin
     .from("clients").select("adresse").eq("id", clientId).maybeSingle();
   if (!(client?.adresse ?? "").trim()) {
@@ -644,5 +659,5 @@ async function emettreFactureCommande(
   await supabaseAdmin.from("commandes").update({ facture_id: facture.id }).eq("id", commandeId);
   await finaliserEmission(facture.id, null);
 
-  return {};
+  return { factureId: facture.id };
 }

@@ -2,6 +2,8 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { synchroniserComptaFacture } from "@/src/lib/comptaFacture";
 import { finaliserEmission } from "@/src/lib/factureDocument";
+import { figerLigneLibre } from "@/src/lib/ligneLibre";
+import type { LigneLibreSaisie } from "@/src/lib/ligneLibreLogique";
 import { tvaDeLaPrestation, tauxAFiger } from "@/src/lib/tva";
 import { secteurParDefautCompte } from "@/src/lib/tvaLogique";
 import { catalogueVisible } from "@/src/lib/prestationsLogique";
@@ -18,9 +20,12 @@ import {
  * La facture mensuelle d'un locataire de box.
  *
  * Rien de neuf côté comptable : c'est le moteur existant qui numérote, produit
- * le PDF, le bulletin QR et l'e-mail, et c'est `synchroniserComptaFacture` qui
- * passe l'écriture. On se contente de composer les bonnes lignes — forfait,
- * actes, loyer refacturé — et de les lui donner.
+ * le PDF et le bulletin QR, et c'est `synchroniserComptaFacture` qui passe
+ * l'écriture. On se contente de composer les bonnes lignes — forfait, actes,
+ * loyer refacturé, et ce que Sabrina ajoute à la main — et de les lui donner.
+ *
+ * Aucun e-mail ne part tout seul : ces factures sont exclues de l'envoi du
+ * matin. Sabrina les relit et les envoie depuis l'écran, quand elle le décide.
  */
 
 export type PropositionFacture = {
@@ -148,12 +153,15 @@ export async function emettreFactureMois({
   dateFacture,
   userId,
   avecNotes,
+  lignesLibres = [],
 }: {
   clientId: string;
   mois: string;
   dateFacture: string;
   userId?: string | null;
   avecNotes?: boolean;
+  /** Lignes ajoutées à la main sous la proposition, déjà validées. */
+  lignesLibres?: LigneLibreSaisie[];
 }): Promise<{ error?: string; factureId?: string }> {
   const proposition = await proposerFactureMois(clientId, mois);
   if (!proposition) return { error: "Ce client n'est pas locataire de box." };
@@ -167,6 +175,8 @@ export async function emettreFactureMois({
       type_facture: "service",
       date_facture: dateFacture,
       statut: "brouillon",
+      // Composée à la main, envoyée à la main : l'envoi du matin ne la touche jamais.
+      envoi_auto_exclu: true,
       motif: avecNotes && proposition.facture.notes.length > 0
         ? proposition.facture.notes.join(" ")
         : null,
@@ -176,19 +186,36 @@ export async function emettreFactureMois({
   if (error || !facture) return { error: error?.message ?? "Création impossible." };
 
   let ordre = 0;
-  await supabaseAdmin.from("facture_lignes").insert(
-    proposition.facture.lignes.map((l) => ({
+  const aInserer: Record<string, unknown>[] = proposition.facture.lignes.map((l) => ({
+    facture_id: facture.id,
+    ordre: ++ordre,
+    libelle: l.libelle,
+    quantite: l.quantite,
+    prix_unitaire: l.prix_unitaire,
+    compte_produit: l.compte_produit,
+    taux_tva: l.taux_tva,
+    motif_tva: l.motif_tva,
+    secteur_tdfn: secteurParDefautCompte(l.compte_produit),
+  }));
+
+  // Les lignes libres passent par la MÊME fonction que celles de l'assistant de
+  // facture : même compte, même taux figé. Le taux se fige à la fin du mois
+  // facturé, comme le forfait et les actes de cette même facture — une pièce
+  // ne mélange pas deux régimes de TVA.
+  const { fin } = bornesDuMois(mois);
+  for (const l of lignesLibres) {
+    aInserer.push({
       facture_id: facture.id,
       ordre: ++ordre,
       libelle: l.libelle,
-      quantite: l.quantite,
-      prix_unitaire: l.prix_unitaire,
+      quantite: 1,
+      prix_unitaire: l.montant,
       compte_produit: l.compte_produit,
-      taux_tva: l.taux_tva,
-      motif_tva: l.motif_tva,
-      secteur_tdfn: secteurParDefautCompte(l.compte_produit),
-    }))
-  );
+      ...(await figerLigneLibre(l.compte_produit, fin)),
+    });
+  }
+
+  await supabaseAdmin.from("facture_lignes").insert(aInserer);
 
   const { data: posees } = await supabaseAdmin
     .from("facture_lignes").select("montant").eq("facture_id", facture.id);
@@ -228,7 +255,10 @@ export async function emettreFactureMois({
     entite: "facture",
     entiteId: facture.id,
     evenement: "creation",
-    apres: { type: "prestations_locataire", mois, total, taches: idsTaches.length },
+    apres: {
+      type: "prestations_locataire", mois, total, taches: idsTaches.length,
+      lignes_libres: lignesLibres.length,
+    },
     userId: userId ?? null,
   });
 
@@ -241,6 +271,63 @@ export async function emettreFactureMois({
   await finaliserEmission(facture.id, userId ?? null);
 
   return { factureId: facture.id };
+}
+
+export type FactureLocataireEmise = {
+  id: string;
+  numero: string | null;
+  client: string;
+  total: number;
+  /** Dernier envoi réussi par e-mail, ou null si elle n'est jamais partie. */
+  emailEnvoyeLe: string | null;
+  clientAUneAdresse: boolean;
+};
+
+/**
+ * Les factures de locataires émises POUR ce mois.
+ *
+ * Une fois émise, la proposition disparaît de l'écran : ses lignes sont
+ * marquées, il n'y a plus rien à proposer. Or c'est justement là que Sabrina
+ * doit pouvoir l'envoyer. Le mois facturé n'est écrit que dans la trace de
+ * création (le jour d'émission n'est pas le mois facturé : à terme échu, août
+ * se facture en septembre) — c'est donc le journal qui fait foi.
+ */
+export async function facturesLocatairesDuMois(mois: string): Promise<FactureLocataireEmise[]> {
+  const { data: traces } = await supabaseAdmin
+    .from("journal_evenements")
+    .select("entite_id")
+    .eq("entite", "facture")
+    .eq("evenement", "creation")
+    .eq("apres->>type", "prestations_locataire")
+    .eq("apres->>mois", mois);
+
+  const ids = [...new Set(((traces ?? []) as { entite_id: string }[]).map((t) => t.entite_id))];
+  if (ids.length === 0) return [];
+
+  const { data: factures } = await supabaseAdmin
+    .from("factures")
+    .select("id, numero, montant_total, email_envoye_le, created_at, clients (prenom, nom, email)")
+    .in("id", ids)
+    // Un brouillon abandonné en cours d'émission n'a rien à envoyer, une
+    // facture annulée non plus.
+    .not("numero", "is", null)
+    .not("statut", "in", "(annulee,annulee_par_avoir)")
+    .order("created_at", { ascending: true });
+
+  return ((factures ?? []) as unknown as {
+    id: string;
+    numero: string | null;
+    montant_total: number | string | null;
+    email_envoye_le: string | null;
+    clients: { prenom: string | null; nom: string | null; email: string | null } | null;
+  }[]).map((f) => ({
+    id: f.id,
+    numero: f.numero,
+    client: `${f.clients?.prenom ?? ""} ${f.clients?.nom ?? ""}`.trim() || "—",
+    total: Number(f.montant_total ?? 0),
+    emailEnvoyeLe: f.email_envoye_le,
+    clientAUneAdresse: !!(f.clients?.email ?? "").trim(),
+  }));
 }
 
 export { libelleMois };
