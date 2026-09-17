@@ -97,9 +97,11 @@ export async function modifierEmploye(
       .eq("id", rh_id);
   }
 
-  // Mettre à jour profil auth
+  // Le profil s'écrit avec la clé de service, derrière la garde admin
+  // ci-dessus : son trigger d'initiales appelle une fonction SQL, et ces
+  // fonctions ne sont plus exécutables par le rôle d'un navigateur.
   if (profil_id) {
-    await supabase
+    await supabaseAdmin
       .from("profiles")
       .update({
         prenom,
@@ -129,9 +131,8 @@ export async function supprimerEmploye(formData: FormData) {
   const verif = await verifierAdmin();
   if (verif.error) throw new Error(verif.error);
 
-  const supabase = await createClient();
   const id = formData.get("id") as string;
-  await supabase.from("profiles").delete().eq("id", id);
+  await supabaseAdmin.from("profiles").delete().eq("id", id);
   await supabaseAdmin.auth.admin.deleteUser(id);
   redirect("/employes");
 }
