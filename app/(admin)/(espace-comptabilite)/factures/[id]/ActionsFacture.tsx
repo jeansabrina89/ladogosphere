@@ -5,13 +5,16 @@ import { useRouter } from "next/navigation";
 import Encaisser from "../Encaisser";
 import { emettreFactureAction, renvoyerFactureAction, annulerBrouillon } from "../actions";
 import { creerAvoir } from "../actionsCreation";
+import { imputerAvoir, libelleImputation, raisonSansExcedent } from "@/src/lib/avoirImputation";
 
 const MARINE = "#1B2B5E";
 
 type LigneAvoir = { id: string; libelle: string; quantite: number; prix_unitaire: number };
+type PaiementRecu = { mode: string | null; montant: number };
 
 export default function ActionsFacture({
   factureId, numero, type, estClose, reste, peutEncaisser, aUnPdf, aUnEmail, emailEnvoyeLe = null, nbLignes, lignes,
+  paiementsRecus = [],
 }: {
   factureId: string;
   numero: string | null;
@@ -25,6 +28,8 @@ export default function ActionsFacture({
   emailEnvoyeLe?: string | null;
   nbLignes: number;
   lignes: LigneAvoir[];
+  /** Encaissements de la facture : ils disent par où un remboursement ressort. */
+  paiementsRecus?: PaiementRecu[];
 }) {
   const router = useRouter();
   const [enCours, setEnCours] = useState<string | null>(null);
@@ -160,6 +165,8 @@ export default function ActionsFacture({
         <DialogueAvoir
           factureId={factureId}
           lignes={lignes}
+          reste={reste}
+          paiementsRecus={paiementsRecus}
           onFermer={() => setAvoirOuvert(false)}
           onFait={(numeroAvoir) => {
             setAvoirOuvert(false);
@@ -190,10 +197,12 @@ function BoutonAction({
 }
 
 function DialogueAvoir({
-  factureId, lignes, onFermer, onFait,
+  factureId, lignes, reste, paiementsRecus, onFermer, onFait,
 }: {
   factureId: string;
   lignes: LigneAvoir[];
+  reste: number;
+  paiementsRecus: PaiementRecu[];
   onFermer: () => void;
   onFait: (numero: string) => void;
 }) {
@@ -210,6 +219,11 @@ function DialogueAvoir({
 
   const total = lignes.reduce(
     (s, l) => s + (choisies[l.id] ? (quantites[l.id] ?? 0) * l.prix_unitaire : 0), 0);
+
+  // L'imputation, montrée AVANT de valider : la créance d'abord, l'excédent
+  // ensuite. C'est le même calcul que celui qui sera écrit sur la pièce.
+  const imputation = imputerAvoir({ montant: total, resteFacture: reste, destination, paiements: paiementsRecus });
+  const sansExcedent = raisonSansExcedent(total, reste);
 
   async function valider() {
     if (!motif.trim()) { setErreur("Le motif est obligatoire."); return; }
@@ -281,24 +295,41 @@ function DialogueAvoir({
           className="w-full border rounded-xl p-2.5 text-sm mb-4"
         />
 
-        <label className="block text-sm font-semibold mb-1" style={{ color: MARINE }}>Destination</label>
-        <div className="flex gap-2 mb-4">
-          {([["credit", "Porter au crédit du client"], ["rembourser", "Rembourser"]] as const).map(([v, l]) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setDestination(v)}
-              className="flex-1 px-3 py-2 rounded-xl text-sm font-semibold border"
-              style={{
-                backgroundColor: destination === v ? MARINE : "white",
-                color: destination === v ? "white" : MARINE,
-                borderColor: destination === v ? MARINE : "rgba(27,43,94,0.2)",
-              }}
-            >
-              {l}
-            </button>
+        <div className="mb-4 rounded-xl p-3 text-sm space-y-1"
+             style={{ backgroundColor: "#F1F8F6", color: MARINE }}>
+          {libelleImputation(imputation, reste).map((ligne, i) => (
+            <p key={i}>{ligne}</p>
           ))}
         </div>
+
+        <label className="block text-sm font-semibold mb-1" style={{ color: MARINE }}>Destination</label>
+        <div className="flex gap-2 mb-4">
+          {([["credit", "Porter au crédit du client"], ["rembourser", "Rembourser"]] as const).map(([v, l]) => {
+            // Sans excédent, il n'y a rien à porter au crédit : l'option reste
+            // affichée, grisée, avec sa raison en dessous.
+            const grisee = v === "credit" && !!sansExcedent;
+            return (
+              <button
+                key={v}
+                type="button"
+                disabled={grisee}
+                title={grisee ? sansExcedent ?? undefined : undefined}
+                onClick={() => setDestination(v)}
+                className="flex-1 px-3 py-2 rounded-xl text-sm font-semibold border disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: destination === v && !grisee ? MARINE : "white",
+                  color: destination === v && !grisee ? "white" : MARINE,
+                  borderColor: destination === v && !grisee ? MARINE : "rgba(27,43,94,0.2)",
+                }}
+              >
+                {l}
+              </button>
+            );
+          })}
+        </div>
+        {sansExcedent && (
+          <p className="text-xs mb-4" style={{ color: "rgba(27,43,94,0.6)" }}>{sansExcedent}</p>
+        )}
 
         {erreur && (
           <p className="text-sm mb-3 px-3 py-2 rounded-lg"

@@ -342,6 +342,9 @@ export default async function FacturePage({
                 id: l.id, libelle: l.libelle,
                 quantite: Number(l.quantite), prix_unitaire: Number(l.prix_unitaire),
               }))}
+              paiementsRecus={(paiements ?? []).map((p) => ({
+                mode: (p.mode as string | null) ?? null, montant: Number(p.montant),
+              }))}
             />
 
             <Bloc titre="Pièces jointes">

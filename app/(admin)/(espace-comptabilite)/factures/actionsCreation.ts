@@ -14,6 +14,7 @@ import { secteurParDefautCompte } from "@/src/lib/tvaLogique";
 import { tvaDeLaPrestation } from "@/src/lib/tva";
 import { figerLigneLibre } from "@/src/lib/ligneLibre";
 import { recalculerPaiementsDeFacture } from "@/src/lib/paiementReservation";
+import { imputerAvoir, type DestinationAvoir } from "@/src/lib/avoirImputation";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const COMPTES = COMPTES_PRODUIT.map((c) => c.numero) as readonly string[];
@@ -96,6 +97,19 @@ export async function creerAvoir(formData: FormData): Promise<{ error?: string; 
     return { error: `Cet avoir dépasse ce qui reste à créditer (CHF ${creditable.toFixed(2)}).` };
   }
 
+  // L'imputation : la créance d'abord, l'excédent ensuite. Elle se fige sur la
+  // pièce, pour qu'un encaissement postérieur ne déplace pas son écriture.
+  const { data: paiementsOrigine } = await supabaseAdmin
+    .from("paiements_resa")
+    .select("mode, montant")
+    .eq("facture_id", factureId);
+  const imputation = imputerAvoir({
+    montant: montantAvoir,
+    resteFacture: Number(origine.montant_restant ?? 0),
+    destination: destination as DestinationAvoir,
+    paiements: (paiementsOrigine ?? []) as { mode: string; montant: number }[],
+  });
+
   const { data: avoir, error: errCreation } = await supabaseAdmin
     .from("factures")
     .insert({
@@ -106,6 +120,11 @@ export async function creerAvoir(formData: FormData): Promise<{ error?: string; 
       date_facture: new Date().toISOString().split("T")[0],
       statut: "brouillon",
       motif,
+      imputation_avoir: {
+        creance: imputation.creance,
+        credit: imputation.credit,
+        remboursements: imputation.remboursements,
+      },
     })
     .select("id")
     .single();
@@ -131,20 +150,16 @@ export async function creerAvoir(formData: FormData): Promise<{ error?: string; 
     })),
   );
 
-  // Un avoir efface d'abord ce qui restait DÛ ; seule la part déjà encaissée
-  // peut devenir un crédit utilisable. Créditer un client qui n'a rien payé
-  // lui donnerait un avoir tout en lui laissant sa dette.
-  // Le reste dû se lit : il est calculé à un seul endroit (total − payé − avoirs).
-  const resteOrigine = Math.max(r2(Number(origine.montant_restant ?? 0)), 0);
-  const partSurDette = Math.min(montantAvoir, resteOrigine);
-  const partCreditable = r2(montantAvoir - partSurDette);
-
-  if (destination === "credit" && partCreditable > 0) {
+  // Le registre des avoirs ne reçoit QUE ce qui devient vraiment un crédit :
+  // l'excédent porté au crédit du client. Ce qui efface la créance n'y entre
+  // pas — le client n'a pas un crédit, il n'a plus de dette. Et un
+  // remboursement sort par la caisse, pas par le registre.
+  if (imputation.credit > 0) {
     const { data: mvt } = await supabaseAdmin
       .from("avoirs_mouvements")
       .insert({
         client_id: origine.client_id,
-        montant: partCreditable,
+        montant: imputation.credit,
         type: "avoir_facture",
         motif: `Avoir sur facture ${origine.numero} : ${motif}`,
         facture_id: avoir.id,

@@ -65,8 +65,21 @@ export type FactureCompta = {
    * impayée annule la dette ; sur une facture déjà payée, il crée un crédit.
    * La part est FIGÉE à la création (elle vaut le mouvement d'avoir enregistré),
    * pour que la cible ne se déplace plus au fil des encaissements.
+   *
+   * Ne sert plus qu'aux avoirs émis AVANT l'imputation figée : dès qu'une
+   * pièce porte `imputationAvoir`, c'est elle qui décide.
    */
   montantCredite?: number | string | null;
+  /**
+   * Avoir uniquement : l'imputation figée à l'émission — ce qui efface la
+   * créance, ce qui est porté au crédit du client, ce qui est remboursé et par
+   * quel compte de liquidité. Absente sur les avoirs antérieurs : leur écriture
+   * garde alors exactement l'ancien calcul, au centime près.
+   */
+  imputationAvoir?: {
+    credit?: number | string | null;
+    remboursements?: { compte: string; montant: number | string }[] | null;
+  } | null;
   /**
    * Vrai seulement en MÉTHODE EFFECTIVE, et seulement si la pièce est
    * assujettie à sa date. Le produit est alors net de TVA et la taxe facturée
@@ -137,11 +150,27 @@ export function cibleFacture(f: FactureCompta): Record<string, number> {
       // dette née à la facture d'origine.
       if (tva !== 0) add(COMPTE_TVA_DUE, tva);
     }
-    // La contrepartie se partage : ce qui restait dû s'efface du débiteur,
-    // ce qui était déjà encaissé devient une dette envers le client.
-    const credite = Math.min(Math.max(r2(Number(f.montantCredite ?? 0)), 0), total);
-    add(COMPTE_AVOIRS, -credite);
-    add(COMPTE_DEBITEURS, -r2(total - credite));
+    // La contrepartie se partage : ce qui restait dû s'efface du débiteur, et
+    // l'excédent — la part déjà encaissée — suit l'option choisie à l'émission.
+    if (f.imputationAvoir) {
+      const credit = Math.min(Math.max(r2(Number(f.imputationAvoir.credit ?? 0)), 0), total);
+      add(COMPTE_AVOIRS, -credit);
+      let rembourse = 0;
+      for (const r of f.imputationAvoir.remboursements ?? []) {
+        const montant = r2(Number(r.montant ?? 0));
+        if (montant === 0 || !r.compte) continue;
+        add(r.compte, -montant);
+        rembourse = r2(rembourse + montant);
+      }
+      // Le solde va au débiteur : c'est la créance effacée.
+      add(COMPTE_DEBITEURS, -r2(total - credit - rembourse));
+    } else {
+      // Avoirs antérieurs à l'imputation figée : la part créditée se relit dans
+      // le registre des avoirs, et le reste efface la créance.
+      const credite = Math.min(Math.max(r2(Number(f.montantCredite ?? 0)), 0), total);
+      add(COMPTE_AVOIRS, -credite);
+      add(COMPTE_DEBITEURS, -r2(total - credite));
+    }
   } else if (f.type === "acompte") {
     // Aucun produit : l'acompte est un passif, reconnu à son encaissement.
   } else {

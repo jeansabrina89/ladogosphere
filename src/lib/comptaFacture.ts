@@ -52,7 +52,7 @@ export async function synchroniserComptaFacture(
   try {
     const { data: f } = await supabaseAdmin
       .from("factures")
-      .select("id, type, numero, statut, date_facture, motif")
+      .select("id, type, numero, statut, date_facture, motif, imputation_avoir")
       .eq("id", factureId)
       .maybeSingle();
     if (!f) return;
@@ -76,10 +76,12 @@ export async function synchroniserComptaFacture(
     const total = (lignes ?? []).reduce(
       (s: number, l: { montant: number | string }) => s + Number(l.montant), 0);
 
-    // La part d'un avoir portée au crédit du client EST son mouvement d'avoir :
-    // les deux ne peuvent donc pas diverger.
+    // L'imputation figée à l'émission décide. À défaut (avoirs antérieurs), la
+    // part créditée se relit dans le registre des avoirs, comme avant.
+    const imputationAvoir = (f.imputation_avoir ?? null) as
+      { credit?: number; remboursements?: { compte: string; montant: number }[] } | null;
     let montantCredite = 0;
-    if (f.type === "avoir") {
+    if (f.type === "avoir" && !imputationAvoir) {
       const { data: mvts } = await supabaseAdmin
         .from("avoirs_mouvements")
         .select("montant")
@@ -99,6 +101,7 @@ export async function synchroniserComptaFacture(
         ? await acomptesImputes(factureId, total)
         : 0,
       montantCredite,
+      imputationAvoir: f.type === "avoir" ? imputationAvoir : null,
       // Le régime EN VIGUEUR À LA DATE de la pièce décide, pas celui
       // d'aujourd'hui : une facture ancienne garde sa comptabilisation même si
       // le régime change ensuite.
