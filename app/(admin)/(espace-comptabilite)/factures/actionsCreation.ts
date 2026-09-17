@@ -211,7 +211,7 @@ export async function creerAvoir(formData: FormData): Promise<{ error?: string; 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// B — Facture libre et facture d'acompte
+// B — Facture libre
 // ─────────────────────────────────────────────────────────────────────────────
 
 function lignesValides(brut: string): { lignes: LigneSaisie[]; error?: string } {
@@ -349,74 +349,18 @@ export async function creerFactureLibre(formData: FormData): Promise<{ error?: s
   redirect(`/factures/${facture.id}`);
 }
 
-/**
- * Facture d'acompte sur une réservation validée : montant libre, aucun produit
- * reconnu. L'encaissement la porte en 2030, la facture définitive l'impute.
+/*
+ * La facture d'acompte a été retirée le 17 septembre 2026.
+ *
+ * Sabrina encaisse l'acompte de la main à la main : elle n'a pas besoin de
+ * remettre au client un document numéroté à payer. Depuis APP 17k, un acompte
+ * encaissé sur la réservation se rattache de lui-même à la facture définitive,
+ * qui naît donc déjà payée d'autant. La facture d'acompte, elle, n'a jamais
+ * été terminée : son encaissement restait bloqué au 2030 sans réduire la
+ * facture définitive, et le client se voyait réclamer deux fois la même somme.
+ *
+ * On a fermé la porte sans détruire ce qui est derrière : les cinq pièces
+ * d'acompte existantes s'affichent et s'impriment toujours. Le type 'acompte'
+ * vit toujours en base, dans le moteur comptable (comptaFactureLogique.ts),
+ * dans acomptes_a_imputer et dans le titre du PDF (facturePdf.tsx).
  */
-export async function creerFactureAcompte(formData: FormData): Promise<{ error?: string; factureId?: string }> {
-  const verif = await verifierPermission("perm_encaissements");
-  if (verif.error) return { error: verif.error };
-
-  const reservationId = ((formData.get("reservation_id") as string) || "").trim();
-  const montant = parseFloat((formData.get("montant") as string) || "0");
-  if (!reservationId) return { error: "Réservation introuvable." };
-  if (!Number.isFinite(montant) || montant <= 0) return { error: "Montant d'acompte invalide." };
-
-  const { data: resa } = await supabaseAdmin
-    .from("reservations")
-    .select("id, client_id, statut, numero, montant_final, montant_calcule")
-    .eq("id", reservationId)
-    .maybeSingle();
-  if (!resa) return { error: "Réservation introuvable." };
-  if (resa.statut !== "validee") return { error: "Seule une réservation validée peut faire l'objet d'un acompte." };
-  if (!resa.client_id) return { error: "Réservation sans client." };
-
-  const total = Number(resa.montant_final ?? resa.montant_calcule ?? 0);
-  if (total > 0 && montant > total) {
-    return { error: `L'acompte ne peut pas dépasser le montant du séjour (CHF ${total.toFixed(2)}).` };
-  }
-
-  const { data: facture, error } = await supabaseAdmin
-    .from("factures")
-    .insert({
-      client_id: resa.client_id,
-      type: "acompte",
-      type_facture: "reservation",
-      date_facture: new Date().toISOString().split("T")[0],
-      statut: "brouillon",
-      motif: `Acompte sur la réservation #${resa.numero ?? ""}`.trim(),
-    })
-    .select("id")
-    .single();
-  if (error || !facture) return { error: error?.message ?? "Création impossible." };
-
-  await supabaseAdmin.from("facture_lignes").insert({
-    facture_id: facture.id, ordre: 1,
-    libelle: `Acompte sur la réservation #${resa.numero ?? ""}`.trim(),
-    quantite: 1, prix_unitaire: r2(montant), compte_produit: "3000",
-    reservation_id: reservationId, origine: "reservation",
-  });
-  await supabaseAdmin.from("factures").update({
-    montant_total: r2(montant), montant_ttc: r2(montant), montant_ht: r2(montant),
-  }).eq("id", facture.id);
-  await recalculerResteFacture(facture.id);
-
-  const { error: errEmission } = await supabaseAdmin.rpc("emettre_facture", {
-    p_facture_id: facture.id, p_user_id: verif.userId ?? null,
-  });
-  if (errEmission) return { error: errEmission.message };
-
-  await synchroniserComptaFacture(facture.id, verif.userId ?? null);
-  await recalculerPaiementsDeFacture(facture.id);
-  await finaliserEmission(facture.id, verif.userId ?? null);
-
-  await tracerEvenement({
-    entite: "facture", entiteId: facture.id, evenement: "creation",
-    apres: { type: "acompte", montant: r2(montant), reservation: resa.numero },
-    userId: verif.userId ?? null,
-  });
-
-  revalidatePath(`/reservations/${reservationId}`);
-  revalidatePath("/factures");
-  return { factureId: facture.id };
-}

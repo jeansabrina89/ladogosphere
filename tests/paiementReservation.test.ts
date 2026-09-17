@@ -279,7 +279,6 @@ describe("chaque chemin de paiement se termine par la dérivation", () => {
     ["app/(admin)/(espace-comptabilite)/factures/actions.ts", "emettreFactureAction", "émission d'une facture"],
     ["app/(admin)/(espace-comptabilite)/factures/actionsCreation.ts", "creerAvoir", "avoir (crédit ou remboursement)"],
     ["app/(admin)/(espace-comptabilite)/factures/actionsCreation.ts", "creerFactureLibre", "facture libre reprenant des réservations"],
-    ["app/(admin)/(espace-comptabilite)/factures/actionsCreation.ts", "creerFactureAcompte", "facture d'acompte"],
     ["src/lib/factureResa.ts", "figerFactureResa", "émission au check-out"],
     ["src/lib/caisse.ts", "finaliserVente", "caisse avec report sur facture"],
     ["src/lib/caisse.ts", "retournerVente", "retour de caisse sur facture"],

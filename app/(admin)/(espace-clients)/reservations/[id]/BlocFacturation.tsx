@@ -8,7 +8,6 @@ import { getSoldeAvoir } from "@/src/lib/avoirs";
 import { libelleMode, etatFacture, libelleEtatFacture, couleursEtatFacture } from "@/src/lib/factureStatut";
 import Encaisser from "@/app/(admin)/(espace-comptabilite)/factures/Encaisser";
 import AnnulerPaiement from "./AnnulerPaiement";
-import DemanderAcompte from "./DemanderAcompte";
 
 // Un seul bloc « Facturation » : où en est la facture, ce qu'il reste à payer,
 // et par où encaisser. Rien n'y est saisi : dû, payé et reste se DÉRIVENT des
@@ -90,8 +89,6 @@ export default async function BlocFacturation({
     ? await getSoldeAvoir(supabaseAdmin, reservation.client_id)
     : 0;
 
-  const peutAcompte = permEncaissements && reservation.statut === "validee" && emises.length === 0;
-
   return (
     <div className="bg-white rounded-2xl p-6 mb-6 border" style={{ borderColor: "rgba(27,43,94,0.12)" }}>
       <h2 className="text-2xl font-bold mb-4" style={{ color: MARINE }}>🧾 Facturation</h2>
@@ -129,7 +126,10 @@ export default async function BlocFacturation({
 
       {/* Encaisser */}
       {/* Le bouton disparaît dès que le reste dérivé est nul. Avec une facture
-          ouverte, il encaisse SUR ELLE — le même geste que la fiche facture. */}
+          ouverte, il encaisse SUR ELLE — le même geste que la fiche facture.
+          Avant la facture, c'est un acompte : il s'enregistre sur la
+          réservation et se rattache tout seul à la facture définitive
+          (APP 17k). Il n'y a plus de facture d'acompte à émettre. */}
       {permEncaissements && reste > 0 && reservation.statut !== "annulee" && (
         <div className="flex gap-3 flex-wrap mb-5">
           <Encaisser
@@ -138,7 +138,6 @@ export default async function BlocFacturation({
             resteDu={ouverte ? Math.min(reste, Number(ouverte.montant_restant ?? reste)) : reste}
             libellePiece={ouverte ? `Facture ${ouverte.numero}` : `Acompte — réservation #${reservation.numero ?? ""}`.trim()}
           />
-          {peutAcompte && <DemanderAcompte reservationId={reservation.id} maximum={reste} />}
         </div>
       )}
 
