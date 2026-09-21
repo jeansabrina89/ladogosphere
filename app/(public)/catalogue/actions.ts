@@ -311,6 +311,7 @@ export async function confirmerCommande(entree: EntreeConfirmation): Promise<Ret
     reservationAVenir: resas.length > 0,
     grillePort: params.grillePort,
     poidsMaxGrammes: params.poidsMaxGrammes,
+    francoPortDes: params.francoPortDes,
   };
 
   const refus = refusConfirmation({

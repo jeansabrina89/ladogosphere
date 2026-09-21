@@ -11,6 +11,7 @@ import {
 import { ajouterJoursISO } from "@/src/lib/cotisationPeriode";
 import { phrasesRappelVeilleEssai } from "@/src/lib/rappelVeilleLogique";
 import { CLE_AVIS_GOOGLE, ligneAvisGooglePiedDePage } from "@/src/lib/avisGoogle";
+import { mentionPortCommande } from "@/src/lib/venteEnLigneLogique";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -1335,7 +1336,9 @@ export async function envoyerEmailCommandeConfirmee(
     .join("");
 
   const remise = Number(cmd.remise_membre ?? 0);
-  const port = Number(cmd.frais_port ?? 0);
+  // Lu sur les frais FIGÉS de la commande : un envoi postal à 0.– est une
+  // livraison offerte ; un retrait n'a pas de ligne de port du tout.
+  const port = mentionPortCommande(cmd);
   const adresse = destinataire?.trim() || client.email;
   const pdfJoint = cmd.mode_paiement === "facture" && !!facture?.pdf;
 
@@ -1355,7 +1358,11 @@ export async function envoyerEmailCommandeConfirmee(
         <table cellpadding="0" cellspacing="0" style="width:100%;">
           ${lignesHtml}
           ${remise > 0 ? `<tr><td style="padding:6px 0; color:#1F6E5B; font-size:14px;">Remises</td><td style="padding:6px 0; color:#1F6E5B; font-size:14px; text-align:right;">−${chfEmail(remise)} CHF</td></tr>` : ""}
-          ${port > 0 ? `<tr><td style="padding:6px 0; color:#6B7280; font-size:14px;">Frais de port</td><td style="padding:6px 0; color:#6B7280; font-size:14px; text-align:right;">${chfEmail(port)} CHF</td></tr>` : ""}
+          ${port === "offerte"
+            ? `<tr><td style="padding:6px 0; color:#6B7280; font-size:14px;">Frais de port</td><td style="padding:6px 0; color:#1F6E5B; font-size:14px; font-weight:bold; text-align:right;">Livraison offerte</td></tr>`
+            : typeof port === "number"
+              ? `<tr><td style="padding:6px 0; color:#6B7280; font-size:14px;">Frais de port</td><td style="padding:6px 0; color:#6B7280; font-size:14px; text-align:right;">${chfEmail(port)} CHF</td></tr>`
+              : ""}
           <tr>
             <td style="padding:12px 0 0 0; border-top:2px solid #FFFFFF; color:#1B2B5E; font-weight:bold; font-size:16px;">Prix TTC</td>
             <td style="padding:12px 0 0 0; border-top:2px solid #FFFFFF; color:#1B2B5E; font-weight:bold; font-size:16px; text-align:right;">${chfEmail(Number(cmd.montant_total))} CHF</td>

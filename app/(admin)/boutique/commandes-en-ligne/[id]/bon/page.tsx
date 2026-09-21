@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { lireCommande, lignesDeCommande } from "@/src/lib/venteEnLigne";
-import { libelleModeRemise, formatAdresse } from "@/src/lib/venteEnLigneLogique";
+import { libelleModeRemise, formatAdresse, mentionPortCommande } from "@/src/lib/venteEnLigneLogique";
 import { formatDateFR } from "@/src/lib/dates";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +57,9 @@ export default async function BonPreparationPage({
         </p>
         <p style={{ color: SOUS, fontSize: 14, margin: "0 0 18px" }}>
           {libelleModeRemise(commande.mode_remise)}
+          {/* Un envoi postal à 0.– est une livraison offerte ; un retrait n'a
+              pas de ligne de port, il n'y a donc rien à dire ici. */}
+          {mentionPortCommande(commande) === "offerte" ? " · Livraison offerte" : ""}
           {commande.confirmee_le ? ` · commandée le ${formatDateFR(commande.confirmee_le.slice(0, 10))}` : ""}
         </p>
 

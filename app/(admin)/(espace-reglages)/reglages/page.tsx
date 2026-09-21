@@ -36,6 +36,11 @@ export default async function ReglagesPage() {
             note="Les textes envoyés aux clients, et les campagnes. Un message à une personne s'envoie depuis sa fiche."
           />
           <Raccourci
+            href="/reglages/boutique"
+            titre="🛍️ Boutique"
+            note="Livraison offerte à partir d'un montant d'articles, et rappel de la grille des frais de port."
+          />
+          <Raccourci
             href="/reglages/tva"
             titre="🧾 TVA"
             note="Régime d'assujettissement, méthode de décompte, taux de dette fiscale nette et taux facturés par catégorie d'articles."

@@ -189,15 +189,77 @@ export function lireGrillePort(brut: unknown): PalierPort[] {
 }
 
 /**
+ * Le seuil de livraison offerte, tel qu'il est enregistré en paramètre.
+ * Vide, nul ou illisible : null — la livraison n'est jamais offerte.
+ */
+export function lireFrancoPort(brut: unknown): number | null {
+  const n = nb(brut);
+  return n !== null && n > 0 ? r2(n) : null;
+}
+
+/**
+ * Le montant des articles atteint-il le seuil de livraison offerte ?
+ *
+ * Le montant comparé est ce que le client paie pour la marchandise : APRÈS
+ * les remises de ligne (la remise membre comprise), AVANT le port. Un membre
+ * qui commande 105.– d'articles en paie 94.50 : il n'atteint pas 100.–.
+ * Un seuil null n'est jamais atteint.
+ */
+export function francoAtteint(montantArticles: number, seuil: number | null | undefined): boolean {
+  if (seuil === null || seuil === undefined || !(seuil > 0)) return false;
+  return r2(montantArticles) >= r2(seuil);
+}
+
+/** Ce qu'il faut pour décider d'une livraison offerte. */
+export type Franco = { montantArticles: number; seuil: number | null | undefined };
+
+/**
  * Frais de port pour un poids donné : le premier palier qui le contient.
  * Au-delà du dernier palier, il n'y a pas de tarif — et donc pas d'envoi :
  * on rend null plutôt qu'un prix inventé.
+ *
+ * C'est la SEULE fonction qui chiffre le port. La livraison offerte y vit
+ * aussi : le seuil atteint, le port vaut 0. Mais elle n'ouvre pas l'envoi là
+ * où il n'y a pas de tarif — elle annule un prix, elle n'en crée pas. Les
+ * autres conditions de l'envoi postal (articles expédiables, poids maximum)
+ * restent jugées par optionsRemise, avant elle.
  */
-export function fraisPort(poidsGrammes: number, grille: PalierPort[]): number | null {
+export function fraisPort(
+  poidsGrammes: number,
+  grille: PalierPort[],
+  franco?: Franco | null,
+): number | null {
   if (grille.length === 0) return null;
   const poids = Math.max(poidsGrammes, 0);
   const palier = grille.find((p) => poids <= p.jusqu_a_grammes);
-  return palier ? r2(palier.prix) : null;
+  if (!palier) return null;
+  if (franco && francoAtteint(franco.montantArticles, franco.seuil)) return 0;
+  return r2(palier.prix);
+}
+
+/**
+ * La saisie de Réglages → Boutique : « Livraison offerte à partir de ».
+ * Vide : jamais (la valeur enregistrée est vide). Sinon un nombre positif, en
+ * francs, deux décimales au plus. La virgule suisse est acceptée.
+ */
+export function lireSaisieFrancoPort(
+  brut: unknown,
+): { ok: true; valeur: string; seuil: number | null } | { ok: false; message: string } {
+  // Les séparateurs de milliers (1'000, 1’000, 1 000) ne changent rien au montant.
+  const texte = String(brut ?? "").trim().replace(/[’'\s]/g, "");
+  if (texte === "") return { ok: true, valeur: "", seuil: null };
+  if (!/^\d+([.,]\d{1,2})?$/.test(texte)) {
+    return { ok: false, message: "Indiquez un montant en francs, par exemple 100 ou 99.50 — ou laissez vide pour ne jamais offrir la livraison." };
+  }
+  const n = r2(Number(texte.replace(",", ".")));
+  if (!(n > 0)) return { ok: false, message: "Le seuil doit être supérieur à zéro. Laissez vide pour ne jamais offrir la livraison." };
+  return { ok: true, valeur: String(n), seuil: n };
+}
+
+/** « 100.– » pour un montant rond, « 99.50 » sinon : le seuil comme on l'affiche. */
+export function libelleSeuil(seuil: number): string {
+  const n = r2(seuil);
+  return n % 1 === 0 ? `${n}.–` : n.toFixed(2);
 }
 
 // ── Modes de remise ────────────────────────────────────────────────────────
@@ -220,6 +282,8 @@ export type ContexteRemise = {
   reservationAVenir: boolean;
   grillePort: PalierPort[];
   poidsMaxGrammes: number;
+  /** Seuil de livraison offerte, en francs d'articles. Null : jamais offerte. */
+  francoPortDes?: number | null;
 };
 
 /**
@@ -233,7 +297,10 @@ export function optionsRemise(c: ContexteRemise): OptionRemise[] {
   );
   const poids = poidsTotal(c.lignes);
   const sansPoids = lignesSansPoids(c.lignes);
-  const port = fraisPort(poids, c.grillePort);
+  const port = fraisPort(poids, c.grillePort, {
+    montantArticles: sousTotal(c.lignes),
+    seuil: c.francoPortDes ?? null,
+  });
 
   const raisonPostal =
     c.lignes.length === 0 ? "Votre panier est vide."
@@ -280,6 +347,36 @@ export function optionsRemise(c: ContexteRemise): OptionRemise[] {
 
 export function optionRemise(c: ContexteRemise, mode: ModeRemise): OptionRemise {
   return optionsRemise(c).find((o) => o.valeur === mode)!;
+}
+
+/**
+ * Ce que le panier dit de la livraison offerte.
+ *
+ * Rien quand le seuil est null, rien quand l'envoi postal n'est pas possible :
+ * annoncer une livraison offerte sur un colis qu'on ne peut pas envoyer serait
+ * une promesse creuse. Sinon, le seuil et s'il est atteint — jamais la
+ * distance qui reste : ce n'est pas le ton de la maison.
+ */
+export function infoLivraisonOfferte(c: ContexteRemise): { seuil: number; atteint: boolean } | null {
+  const seuil = c.francoPortDes ?? null;
+  if (seuil === null || !(seuil > 0)) return null;
+  if (!optionRemise(c, "postal").disponible) return null;
+  return { seuil, atteint: francoAtteint(sousTotal(c.lignes), seuil) };
+}
+
+/**
+ * La ligne de port d'une commande CONFIRMÉE, lue sur ses frais figés.
+ *   • « offerte » : un envoi postal à 0.– — la livraison offerte ;
+ *   • un montant : un envoi postal payant ;
+ *   • null : un retrait ou une remise au départ du chien, sans ligne de port.
+ */
+export function mentionPortCommande(c: {
+  mode_remise: string | null | undefined;
+  frais_port: number | string | null | undefined;
+}): "offerte" | number | null {
+  if (c.mode_remise !== "postal") return null;
+  const port = r2(nb(c.frais_port) ?? 0);
+  return port > 0 ? port : "offerte";
 }
 
 /** « 10 kg », « 750 g » — le poids comme on le dit. */

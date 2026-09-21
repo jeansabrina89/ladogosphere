@@ -86,6 +86,7 @@ export default async function PanierPage() {
             lignes={lignes}
             grillePort={params.grillePort}
             poidsMaxGrammes={params.poidsMaxGrammes}
+            francoPortDes={params.francoPortDes}
             delaiJours={params.delaiPreparationJours}
             reservations={resas}
             adresseClient={

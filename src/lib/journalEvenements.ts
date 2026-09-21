@@ -239,6 +239,7 @@ const LIBELLES: Record<string, string> = {
   vente: "Vente encaissée",
   retour: "Retour de caisse",
   regime_tva: "Régime de TVA modifié",
+  franco_port_des: "Seuil de livraison offerte modifié",
   tva_categorie: "Taux d'une catégorie d'articles",
   decompte_tva: "Décompte TVA déclaré",
   decompte_tva_paye: "Décompte TVA payé",

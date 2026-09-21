@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import {
+  lireFrancoPort,
   lireGrillePort,
   type LignePanier,
   type PalierPort,
@@ -71,6 +72,8 @@ const COLONNES_LIGNE = `
 export type ParametresEnLigne = {
   grillePort: PalierPort[];
   poidsMaxGrammes: number;
+  /** Seuil de livraison offerte, en francs d'articles. Null : jamais. */
+  francoPortDes: number | null;
   remisePourcent: number;
   delaiPreparationJours: number;
 };
@@ -82,6 +85,7 @@ export async function lireParametresEnLigne(): Promise<ParametresEnLigne> {
     .in("cle", [
       "frais_port_grille", "poids_max_colis_grammes",
       "remise_membre_pourcent", "delai_preparation_jours",
+      "franco_port_des",
     ]);
 
   const map = new Map(
@@ -95,6 +99,7 @@ export async function lireParametresEnLigne(): Promise<ParametresEnLigne> {
   return {
     grillePort: lireGrillePort(map.get("frais_port_grille")),
     poidsMaxGrammes: entier("poids_max_colis_grammes", 10000),
+    francoPortDes: lireFrancoPort(map.get("franco_port_des")),
     remisePourcent: entier("remise_membre_pourcent", 10),
     delaiPreparationJours: entier("delai_preparation_jours", 2),
   };

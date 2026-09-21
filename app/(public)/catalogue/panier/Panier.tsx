@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   optionsRemise,
+  infoLivraisonOfferte,
+  libelleSeuil,
   totalCommande,
   refusConfirmation,
   remisesParOrigine,
@@ -63,6 +65,7 @@ export default function Panier({
   lignes,
   grillePort,
   poidsMaxGrammes,
+  francoPortDes,
   delaiJours,
   reservations,
   adresseClient,
@@ -70,6 +73,8 @@ export default function Panier({
   lignes: LigneAffichee[];
   grillePort: PalierPort[];
   poidsMaxGrammes: number;
+  /** Seuil de livraison offerte, en francs d'articles. Null : jamais. */
+  francoPortDes: number | null;
   delaiJours: number;
   reservations: ReservationChoix[];
   adresseClient: Partial<Adresse> | null;
@@ -89,8 +94,13 @@ export default function Panier({
     reservationAVenir: reservations.length > 0,
     grillePort,
     poidsMaxGrammes,
+    francoPortDes,
   };
   const options = optionsRemise(contexte);
+  // La livraison offerte se lit dans le même calcul que le port : ici on ne
+  // fait que dire ce qu'il a décidé.
+  const franco = infoLivraisonOfferte(contexte);
+  const portOffert = mode === "postal" && !!franco?.atteint;
   const choisie = options.find((o) => o.valeur === mode) ?? null;
   // Les remises sont déjà DANS les lignes : le total ne fait que les
   // additionner pour les montrer, il ne les retire pas une seconde fois.
@@ -231,7 +241,11 @@ export default function Panier({
             >
               <span>{mode === o.valeur ? "✓ " : ""}{o.libelle}</span>
               <span style={{ fontWeight: 700, whiteSpace: "nowrap" }}>
-                {o.frais === null ? "—" : o.frais === 0 ? "Gratuit" : chf(o.frais)}
+                {o.frais === null
+                  ? "—"
+                  : o.valeur === "postal" && o.frais === 0 && franco?.atteint
+                    ? "Offerts"
+                    : o.frais === 0 ? "Gratuit" : chf(o.frais)}
               </span>
             </button>
             {o.raison && (
@@ -335,10 +349,21 @@ export default function Panier({
             <span>−{chf(r.montant)}</span>
           </div>
         ))}
-        {total.port > 0 && (
+        {(total.port > 0 || portOffert) && (
           <div style={{ display: "flex", justifyContent: "space-between", color: SOUS, fontSize: 15 }}>
-            <span>Frais de port</span><span>{chf(total.port)}</span>
+            <span>Frais de port</span>
+            <span style={portOffert ? { color: VERT, fontWeight: 600 } : undefined}>
+              {portOffert ? "Offerts" : chf(total.port)}
+            </span>
           </div>
+        )}
+        {/* Le seuil, dit sobrement, sans compte à rebours : pas de « plus que
+            12.– », qui pousse à l'achat. Seulement quand l'envoi postal est
+            possible et que le seuil n'est pas atteint. */}
+        {franco && !franco.atteint && (
+          <p style={{ color: SOUS, fontSize: 13.5, margin: 0 }}>
+            Livraison offerte dès {libelleSeuil(franco.seuil)} d&apos;articles
+          </p>
         )}
         <div style={{
           display: "flex", justifyContent: "space-between", marginTop: 6, paddingTop: 10,
