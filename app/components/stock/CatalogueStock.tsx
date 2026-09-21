@@ -6,7 +6,9 @@ import {
   valeurStock,
   sousLeSeuil,
   urlPhotoArticle,
+  manquePoids,
 } from "@/src/lib/boutiqueLogique";
+import { formatPoids } from "@/src/lib/venteEnLigneLogique";
 import { configPerimetre, type PerimetreStock } from "@/src/lib/perimetreStock";
 import {
   compterParStatut,
@@ -84,6 +86,25 @@ function Vignette({ article }: { article: Article }) {
  * La pastille de statut. « Publié » ne se marque pas : c'est le cas ordinaire,
  * et une liste où chaque ligne porte un badge ne se lit plus.
  */
+/**
+ * La colonne « Poste » : part-il par la poste, et que manque-t-il pour cela ?
+ * Un article sur mesure n'est ni pesé ni soumis à la case : il le dit.
+ */
+function Poste({ article }: { article: Article }) {
+  const pastille = (texte: string, fond: string, couleur: string) => (
+    <span style={{
+      display: "inline-block", borderRadius: 999, padding: "2px 10px", fontSize: 12.5,
+      fontWeight: 600, backgroundColor: fond, color: couleur, whiteSpace: "nowrap",
+    }}>
+      {texte}
+    </span>
+  );
+  if (article.type_article === "personnalisable") return pastille("Sur mesure", "#EDE8DF", sousTexte);
+  if (!article.expediable) return pastille("Non", "#EDE8DF", sousTexte);
+  if (manquePoids(article)) return pastille("⚖️ Sans poids", "#F4EAC9", "#6E5410");
+  return pastille(`✓ ${formatPoids(Number(article.poids_grammes))}`, "#DBEFEA", "#1F6E5B");
+}
+
 function Pastille({ statut, actif }: { statut?: string | null; actif?: boolean | null }) {
   if (actif === false) return null;
   const info = infoStatutVitrine(statut);
@@ -129,6 +150,9 @@ export default function CatalogueStock({
   // tuile le rappelle, et un clic ouvre la liste filtrée.
   const parStatut = compterParStatut(actifs);
   const brouillons = libelleCompteBrouillons(parStatut.brouillon);
+  // L'envoi postal ne concerne que ce qui se vend : pas l'atelier.
+  const boutique = perimetre === "boutique";
+  const nbSansPoids = boutique ? actifs.filter(manquePoids).length : 0;
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -150,6 +174,14 @@ export default function CatalogueStock({
             couleur={nbSousSeuil > 0 ? "#A8453A" : "#1F6E5B"}
             href={`${config.liste}?seuil=1`}
           />
+          {boutique && (
+            <Tuile
+              titre="Sans poids (ne partent pas par la poste)"
+              valeur={String(nbSansPoids)}
+              couleur={nbSansPoids > 0 ? "#6E5410" : "#1F6E5B"}
+              href={`${config.liste}?sanspoids=1`}
+            />
+          )}
           {brouillons && (
             <Tuile
               titre="En préparation"
@@ -168,6 +200,7 @@ export default function CatalogueStock({
         <FiltresArticles
           fournisseurs={fournisseurs}
           libelleRetires={config.libelleRetires}
+          filtrePoids={boutique}
         />
 
         {articles.length === 0 ? (
@@ -189,6 +222,7 @@ export default function CatalogueStock({
                     <th className="py-2 font-medium text-right">Taux</th>
                     <th className="py-2 font-medium text-right">Stock</th>
                     <th className="py-2 font-medium text-right">Seuil</th>
+                    {boutique && <th className="py-2 font-medium" style={{ paddingLeft: 12 }}>Poste</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -242,6 +276,9 @@ export default function CatalogueStock({
                         <td className="py-2 text-right" style={{ color: sousTexte }}>
                           {Number(a.stock_alerte ?? 0) > 0 ? formatQuantite(a.stock_alerte) : "—"}
                         </td>
+                        {boutique && (
+                          <td className="py-2" style={{ paddingLeft: 12 }}><Poste article={a} /></td>
+                        )}
                       </tr>
                     );
                   })}

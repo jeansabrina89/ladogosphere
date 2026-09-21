@@ -96,7 +96,7 @@ export default async function VentePage({
           sousTitre={
             estRetour && origine
               ? `Retour sur la vente ${origine.numero}`
-              : new Date(vente.date_vente).toLocaleString("fr-CH")
+              : formatHorodatage(vente.date_vente)
           }
           action={<Bouton href="/boutique/ventes" variante="secondaire">← Ventes</Bouton>}
         />
@@ -118,7 +118,7 @@ export default async function VentePage({
             </p>
           )}
 
-          <Ligne cle="Date" valeur={new Date(vente.date_vente).toLocaleString("fr-CH")} />
+          <Ligne cle="Date" valeur={formatHorodatage(vente.date_vente)} />
           {origine && (
             <Ligne
               cle="Vente d'origine"

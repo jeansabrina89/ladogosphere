@@ -113,6 +113,58 @@ export function estPerissable(categorie: string | null | undefined): boolean {
   return CATEGORIES_ARTICLE.find((c) => c.valeur === categorie)?.perissable ?? false;
 }
 
+// ── Envoi postal ────────────────────────────────────────────────────────────
+
+/**
+ * Les catégories dont la case « Expédiable par la poste » est proposée
+ * DÉCOCHÉE à la création : les boîtes et les sacs de litière sont lourds et
+ * fragiles. L'alimentation sèche, elle, est proposée cochée — un petit sac de
+ * croquettes part très bien par la poste.
+ *
+ * La catégorie ne fait que proposer : la case reste libre, article par article.
+ */
+const NON_EXPEDIABLES_PAR_DEFAUT: readonly string[] = ["alimentation_humide", "litiere"];
+
+export function expediableParDefaut(categorie: string | null | undefined): boolean {
+  return !NON_EXPEDIABLES_PAR_DEFAUT.includes(String(categorie ?? ""));
+}
+
+/** Ce que dit le formulaire sous le champ « Poids ». */
+export const AIDE_POIDS = "Sans poids, l'article ne peut pas être expédié.";
+
+/**
+ * Le poids saisi, en grammes : un entier strictement positif, ou rien.
+ * Vide est accepté — l'article ne s'expédie simplement pas tant qu'il manque.
+ */
+export function lirePoidsGrammes(
+  brut: unknown,
+): { ok: true; valeur: number | null } | { ok: false; message: string } {
+  const texte = String(brut ?? "").trim().replace(/[’'\s]/g, "");
+  if (texte === "") return { ok: true, valeur: null };
+  if (!/^\d+$/.test(texte)) {
+    return { ok: false, message: "Le poids s'indique en grammes, en nombre entier : 750, pas 0,75." };
+  }
+  const n = Number(texte);
+  if (!(n > 0)) return { ok: false, message: "Le poids doit être supérieur à zéro, ou laissé vide." };
+  return { ok: true, valeur: n };
+}
+
+/**
+ * L'article manque-t-il d'un poids pour pouvoir partir par la poste ?
+ *
+ * Un article sur mesure n'en a pas besoin : le panier ne le pèse pas et ne
+ * lui demande pas d'être expédiable (règle de optionsRemise). Une fourniture
+ * d'atelier ne se vend pas seule : la question ne se pose pas.
+ */
+export function manquePoids(a: {
+  type_article?: string | null;
+  composant?: boolean | null;
+  poids_grammes?: number | string | null;
+}): boolean {
+  if (a.type_article === "personnalisable" || a.composant) return false;
+  return a.poids_grammes === null || a.poids_grammes === undefined || a.poids_grammes === "";
+}
+
 // ── Mouvements ──────────────────────────────────────────────────────────────
 
 export type TypeMouvement =

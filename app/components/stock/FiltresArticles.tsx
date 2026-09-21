@@ -35,10 +35,13 @@ const sBascule = (actif: boolean): CSSProperties => ({
 export default function FiltresArticles({
   fournisseurs,
   libelleRetires = "Voir les articles retirés",
+  filtrePoids = false,
 }: {
   fournisseurs: { id: string; nom: string }[];
   /** « Voir les articles retirés » à la boutique, « … fournitures retirées » à l’atelier. */
   libelleRetires?: string;
+  /** La bascule « Sans poids » : à la boutique seulement, l'atelier n'expédie rien. */
+  filtrePoids?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -50,14 +53,16 @@ export default function FiltresArticles({
   const [seuil, setSeuil] = useState(params.get("seuil") === "1");
   const [inactifs, setInactifs] = useState(params.get("inactifs") === "1");
   const [statut, setStatut] = useState(params.get("statut") ?? "");
+  const [sansPoids, setSansPoids] = useState(params.get("sanspoids") === "1");
 
-  function appliquer(sur?: { seuil?: boolean; inactifs?: boolean; statut?: string }) {
+  function appliquer(sur?: { seuil?: boolean; inactifs?: boolean; statut?: string; sansPoids?: boolean }) {
     const p = new URLSearchParams();
     if (q.trim()) p.set("q", q.trim());
     if (categorie) p.set("categorie", categorie);
     if (fournisseur) p.set("fournisseur", fournisseur);
     if (sur?.seuil ?? seuil) p.set("seuil", "1");
     if (sur?.inactifs ?? inactifs) p.set("inactifs", "1");
+    if (filtrePoids && (sur?.sansPoids ?? sansPoids)) p.set("sanspoids", "1");
     const s = sur?.statut ?? statut;
     if (s) p.set("statut", s);
     const qs = p.toString();
@@ -125,6 +130,15 @@ export default function FiltresArticles({
         >
           ⚠️ Sous le seuil
         </button>
+        {filtrePoids && (
+          <button
+            type="button"
+            style={sBascule(sansPoids)}
+            onClick={() => { setSansPoids(!sansPoids); appliquer({ sansPoids: !sansPoids }); }}
+          >
+            ⚖️ Sans poids
+          </button>
+        )}
         <button
           type="button"
           style={sBascule(inactifs)}
@@ -138,6 +152,7 @@ export default function FiltresArticles({
           style={{ ...sChamp, cursor: "pointer" }}
           onClick={() => {
             setQ(""); setCategorie(""); setFournisseur(""); setSeuil(false); setInactifs(false); setStatut("");
+            setSansPoids(false);
             router.push(pathname);
           }}
         >

@@ -38,7 +38,7 @@ export default async function ReglagesPage() {
           <Raccourci
             href="/reglages/boutique"
             titre="🛍️ Boutique"
-            note="Livraison offerte à partir d'un montant d'articles, et rappel de la grille des frais de port."
+            note="Livraison offerte à partir d'un montant d'articles, grille des frais de port et poids maximum d'un colis."
           />
           <Raccourci
             href="/reglages/tva"

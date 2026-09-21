@@ -168,10 +168,36 @@ export function lignesSansPoids(lignes: LignePanier[]): LignePanier[] {
 
 export type PalierPort = { jusqu_a_grammes: number; prix: number };
 
+/** Les paliers par poids croissant : l'ordre de saisie ne compte pas. */
+export function trierPaliers(paliers: PalierPort[]): PalierPort[] {
+  return [...paliers].sort((a, b) => a.jusqu_a_grammes - b.jusqu_a_grammes);
+}
+
+/**
+ * Une grille qu'on peut chiffrer : au moins un palier, des poids entiers
+ * strictement croissants, des prix positifs ou nuls. Une seule entorse, et
+ * c'est toute la grille qui ne vaut rien — un palier manquant ferait payer le
+ * tarif d'un colis plus léger.
+ */
+export function grilleCoherente(grille: PalierPort[]): boolean {
+  if (grille.length === 0) return false;
+  let precedent = 0;
+  for (const p of grille) {
+    if (!Number.isInteger(p.jusqu_a_grammes) || p.jusqu_a_grammes <= precedent) return false;
+    if (!Number.isFinite(p.prix) || p.prix < 0) return false;
+    precedent = p.jusqu_a_grammes;
+  }
+  return true;
+}
+
 /**
  * La grille de frais de port, telle qu'elle est enregistrée en paramètre.
  * Une grille illisible ne fait pas planter la boutique : elle rend une grille
  * vide, et l'envoi postal se refuse faute de tarif.
+ *
+ * Elle ne répare rien en silence : un prix illisible ne devient pas 0 — ce
+ * serait une livraison offerte par accident —, un palier invalide n'est pas
+ * écarté pour garder les autres. Toute la grille est refusée.
  */
 export function lireGrillePort(brut: unknown): PalierPort[] {
   const source =
@@ -179,13 +205,109 @@ export function lireGrillePort(brut: unknown): PalierPort[] {
       ? (() => { try { return JSON.parse(brut); } catch { return []; } })()
       : brut;
   if (!Array.isArray(source)) return [];
-  return source
-    .map((p) => ({
-      jusqu_a_grammes: nb((p as PalierPort)?.jusqu_a_grammes) ?? 0,
-      prix: nb((p as PalierPort)?.prix) ?? 0,
-    }))
-    .filter((p) => p.jusqu_a_grammes > 0 && p.prix >= 0)
-    .sort((a, b) => a.jusqu_a_grammes - b.jusqu_a_grammes);
+  const paliers: PalierPort[] = [];
+  for (const p of source) {
+    const jusqu_a_grammes = nb((p as PalierPort)?.jusqu_a_grammes);
+    const prix = nb((p as PalierPort)?.prix);
+    if (jusqu_a_grammes === null || prix === null) return [];
+    paliers.push({ jusqu_a_grammes, prix: r2(prix) });
+  }
+  const triee = trierPaliers(paliers);
+  return grilleCoherente(triee) ? triee : [];
+}
+
+/**
+ * La grille saisie dans Réglages → Boutique, et le poids maximum d'un colis.
+ *
+ * Les paliers arrivent déjà triés par l'écran ; ce contrôle ne trie pas, il
+ * juge : poids strictement croissants, prix positifs ou nuls, et le dernier
+ * palier ne dépasse pas le poids maximum. Sans cette dernière règle, un colis
+ * plus lourd que le maximum aurait un prix — et un colis entre le dernier
+ * palier et le maximum n'en aurait pas.
+ */
+export function validerGrillePort(p: {
+  paliers: PalierPort[];
+  poidsMaxGrammes: number;
+}): { ok: true } | { ok: false; message: string } {
+  const max = p.poidsMaxGrammes;
+  if (!Number.isInteger(max) || max <= 0) {
+    return { ok: false, message: "Le poids maximum d'un colis doit être un nombre positif." };
+  }
+  if (p.paliers.length === 0) {
+    return { ok: false, message: "La grille doit compter au moins un palier : sans tarif, rien ne peut partir par la poste." };
+  }
+  let precedent = 0;
+  for (const palier of p.paliers) {
+    if (!Number.isInteger(palier.jusqu_a_grammes) || palier.jusqu_a_grammes <= 0) {
+      return { ok: false, message: "Chaque palier indique un poids positif." };
+    }
+    if (palier.jusqu_a_grammes <= precedent) {
+      return { ok: false, message: "Les poids des paliers doivent être strictement croissants : deux paliers ne peuvent pas avoir le même poids." };
+    }
+    if (!Number.isFinite(palier.prix) || palier.prix < 0) {
+      return { ok: false, message: "Chaque palier a un prix, positif ou nul." };
+    }
+    precedent = palier.jusqu_a_grammes;
+  }
+  if (precedent > max) {
+    return {
+      ok: false,
+      message: `Le dernier palier (${formatPoids(precedent)}) dépasse le poids maximum d'un colis (${formatPoids(max)}).`,
+    };
+  }
+  return { ok: true };
+}
+
+/** Une ligne de la grille telle qu'on la tape à l'écran : kilos et francs. */
+export type LigneSaisieGrille = { kg: string; prix: string };
+
+/** « 2 », « 2,5 », « 0.75 » : un nombre à la suisse, ou null. */
+function lireDecimal(brut: string, decimalesMax: number): number | null {
+  const texte = String(brut ?? "").trim().replace(/[’'\s]/g, "");
+  if (!new RegExp(`^\\d+([.,]\\d{1,${decimalesMax}})?$`).test(texte)) return null;
+  return Number(texte.replace(",", "."));
+}
+
+/** La grille enregistrée, présentée pour l'écran : kilos et francs. */
+export function grilleEnSaisie(grille: PalierPort[]): LigneSaisieGrille[] {
+  return grille.map((p) => ({
+    kg: String(Math.round(p.jusqu_a_grammes) / 1000),
+    prix: r2(p.prix).toFixed(2),
+  }));
+}
+
+/**
+ * La saisie de Réglages → Boutique : les paliers (en kilos, à l'écran) et le
+ * poids maximum d'un colis. Les lignes entièrement vides sont ignorées ; les
+ * paliers sont triés par poids croissant, puis jugés par validerGrillePort.
+ * Le résultat est au format que lit fraisPort — il n'y en a pas d'autre.
+ */
+export function lireSaisieGrille(p: {
+  lignes: LigneSaisieGrille[];
+  poidsMaxKg: string;
+}): { ok: true; paliers: PalierPort[]; poidsMaxGrammes: number } | { ok: false; message: string } {
+  const max = lireDecimal(p.poidsMaxKg, 3);
+  if (max === null || !(max > 0)) {
+    return { ok: false, message: "Indiquez le poids maximum d'un colis en kilos, par exemple 10." };
+  }
+  const paliers: PalierPort[] = [];
+  for (const l of p.lignes) {
+    if (!String(l.kg ?? "").trim() && !String(l.prix ?? "").trim()) continue;
+    const kg = lireDecimal(l.kg, 3);
+    if (kg === null || !(kg > 0)) {
+      return { ok: false, message: `« ${String(l.kg ?? "").trim() || "(vide)"} » n'est pas un poids en kilos : indiquez par exemple 2 ou 0,5.` };
+    }
+    const prix = lireDecimal(l.prix, 2);
+    if (prix === null) {
+      return { ok: false, message: `Le palier de ${kg} kg n'a pas de prix lisible : indiquez un montant, 0 compris.` };
+    }
+    paliers.push({ jusqu_a_grammes: Math.round(kg * 1000), prix: r2(prix) });
+  }
+  const tries = trierPaliers(paliers);
+  const poidsMaxGrammes = Math.round(max * 1000);
+  const verdict = validerGrillePort({ paliers: tries, poidsMaxGrammes });
+  if (!verdict.ok) return verdict;
+  return { ok: true, paliers: tries, poidsMaxGrammes };
 }
 
 /**
@@ -229,7 +351,8 @@ export function fraisPort(
   grille: PalierPort[],
   franco?: Franco | null,
 ): number | null {
-  if (grille.length === 0) return null;
+  // Vide ou incohérente : pas de tarif, donc pas d'envoi. Jamais un 0 par défaut.
+  if (!grilleCoherente(grille)) return null;
   const poids = Math.max(poidsGrammes, 0);
   const palier = grille.find((p) => poids <= p.jusqu_a_grammes);
   if (!palier) return null;

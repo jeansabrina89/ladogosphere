@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { dateLocaleISO } from "@/src/lib/dates";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermissionBoutique } from "@/src/lib/permissions";
 // L'encaissement sur facture reste sa propre permission : porter un achat sur
@@ -186,7 +187,7 @@ export async function envoyerTicket(venteId: string): Promise<{ error?: string; 
       email: ticket.infos.clientEmail,
       prenom: ticket.infos.clientPrenom ?? "",
       numero: ticket.infos.numero,
-      date: vente.date_vente.slice(0, 10),
+      date: dateLocaleISO(vente.date_vente),
       montant: ticket.infos.total,
       pdf: ticket.buffer,
     });

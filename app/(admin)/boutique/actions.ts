@@ -27,6 +27,7 @@ import {
   ecartInventaire,
   lireNombre,
   tauxPropose,
+  lirePoidsGrammes,
   type TypeMouvement,
 } from "@/src/lib/boutiqueLogique";
 import {
@@ -151,6 +152,16 @@ export async function enregistrerArticle(
   });
   if (refus) return { erreur: refus.message, champ: refus.champ, valeurs };
 
+  // L'envoi postal ne s'écrit que si le formulaire l'a MONTRÉ : un article sur
+  // mesure ou une fourniture d'atelier gardent leurs valeurs telles quelles.
+  const envoiPostal: Record<string, unknown> = {};
+  if (formData.get("envoi_postal") === "1") {
+    const poids = lirePoidsGrammes(formData.get("poids_grammes"));
+    if (!poids.ok) return { erreur: poids.message, champ: "poids_grammes", valeurs };
+    envoiPostal.poids_grammes = poids.valeur;
+    envoiPostal.expediable = formData.get("expediable") === "on";
+  }
+
   const champs: Record<string, unknown> = {
     nom,
     description: String(formData.get("description") ?? "").trim() || null,
@@ -183,6 +194,7 @@ export async function enregistrerArticle(
     publier_a_l_entree_stock: formData.get("publier_a_l_entree_stock") === "on",
     date_limite: String(formData.get("date_limite") ?? "").trim() || null,
     remise_membre_exclue: formData.get("remise_membre_exclue") === "on",
+    ...envoiPostal,
   };
 
   // Référence laissée vide : la base l'attribue elle-même, sous la forme ART-0001.

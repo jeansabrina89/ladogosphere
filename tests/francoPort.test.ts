@@ -203,9 +203,16 @@ describe("un seul calcul, et les écrans qui le lisent", () => {
     const appels = SOURCES.filter((s) => /\bfraisPort\(/.test(s.code) && s.rel !== "src/lib/venteEnLigneLogique.ts")
       .map((s) => s.rel);
     expect(appels).toEqual([]);
-    // Et aucun autre fichier ne relit la grille pour chiffrer un port.
-    const grille = SOURCES.filter((s) => s.code.includes("frais_port_grille")).map((s) => s.rel);
-    expect(grille).toEqual(["src/lib/venteEnLigne.ts"]);
+    // Et aucun autre fichier ne relit la grille pour chiffrer un port : elle se
+    // LIT à un seul endroit, s'ÉCRIT depuis Réglages → Boutique, et son code
+    // d'événement a son libellé au journal. Rien d'autre.
+    const grille = SOURCES.filter((s) => s.code.includes("frais_port_grille")).map((s) => s.rel).sort();
+    expect(grille).toEqual([
+      "app/(admin)/(espace-reglages)/reglages/boutique/actions.ts",
+      "src/lib/journalEvenements.ts",
+      "src/lib/venteEnLigne.ts",
+    ]);
+    expect(code("app/(admin)/(espace-reglages)/reglages/boutique/actions.ts")).not.toMatch(/\bfraisPort\(/);
   });
 
   it("le panier et la confirmation passent le même seuil au même calcul", () => {

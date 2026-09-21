@@ -26,12 +26,43 @@ export function aujourdhuiISO(): string {
   }).format(new Date());
 }
 
+/**
+ * Un horodatage qui dit son fuseau : « …Z » ou « …+00:00 », ce que renvoie la
+ * base pour une colonne timestamptz. Sa date du jour se lit À SION, pas à
+ * Greenwich : une commande passée le 22 à 00 h 31 est du 22, même si elle est
+ * enregistrée le 21 à 22 h 31 UTC.
+ */
+const AVEC_FUSEAU = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}(:?\d{2})?)$/;
+
+/**
+ * « 2026-09-22 », la date du jour à Sion d'un instant ou d'un horodatage.
+ * Une date seule (« 2026-09-22 ») est rendue telle quelle.
+ */
+export function dateLocaleISO(value: string | Date | null | undefined): string {
+  if (!value) return "";
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  if (typeof value === "string" && !AVEC_FUSEAU.test(value) && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+    // Un horodatage SANS fuseau : on ne devine pas son fuseau, on garde son jour.
+    return value.slice(0, 10);
+  }
+  const d = value instanceof Date ? value : new Date(value);
+  if (isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Zurich",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(d);
+}
+
 export function formatDateFR(value: string | Date | null | undefined): string {
   if (!value) return "";
   if (typeof value === "string" && value === "") return "";
-  // Chaîne "YYYY-MM-DD[...]" → reformatage direct sans passer par Date
+  // Une date seule, ou un horodatage SANS fuseau : on reformate son jour tel
+  // quel. Un horodatage AVEC fuseau prend d'abord son jour à Sion — sans quoi
+  // minuit et demi tomberait la veille. Même présentation « jj/mm/aaaa » dans
+  // les deux cas.
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
-    const [y, m, d] = value.slice(0, 10).split("-");
+    const jour = AVEC_FUSEAU.test(value) ? dateLocaleISO(value) : value.slice(0, 10);
+    const [y, m, d] = jour.split("-");
     return `${d}/${m}/${y}`;
   }
   // Date objet ou autre string (ISO avec heure, timestamp…)

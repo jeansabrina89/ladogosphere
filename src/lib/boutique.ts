@@ -53,6 +53,9 @@ export type Article = {
   publier_a_l_entree_stock: boolean;
   date_limite: string | null;
   remise_membre_exclue: boolean;
+  /** Envoi postal : poids en grammes (null : inconnu) et expédiabilité. */
+  poids_grammes: number | null;
+  expediable: boolean;
 };
 
 export type MouvementStock = {

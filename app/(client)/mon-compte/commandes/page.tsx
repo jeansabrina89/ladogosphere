@@ -86,7 +86,7 @@ export default async function MesCommandesPage() {
                 </div>
 
                 <p style={{ color: SOUS, fontSize: 14, margin: "2px 0 12px" }}>
-                  {c.confirmee_le ? formatDateFR(c.confirmee_le.slice(0, 10)) : ""} ·{" "}
+                  {c.confirmee_le ? formatDateFR(c.confirmee_le) : ""} ·{" "}
                   {libelleModeRemise(c.mode_remise)} · {libelleModePaiement(c.mode_paiement)}
                 </p>
 

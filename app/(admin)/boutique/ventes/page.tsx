@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { aujourdhuiISO, formatDateFR } from "@/src/lib/dates";
+import { aujourdhuiISO, formatDateFR, formatHeure } from "@/src/lib/dates";
 import { listerVentes, resumeVentesDuJour } from "@/src/lib/caisse";
 import { libelleModeVente, chf } from "@/src/lib/caisseLogique";
 import EnTete from "@/app/components/ui/EnTete";
@@ -99,9 +99,7 @@ export default async function VentesPage({
               {ventes.map((v) => {
                 const estRetour = !!v.vente_origine_id;
                 const montant = Number(v.montant_total);
-                const heure = new Date(v.date_vente).toLocaleTimeString("fr-CH", {
-                  hour: "2-digit", minute: "2-digit",
-                });
+                const heure = formatHeure(v.date_vente);
                 return (
                   <Link
                     key={v.id}

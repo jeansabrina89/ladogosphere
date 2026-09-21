@@ -60,7 +60,7 @@ export default async function BonPreparationPage({
           {/* Un envoi postal à 0.– est une livraison offerte ; un retrait n'a
               pas de ligne de port, il n'y a donc rien à dire ici. */}
           {mentionPortCommande(commande) === "offerte" ? " · Livraison offerte" : ""}
-          {commande.confirmee_le ? ` · commandée le ${formatDateFR(commande.confirmee_le.slice(0, 10))}` : ""}
+          {commande.confirmee_le ? ` · commandée le ${formatDateFR(commande.confirmee_le)}` : ""}
         </p>
 
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15 }}>

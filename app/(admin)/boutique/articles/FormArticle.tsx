@@ -12,6 +12,8 @@ import {
   tauxPropose,
   margeArticle,
   lireNombre,
+  expediableParDefaut,
+  AIDE_POIDS,
 } from "@/src/lib/boutiqueLogique";
 import { COMPTE_MATIERES_FABRICATION, type PerimetreStock } from "@/src/lib/perimetreStock";
 import { SECTEURS, libelleTaux } from "@/src/lib/tvaLogique";
@@ -49,6 +51,9 @@ export type ArticleFormulaire = {
   publier_a_l_entree_stock?: boolean | null;
   date_limite?: string | null;
   remise_membre_exclue?: boolean | null;
+  /** Envoi postal : le poids en grammes (null : inconnu) et la case. */
+  poids_grammes?: number | null;
+  expediable?: boolean | null;
 };
 
 /** « 2026-10-12T08:00 », ce qu'attend un champ datetime-local. */
@@ -127,6 +132,13 @@ export default function FormArticle({
   const [statut, setStatut] = useState(
     texte("statut_vitrine", article?.statut_vitrine ?? STATUT_VITRINE_PAR_DEFAUT)
   );
+  // « Expédiable par la poste » : à la création, la catégorie propose ; tant
+  // que personne n'a touché la case, elle suit la catégorie. En modification,
+  // la valeur enregistrée prime — la catégorie ne propose plus rien.
+  const expediableInitial = () =>
+    caseCochee(v, "expediable", article?.expediable ?? expediableParDefaut(article?.categorie));
+  const [expediable, setExpediable] = useState(expediableInitial);
+  const [expediableTouche, setExpediableTouche] = useState(false);
 
   // Après un refus, les champs pilotés reprennent la saisie renvoyée par
   // l'action : ce qui a été tapé ne se perd pas parce qu'il est contrôlé.
@@ -139,12 +151,15 @@ export default function FormArticle({
     setPrixAchat(texte("prix_achat", article?.prix_achat));
     setTypeArticle(texte("type_article", article?.type_article ?? "standard"));
     setStatut(texte("statut_vitrine", article?.statut_vitrine ?? STATUT_VITRINE_PAR_DEFAUT));
+    setExpediable(expediableInitial());
   }
 
   function choisirCategorie(valeur: string) {
     setCategorie(valeur);
     // Le taux suit la catégorie tant que personne ne l'a corrigé à la main.
     if (!tauxTouche) setTaux(String(tauxPropose(valeur)));
+    // La case « Expédiable » aussi, mais seulement à la création.
+    if (!article && !expediableTouche) setExpediable(expediableParDefaut(valeur));
   }
 
   const marge = margeArticle(lireNombre(prixVente), lireNombre(prixAchat));
@@ -366,6 +381,57 @@ export default function FormArticle({
           fabrication » — compte {COMPTE_MATIERES_FABRICATION}. C&apos;est de là que
           les entrées en stock partent.
         </p>
+      )}
+
+      {/* ── Envoi postal ─────────────────────────────────────────────────── */}
+      {!atelier && (
+        <div style={{ display: "grid", gap: 12, borderTop: BORDURE, paddingTop: 16 }}>
+          <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: MARINE }}>Envoi postal</p>
+          {typeArticle === "personnalisable" ? (
+            /* Règle du panier (optionsRemise) : une ligne sur mesure n'est ni
+               pesée ni soumise à la case — rien à saisir ici, et rien n'est
+               écrasé : les champs ne partent pas. */
+            <p style={{ ...aide, marginTop: 0 }}>
+              Un article sur mesure part par la poste avec la commande : le panier ne le pèse
+              pas et ne lui demande pas d&apos;être expédiable. Rien à saisir ici.
+            </p>
+          ) : (
+            <>
+              <input type="hidden" name="envoi_postal" value="1" />
+              <div>
+                <label htmlFor="poids_grammes" style={etiquette}>Poids</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input
+                    {...marqueChamp(etat, "poids_grammes", { ...champ, maxWidth: 160 })}
+                    type="text"
+                    inputMode="numeric"
+                    defaultValue={texte("poids_grammes", article?.poids_grammes)}
+                    placeholder="750"
+                  />
+                  <span style={{ color: MARINE, fontWeight: 600 }}>grammes</span>
+                </div>
+                <p style={aide}>{AIDE_POIDS}</p>
+              </div>
+              <label htmlFor="expediable"
+                style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 15, color: MARINE }}>
+                <input
+                  type="checkbox" name="expediable" id="expediable"
+                  checked={expediable}
+                  onChange={(e) => { setExpediable(e.target.checked); setExpediableTouche(true); }}
+                  style={{ width: 20, height: 20, marginTop: 2, flexShrink: 0 }}
+                />
+                <span>
+                  Expédiable par la poste
+                  <span style={{ display: "block", fontSize: 12, color: SOUS }}>
+                    {article
+                      ? "Décochée, l'article se vend en ligne mais ne part pas par la poste : retrait ou remise au départ du chien."
+                      : "Proposée selon la catégorie — décochée pour l'alimentation humide et la litière. La case reste libre."}
+                  </span>
+                </span>
+              </label>
+            </>
+          )}
+        </div>
       )}
 
       <div style={{ display: "grid", gap: 12, borderTop: BORDURE, paddingTop: 16 }}>

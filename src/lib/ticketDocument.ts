@@ -1,4 +1,5 @@
 import React from "react";
+import { dateLocaleISO, formatHorodatage } from "@/src/lib/dates";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { lireVente, lignesDeVente } from "@/src/lib/caisse";
@@ -32,7 +33,7 @@ export async function genererTicket(
   const lignesDb = await lignesDeVente(venteId);
 
   // L’identité en vigueur à la date de la vente.
-  const coords = await getCoordonneesPaiement(supabaseAdmin, String(vente.date_vente).slice(0, 10));
+  const coords = await getCoordonneesPaiement(supabaseAdmin, dateLocaleISO(vente.date_vente));
 
   type ClientTicket = { prenom: string | null; nom: string | null; email: string | null };
   let client: ClientTicket | null = null;
@@ -63,7 +64,9 @@ export async function genererTicket(
   // Chaque ligne porte le taux figé au moment de la vente. La ventilation se
   // fait sur le total des lignes : l'arrondi aux 5 centimes est un écart de
   // caisse, pas une base d'imposition.
-  const dateVente = String(vente.date_vente).slice(0, 10);
+  // Le jour de la vente À SION : une vente à minuit et demi est du jour qui
+  // commence, pas de la veille en UTC — c'est ce jour-là qui choisit le régime.
+  const dateVente = dateLocaleISO(vente.date_vente);
   const regime = await lireParametresTva(dateVente);
   const tva = piedTva(
     affichage(regime),
@@ -83,9 +86,7 @@ export async function genererTicket(
     numero: vente.numero,
     venteOrigine,
     motif: vente.motif,
-    date: new Date(vente.date_vente).toLocaleString("fr-CH", {
-      day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
-    }),
+    date: formatHorodatage(vente.date_vente),
     emetteur: {
       nom: coords.titulaire,
       adresse: [
