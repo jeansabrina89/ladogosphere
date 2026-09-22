@@ -20,6 +20,10 @@ fichier : c'est précisément pour cela que la règle est écrite ici. Une base
 qu'on ne peut pas reconstruire depuis le dépôt n'est sauvegardée nulle part, et
 on s'en aperçoit le jour où l'on essaie — c'est-à-dire le pire jour possible.
 
+Une migration appliquée hors dépôt (depuis une autre session, le tableau de
+bord ou un autre outil) doit être rapatriée dans `supabase/migrations`, sous le
+nom et la version enregistrés, avant tout autre commit.
+
 # Une fonction SQL naît fermée
 
 Une fonction SQL est créée avec `REVOKE EXECUTE FROM public, anon,
