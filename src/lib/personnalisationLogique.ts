@@ -464,6 +464,83 @@ export function figerChoix(
   return figes;
 }
 
+// ── Lecture d'une configuration figée ───────────────────────────────────────
+
+/**
+ * Un choix figé tel qu'on le relit : dans la configuration d'une ligne de
+ * panier (jsonb), ou dans commandes_choix une fois la commande confirmée.
+ * Les deux ont la forme de ChoixFige ; on n'en exige que le nécessaire.
+ */
+export type ChoixLu = {
+  groupe_nom: string;
+  valeur_libelle: string;
+  valeur_texte?: string | null;
+  supplement_prix?: number | string | null;
+  ordre?: number | string | null;
+};
+
+/** Dans une liste, une gravure s'arrête là ; la fiche et le bon la donnent en entier. */
+export const TEXTE_MAX_LISTE = 60;
+
+/**
+ * Les choix d'une configuration, validés et remis dans l'ordre des questions.
+ * Accepte ce que la base renvoie tel quel : un jsonb qui n'est pas une liste,
+ * ou une entrée sans nom de groupe, ne produit rien plutôt qu'une erreur.
+ */
+export function choixLus(configuration: unknown): ChoixLu[] {
+  if (!Array.isArray(configuration)) return [];
+  return configuration
+    .filter((c): c is ChoixLu =>
+      !!c && typeof c === "object" &&
+      typeof (c as ChoixLu).groupe_nom === "string" && (c as ChoixLu).groupe_nom.trim() !== "")
+    .map((c, i) => ({ c, i }))
+    .sort((a, b) => (Number(a.c.ordre ?? a.i) - Number(b.c.ordre ?? b.i)) || a.i - b.i)
+    .map(({ c }) => c);
+}
+
+function montantSupplement(n: number): string {
+  return `${n > 0 ? "+" : "−"}${Math.abs(n).toFixed(2)} CHF`;
+}
+
+/**
+ * LE libellé lisible d'une configuration, choix par choix : « Largeur : 16 mm »,
+ * « Gravure : « Pixel » », « Couleur : bleu marine (+5.00 CHF) ». C'est la
+ * seule fonction qui l'écrit : panier, commandes, e-mail, bon et facture la
+ * partagent.
+ *
+ * Le supplément est déjà compté dans le prix de la ligne : il est seulement
+ * indiqué. Un texte libre se met entre guillemets, et se coupe à
+ * TEXTE_MAX_LISTE caractères dans une liste (`complet: false`, par défaut).
+ */
+export function libellesConfiguration(
+  configuration: unknown,
+  options: { complet?: boolean } = {},
+): string[] {
+  return choixLus(configuration).map((c) => {
+    const nom = c.groupe_nom.trim();
+    const texte = String(c.valeur_texte ?? "").trim();
+    let valeur: string;
+    if (texte) {
+      const coupe = !options.complet && texte.length > TEXTE_MAX_LISTE
+        ? `${texte.slice(0, TEXTE_MAX_LISTE).trimEnd()}…`
+        : texte;
+      valeur = `« ${coupe} »`;
+    } else {
+      valeur = String(c.valeur_libelle ?? "").trim();
+    }
+    const supplement = Number(c.supplement_prix ?? 0);
+    const prix = Number.isFinite(supplement) && Math.abs(supplement) >= 0.005
+      ? ` (${montantSupplement(supplement)})`
+      : "";
+    return `${nom} : ${valeur}${prix}`;
+  });
+}
+
+/** Les mêmes choix sur une ligne : « Largeur : 16 mm · Couleur : bleu marine ». Vide : rien à dire. */
+export function libelleConfiguration(configuration: unknown, options: { complet?: boolean } = {}): string {
+  return libellesConfiguration(configuration, options).join(" · ");
+}
+
 /** Fournitures à décompter au passage en fabrication, regroupées par article. */
 export function composantsAConsommer(
   choix: { composant_article_id: string | null; composant_quantite: number | string | null }[]

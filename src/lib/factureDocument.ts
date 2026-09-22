@@ -11,10 +11,12 @@ import { genererQrBillSvg } from "@/src/lib/qrFacture";
 import { FacturePdf, type LignePdf } from "@/src/lib/facturePdf";
 import { montantsDuDocument, type AcompteRattache } from "@/src/lib/factureMontantsDocument";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { detailsConfigurationFacture } from "@/src/lib/personnalisation";
 
 export const BUCKET_FACTURES = "factures";
 
 type LigneBase = {
+  ordre?: number | string;
   libelle: string;
   quantite: number | string;
   prix_unitaire: number | string;
@@ -85,12 +87,19 @@ export async function genererPdfFacture(
 
   const { data: lignesDb } = await supabaseAdmin
     .from("facture_lignes")
-    .select("libelle, quantite, prix_unitaire, montant, taux_tva, motif_tva, prix_base, remise_libelle")
+    .select("ordre, libelle, quantite, prix_unitaire, montant, taux_tva, motif_tva, prix_base, remise_libelle")
     .eq("facture_id", factureId)
     .order("ordre");
 
+  // Un article sur mesure dit ses choix, sur une seule ligne sous la désignation.
+  const details = await detailsConfigurationFacture(
+    factureId,
+    ((lignesDb ?? []) as LigneBase[]).map((l) => ({ ordre: l.ordre ?? 0, libelle: l.libelle })),
+  );
+
   const lignes: LignePdf[] = ((lignesDb ?? []) as LigneBase[]).map((l) => ({
     libelle: l.libelle,
+    detail: details.get(Number(l.ordre)) ?? null,
     quantite: Number(l.quantite),
     prix_unitaire: Number(l.prix_unitaire),
     montant: Number(l.montant),

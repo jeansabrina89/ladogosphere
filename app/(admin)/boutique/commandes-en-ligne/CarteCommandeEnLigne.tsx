@@ -15,6 +15,7 @@ import {
   remettreCommande,
   annulerCommande,
 } from "./actions";
+import OptionsChoisies from "@/app/components/OptionsChoisies";
 
 const MARINE = "#1B2B5E";
 const SOUS = "rgba(27,43,94,0.55)";
@@ -57,7 +58,7 @@ export type CommandeAffichee = {
   motif_annulation: string | null;
   confirmee_le: string | null;
   client: { id: string; prenom: string | null; nom: string | null } | null;
-  lignes: { id: string; libelle: string; quantite: number; montant: number }[];
+  lignes: { id: string; libelle: string; quantite: number; montant: number; options?: string[] }[];
   reservation: { numero: number | null; date_fin: string; chien: string | null } | null;
 };
 
@@ -131,8 +132,9 @@ export default function CarteCommandeEnLigne({ commande }: { commande: CommandeA
             borderTop: BORDURE, padding: "6px 0",
             display: "flex", gap: 10, justifyContent: "space-between",
           }}>
-            <span style={{ color: MARINE, fontSize: 15, overflowWrap: "anywhere" }}>
+            <span style={{ color: MARINE, fontSize: 15, overflowWrap: "anywhere", minWidth: 0 }}>
               {l.quantite} × {l.libelle}
+              <OptionsChoisies options={l.options} />
             </span>
             <span style={{ color: SOUS, fontSize: 15, whiteSpace: "nowrap" }}>{chf(l.montant)}</span>
           </li>

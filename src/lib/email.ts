@@ -12,6 +12,8 @@ import { ajouterJoursISO } from "@/src/lib/cotisationPeriode";
 import { phrasesRappelVeilleEssai } from "@/src/lib/rappelVeilleLogique";
 import { CLE_AVIS_GOOGLE, ligneAvisGooglePiedDePage } from "@/src/lib/avisGoogle";
 import { mentionPortCommande } from "@/src/lib/venteEnLigneLogique";
+import { choixDesLignes } from "@/src/lib/personnalisation";
+import { libelleConfiguration } from "@/src/lib/personnalisationLogique";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -1315,7 +1317,7 @@ export async function envoyerEmailCommandeConfirmee(
   const [{ data: client }, { data: lignes }, { data: params }] = await Promise.all([
     supabaseAdmin.from("clients").select("prenom, email").eq("id", cmd.client_id).maybeSingle(),
     supabaseAdmin.from("commandes_lignes")
-      .select("libelle, quantite, prix_unitaire, montant")
+      .select("id, libelle, quantite, prix_unitaire, montant, configuration, commande_personnalisee_id")
       .eq("commande_id", commandeId).order("created_at"),
     supabaseAdmin.from("parametres").select("valeur").eq("cle", "delai_preparation_jours").maybeSingle(),
   ]);
@@ -1327,12 +1329,23 @@ export async function envoyerEmailCommandeConfirmee(
     numero: cmd.numero ?? "",
   });
 
-  const lignesHtml = ((lignes ?? []) as { libelle: string; quantite: number; montant: number }[])
-    .map((l) => `
+  const lignesCommande = (lignes ?? []) as {
+    id: string; libelle: string; quantite: number; montant: number;
+    configuration: unknown; commande_personnalisee_id: string | null;
+  }[];
+  // Les choix d'un article sur mesure, en entier, sous son nom.
+  const choix = await choixDesLignes(lignesCommande);
+  const lignesHtml = lignesCommande
+    .map((l) => {
+      const options = libelleConfiguration(choix.get(l.id), { complet: true });
+      return `
       <tr>
-        <td style="padding:6px 0; color:#1B2B5E; font-size:14px;">${l.quantite} × ${l.libelle}</td>
+        <td style="padding:6px 0; color:#1B2B5E; font-size:14px;">${l.quantite} × ${l.libelle}${options
+          ? `<br><span style="color:#6B7280; font-size:13px;">${echapper(options)}</span>`
+          : ""}</td>
         <td style="padding:6px 0; color:#1B2B5E; font-size:14px; text-align:right; white-space:nowrap;">${chfEmail(Number(l.montant))} CHF</td>
-      </tr>`)
+      </tr>`;
+    })
     .join("");
 
   const remise = Number(cmd.remise_membre ?? 0);

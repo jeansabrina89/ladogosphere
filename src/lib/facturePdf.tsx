@@ -52,6 +52,8 @@ export type LignePdf = {
    */
   prix_base?: number | null;
   remise_libelle?: string | null;
+  /** Les choix d'un article sur mesure, sur UNE ligne sous la désignation. */
+  detail?: string | null;
 };
 
 export type FacturePdfProps = {
@@ -174,6 +176,9 @@ export function FacturePdf(p: FacturePdfProps) {
           <View key={i} style={s.tableLigne} wrap={false}>
             <View style={s.colLibelle}>
               <Text>{pourPdf(l.libelle)}</Text>
+              {l.detail ? (
+                <Text style={{ fontSize: 7.5, color: GRIS }}>{pourPdf(l.detail)}</Text>
+              ) : null}
               {l.remise_libelle ? (
                 <Text style={{ fontSize: 7.5, color: GRIS }}>
                   {l.prix_base != null ? `Prix de base ${chf(Number(l.prix_base))} · ` : ""}

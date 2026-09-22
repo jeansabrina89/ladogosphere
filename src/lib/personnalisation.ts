@@ -7,6 +7,9 @@ import {
   messageGroupeDuModele,
   messageGroupeDeLArticle,
   SOURCE_ARTICLE,
+  choixLus,
+  libelleConfiguration,
+  type ChoixLu,
   type BlocOptions,
   type Fusion,
   type Surcharge,
@@ -237,6 +240,81 @@ export async function choixDeCommande(commandeId: string): Promise<ChoixCommande
     .eq("commande_id", commandeId)
     .order("ordre");
   return (data ?? []) as unknown as ChoixCommande[];
+}
+
+/**
+ * Les choix figés de chaque ligne de commande en ligne, par identifiant de
+ * ligne. Au panier, ils vivent dans la ligne (`configuration`) ; à la
+ * confirmation, ils passent dans la commande d'atelier et la ligne n'en garde
+ * que la référence (`commande_personnalisee_id`). On lit l'un ou l'autre ; une
+ * ligne d'article standard n'a rien.
+ */
+export async function choixDesLignes(
+  lignes: { id: string; configuration?: unknown; commande_personnalisee_id?: string | null }[],
+): Promise<Map<string, ChoixLu[]>> {
+  const resultat = new Map<string, ChoixLu[]>();
+  const commandes = [...new Set(
+    lignes.filter((l) => choixLus(l.configuration).length === 0 && l.commande_personnalisee_id)
+      .map((l) => l.commande_personnalisee_id as string),
+  )];
+
+  const parCommande = new Map<string, ChoixLu[]>();
+  if (commandes.length > 0) {
+    const { data } = await supabaseAdmin
+      .from("commandes_choix")
+      .select("commande_id, groupe_nom, valeur_libelle, valeur_texte, supplement_prix, ordre")
+      .in("commande_id", commandes)
+      .order("ordre");
+    for (const c of (data ?? []) as unknown as (ChoixLu & { commande_id: string })[]) {
+      const liste = parCommande.get(c.commande_id) ?? [];
+      liste.push(c);
+      parCommande.set(c.commande_id, liste);
+    }
+  }
+
+  for (const l of lignes) {
+    const propres = choixLus(l.configuration);
+    const choix = propres.length > 0
+      ? propres
+      : l.commande_personnalisee_id ? choixLus(parCommande.get(l.commande_personnalisee_id)) : [];
+    if (choix.length > 0) resultat.set(l.id, choix);
+  }
+  return resultat;
+}
+
+/**
+ * La ligne de détail d'un article sur mesure sur SA facture : une seule ligne
+ * sous l'article, pas une par option. La facture n'a pas de lien vers la
+ * commande d'atelier ; elle a été émise depuis les lignes de la commande en
+ * ligne, dans leur ordre. On apparie donc la n-ième ligne de la commande à la
+ * ligne d'ordre n de la facture, et seulement si les libellés concordent.
+ * Rien n'est écrit : c'est une lecture.
+ */
+export async function detailsConfigurationFacture(
+  factureId: string,
+  lignesFacture: { ordre: number | string; libelle: string }[],
+): Promise<Map<number, string>> {
+  const details = new Map<number, string>();
+  const { data: commande } = await supabaseAdmin
+    .from("commandes").select("id").eq("facture_id", factureId).maybeSingle();
+  if (!commande) return details;
+
+  const { data } = await supabaseAdmin
+    .from("commandes_lignes")
+    .select("id, libelle, configuration, commande_personnalisee_id")
+    .eq("commande_id", commande.id)
+    .order("created_at");
+  const lignes = (data ?? []) as unknown as {
+    id: string; libelle: string; configuration: unknown; commande_personnalisee_id: string | null;
+  }[];
+  const choix = await choixDesLignes(lignes);
+
+  const parOrdre = new Map(lignesFacture.map((l) => [Number(l.ordre), l.libelle]));
+  lignes.forEach((l, i) => {
+    const libelle = libelleConfiguration(choix.get(l.id), { complet: true });
+    if (libelle && parOrdre.get(i + 1) === l.libelle) details.set(i + 1, libelle);
+  });
+  return details;
 }
 
 export type CommandeAffichee = Commande & {

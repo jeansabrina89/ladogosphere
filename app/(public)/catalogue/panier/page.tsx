@@ -12,6 +12,8 @@ import {
 } from "@/src/lib/venteEnLigne";
 import { catalogueVitrine } from "@/src/lib/vitrine";
 import { mentionRemiseMembre } from "@/src/lib/venteEnLigneLogique";
+import { choixDesLignes } from "@/src/lib/personnalisation";
+import { libellesConfiguration } from "@/src/lib/personnalisationLogique";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
@@ -55,8 +57,11 @@ export default async function PanierPage() {
   ]);
 
   // Les lignes portent leur identifiant : c'est lui qu'on modifie ou retire.
+  // Un article sur mesure porte aussi ses choix, sous son nom.
+  const choix = await choixDesLignes(lignesDb);
   const lignes: LigneAffichee[] = lignesBrutes.map((l, i) => ({
     ...l, id: lignesDb[i]?.id ?? l.article_id,
+    options: libellesConfiguration(choix.get(lignesDb[i]?.id ?? "")),
   }));
 
   return (

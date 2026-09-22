@@ -6,6 +6,8 @@ import Image from "next/image";
 import { urlPhotoArticle } from "@/src/lib/boutiqueLogique";
 import { brutAuServeur, changerQuantite, ecouter, lireBrut, retirer } from "./panierNavigateur";
 import { lirePanierLocal } from "@/src/lib/panierLocalLogique";
+import { libellesConfiguration } from "@/src/lib/personnalisationLogique";
+import OptionsChoisies from "@/app/components/OptionsChoisies";
 
 /**
  * Le panier d'un visiteur sans compte.
@@ -115,6 +117,7 @@ export default function PanierVisiteur({ articles }: { articles: ArticlePanier[]
                 }}>
                   {a.nom}{surMesure ? " — sur mesure" : ""}
                 </Link>
+                {surMesure && <OptionsChoisies options={libellesConfiguration(ligne.configuration)} />}
                 <span style={{ display: "block", color: SOUS, fontSize: 14 }}>
                   {chf(Number(a.prix_vente))}
                   {!a.en_stock && a.type_article !== "personnalisable" && " · épuisé pour l'instant"}

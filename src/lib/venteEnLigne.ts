@@ -59,10 +59,12 @@ export type LigneCommande = {
   remise_pourcentage: number | string | null;
   remise_origine: string | null;
   remise_libelle: string | null;
+  /** Les choix figés d'un article sur mesure, tant que la ligne est au panier. */
+  configuration?: unknown[] | null;
 };
 
 const COLONNES_LIGNE = `
-  id, commande_id, article_id, commande_personnalisee_id, libelle,
+  id, commande_id, article_id, commande_personnalisee_id, configuration, libelle,
   quantite, prix_unitaire, taux_tva, secteur_tdfn, montant,
   prix_base, remise_pourcentage, remise_origine, remise_libelle
 `;

@@ -12,6 +12,7 @@ import { lireAuteurs } from "@/src/lib/auteursDb";
 import { auteurAffiche } from "@/src/lib/auteur";
 import { formatHorodatage } from "@/src/lib/dates";
 import { listerPieces } from "@/src/lib/pieces";
+import { detailsConfigurationFacture } from "@/src/lib/personnalisation";
 import PiecesJointes from "@/app/components/PiecesJointes";
 import { libelleMode, libelleCompteProduit } from "@/src/lib/factureStatut";
 import BadgeMembre from "@/app/components/BadgeMembre";
@@ -68,6 +69,7 @@ export default async function FacturePage({
     lireHistorique("facture", id),
   ]);
   const lignes = (lignesDb ?? []) as LigneFacture[];
+  const detailsSurMesure = await detailsConfigurationFacture(id, lignes);
 
   const piecesFacture = await listerPieces("facture", id);
 
@@ -223,6 +225,11 @@ export default async function FacturePage({
                   <tr key={l.id} className="border-b">
                     <td className="px-4 py-3" style={{ color: MARINE }}>
                       {l.libelle}
+                      {detailsSurMesure.get(Number(l.ordre)) && (
+                        <span className="block text-sm" style={{ color: GRIS }}>
+                          {detailsSurMesure.get(Number(l.ordre))}
+                        </span>
+                      )}
                       <span className="block text-xs" style={{ color: "rgba(27,43,94,0.4)" }}>
                         {libelleCompteProduit(l.compte_produit)}
                       </span>

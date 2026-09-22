@@ -8,7 +8,7 @@ import {
   choixDeCommande,
   lireCommande,
 } from "@/src/lib/personnalisation";
-import type { StatutCommande } from "@/src/lib/personnalisationLogique";
+import { libellesConfiguration, type StatutCommande } from "@/src/lib/personnalisationLogique";
 
 /**
  * Suivi de fabrication. Le passage en « en cours » décompte les fournitures —
@@ -86,9 +86,8 @@ export async function envoyerCommandePrete(commandeId: string): Promise<RetourCo
       prenom: (client?.prenom as string) ?? "",
       numero: commande.numero ?? "",
       article: (article?.nom as string) ?? "votre commande",
-      recapitulatif: choix.map(
-        (c) => `${c.groupe_nom} : ${c.valeur_texte ?? c.valeur_libelle}`
-      ),
+      // Le même libellé que partout ailleurs, en entier : c'est la fiche.
+      recapitulatif: libellesConfiguration(choix, { complet: true }),
     });
   } catch {
     return { error: "L'envoi a échoué. Réessayez dans un instant." };

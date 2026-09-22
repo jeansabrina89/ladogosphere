@@ -22,6 +22,7 @@ import {
   type PalierPort,
 } from "@/src/lib/venteEnLigneLogique";
 import { changerQuantite, retirerDuPanier, confirmerCommande } from "../actions";
+import OptionsChoisies from "@/app/components/OptionsChoisies";
 
 const MARINE = "#1B2B5E";
 const SOUS = "rgba(27,43,94,0.55)";
@@ -30,7 +31,11 @@ const GRENAT = "#8A1F1F";
 const BORDURE = "1px solid rgba(27,43,94,0.14)";
 const CIBLE = 44;
 
-export type LigneAffichee = LignePanier & { id: string };
+export type LigneAffichee = LignePanier & {
+  id: string;
+  /** Les choix d'un article sur mesure, un libellé par option. Vide : article standard. */
+  options?: string[];
+};
 
 export type ReservationChoix = {
   id: string; numero: number | null; date_debut: string; date_fin: string; chien: string | null;
@@ -159,6 +164,7 @@ export default function Panier({
                 <span style={{ display: "block", color: MARINE, fontSize: 16, fontWeight: 600 }}>
                   {l.libelle}
                 </span>
+                <OptionsChoisies options={l.options} />
                 <span style={{ display: "block", color: SOUS, fontSize: 14 }}>
                   {/* Le prix barré est le prix de base RÉEL de l'article, celui
                       pratiqué hors action — jamais un « prix habituel » gonflé. */}

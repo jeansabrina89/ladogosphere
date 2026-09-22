@@ -1,6 +1,8 @@
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { listerCommandesEnLigne } from "@/src/lib/venteEnLigne";
+import { choixDesLignes } from "@/src/lib/personnalisation";
+import { libellesConfiguration } from "@/src/lib/personnalisationLogique";
 import { STATUTS_COMMANDE_LIGNE } from "@/src/lib/venteEnLigneLogique";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
@@ -32,6 +34,7 @@ export default async function CommandesEnLignePage({
   const avecCloses = params.closes === "1";
 
   const commandes = await listerCommandesEnLigne();
+  const choix = await choixDesLignes(commandes.flatMap((c) => c.lignes));
 
   const resaIds = commandes.map((c) => c.reservation_id).filter((id): id is string => !!id);
   const { data: resas } = resaIds.length
@@ -73,6 +76,7 @@ export default async function CommandesEnLignePage({
     lignes: c.lignes.map((l) => ({
       id: l.id, libelle: l.libelle,
       quantite: Number(l.quantite), montant: Number(l.montant),
+      options: libellesConfiguration(choix.get(l.id)),
     })),
     reservation: c.reservation_id ? parResa.get(c.reservation_id) ?? null : null,
   }));

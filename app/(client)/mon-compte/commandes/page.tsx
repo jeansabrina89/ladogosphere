@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { commandesDuClient } from "@/src/lib/venteEnLigne";
+import { choixDesLignes } from "@/src/lib/personnalisation";
+import { libellesConfiguration } from "@/src/lib/personnalisationLogique";
+import OptionsChoisies from "@/app/components/OptionsChoisies";
 import {
   libelleStatutLigne,
   libelleModeRemise,
@@ -44,6 +47,8 @@ export default async function MesCommandesPage() {
   if (!fiche) redirect("/mon-compte/completer-profil");
 
   const commandes = await commandesDuClient(fiche.id as string);
+  // Les choix d'un article sur mesure vivent dans sa commande d'atelier.
+  const choix = await choixDesLignes(commandes.flatMap((c) => c.lignes));
 
   const factureIds = commandes.map((c) => c.facture_id).filter((id): id is string => !!id);
   const { data: factures } = factureIds.length
@@ -96,8 +101,9 @@ export default async function MesCommandesPage() {
                       borderTop: BORDURE, padding: "8px 0",
                       display: "flex", gap: 10, justifyContent: "space-between",
                     }}>
-                      <span style={{ color: MARINE, fontSize: 15, overflowWrap: "anywhere" }}>
+                      <span style={{ color: MARINE, fontSize: 15, overflowWrap: "anywhere", minWidth: 0 }}>
                         {Number(l.quantite)} × {l.libelle}
+                        <OptionsChoisies options={libellesConfiguration(choix.get(l.id))} />
                       </span>
                       <span style={{ color: MARINE, fontSize: 15, fontWeight: 600, whiteSpace: "nowrap" }}>
                         {chf(Number(l.montant))}

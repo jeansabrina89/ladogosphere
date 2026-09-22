@@ -4,6 +4,9 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { lireCommande, lignesDeCommande } from "@/src/lib/venteEnLigne";
 import { libelleModeRemise, formatAdresse, mentionPortCommande } from "@/src/lib/venteEnLigneLogique";
 import { formatDateFR } from "@/src/lib/dates";
+import { choixDesLignes } from "@/src/lib/personnalisation";
+import { libellesConfiguration } from "@/src/lib/personnalisationLogique";
+import OptionsChoisies from "@/app/components/OptionsChoisies";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +43,8 @@ export default async function BonPreparationPage({
         .from("articles").select("id, reference, unite")
         .in("id", [...new Set(lignes.map((l) => l.article_id))])
     : { data: [] };
+  // Le bon donne les choix EN ENTIER : c'est lui qu'on lit en préparant.
+  const choix = await choixDesLignes(lignes);
   const parArticle = new Map(
     ((articles ?? []) as unknown as { id: string; reference: string; unite: string }[])
       .map((a) => [a.id, a])
@@ -80,6 +85,7 @@ export default async function BonPreparationPage({
                   <td style={{ ...cellule, textAlign: "center", fontSize: 20 }}>☐</td>
                   <td style={{ ...cellule, textAlign: "left" }}>
                     {l.libelle}
+                    <OptionsChoisies options={libellesConfiguration(choix.get(l.id), { complet: true })} couleur={MARINE} />
                     {l.commande_personnalisee_id && (
                       <span style={{ display: "block", color: SOUS, fontSize: 13 }}>
                         Sur mesure — à prendre à l&apos;atelier
