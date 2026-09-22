@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermissionBoutique } from "@/src/lib/permissions";
-import { dupliquerOptions } from "@/src/lib/personnalisation";
+import { dupliquerOptions, refusGroupeHomonyme } from "@/src/lib/personnalisation";
 import {
   normaliserCouleur,
   cible,
@@ -95,6 +95,11 @@ export async function enregistrerGroupe(entree: {
   const nom = entree.nom.trim();
   if (!nom) return { error: "Donnez un nom au groupe d'options." };
   if (!TYPES.includes(entree.type)) return { error: "Choisissez le type d'options." };
+
+  // Un article ne redéfinit pas un groupe de son modèle : il le cumulerait au
+  // lieu de le préciser. Même refus au renommage.
+  const homonyme = await refusGroupeHomonyme(cible(entree.porteur), nom);
+  if (homonyme) return { error: homonyme };
 
   const mesure = entree.type === "mesure";
   const grille = entree.type === "taille";
@@ -249,7 +254,7 @@ export async function ordonnerGroupes(porteur: Porteur, ids: string[]): Promise<
  */
 function messageGroupe(message: string): string {
   const m = message ?? "";
-  if (/posée avant|se déduit|type « mesure »|même catalogue|doit dire son mode|n'existe pas/.test(m)) return m;
+  if (/posée avant|se déduit|type « mesure »|même catalogue|doit dire son mode|n'existe pas|porte déjà un groupe/.test(m)) return m;
   return "L'enregistrement du groupe a été refusé.";
 }
 

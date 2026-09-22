@@ -11,8 +11,14 @@ import {
   modelesDArticle,
   articlesDuModele,
   optionsCitees,
+  lireModele,
 } from "@/src/lib/personnalisation";
-import { refusOrdreGroupes, resoudreGroupes } from "@/src/lib/personnalisationLogique";
+import {
+  groupesHomonymes,
+  messageRattachementRefuse,
+  refusOrdreGroupes,
+  resoudreGroupes,
+} from "@/src/lib/personnalisationLogique";
 
 /**
  * Bibliothèque de modèles d'options.
@@ -169,6 +175,14 @@ export async function attacherModele(articleId: string, modeleId: string): Promi
     return { error: "Ce modèle n'a aucun groupe d'options : il n'apporterait rien." };
   }
 
+  // L'article ne peut pas porter un groupe du même nom qu'un groupe du modèle :
+  // il le redéfinirait. Le refus nomme tous les groupes en conflit.
+  const conflits = groupesHomonymes(await lireGroupes(articleId), groupes);
+  if (conflits.length > 0) {
+    const modele = await lireModele(modeleId);
+    return { error: messageRattachementRefuse(modele?.nom ?? "choisi", conflits) };
+  }
+
   // On simule le plan avant d'écrire.
   const blocs = await blocsArticle(articleId);
   const ordreVoulu = dejaLa.reduce((max, m) => Math.max(max, m.ordre), 0) + 1;
@@ -319,19 +333,24 @@ export async function transformerEnModele(articleId: string, nom: string): Promi
   const res = await dupliquerOptions({ article: articleId }, { modele: cree.id });
   if (res.error) return { error: res.error };
 
-  const attache = await attacherModele(articleId, cree.id);
-  if (attache.error) return { error: attache.error };
-
-  // Les originaux partent : le modèle les porte désormais. Une valeur citée par
-  // une commande bloquerait la suppression — on le dit plutôt que de la forcer.
+  // Les originaux partent D'ABORD : le modèle les porte désormais, et un
+  // article ne peut pas porter les mêmes groupes que son modèle. Une valeur
+  // citée par une commande bloquerait la suppression — on l'a vérifié plus haut.
   const { error } = await supabaseAdmin
     .from("options_groupes").delete().eq("article_id", articleId);
   if (error) {
     return {
       error:
-        "Le modèle a été créé et attaché, mais les groupes d'origine n'ont pas pu être retirés " +
-        "(une option est citée par une commande). Retirez-les un par un, ou détachez le modèle.",
+        "Le modèle a été créé, mais les groupes d'origine n'ont pas pu être retirés " +
+        "(une option est citée par une commande). Le modèle n'est pas attaché : retirez-les un par un, puis attachez-le.",
     };
+  }
+
+  const attache = await attacherModele(articleId, cree.id);
+  if (attache.error) {
+    // Le rattachement refusé : l'article retrouve ses options, copiées depuis le modèle.
+    await dupliquerOptions({ modele: cree.id }, { article: articleId });
+    return { error: attache.error };
   }
 
   rafraichirArticle(articleId);

@@ -55,12 +55,15 @@ export default function ModelesAttaches({
   attaches,
   disponibles,
   fusions,
+  surcharges = [],
   nbGroupesPropres,
 }: {
   articleId: string;
   attaches: ModeleAttache[];
   disponibles: { id: string; nom: string; nbGroupes: number }[];
   fusions: Fusion[];
+  /** Groupes de modèle ignorés : l'article en porte un du même nom (données anciennes). */
+  surcharges?: { nom: string; modele: string }[];
   nbGroupesPropres: number;
 }) {
   const router = useRouter();
@@ -144,6 +147,22 @@ export default function ModelesAttaches({
             </button>
           </div>
         ))
+      )}
+
+      {surcharges.length > 0 && (
+        <div style={{ border: BORDURE, borderRadius: 14, backgroundColor: "#FBF9F5", padding: 12 }}>
+          <p style={{ color: MARINE, fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>
+            Questions remplacées
+          </p>
+          <ul style={{ margin: 0, paddingLeft: 20, color: SOUS, fontSize: 14 }}>
+            {surcharges.map((s) => (
+              <li key={`${s.modele}|${s.nom}`} style={{ marginBottom: 2 }}>
+                « {s.nom} » : la question de cet article remplace celle du modèle « {s.modele} ».
+                Supprimez-la de l&apos;article pour reprendre celle du modèle.
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {fusions.length > 0 && (

@@ -907,22 +907,60 @@ export type BlocOptions = {
   source: string;
   ordre: number;
   groupes: OptionGroupe[];
+  /**
+   * « article » pour les groupes PROPRES de l'article, « modele » pour un
+   * modèle attaché. Absent, on reconnaît le bloc propre à sa source
+   * (SOURCE_ARTICLE) — c'est ainsi que les simulations l'ont toujours nommé.
+   */
+  proprietaire?: "article" | "modele";
 };
+
+/** Le nom du bloc des groupes propres d'un article. */
+export const SOURCE_ARTICLE = "Cet article";
+
+export function estBlocArticle(bloc: BlocOptions): boolean {
+  return bloc.proprietaire === "article" || (bloc.proprietaire === undefined && bloc.source === SOURCE_ARTICLE);
+}
 
 export type Fusion = { nom: string; sources: string[] };
 
-export type Resolution = { groupes: OptionGroupe[]; fusions: Fusion[] };
+/** Un groupe de modèle ignoré parce que l'article porte un groupe du même nom. */
+export type Surcharge = { nom: string; modele: string };
+
+export type Resolution = { groupes: OptionGroupe[]; fusions: Fusion[]; surcharges: Surcharge[] };
+
+/**
+ * Le nom d'un groupe tel qu'on le compare : sans espaces en trop, sans
+ * majuscules. « Largeur », « largeur » et « Largeur  » sont le même groupe.
+ */
+export function nomNormalise(nom: string): string {
+  return String(nom ?? "").trim().replace(/\s+/g, " ").toLocaleLowerCase("fr");
+}
 
 /** La clé de fusion : même nom (aux espaces et à la casse près) et même type. */
 export function cleFusion(groupe: { nom: string; type: string }): string {
-  return `${groupe.nom.trim().toLocaleLowerCase("fr")}|${groupe.type}`;
+  return `${nomNormalise(groupe.nom)}|${groupe.type}`;
 }
 
 /**
- * Les groupes d'un article, modèles compris, fusionnés et ordonnés.
+ * Les groupes d'un article, modèles compris, assemblés et ordonnés. C'est la
+ * SEULE fonction qui fait cet assemblage : le configurateur du client,
+ * l'aperçu de l'atelier et la validation d'une commande passent tous par elle
+ * (via lireCatalogueOptions).
  *
- * RÈGLE DE FUSION — deux groupes n'en font qu'un s'ils portent le même nom et
- * le même type. Le groupe fusionné prend :
+ * RÈGLE 1 — SURCHARGE : un groupe PROPRE de l'article l'emporte sur tout groupe
+ * d'un modèle attaché qui porte le même nom (casse et espaces ignorés, quel que
+ * soit le type). Le groupe du modèle est ignoré pour cet article : l'article
+ * précise, il ne cumule pas. Le groupe de l'article prend la PLACE de celui du
+ * modèle, pour que l'ordre des questions ne bouge pas ; un groupe qui dépendait
+ * du groupe ignoré dépend désormais de celui de l'article.
+ *
+ * La saisie refuse désormais ces doublons (écran des options, rattachement, et
+ * un trigger en base) ; cette règle reste le garde-fou de lecture pour des
+ * données plus anciennes : aucun doublon ne s'affiche.
+ *
+ * RÈGLE 2 — FUSION entre modèles : deux groupes de modèles qui portent le même
+ * nom et le même type n'en font qu'un. Le groupe fusionné prend :
  *   • la place et l'identifiant de la PREMIÈRE occurrence, dans l'ordre de
  *     l'article : c'est elle qui décide, et attacher un modèle plus tard ne
  *     déplace rien ;
@@ -936,16 +974,56 @@ export function cleFusion(groupe: { nom: string; type: string }): string {
  * Les valeurs se suivent, bloc après bloc, dans l'ordre des sources.
  */
 export function resoudreGroupes(blocs: BlocOptions[]): Resolution {
-  const plats: { groupe: OptionGroupe; source: string }[] = [];
-  for (const bloc of [...blocs].sort((a, b) => a.ordre - b.ordre)) {
-    for (const g of [...bloc.groupes].sort((a, b) => a.ordre - b.ordre)) {
-      plats.push({ groupe: g, source: bloc.source });
+  const ordonnes = [...blocs].sort((a, b) => a.ordre - b.ordre);
+  const trier = (groupes: OptionGroupe[]) => [...groupes].sort((a, b) => a.ordre - b.ordre);
+
+  // Les groupes propres de l'article, par nom : ce sont eux qui l'emportent.
+  const propres = new Map<string, { groupe: OptionGroupe; source: string }>();
+  for (const bloc of ordonnes) {
+    if (!estBlocArticle(bloc)) continue;
+    for (const g of trier(bloc.groupes)) {
+      const nom = nomNormalise(g.nom);
+      if (!propres.has(nom)) propres.set(nom, { groupe: g, source: bloc.source });
     }
   }
 
-  // Chaque groupe d'origine sait vers quelle clé il pointe.
+  const plats: { groupe: OptionGroupe; source: string }[] = [];
+  const places = new Set<string>();
+  /** Groupe de modèle ignoré → groupe de l'article qui le remplace. */
+  const remplace = new Map<string, string>();
+  const surcharges: Surcharge[] = [];
+
+  for (const bloc of ordonnes) {
+    const article = estBlocArticle(bloc);
+    for (const g of trier(bloc.groupes)) {
+      if (!article) {
+        const propre = propres.get(nomNormalise(g.nom));
+        if (propre) {
+          remplace.set(g.id, propre.groupe.id);
+          surcharges.push({ nom: propre.groupe.nom, modele: bloc.source });
+          // Le groupe de l'article prend la place de la question du modèle.
+          if (!places.has(propre.groupe.id)) {
+            plats.push(propre);
+            places.add(propre.groupe.id);
+          }
+          continue;
+        }
+      } else if (places.has(g.id)) {
+        continue;
+      }
+      plats.push({ groupe: g, source: bloc.source });
+      if (article) places.add(g.id);
+    }
+  }
+
+  // Chaque groupe d'origine sait vers quelle clé il pointe ; un groupe de
+  // modèle ignoré pointe vers celle du groupe de l'article qui le remplace.
   const cleParId = new Map<string, string>();
   for (const { groupe } of plats) cleParId.set(groupe.id, cleFusion(groupe));
+  for (const [ignore, remplacant] of remplace) {
+    const cle = cleParId.get(remplacant);
+    if (cle) cleParId.set(ignore, cle);
+  }
 
   const fusionnes = new Map<
     string,
@@ -981,18 +1059,60 @@ export function resoudreGroupes(blocs: BlocOptions[]): Resolution {
 
   const entrees = [...fusionnes.entries()];
   const idParCle = new Map(entrees.map(([cle, e]) => [cle, e.groupe.id]));
+  // Une grille de tailles qui se déduisait d'une mesure ignorée se déduit de
+  // celle de l'article qui la remplace.
+  const idResolu = (id: string | null | undefined) => {
+    if (!id) return id ?? null;
+    const cle = cleParId.get(id);
+    return cle ? idParCle.get(cle) ?? id : id;
+  };
 
   const groupes = entrees.map(([, e], i) => ({
     ...e.groupe,
     ordre: i + 1,
     depend_de_groupe_id: e.cleParent ? idParCle.get(e.cleParent) ?? null : null,
+    ...(e.groupe.mesure_groupe_id !== undefined
+      ? { mesure_groupe_id: idResolu(e.groupe.mesure_groupe_id) }
+      : {}),
   }));
 
   const fusions = entrees
     .filter(([, e]) => e.sources.length > 1)
     .map(([, e]) => ({ nom: e.groupe.nom, sources: e.sources }));
 
-  return { groupes, fusions };
+  return { groupes, fusions, surcharges };
+}
+
+// ── Saisie : un article ne redéfinit pas un groupe de son modèle ────────────
+
+/**
+ * Les noms des groupes de `groupes` qui existent déjà, au nom près, dans
+ * `existants`. Casse et espaces ignorés.
+ */
+export function groupesHomonymes(
+  groupes: { nom: string }[],
+  existants: { nom: string }[],
+): string[] {
+  const pris = new Set(existants.map((g) => nomNormalise(g.nom)));
+  return groupes.filter((g) => pris.has(nomNormalise(g.nom))).map((g) => g.nom);
+}
+
+/** Refus : l'article crée (ou renomme) un groupe que son modèle porte déjà. */
+export function messageGroupeDuModele(modele: string, groupe: string): string {
+  return `Le modèle « ${modele} » porte déjà un groupe « ${groupe} ». Modifiez-le sur le modèle, ou détachez l'article du modèle.`;
+}
+
+/** Refus : le modèle crée (ou renomme) un groupe qu'un de ses articles porte déjà. */
+export function messageGroupeDeLArticle(article: string, groupe: string): string {
+  return `L'article « ${article} », rattaché à ce modèle, porte déjà un groupe « ${groupe} ». Supprimez-le de l'article, ou détachez l'article du modèle.`;
+}
+
+/** Refus : rattacher un modèle à un article qui porte déjà des groupes homonymes. */
+export function messageRattachementRefuse(modele: string, conflits: string[]): string {
+  const liste = conflits.map((n) => `« ${n} »`).join(", ");
+  return conflits.length > 1
+    ? `Le modèle « ${modele} » ne peut pas être attaché : l'article porte déjà des groupes du même nom — ${liste}. Supprimez-les de l'article, ou modifiez le modèle.`
+    : `Le modèle « ${modele} » ne peut pas être attaché : l'article porte déjà un groupe du même nom — ${liste}. Supprimez-le de l'article, ou modifiez le modèle.`;
 }
 
 /**

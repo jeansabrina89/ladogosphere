@@ -34,7 +34,7 @@ export default async function OptionsArticlePage({
 
   const [
     { groupes, dependances },
-    { groupes: resolus, fusions },
+    { groupes: resolus, fusions, surcharges },
     attaches,
     tousModeles,
     sources,
@@ -87,6 +87,7 @@ export default async function OptionsArticlePage({
               .filter((m) => m.actif && m.nbGroupes > 0)
               .map((m) => ({ id: m.id, nom: m.nom, nbGroupes: m.nbGroupes }))}
             fusions={fusions}
+            surcharges={surcharges}
             nbGroupesPropres={groupes.length}
           />
         </Carte>

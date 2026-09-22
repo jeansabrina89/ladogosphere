@@ -3,8 +3,13 @@ import { aujourdhuiISO } from "@/src/lib/dates";
 import {
   estEnRetard,
   resoudreGroupes,
+  groupesHomonymes,
+  messageGroupeDuModele,
+  messageGroupeDeLArticle,
+  SOURCE_ARTICLE,
   type BlocOptions,
   type Fusion,
+  type Surcharge,
   type ChoixFige,
   type OptionGroupe,
   type OptionValeur,
@@ -315,7 +320,7 @@ export async function compterCommandes(): Promise<{ aFaire: number; enRetard: nu
 /** Jamais de texte Postgres à l'écran. */
 function messageBase(message: string): string {
   const m = message ?? "";
-  if (/Stock insuffisant|ne tient pas de stock|citée par une commande|remise : elle ne change plus/i.test(m)) return m;
+  if (/Stock insuffisant|ne tient pas de stock|citée par une commande|remise : elle ne change plus|porte déjà un groupe|ne peut pas être attaché/i.test(m)) return m;
   if (/Aucun choix|Commande introuvable|Statut inconnu|même article/i.test(m)) return m;
   if (/duplicate key/i.test(m)) return "Cet enregistrement existe déjà.";
   return "L'enregistrement a été refusé. Vérifiez la saisie.";
@@ -472,10 +477,12 @@ export async function blocsArticle(articleId: string): Promise<BlocOptions[]> {
 
   const blocs: BlocOptions[] = [];
   for (const m of modeles) {
-    blocs.push({ source: m.nom, ordre: m.ordre, groupes: await lireGroupesModele(m.id) });
+    blocs.push({ source: m.nom, ordre: m.ordre, groupes: await lireGroupesModele(m.id), proprietaire: "modele" });
   }
   const apres = modeles.reduce((max, m) => Math.max(max, m.ordre), 0) + 1;
-  if (propres.length > 0) blocs.push({ source: "Cet article", ordre: apres, groupes: propres });
+  if (propres.length > 0) {
+    blocs.push({ source: SOURCE_ARTICLE, ordre: apres, groupes: propres, proprietaire: "article" });
+  }
   return blocs;
 }
 
@@ -488,9 +495,40 @@ export async function lireCatalogueOptions(articleId: string): Promise<{
   groupes: OptionGroupe[];
   dependances: Dependance[];
   fusions: Fusion[];
+  /** Groupes de modèle ignorés parce que l'article en porte un du même nom (données anciennes). */
+  surcharges: Surcharge[];
 }> {
-  const { groupes, fusions } = resoudreGroupes(await blocsArticle(articleId));
-  return { groupes, fusions, dependances: await dependancesDeValeurs(idsDesValeurs(groupes)) };
+  const { groupes, fusions, surcharges } = resoudreGroupes(await blocsArticle(articleId));
+  return {
+    groupes, fusions, surcharges,
+    dependances: await dependancesDeValeurs(idsDesValeurs(groupes)),
+  };
+}
+
+/**
+ * Un article ne redéfinit pas un groupe d'un modèle qui lui est attaché, et un
+ * modèle ne reprend pas un groupe qu'un de ses articles porte déjà : le refus,
+ * avec les noms, AVANT d'écrire. Le trigger en base dit la même chose au cas
+ * où un autre chemin écrirait ; ici, le message est celui de l'écran.
+ */
+export async function refusGroupeHomonyme(
+  porteur: { article?: string | null; modele?: string | null },
+  nom: string,
+): Promise<string | null> {
+  if (porteur.article) {
+    for (const m of await modelesDArticle(porteur.article)) {
+      const [homonyme] = groupesHomonymes(await lireGroupesModele(m.id), [{ nom }]);
+      if (homonyme) return messageGroupeDuModele(m.nom, homonyme);
+    }
+    return null;
+  }
+  if (porteur.modele) {
+    for (const a of await articlesDuModele(porteur.modele)) {
+      const [homonyme] = groupesHomonymes(await lireGroupes(a.id), [{ nom }]);
+      if (homonyme) return messageGroupeDeLArticle(a.nom, homonyme);
+    }
+  }
+  return null;
 }
 
 /**
