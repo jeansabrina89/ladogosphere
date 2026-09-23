@@ -151,7 +151,7 @@ describe("le panier montre les choix sous le nom de l'article", () => {
     expect(panierPage).toMatch(/options: libellesConfiguration\(/);
     expect(lire("app/(public)/catalogue/panier/Panier.tsx")).toMatch(/<OptionsChoisies options=\{l\.options\} \/>/);
     expect(lire("app/(public)/catalogue/PanierVisiteur.tsx"))
-      .toMatch(/<OptionsChoisies options=\{libellesConfiguration\(ligne\.configuration\)\} \/>/);
+      .toMatch(/<OptionsChoisies options=\{libellesConfiguration\(apercu\)\} \/>/);
     expect(lire("app/(client)/mon-compte/commandes/page.tsx")).toMatch(/libellesConfiguration\(choix\.get\(l\.id\)\)/);
     expect(lire("app/(admin)/boutique/commandes-en-ligne/page.tsx")).toMatch(/libellesConfiguration\(choix\.get\(l\.id\)\)/);
     expect(lire("app/(admin)/boutique/commandes-en-ligne/CarteCommandeEnLigne.tsx")).toMatch(/<OptionsChoisies options=\{l\.options\} \/>/);

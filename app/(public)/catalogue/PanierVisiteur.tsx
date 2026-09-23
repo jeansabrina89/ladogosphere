@@ -96,7 +96,8 @@ export default function PanierVisiteur({ articles }: { articles: ArticlePanier[]
         {vivantes.map(({ ligne, index, article }) => {
           const a = article!;
           const url = urlPhotoArticle(a.photo_path);
-          const surMesure = !!(ligne.configuration && ligne.configuration.length > 0);
+          const apercu = ligne.apercu ?? ligne.configuration;
+          const surMesure = !!(ligne.choix || (apercu && apercu.length > 0));
           return (
             <li key={`${ligne.article_id}-${index}`} style={{
               display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap",
@@ -117,7 +118,7 @@ export default function PanierVisiteur({ articles }: { articles: ArticlePanier[]
                 }}>
                   {a.nom}{surMesure ? " — sur mesure" : ""}
                 </Link>
-                {surMesure && <OptionsChoisies options={libellesConfiguration(ligne.configuration)} />}
+                {surMesure && <OptionsChoisies options={libellesConfiguration(apercu)} />}
                 <span style={{ display: "block", color: SOUS, fontSize: 14 }}>
                   {chf(Number(a.prix_vente))}
                   {!a.en_stock && a.type_article !== "personnalisable" && " · épuisé pour l'instant"}

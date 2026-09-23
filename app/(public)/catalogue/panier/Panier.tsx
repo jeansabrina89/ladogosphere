@@ -173,7 +173,7 @@ export default function Panier({
                       {chf(prixBaseLigne(l))}
                     </span>
                   )}
-                  {chf(Number(l.prix_unitaire))} l&apos;unité
+                  {`${chf(Number(l.prix_unitaire))} l’unité`}
                   {l.expediable === false ? " · non expédiable" : ""}
                 </span>
                 {l.remise_libelle && (

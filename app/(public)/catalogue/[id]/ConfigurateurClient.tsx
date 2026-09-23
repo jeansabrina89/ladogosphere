@@ -29,14 +29,16 @@ export default function ConfigurateurClient({
   const [erreur, setErreur] = useState<string | null>(null);
 
   async function valider(choix: ChoixParGroupe) {
-    // Sans compte, la configuration part dans le panier du navigateur. Les
-    // choix y dorment tels quels ; le prix, lui, sera RELU à la validation —
-    // on ne facture jamais un montant venu du navigateur.
+    // Sans compte, le choix part dans le panier du navigateur : les
+    // IDENTIFIANTS, que le serveur relira contre le catalogue à la fusion, et
+    // un aperçu qui ne sert qu'à l'affichage. Ni prix, ni libellé de
+    // référence — on ne facture jamais ce qui vient du navigateur.
     if (!connecte) {
       ajouterLocalement({
         article_id: article.id,
         quantite: 1,
-        configuration: figerChoix(groupes, choix, dependances) as unknown[],
+        choix,
+        apercu: figerChoix(groupes, choix, dependances) as unknown[],
       });
       router.push("/catalogue/panier");
       return;

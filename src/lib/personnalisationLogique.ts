@@ -375,6 +375,11 @@ export function caracteresRestants(texte: string, max: number | null | undefined
 // ── Figement ────────────────────────────────────────────────────────────────
 
 export type ChoixFige = {
+  /** L'identifiant du groupe et de la valeur : ce qui permet de RELIRE le
+   *  choix dans le catalogue (revalidation du panier). Absents des lignes
+   *  figées avant cette règle : on retombe alors sur les libellés. */
+  groupe_id?: string;
+  valeur_id?: string | null;
   groupe_nom: string;
   valeur_libelle: string;
   valeur_texte: string | null;
@@ -410,6 +415,8 @@ export function figerChoix(
       if (n === null || n === undefined || !Number.isFinite(Number(n))) continue;
       const unite = uniteMesure(g);
       figes.push({
+        groupe_id: g.id,
+        valeur_id: null,
         groupe_nom: g.nom,
         // « Tour de cou : 38 cm » se lit tel quel partout.
         valeur_libelle: formatMesure(n, unite),
@@ -429,6 +436,8 @@ export function figerChoix(
       const texte = bornerTexte(choix[g.id]?.texte, g.max_caracteres).trim();
       if (!texte) continue;
       figes.push({
+        groupe_id: g.id,
+        valeur_id: null,
         groupe_nom: g.nom,
         valeur_libelle: texte,
         valeur_texte: texte,
@@ -445,6 +454,8 @@ export function figerChoix(
     if (!v) continue;
 
     figes.push({
+      groupe_id: g.id,
+      valeur_id: v.id,
       groupe_nom: g.nom,
       valeur_libelle: g.type === "booleen" ? v.libelle || "Oui" : v.libelle,
       valeur_texte: null,

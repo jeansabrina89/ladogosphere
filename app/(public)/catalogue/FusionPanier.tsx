@@ -18,6 +18,9 @@ import { lirePanier, viderPanier } from "./panierNavigateur";
 export default function FusionPanier() {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
+  // Un refus garde le panier du navigateur : la cliente voit ce qui cloche et
+  // peut corriger, plutôt que de perdre sa sélection.
+  const [refus, setRefus] = useState<string | null>(null);
 
   useEffect(() => {
     const local = lirePanier();
@@ -30,15 +33,31 @@ export default function FusionPanier() {
 
       // Le panier local part dans tous les cas où le serveur a répondu : le
       // garder ferait repasser la fusion à chaque écran.
-      if (!res.error) {
-        viderPanier();
-        if (res.message) setMessage(res.message);
-        router.refresh();
+      if (res.error) {
+        setRefus(res.error);
+        return;
       }
+      viderPanier();
+      const avertissements = (res.invalides ?? []).map((i) => i.message);
+      if (res.message || avertissements.length > 0) {
+        setMessage([res.message, ...avertissements].filter(Boolean).join(" "));
+      }
+      router.refresh();
     })();
 
     return () => { vivant = false; };
   }, [router]);
+
+  if (refus) {
+    return (
+      <p role="alert" style={{
+        backgroundColor: "#FDECEC", color: "#8A1F1F", border: "1px solid #F0C2C2",
+        borderRadius: 12, padding: "10px 12px", fontSize: 15, fontWeight: 600, margin: "0 0 16px",
+      }}>
+        🛒 {refus}
+      </p>
+    );
+  }
 
   if (!message) return null;
 

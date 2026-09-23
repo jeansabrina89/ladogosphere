@@ -227,19 +227,25 @@ describe("figement des choix", () => {
   it("copie libellés, couleurs, suppléments et fournitures", () => {
     expect(figerChoix(groupes, complet)).toEqual([
       {
+        // Chaque choix figé porte aussi ses identifiants : c'est ce qui permet
+        // de le revalider contre le catalogue avant de facturer.
+        groupe_id: "g1", valeur_id: "l25",
         groupe_nom: "Largeur", valeur_libelle: "25 mm", valeur_texte: null, code_couleur: null,
         supplement_prix: 4, ordre: 1, composant_article_id: null, composant_quantite: null,
       },
       {
+        groupe_id: "g2", valeur_id: "bleu",
         groupe_nom: "Couleur de la sangle", valeur_libelle: "Bleu nuit", valeur_texte: null,
         code_couleur: "#1b2b5e", supplement_prix: 0, ordre: 2,
         composant_article_id: "sangle-bleue", composant_quantite: 1.2,
       },
       {
+        groupe_id: "g3", valeur_id: null,
         groupe_nom: "Gravure", valeur_libelle: "Rex", valeur_texte: "Rex", code_couleur: null,
         supplement_prix: 0, ordre: 3, composant_article_id: null, composant_quantite: null,
       },
       {
+        groupe_id: "g4", valeur_id: "nfc",
         groupe_nom: "Avec puce NFC", valeur_libelle: "Puce NFC", valeur_texte: null,
         code_couleur: null, supplement_prix: 12, ordre: 4,
         composant_article_id: "puce", composant_quantite: 1,

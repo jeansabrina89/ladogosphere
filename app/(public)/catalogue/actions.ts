@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { aujourdhuiISO } from "@/src/lib/dates";
-import { estMembreActif } from "@/src/lib/membre";
 import { recalculerResteFacture, synchroniserComptaFacture } from "@/src/lib/comptaFacture";
 import { finaliserEmission, marquerFactureEnvoyee, telechargerPdf } from "@/src/lib/factureDocument";
 import { envoyerConfirmationCommande } from "@/src/lib/confirmationCommande";
@@ -19,7 +18,6 @@ import {
 } from "@/src/lib/venteEnLigne";
 import {
   adresseComplete,
-  estCommandable,
   optionRemise,
   refusConfirmation,
   totalCommande,
@@ -28,24 +26,19 @@ import {
   type ModeRemise,
 } from "@/src/lib/venteEnLigneLogique";
 import {
-  figerChoix,
-  prixTotal,
   delaiTotal,
   datePromise,
-  refusConfigurationAvecDependances,
   type ChoixParGroupe,
 } from "@/src/lib/personnalisationLogique";
 import { lireCatalogueOptions } from "@/src/lib/personnalisation";
-import { articlesVendables } from "@/src/lib/vitrine";
-import { contextePrix, prixDe } from "@/src/lib/prix";
-import { remiseLigne as remiseLigneFigee } from "@/src/lib/prixLogique";
+import { chargerCatalogue } from "@/src/lib/panier/catalogue";
+import {
+  choixDepuisConfiguration,
+  refusPrixModifie,
+  revaliderLigne,
+} from "@/src/lib/panier/revaliderLigne";
 import { etiquetteLigneTva, ventilerPanier } from "@/src/lib/tvaLogique";
 import { assujettieALaDate } from "@/src/lib/tva";
-import {
-  messageRecalcul,
-  recalculerPanier,
-  type LigneAValider,
-} from "@/src/lib/panierLocalLogique";
 
 /**
  * Le panier et la commande, côté client.
@@ -110,52 +103,48 @@ export async function ajouterAuPanier(articleId: string, quantite = 1): Promise<
     .is("configuration", null)
     .maybeSingle();
 
+  // La quantité VOULUE au total, relue contre le catalogue : plafond, stock,
+  // prix du jour et remise sortent tous de la même fonction qu'à la fusion.
   const voulue = Number(existante?.quantite ?? 0) + q;
-  if (!estCommandable(article.stock_disponible, article.type_article)) {
-    return { error: `« ${article.nom} » est épuisé.` };
-  }
-  if (voulue > article.stock_disponible) {
-    return {
-      error: `Il ne reste que ${article.stock_disponible} « ${article.nom} » : impossible d'en mettre ${voulue} au panier.`,
-    };
-  }
+  const catalogue = await chargerCatalogue([articleId], client.id);
+  const relue = revaliderLigne({ article_id: articleId, quantite: voulue }, catalogue);
+  if (!relue.ok) return { error: relue.message };
 
-  // Le prix vient de la fonction unique : rubriques en cours et remise membre
-  // y sont arbitrées d'un seul endroit. Il sera relu à la validation — un
-  // panier peut dormir trois semaines — mais il est juste dès maintenant.
-  const ctx = await contextePrix();
-  const membre = await estMembreActif(supabaseAdmin, client.id);
-  const applicable = prixDe(ctx, article, { estMembre: membre });
-  const remise = remiseLigneFigee(applicable);
-  const prix = applicable.prixFinal;
+  const prix = relue.prix_unitaire;
+  const remise = {
+    prix_base: relue.prix_base,
+    remise_pourcentage: relue.remise_pourcentage,
+    remise_origine: relue.remise_origine,
+    remise_libelle: relue.remise_libelle,
+  };
 
   if (existante) {
     await supabaseAdmin
       .from("commandes_lignes")
       .update({
-        quantite: voulue,
+        quantite: relue.quantite,
         prix_unitaire: prix,
-        montant: r2(voulue * prix),
-        prix_base: remise?.prix_base ?? null,
-        remise_pourcentage: remise?.remise_pourcentage ?? null,
-        remise_origine: remise?.remise_origine ?? null,
-        remise_libelle: remise?.remise_libelle ?? null,
+        montant: relue.montant,
+        prix_base: remise.prix_base,
+        remise_pourcentage: remise.remise_pourcentage,
+        remise_origine: remise.remise_origine,
+        remise_libelle: remise.remise_libelle,
       })
       .eq("id", existante.id);
   } else {
     await supabaseAdmin.from("commandes_lignes").insert({
       commande_id: panier.id,
       article_id: articleId,
-      libelle: article.nom,
-      quantite: q,
+      libelle: relue.libelle,
+      quantite: relue.quantite,
       prix_unitaire: prix,
-      taux_tva: Number(article.taux_tva),
-      secteur_tdfn: article.secteur_tdfn ?? "commerce",
-      montant: r2(q * prix),
-      prix_base: remise?.prix_base ?? null,
-      remise_pourcentage: remise?.remise_pourcentage ?? null,
-      remise_origine: remise?.remise_origine ?? null,
-      remise_libelle: remise?.remise_libelle ?? null,
+      taux_tva: relue.taux_tva,
+      secteur_tdfn: relue.secteur_tdfn,
+      montant: relue.montant,
+      prix_base: remise.prix_base,
+      remise_pourcentage: remise.remise_pourcentage,
+      remise_origine: remise.remise_origine,
+      remise_libelle: remise.remise_libelle,
     });
   }
 
@@ -180,12 +169,9 @@ export async function ajouterConfigurationAuPanier(
     return { error: "Cet article ne se configure pas." };
   }
 
-  const { groupes, dependances } = await lireCatalogueOptions(articleId);
-  const refus = refusConfigurationAvecDependances(groupes, choix, dependances);
-  if (refus) return { error: refus };
-
-  const prix = prixTotal(article.prix_vente, groupes, choix, dependances);
-  const figes = figerChoix(groupes, choix, dependances);
+  const catalogue = await chargerCatalogue([articleId], client.id);
+  const relue = revaliderLigne({ article_id: articleId, quantite: 1, choix }, catalogue);
+  if (!relue.ok) return { error: relue.message };
 
   const panier = await panierDuClient(client.id, true);
   if (!panier) return { error: "Le panier n'a pas pu être ouvert." };
@@ -193,13 +179,13 @@ export async function ajouterConfigurationAuPanier(
   const { error } = await supabaseAdmin.from("commandes_lignes").insert({
     commande_id: panier.id,
     article_id: articleId,
-    libelle: `${article.nom} — sur mesure`,
-    quantite: 1,
-    prix_unitaire: prix,
-    taux_tva: Number(article.taux_tva),
-    secteur_tdfn: article.secteur_tdfn ?? "commerce",
-    montant: prix,
-    configuration: figes,
+    libelle: relue.libelle,
+    quantite: relue.quantite,
+    prix_unitaire: relue.prix_unitaire,
+    taux_tva: relue.taux_tva,
+    secteur_tdfn: relue.secteur_tdfn,
+    montant: relue.montant,
+    configuration: relue.configuration,
   });
   if (error) return { error: "Votre configuration n'a pas pu être ajoutée au panier." };
 
@@ -292,7 +278,7 @@ export async function confirmerCommande(entree: EntreeConfirmation): Promise<Ret
 
   // Un panier peut dormir trois semaines. On relit les prix D'AUJOURD'HUI
   // avant tout le reste : jamais de validation silencieuse à un autre prix.
-  const bouge = await recalculerAvantValidation(panier.id, client.id);
+  const bouge = await revaliderAvantValidation(panier.id, client.id);
   if (bouge) {
     rafraichir();
     return { error: bouge, recalcule: true };
@@ -394,19 +380,20 @@ export async function confirmerCommande(entree: EntreeConfirmation): Promise<Ret
 }
 
 /**
- * Relire les prix du panier, juste avant de valider.
+ * Relire TOUT le panier contre le catalogue, juste avant de valider.
  *
- * Le prix facturé est celui de la BASE, aujourd'hui. Si un article a changé de
- * tarif ou n'est plus proposé, on corrige le panier et on renvoie la phrase à
- * montrer : le client revalide en connaissance de cause. Un article devenu
- * indisponible ne bloque pas la commande — il en sort, le reste passe.
+ * C'est la même fonction qu'à la fusion (revaliderLigne) : article encore
+ * vendable, options encore au catalogue, quantité encore en stock, et prix du
+ * jour. Une ligne qui ne passe plus n'est pas effacée en douce — elle est
+ * nommée, et la validation est refusée le temps que la cliente la retire.
  *
- * Le sur-mesure garde le prix figé de sa configuration : il dépend des choix
- * faits, pas du seul tarif de base.
+ * Si un prix a bougé depuis la mise au panier, le panier est réécrit aux prix
+ * d'aujourd'hui et la validation est refusée une fois (PRIX_MODIFIE) : personne
+ * ne paie un montant qu'il n'a pas vu.
  *
  * Retourne null quand rien n'a bougé — le cas ordinaire.
  */
-async function recalculerAvantValidation(
+async function revaliderAvantValidation(
   panierId: string,
   clientId: string
 ): Promise<string | null> {
@@ -415,74 +402,69 @@ async function recalculerAvantValidation(
     .select("id, article_id, libelle, quantite, prix_unitaire, configuration")
     .eq("commande_id", panierId);
 
-  const lignes: LigneAValider[] = ((brutes ?? []) as unknown as {
+  const lignes = ((brutes ?? []) as unknown as {
     id: string; article_id: string; libelle: string;
     quantite: number | string; prix_unitaire: number | string; configuration: unknown[] | null;
-  }[]).map((l) => ({
-    id: l.id,
-    article_id: l.article_id,
-    libelle: l.libelle,
-    quantite: Number(l.quantite),
-    prix_unitaire: Number(l.prix_unitaire),
-    configuration: l.configuration,
-  }));
+  }[]);
   if (lignes.length === 0) return null;
 
-  // La vitrine décide de ce qui est encore proposé : ce qui n'y est plus n'est
-  // plus vendable, quelle qu'en soit la raison.
-  const vendables = await articlesVendables(lignes.map((l) => l.article_id));
-  const parId = new Map(vendables.map((a) => [a.id, a]));
+  const catalogue = await chargerCatalogue(lignes.map((l) => l.article_id), clientId);
 
-  // Le prix D'AUJOURD'HUI, c'est celui de la fonction unique : une action qui a
-  // commencé ou pris fin pendant que le panier dormait s'applique ici, et se
-  // fige à la confirmation.
-  const [ctx, membre] = await Promise.all([
-    contextePrix(),
-    estMembreActif(supabaseAdmin, clientId),
-  ]);
+  const refus: string[] = [];
+  const prixChanges: string[] = [];
 
-  const recalcul = recalculerPanier(
-    lignes,
-    lignes.map((l) => {
-      const a = parId.get(l.article_id);
-      if (!a) return { id: l.article_id, nom: l.libelle, prix_vente: 0, disponible: false };
-      const applicable = prixDe(ctx, a, { estMembre: membre });
-      return {
-        id: l.article_id,
-        nom: a.nom,
-        prix_vente: applicable.prixFinal,
-        disponible: true,
-        remise: remiseLigneFigee(applicable),
-      };
-    })
-  );
+  for (const l of lignes) {
+    const surMesure = Array.isArray(l.configuration) && l.configuration.length > 0;
+    const res = revaliderLigne(
+      {
+        article_id: l.article_id,
+        quantite: Number(l.quantite),
+        choix: choixDepuisConfiguration(l.configuration),
+        configuration: l.configuration,
+      },
+      catalogue,
+    );
 
-  // Le panier est mis à jour AVANT de répondre : la page qui se rafraîchit
-  // montre déjà les prix corrigés et le panier allégé. La remise se réécrit
-  // même quand le prix ne bouge pas — son origine a pu changer.
-  for (const l of recalcul.lignes) {
+    if (!res.ok) {
+      // Une ligne sur mesure figée AVANT cette règle ne porte pas ses
+      // identifiants : on ne peut que revérifier que l'article se vend encore.
+      if (surMesure && res.code === "CONFIGURATION_ILLISIBLE") {
+        if (!catalogue.articles.has(l.article_id)) {
+          refus.push(`« ${l.libelle} » n'est plus proposé.`);
+        }
+        continue;
+      }
+      refus.push(`« ${l.libelle} » : ${res.message}`);
+      continue;
+    }
+
+    const bouge = refusPrixModifie(Number(l.prix_unitaire), res.prix_unitaire);
     await supabaseAdmin
       .from("commandes_lignes")
       .update({
-        prix_unitaire: l.prix_actuel,
-        montant: r2(l.quantite * l.prix_actuel),
-        prix_base: l.remise?.prix_base ?? null,
-        remise_pourcentage: l.remise?.remise_pourcentage ?? null,
-        remise_origine: l.remise?.remise_origine ?? null,
-        remise_libelle: l.remise?.remise_libelle ?? null,
+        prix_unitaire: res.prix_unitaire,
+        montant: res.montant,
+        prix_base: res.prix_base,
+        remise_pourcentage: res.remise_pourcentage,
+        remise_origine: res.remise_origine,
+        remise_libelle: res.remise_libelle,
       })
       .eq("id", l.id);
-  }
-  if (!recalcul.aSignaler) return null;
 
-  const sortis = lignes
-    .filter((l) => !recalcul.lignes.some((r) => r.id === l.id))
-    .map((l) => l.id);
-  if (sortis.length > 0) {
-    await supabaseAdmin.from("commandes_lignes").delete().in("id", sortis);
+    if (bouge) {
+      prixChanges.push(
+        `« ${l.libelle} » : ${Number(l.prix_unitaire).toFixed(2)} → ${res.prix_unitaire.toFixed(2)} CHF`,
+      );
+    }
   }
 
-  return messageRecalcul(recalcul);
+  if (refus.length > 0) {
+    return `Votre panier a changé : ${refus.join(" ")} Retirez la ligne concernée, puis validez.`;
+  }
+  if (prixChanges.length > 0) {
+    return `Les prix ont changé depuis votre mise au panier : ${prixChanges.join(" · ")}. Vérifiez votre panier, puis validez.`;
+  }
+  return null;
 }
 
 /** Le refus du RPC est déjà écrit en français : on le laisse passer. */

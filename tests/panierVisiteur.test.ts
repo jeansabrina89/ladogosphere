@@ -6,12 +6,9 @@ import {
   fusionnerPaniers,
   lirePanierLocal,
   messageFusion,
-  messageRecalcul,
   nombreArticlesLocal,
-  recalculerPanier,
   retirerLocalement,
   type LigneCompte,
-  type LigneAValider,
   type PanierLocal,
 } from "@/src/lib/panierLocalLogique";
 import { COLONNES_INTERDITES_AU_PUBLIC, COLONNES_VITRINE } from "@/src/lib/vitrineColonnes";
@@ -134,68 +131,6 @@ describe("la fusion à la connexion", () => {
 
   it("ne dit rien quand il n’y avait rien à reprendre", () => {
     expect(messageFusion(fusionnerPaniers(panier([]), [], vendables))).toBeNull();
-  });
-});
-
-describe("le recalcul des prix à la validation", () => {
-  const ligne = (p: Partial<LigneAValider> = {}): LigneAValider => ({
-    id: "l1", article_id: COLLIER, libelle: "Collier cuir",
-    quantite: 2, prix_unitaire: 30, ...p,
-  });
-
-  it("facture le prix D’AUJOURD’HUI, pas celui du panier endormi", () => {
-    const r = recalculerPanier(
-      [ligne()],
-      [{ id: COLLIER, nom: "Collier cuir", prix_vente: 35, disponible: true }]
-    );
-    expect(r.lignes[0].prix_actuel).toBe(35);
-    expect(r.prixChanges).toEqual([{ libelle: "Collier cuir", avant: 30, apres: 35 }]);
-    expect(r.aSignaler).toBe(true);
-  });
-
-  it("ne signale rien quand le prix n’a pas bougé", () => {
-    const r = recalculerPanier(
-      [ligne()],
-      [{ id: COLLIER, nom: "Collier cuir", prix_vente: 30, disponible: true }]
-    );
-    expect(r.aSignaler).toBe(false);
-    expect(messageRecalcul(r)).toBeNull();
-  });
-
-  it("sort l’article devenu indisponible sans bloquer le reste", () => {
-    const r = recalculerPanier(
-      [
-        ligne(),
-        ligne({ id: "l2", article_id: PARTI, libelle: "Laisse d’été", prix_unitaire: 20 }),
-      ],
-      [
-        { id: COLLIER, nom: "Collier cuir", prix_vente: 30, disponible: true },
-        { id: PARTI, nom: "Laisse d’été", prix_vente: 20, disponible: false },
-      ]
-    );
-    expect(r.lignes).toHaveLength(1);
-    expect(r.lignes[0].id).toBe("l1");
-    expect(r.retires).toEqual(["Laisse d’été"]);
-    expect(messageRecalcul(r)).toContain("n'est plus proposé");
-  });
-
-  it("garde au sur-mesure le prix figé de sa configuration", () => {
-    const r = recalculerPanier(
-      [ligne({ prix_unitaire: 88, configuration: [{ groupe: "taille", choix: "M" }] })],
-      [{ id: COLLIER, nom: "Collier cuir", prix_vente: 30, disponible: true }]
-    );
-    expect(r.lignes[0].prix_actuel).toBe(88);
-    expect(r.prixChanges).toEqual([]);
-  });
-
-  it("annonce l’ancien ET le nouveau prix, avant de laisser valider", () => {
-    const r = recalculerPanier(
-      [ligne()],
-      [{ id: COLLIER, nom: "Collier cuir", prix_vente: 35, disponible: true }]
-    );
-    expect(messageRecalcul(r)).toBe(
-      "« Collier cuir » est passé de 30.00 à 35.00 CHF."
-    );
   });
 });
 

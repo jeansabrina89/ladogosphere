@@ -170,6 +170,10 @@ describe("supplément au-delà d'un seuil", () => {
   it("fige le nombre, l'unité et le supplément tels quels", () => {
     expect(figerChoix([LONGE], { "g-longe": { nombre: 200 } })).toEqual([
       {
+        // Les identifiants voyagent avec le choix figé : ils permettent de le
+        // relire au catalogue (revalidation du panier).
+        groupe_id: "g-longe",
+        valeur_id: null,
         groupe_nom: "Longueur",
         valeur_libelle: "200 cm",
         valeur_texte: null,
