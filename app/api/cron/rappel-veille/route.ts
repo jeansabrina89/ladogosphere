@@ -10,7 +10,7 @@ import { verifierCron } from "@/src/lib/cron";
 
 export async function GET(req: NextRequest) {
   // Vérification sécurité — token Vercel cron, par la porte commune.
-  const refus = verifierCron(req, "rappel-veille");
+  const refus = await verifierCron(req, "rappel-veille");
   if (refus) return refus;
 
   const aujourdHui = new Date().toISOString().split("T")[0];

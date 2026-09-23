@@ -47,7 +47,7 @@ type AdhesionEchue = {
 };
 
 export async function GET(req: NextRequest) {
-  const refus = verifierCron(req, "quotidien-matin");
+  const refus = await verifierCron(req, "quotidien-matin");
   if (refus) return refus;
 
   const aujourdhui = aujourdhuiISO();

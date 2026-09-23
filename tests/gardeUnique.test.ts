@@ -98,29 +98,29 @@ describe("verifierCron", () => {
 
   it("(a) variable absente : 500, et la tâche ne tourne pas", async () => {
     vi.stubEnv("CRON_SECRET", "");
-    const r = verifierCron(requete(`Bearer ${SECRET}`), "quotidien-matin");
+    const r = await verifierCron(requete(`Bearer ${SECRET}`), "quotidien-matin");
     expect(r?.status).toBe(500);
     expect(await r!.json()).toMatchObject({ error: expect.stringContaining("non configurée") });
   });
 
-  it("(a bis) variable vide d'espaces : même refus", () => {
+  it("(a bis) variable vide d'espaces : même refus", async () => {
     vi.stubEnv("CRON_SECRET", "   ");
-    expect(verifierCron(requete("Bearer    "), "quotidien-matin")?.status).toBe(500);
+    expect((await verifierCron(requete("Bearer    "), "quotidien-matin"))?.status).toBe(500);
   });
 
-  it("(b) « Bearer undefined » : 401 — c'est le trou d'avant", () => {
-    expect(verifierCron(requete("Bearer undefined"), "quotidien-matin")?.status).toBe(401);
+  it("(b) « Bearer undefined » : 401 — c'est le trou d'avant", async () => {
+    expect((await verifierCron(requete("Bearer undefined"), "quotidien-matin"))?.status).toBe(401);
   });
 
-  it("(c) mauvais secret, secret vide, en-tête absent : 401", () => {
-    expect(verifierCron(requete(`Bearer ${SECRET}x`), "rappel-veille")?.status).toBe(401);
-    expect(verifierCron(requete("Bearer autre-chose"), "rappel-veille")?.status).toBe(401);
-    expect(verifierCron(requete(), "rappel-veille")?.status).toBe(401);
-    expect(verifierCron(requete(SECRET), "rappel-veille")?.status).toBe(401);
+  it("(c) mauvais secret, secret vide, en-tête absent : 401", async () => {
+    expect((await verifierCron(requete(`Bearer ${SECRET}x`), "rappel-veille"))?.status).toBe(401);
+    expect((await verifierCron(requete("Bearer autre-chose"), "rappel-veille"))?.status).toBe(401);
+    expect((await verifierCron(requete(), "rappel-veille"))?.status).toBe(401);
+    expect((await verifierCron(requete(SECRET), "rappel-veille"))?.status).toBe(401);
   });
 
-  it("(d) bon secret : la tâche passe", () => {
-    expect(verifierCron(requete(`Bearer ${SECRET}`), "quotidien-matin")).toBeNull();
+  it("(d) bon secret : la tâche passe", async () => {
+    expect(await verifierCron(requete(`Bearer ${SECRET}`), "quotidien-matin")).toBeNull();
   });
 
   it("compare en temps constant, sur des tampons de même longueur", () => {
@@ -132,7 +132,7 @@ describe("verifierCron", () => {
   it("les deux crons passent par cette porte, et par elle seule", () => {
     for (const tache of ["quotidien-matin", "rappel-veille"]) {
       const src = lire("app", "api", "cron", tache, "route.ts");
-      expect(src).toMatch(/const refus = verifierCron\(req, "/);
+      expect(src).toMatch(/const refus = await verifierCron\(req, "/);
       expect(src).not.toContain("process.env.CRON_SECRET");
     }
   });
