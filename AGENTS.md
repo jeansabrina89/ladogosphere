@@ -53,3 +53,16 @@ donc la garde ouverte.
 Il est séparé de `npm run lint`, qui reste rapide : on le lance avant une mise
 en ligne, et dans tout lot qui touche à une garde asynchrone ou à une porte de
 sécurité.
+
+# Un échec isolé se garde
+
+Si un test échoue une fois puis passe au vert, la sortie complète se garde
+**avant** de relancer : le nom du test, le fichier, l'assertion, l'écart
+constaté. Sans eux, il ne reste qu'un compte — « 1 failed » — et on corrige à
+l'aveugle, ou pire, on décide que ce n'était rien.
+
+Une machine chargée fait expirer une attente ; ce n'est pas un défaut du
+logiciel, et les tests de composants ont pour cela un délai confortable
+(`tests/setup/attenteJsdom.ts`). Mais l'instabilité qui persiste après ce
+relèvement ne vient plus de la charge : c'est une course, et elle se cherche
+avec la sortie qu'on a gardée.

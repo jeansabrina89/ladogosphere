@@ -12,26 +12,44 @@ import { convertirEnWebp, FORMAT_ARTICLE, refusFichierImage } from "@/src/lib/im
  * fichier du dépôt.
  */
 
-/** Un JPEG de 1200×800 avec de l'EXIF dedans. */
+/**
+ * Le tag EXIF 0x8825 : celui qui annonce le bloc des coordonnées. Selon le
+ * boutisme du fichier il s'écrit dans un sens ou dans l'autre.
+ *
+ * On le cherche par ses OCTETS, jamais par la chaîne « GPS » : ces trois
+ * lettres ne figurent nulle part dans un EXIF, où les champs sont numérotés.
+ * Les chercher revient à ne rien vérifier.
+ */
+const TAG_GPS = [Buffer.from([0x88, 0x25]), Buffer.from([0x25, 0x88])];
+const porteDesCoordonnees = (o: Buffer | undefined) =>
+  !!o && TAG_GPS.some((tag) => o.includes(tag));
+
+/**
+ * Un JPEG de 1200×800 avec de l'EXIF ET des coordonnées.
+ *
+ * Les coordonnées vont dans IFD3 : c'est là que libvips range le bloc GPS.
+ * Écrites sous une clé « GPS », elles étaient silencieusement ignorées — la
+ * photo de départ n'en portait aucune, et le test qui vérifiait leur retrait
+ * ne pouvait rien constater.
+ */
 async function photoAvecExif(): Promise<Buffer> {
   return sharp({
     create: { width: 1200, height: 800, channels: 3, background: { r: 30, g: 60, b: 120 } },
   })
     .withExifMerge({
       IFD0: { Make: "ZZ Appareil de recette", Model: "ZZ 1", Copyright: "ZZ" },
-      // GPS ne figure pas dans le type de sharp, qui l'écrit pourtant — et
-      // c'est exactement la donnée que la publication doit retirer.
-      GPS: { GPSLatitudeRef: "N" },
-    } as Parameters<ReturnType<typeof sharp>["withExifMerge"]>[0])
+      IFD3: { GPSLatitudeRef: "N", GPSLatitude: "47/1 21/1 0/1", GPSLongitudeRef: "E" },
+    })
     .jpeg()
     .toBuffer();
 }
 
 describe("conversion des photos (sharp)", () => {
-  it("l'image de départ porte bien un EXIF : sans quoi le test ne prouverait rien", async () => {
+  it("l'image de départ porte bien un EXIF ET des coordonnées : sans quoi le test ne prouverait rien", async () => {
     const { exif } = await sharp(await photoAvecExif()).metadata();
     expect(exif).toBeDefined();
     expect(exif!.toString("latin1")).toContain("ZZ Appareil de recette");
+    expect(porteDesCoordonnees(exif)).toBe(true);
   });
 
   it("redimensionne à la largeur du format et rend du WebP", async () => {
@@ -46,16 +64,27 @@ describe("conversion des photos (sharp)", () => {
     expect(res.hauteur).toBe(FORMAT_ARTICLE.carre ? FORMAT_ARTICLE.largeur : meta.height);
   });
 
-  it("ne recopie ni l'EXIF, ni la marque de l'appareil, ni la position", async () => {
+  it("ne recopie ni l'EXIF, ni la marque de l'appareil", async () => {
     const res = await convertirEnWebp(await photoAvecExif(), FORMAT_ARTICLE);
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     const meta = await sharp(res.octets).metadata();
     expect(meta.exif).toBeUndefined();
     // Et rien ne traîne dans les octets du fichier produit.
-    const contenu = res.octets.toString("latin1");
-    expect(contenu).not.toContain("ZZ Appareil de recette");
-    expect(contenu).not.toContain("GPS");
+    expect(res.octets.toString("latin1")).not.toContain("ZZ Appareil de recette");
+  });
+
+  // Une photo de chien prise chez un client porte l'adresse de ce client.
+  // Ce constat est seul dans son test : derrière une assertion qui tombe, il
+  // ne s'exécuterait pas, et personne ne saurait que la position est passée.
+  it("ne recopie pas la position : la photo publiée ne dit pas où elle a été prise", async () => {
+    const depart = await photoAvecExif();
+    expect(porteDesCoordonnees((await sharp(depart).metadata()).exif)).toBe(true);
+
+    const res = await convertirEnWebp(depart, FORMAT_ARTICLE);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(porteDesCoordonnees((await sharp(res.octets).metadata()).exif)).toBe(false);
   });
 
   it("une image plus petite que le format n'est pas agrandie", async () => {

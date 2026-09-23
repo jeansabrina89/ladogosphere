@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, fireEvent, cleanup } from "@testing-library/react";
+import "./setup/attenteJsdom"; // quatre secondes d'attente, pas une
 
 /**
  * Les neuf autres écrans, quand le réseau lâche.
