@@ -42,3 +42,14 @@ politique s'évalue avec les droits de celui qui interroge la table, donc
 telle fonction ne lit que les données de l'appelant, et la migration dit
 pourquoi. Un test relit `supabase/migrations` et refuse toute nouvelle
 fonction sans révocation explicite.
+
+# Une promesse oubliée ne se voit pas
+
+`npm run lint:types` lance le lint AVEC le typage : il attrape les promesses
+mal employées, et d'abord la pire — une promesse servant de condition, comme
+un `if (verifierCron(...))` sans `await`, qui est toujours vraie et laisse
+donc la garde ouverte.
+
+Il est séparé de `npm run lint`, qui reste rapide : on le lance avant une mise
+en ligne, et dans tout lot qui touche à une garde asynchrone ou à une porte de
+sécurité.

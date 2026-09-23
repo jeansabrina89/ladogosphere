@@ -69,7 +69,9 @@ export default function SuggestionBox({
       setLoading(false);
     };
 
-    chercher();
+    // Lancée sans être attendue, volontairement : elle traite son erreur
+    // elle-même (try/catch) et ne rend rien à l'appelant.
+    void chercher();
   }, []);
 
   const chargerSuggestions = async () => {

@@ -292,7 +292,9 @@ export default function FormReservation({
       setChargementSuggestion(false);
     };
 
-    const timeout = setTimeout(chercher, 500);
+    // Même chose ici : `chercher` traite son erreur, et setTimeout attend une
+    // fonction sans retour — on le dit plutôt que de lui passer une promesse.
+    const timeout = setTimeout(() => { void chercher(); }, 500);
     return () => clearTimeout(timeout);
   }, [chiensSelectionnes, dateDebut, dateFin, heureArrivee, heureDepart, type]);
 

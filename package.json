@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "lint:types": "eslint . --config eslint.types.config.mjs",
     "test": "vitest run",
     "backup:data": "node scripts/sauvegarde-donnees.mjs",
     "backup:schema": "node scripts/sauvegarde-schema.mjs"
