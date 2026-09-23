@@ -42,6 +42,7 @@ const regime = (p: Partial<ParametresTva> = {}): ParametresTva => ({
   libelleSecteur1: "Pension pour chiens",
   tauxTdfn2: null,
   libelleSecteur2: null,
+  baseDecompte: "convenues",
   ...p,
 });
 

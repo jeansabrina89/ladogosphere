@@ -97,7 +97,9 @@ describe("Créer une réservation", () => {
   it("un second envoi ne crée pas de doublon tant que le premier n'a pas répondu", async () => {
     let debloquer: (v: Response) => void = () => {};
     const attente = new Promise<Response>((r) => { debloquer = r; });
-    const fetchSimule = vi.fn(() => attente);
+    // La signature est annoncée pour pouvoir relire ensuite AVEC QUOI il a été
+    // appelé — c'est là qu'on voit s'il n'est parti qu'un seul envoi.
+    const fetchSimule = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>(() => attente);
     vi.stubGlobal("fetch", fetchSimule);
     const { container } = render(
       <FormReservation clients={[CLIENT]} chiens={[CHIEN]} boxes={[BOX]} peutUrgence={false} />,
@@ -115,7 +117,7 @@ describe("Créer une réservation", () => {
     debloquer(reponse({ id: "r-neuve" }));
     await waitFor(() => expect(H.pousse).toEqual(["/reservations/r-neuve"]));
     // Un seul appel d'écriture est parti.
-    const envois = fetchSimule.mock.calls.filter(([, init]) => (init as RequestInit)?.method === "POST");
+    const envois = fetchSimule.mock.calls.filter(([, init]) => init?.method === "POST");
     expect(envois).toHaveLength(1);
   });
 

@@ -48,8 +48,7 @@ globalThis.fetch = (async (entree: Parameters<typeof fetchOrigine>[0], init?: Pa
 }) as typeof fetchOrigine;
 
 for (const sortie of [http, https] as const) {
-  const origine = sortie.request.bind(sortie);
-  // @ts-expect-error — on remplace une signature surchargée par une garde.
+  const origine = sortie.request.bind(sortie) as (...a: unknown[]) => ReturnType<typeof sortie.request>;
   sortie.request = (...args: Parameters<typeof origine>) => {
     const premier = args[0];
     const url =

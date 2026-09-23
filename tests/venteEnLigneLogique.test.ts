@@ -92,7 +92,7 @@ describe("remise de ligne", () => {
   // Depuis APP 16, la remise est POSÉE SUR LA LIGNE : `prix_unitaire` est ce
   // qui se paie, `prix_base` reste le prix pratiqué hors action. Le total ne
   // fait que les additionner pour les montrer.
-  const remise = (l: Record<string, unknown>) => ligne(l);
+  const remise = (l: Partial<LignePanier> & { libelle: string }) => ligne(l);
   const panier = [
     remise({ libelle: "Collier", prix_unitaire: 40.5, prix_base: 45, remise_libelle: "Remise membre −10 %" }),
     remise({ libelle: "Jouet", prix_unitaire: 12, prix_base: 15, remise_libelle: "Action du mois −20 %" }),

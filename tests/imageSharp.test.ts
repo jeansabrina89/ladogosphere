@@ -19,8 +19,10 @@ async function photoAvecExif(): Promise<Buffer> {
   })
     .withExifMerge({
       IFD0: { Make: "ZZ Appareil de recette", Model: "ZZ 1", Copyright: "ZZ" },
+      // GPS ne figure pas dans le type de sharp, qui l'écrit pourtant — et
+      // c'est exactement la donnée que la publication doit retirer.
       GPS: { GPSLatitudeRef: "N" },
-    })
+    } as Parameters<ReturnType<typeof sharp>["withExifMerge"]>[0])
     .jpeg()
     .toBuffer();
 }

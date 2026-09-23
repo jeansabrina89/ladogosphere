@@ -23,7 +23,7 @@ const PROFILS: { nom: string; profil: ProfilEspaceClient }[] = [
   { nom: "fiche interne locataire", profil: { interne: true, locataire: true } },
 ];
 
-const hrefs = (entrees: { href: string }[]) => entrees.map((e) => e.href);
+const hrefs = (entrees: readonly { href: string }[]) => entrees.map((e) => e.href);
 
 describe("les deux surfaces montrent la même chose", () => {
   it.each(PROFILS)(
@@ -99,7 +99,7 @@ describe("les règles de visibilité", () => {
 
   it("l’ordre de la liste est conservé", () => {
     const vus = hrefs(entreesVisibles({ locataire: true }));
-    expect(vus).toEqual(hrefs(ENTREES_ESPACE_CLIENT as { href: string }[]));
+    expect(vus).toEqual(hrefs(ENTREES_ESPACE_CLIENT));
   });
 });
 
@@ -110,7 +110,7 @@ describe("la forme des entrées", () => {
       expect(e.libelle.trim(), e.href).not.toBe("");
       expect(e.href.startsWith("/"), e.href).toBe(true);
     }
-    const tous = hrefs(ENTREES_ESPACE_CLIENT as { href: string }[]);
+    const tous = hrefs(ENTREES_ESPACE_CLIENT);
     expect(new Set(tous).size).toBe(tous.length);
   });
 

@@ -1,0 +1,7 @@
+{
+  "//": "Le tsconfig racine exclut tests/ : sans ce fichier, le lint typé ne sait pas typer les tests et sort une erreur d'analyse par fichier. Le service de projet d'ESLint prend le tsconfig le plus proche du fichier — c'est celui-ci.",
+  "extends": "../tsconfig.json",
+  "//exclude": "Le tsconfig racine exclut tests/ ; hérité tel quel, il viderait ce projet de ses fichiers.",
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": []
+}
