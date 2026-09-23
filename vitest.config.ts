@@ -10,5 +10,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    // Le garde-fou : aucune requête vers Sentry pendant la suite.
+    setupFiles: ["./tests/setup/sansSentry.ts"],
   },
 });

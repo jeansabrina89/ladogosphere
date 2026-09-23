@@ -1,6 +1,18 @@
 import { withSentryConfig } from "@sentry/nextjs";
 
+/** Le déploiement de production, et lui seul. Absent en local et en preview. */
+const EN_PRODUCTION = process.env.VERCEL_ENV === "production";
+
 const nextConfig = {
+  env: {
+    /**
+     * VERCEL_ENV recopiée au build pour le NAVIGATEUR, qui ne lit que ce qui
+     * est inscrit dans son paquet. Elle sert à couper Sentry hors production
+     * (instrumentation-client.ts). Aucune variable n'est ajoutée sur Vercel :
+     * c'est le build qui la fabrique.
+     */
+    NEXT_PUBLIC_ENVIRONNEMENT: process.env.VERCEL_ENV ?? "development",
+  },
   /**
    * La boutique en ligne a quitté /mon-compte : son adresse disait « espace
    * client » alors qu'elle est publique. Les anciennes adresses continuent de
@@ -23,4 +35,7 @@ export default withSentryConfig(nextConfig, {
   org: "la-dogosphere",
   project: "javascript-nextjs",
   silent: !process.env.CI,
+  // Les source maps ne se téléversent QU'EN PRODUCTION : un build local ou une
+  // preview n'a rien à envoyer, et n'a pas de jeton pour le faire.
+  sourcemaps: { disable: !EN_PRODUCTION },
 });
