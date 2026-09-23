@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { formatDateFR } from "@/src/lib/dates";
@@ -44,6 +45,7 @@ export default function FormReservation({
   /** Seul l'admin peut forcer une seconde journée d'essai le même jour. */
   estAdmin?: boolean;
 }) {
+  const router = useRouter();
   const [type, setType] = useState("journee");
   // Le TYPE DE SÉJOUR — pourquoi le chien est là. Il ne se voit jamais côté
   // client : c'est une qualification de la pension, qui décide des chiffres.
@@ -393,7 +395,10 @@ export default function FormReservation({
       }
 
       alert(`✅ ${nbCreees} réservation(s) créée(s) !`);
-      window.location.href = `/reservations`;
+      // Le routeur de Next, et non window.location : la navigation reste
+      // interne, et refresh() va rechercher la liste côté serveur.
+      router.push("/reservations");
+      router.refresh();
       return;
     }
 
@@ -428,7 +433,8 @@ export default function FormReservation({
 
     if (response.ok) {
       const { id } = await response.json();
-      window.location.href = `/reservations/${id}`;
+      router.push(`/reservations/${id}`);
+      router.refresh();
     } else {
       const { error } = await response.json();
       alert("Erreur : " + error);
