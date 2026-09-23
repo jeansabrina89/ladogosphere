@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import sharp from "sharp";
 import React from "react";
 import * as Sentry from "@sentry/nextjs";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
@@ -34,15 +35,41 @@ async function lireParametres(cles: string[]): Promise<Record<string, string>> {
   return map;
 }
 
-/** Le logo est embarqué en data URI : @react-pdf ne va pas chercher sur le réseau. */
+/**
+ * Le logo du document, à la taille où il s'imprime.
+ *
+ * Il s'affiche sur 74 points de côté, soit un peu plus d'un pouce. Le fichier
+ * source en fait 1254 : @react-pdf embarque les pixels TELS QU'ILS SONT, sans
+ * jamais les réduire à la taille d'affichage — d'où 1,11 Mo de données d'image
+ * dans un PDF qui n'a qu'une page de texte, et 96 % du poids du fichier pour
+ * un carré d'un pouce.
+ *
+ * 320 pixels donnent 311 points par pouce à l'impression : au-delà de ce que
+ * distingue une imprimante de bureau, et quatre fois la définition d'un écran.
+ * La transparence est conservée — le fond du logo n'est pas blanc, il est
+ * transparent, et un JPEG (qui n'a pas de couche alpha) le poserait sur du
+ * noir.
+ *
+ * Lu et réduit une seule fois : le résultat sert à toutes les factures émises
+ * par ce processus.
+ */
+const COTE_LOGO_PDF = 320;
+let logoCache: string | null | undefined;
+
 async function logoDataUri(): Promise<string | null> {
+  if (logoCache !== undefined) return logoCache;
   try {
     const fichier = path.join(process.cwd(), "public", "Logo.png");
     const buf = await readFile(fichier);
-    return `data:image/png;base64,${buf.toString("base64")}`;
+    const reduit = await sharp(buf)
+      .resize(COTE_LOGO_PDF, COTE_LOGO_PDF, { fit: "inside", withoutEnlargement: true })
+      .png({ compressionLevel: 9 })
+      .toBuffer();
+    logoCache = `data:image/png;base64,${reduit.toString("base64")}`;
   } catch {
-    return null;
+    logoCache = null;
   }
+  return logoCache;
 }
 
 export type DonneesFacturePdf = {
