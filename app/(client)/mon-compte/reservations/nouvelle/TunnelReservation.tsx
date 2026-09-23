@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { formatDateFR } from "@/src/lib/dates";
+import { tenterReseau } from "@/src/lib/reseau";
 import {
   creerDemandeReservation,
   type Occurrence,
@@ -697,9 +698,16 @@ export default function TunnelReservation({
       };
     }
 
-    const resultat = await creerDemandeReservation(input);
-    setChargement(false);
+    // `toujours` éteint le chargement : sur ce tunnel, un bouton qui reste
+    // grisé laisse croire que la demande est partie alors qu'elle ne l'est pas.
+    const tentative = await tenterReseau(
+      "TunnelReservation.soumettre",
+      () => creerDemandeReservation(input),
+      { toujours: () => setChargement(false), siEchec: setErreur },
+    );
+    if (!tentative.ok) return; // la saisie reste entière, prête à repartir
 
+    const resultat = tentative.valeur;
     if (resultat.ok) {
       setConfirmation(true);
     } else {
@@ -1325,7 +1333,7 @@ export default function TunnelReservation({
                 </p>
               </div>
             )}
-            {renderNavFooter(soumettre, sendLabel, chargement)}
+            {renderNavFooter(() => { void soumettre(); }, sendLabel, chargement)}
           </>
         )}
       </>

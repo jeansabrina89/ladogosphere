@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { appelerApi } from "@/src/lib/reseau";
 
 type Chien = { id: string; nom: string; race: string };
 type Entente = {
@@ -29,55 +30,90 @@ export default function Ententes({
   const [loading, setLoading] = useState(false);
   const [familleUniquement, setFamilleUniquement] = useState(false);
   const [doitEtreIsole, setDoitEtreIsole] = useState(!!doit_etre_isole);
+  // Ce qui n'a pas marché, dit en français. La liste déjà affichée, elle, reste.
+  const [erreur, setErreur] = useState<string | null>(null);
 
   const charger = async () => {
-    const res = await fetch(`/api/chiens/${chien_id}/ententes`);
-    const data = await res.json();
-    setEntentes(data.ententes || []);
-    setFamilleUniquement(data.famille_uniquement || false);
+    const res = await appelerApi<{ ententes?: Entente[]; famille_uniquement?: boolean }>(
+      "Ententes.charger",
+      `/api/chiens/${chien_id}/ententes`,
+      {},
+      { siEchec: setErreur },
+    );
+    if (!res.ok) return; // l'affichage précédent tient, le message dit pourquoi
+    setErreur(null);
+    setEntentes(res.valeur?.ententes || []);
+    setFamilleUniquement(res.valeur?.famille_uniquement || false);
   };
 
-  useEffect(() => { charger(); }, [chien_id]);
+  useEffect(() => { void charger(); }, [chien_id]);
 
   const handleAjouter = async () => {
     if (!chienCible) return;
     setLoading(true);
-    await fetch(`/api/chiens/${chien_id}/ententes`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chien_cible_id: chienCible, type, note }),
-    });
+    setErreur(null);
+    const res = await appelerApi(
+      "Ententes.ajouter",
+      `/api/chiens/${chien_id}/ententes`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chien_cible_id: chienCible, type, note }),
+      },
+      // `toujours` rend la main quoi qu'il arrive : le bouton ne reste jamais grisé.
+      { toujours: () => setLoading(false), siEchec: setErreur },
+    );
+    if (!res.ok) return; // la saisie reste à l'écran, prête à être renvoyée
     setChienCible("");
     setNote("");
     await charger();
-    setLoading(false);
   };
 
   const handleSupprimer = async (entente_id: string) => {
-    await fetch(`/api/chiens/${chien_id}/ententes/${entente_id}`, { method: "DELETE" });
+    const res = await appelerApi(
+      "Ententes.supprimer",
+      `/api/chiens/${chien_id}/ententes/${entente_id}`,
+      { method: "DELETE" },
+      { siEchec: setErreur },
+    );
+    if (!res.ok) return;
     await charger();
   };
 
   const handleFamilleUniquement = async () => {
     const nouvelleValeur = !familleUniquement;
     setFamilleUniquement(nouvelleValeur);
-    const res = await fetch(`/api/chiens/${chien_id}/ententes`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "famille_uniquement", famille_uniquement: true }),
-    });
+    const res = await appelerApi(
+      "Ententes.familleUniquement",
+      `/api/chiens/${chien_id}/ententes`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "famille_uniquement", famille_uniquement: true }),
+      },
+      { siEchec: setErreur },
+    );
+    // La case revient à sa position d'avant : elle ne doit pas montrer un état
+    // que la base n'a pas enregistré.
     if (!res.ok) setFamilleUniquement(!nouvelleValeur);
+    else setErreur(null);
   };
 
   const handleDoitEtreIsole = async () => {
     const nouvelleValeur = !doitEtreIsole;
     setDoitEtreIsole(nouvelleValeur);
-    const res = await fetch(`/api/chiens/${chien_id}/isolement`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ doit_etre_isole: nouvelleValeur }),
-    });
+    const res = await appelerApi(
+      "Ententes.isolement",
+      `/api/chiens/${chien_id}/isolement`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ doit_etre_isole: nouvelleValeur }),
+      },
+      { siEchec: setErreur },
+    );
     if (!res.ok) setDoitEtreIsole(!nouvelleValeur);
+    else setErreur(null);
   };
 
   const chiensDisponibles = tous_chiens.filter(c =>
@@ -102,6 +138,17 @@ export default function Ententes({
       <h2 style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#1B2B5E", fontSize: 18, fontWeight: 700, margin: "0 0 16px" }}>
         🤝 Ententes individuelles
       </h2>
+
+      {erreur && (
+        <p role="alert" className="mb-4 p-3 rounded-xl text-sm font-semibold flex flex-wrap items-center gap-3"
+          style={{ backgroundColor: "#FDECEC", color: "#8A1F1F", border: "1px solid #F0C2C2" }}>
+          <span>{erreur}</span>
+          <button type="button" onClick={() => { void charger(); }}
+            className="px-3 py-1 rounded-lg" style={{ backgroundColor: "#8A1F1F", color: "white" }}>
+            Réessayer
+          </button>
+        </p>
+      )}
 
       {/* Option famille uniquement */}
       <div className="mb-4 p-3 rounded-xl border-2"

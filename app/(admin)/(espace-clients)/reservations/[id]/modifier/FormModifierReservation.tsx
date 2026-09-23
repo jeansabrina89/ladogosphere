@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import SuggestionBox from "./SuggestionBox";
 import { formatBoxLabel } from "@/src/lib/boxes";
+import { appelerApi } from "@/src/lib/reseau";
 
 import SelectHeure from "@/app/components/SelectHeure";
 import {
@@ -23,22 +24,53 @@ export default function FormModifierReservation({ id }: { id: string }) {
   // Le type au chargement : c'est lui qui dit s'il y a requalification.
   const [typeSejourInitial, setTypeSejourInitial] = useState("pension");
   const [typeSejourChoisi, setTypeSejourChoisi] = useState("pension");
+  const [erreur, setErreur] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch(`/api/reservations/${id}/details`)
-      .then(r => r.json())
-      .then(data => {
-        setRes(data.reservation);
-        setBoxes(data.boxes);
-        setBoxId(data.reservation?.box_id || "");
-        setPeutUrgence(!!data.peutUrgence);
-        const t = typeSejour(data.reservation?.type_sejour);
-        setTypeSejourInitial(t);
-        setTypeSejourChoisi(t);
-      });
-  }, [id]);
+  // La réponse est rangée dans une fonction de rappel, comme avant : l'état
+  // n'est pas posé en plein effet.
+  const charger = useCallback(() => appelerApi<{
+    reservation: { box_id?: string | null; type_sejour?: string | null };
+    boxes: { id: string }[];
+    peutUrgence?: boolean;
+  }>(
+    "FormModifierReservation.charger",
+    `/api/reservations/${id}/details`,
+    {},
+    { siEchec: setErreur },
+  ).then((r) => {
+    if (!r.ok) return; // l'écran sort de l'attente par le message, pas par le vide
+    setRes(r.valeur.reservation);
+    setBoxes(r.valeur.boxes);
+    setBoxId(r.valeur.reservation?.box_id || "");
+    setPeutUrgence(!!r.valeur.peutUrgence);
+    const t = typeSejour(r.valeur.reservation?.type_sejour);
+    setTypeSejourInitial(t);
+    setTypeSejourChoisi(t);
+    setErreur(null);
+  }), [id]);
 
-  if (!res) return <div className="p-8">Chargement...</div>;
+  useEffect(() => { void charger(); }, [charger]);
+
+  // Sans la réservation, l'écran n'a rien à montrer : il dit pourquoi, et
+  // propose de reprendre, au lieu d'afficher « Chargement… » pour toujours.
+  if (!res) {
+    return (
+      <div className="p-8">
+        {erreur ? (
+          <div role="alert" className="max-w-xl rounded-xl p-4 font-semibold"
+            style={{ backgroundColor: "#FDECEC", color: "#8A1F1F", border: "1px solid #F0C2C2" }}>
+            <p className="mb-3">{erreur}</p>
+            <button type="button" onClick={() => { setErreur(null); void charger(); }}
+              className="px-3 py-1 rounded-lg" style={{ backgroundColor: "#8A1F1F", color: "white" }}>
+              Réessayer
+            </button>
+          </div>
+        ) : (
+          "Chargement..."
+        )}
+      </div>
+    );
+  }
 
   const chien_ids = res.reservation_chiens?.map((rc: any) => rc.chien_id) ?? [];
 
@@ -49,23 +81,27 @@ export default function FormModifierReservation({ id }: { id: string }) {
     const formData = new FormData(form);
     formData.set("box_id", boxId);
 
-    const response = await fetch(`/api/reservations/${id}/modifier`, {
-      method: "POST",
-      body: formData,
-    });
-
-    if (response.ok) {
-      router.push(`/reservations/${id}`);
-      router.refresh();
-    } else {
-      alert("Erreur lors de la modification.");
-      setLoading(false);
-    }
+    const r = await appelerApi(
+      "FormModifierReservation.enregistrer",
+      `/api/reservations/${id}/modifier`,
+      { method: "POST", body: formData },
+      { toujours: () => setLoading(false), siEchec: setErreur },
+    );
+    if (!r.ok) return; // le formulaire reste rempli, prêt à repartir
+    router.push(`/reservations/${id}`);
+    router.refresh();
   };
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-3xl mx-auto bg-white rounded-xl p-8 shadow-sm">
+
+        {erreur && (
+          <p role="alert" className="mb-4 p-3 rounded-xl text-sm font-semibold"
+            style={{ backgroundColor: "#FDECEC", color: "#8A1F1F", border: "1px solid #F0C2C2" }}>
+            {erreur}
+          </p>
+        )}
 
         <h1 className="text-4xl font-bold mb-6" style={{ color: "#1B2B5E" }}>
           ✏️ Modifier la réservation

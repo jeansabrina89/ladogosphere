@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { tenterReseau } from "@/src/lib/reseau";
 import { useRouter } from "next/navigation";
 import {
   enregistrerGroupe,
@@ -1073,24 +1074,33 @@ function FormValeur({
 
   async function enregistrer() {
     setEnCours(true);
-    const res = await enregistrerValeur({
-      porteur,
-      groupe_id: groupe.id,
-      id: valeur?.id ?? null,
-      libelle,
-      code_couleur: couleur,
-      supplement_prix: prix,
-      supplement_delai_jours: delai,
-      composant_article_id: composant || null,
-      composant_quantite: quantite,
-      defaut,
-    });
+    // `toujours` éteint l'attente : sans lui, un réseau coupé laissait le
+    // bouton grisé et la saisie prisonnière.
+    const tentative = await tenterReseau(
+      "GestionOptions.enregistrerValeur",
+      async () => {
+        const res = await enregistrerValeur({
+          porteur,
+          groupe_id: groupe.id,
+          id: valeur?.id ?? null,
+          libelle,
+          code_couleur: couleur,
+          supplement_prix: prix,
+          supplement_delai_jours: delai,
+          composant_article_id: composant || null,
+          composant_quantite: quantite,
+          defaut,
+        });
 
-    // La photo choisie avant l'enregistrement part une fois la valeur créée.
-    const fichier = champPhoto.current?.files?.[0];
-    if (!res.error && res.id && fichier) await envoyerPhoto(res.id, fichier);
-
-    setEnCours(false);
+        // La photo choisie avant l'enregistrement part une fois la valeur créée.
+        const fichier = champPhoto.current?.files?.[0];
+        if (!res.error && res.id && fichier) await envoyerPhoto(res.id, fichier);
+        return res;
+      },
+      { toujours: () => setEnCours(false), siEchec: (phrase) => onFini({ error: phrase }) },
+    );
+    if (!tentative.ok) return; // la saisie reste, le message est déjà affiché
+    const res = tentative.valeur;
     onFini(res);
 
     if (!res.error && enSerie) {
@@ -1112,7 +1122,7 @@ function FormValeur({
           <input id={`lib-${valeur?.id ?? "neuf"}`} type="text" value={libelle} autoFocus={enSerie}
             onChange={(e) => setLibelle(e.target.value)} style={champ}
             placeholder={groupe.type === "couleur" ? "Bleu nuit" : "25 mm"}
-            onKeyDown={(e) => { if (e.key === "Enter") enregistrer(); }} />
+            onKeyDown={(e) => { if (e.key === "Enter") void enregistrer(); }} />
         </div>
 
         {groupe.type === "couleur" && (

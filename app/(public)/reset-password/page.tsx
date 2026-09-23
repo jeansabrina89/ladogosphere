@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { tenterReseau } from "@/src/lib/reseau";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import type { EmailOtpType } from "@supabase/supabase-js";
@@ -35,14 +36,31 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    supabase.auth.verifyOtp({ type: type as EmailOtpType, token_hash }).then(({ error }) => {
-      if (error) {
-        setEtat("erreur");
-        setMessage("Ce lien a expiré ou a déjà été utilisé. Merci de redemander un e-mail.");
-      } else {
+    void tenterReseau(
+      "resetPassword.verifierLien",
+      async () => {
+        const { error } = await supabase.auth.verifyOtp({ type: type as EmailOtpType, token_hash });
+        if (error) {
+          // Le serveur a répondu : le lien ne vaut plus rien.
+          setEtat("erreur");
+          setMessage("Ce lien a expiré ou a déjà été utilisé. Merci de redemander un e-mail.");
+          return;
+        }
         setEtat("pret");
-      }
-    });
+      },
+      {
+        siEchec: (phrase) => {
+          setEtat("erreur");
+          setMessage(phrase);
+        },
+        // Sans réseau, le lien n'est PAS perdu : il faut réessayer, et
+        // seulement ensuite en redemander un. On dit les deux, dans cet ordre.
+        message:
+          "On n'a pas pu joindre le serveur pour vérifier votre lien. " +
+          "Vérifiez votre connexion et rechargez cette page ; si cela recommence, " +
+          "redemandez un e-mail de réinitialisation depuis la page de connexion.",
+      },
+    );
   }, []);
 
   async function enregistrer() {

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { appelerApi } from "@/src/lib/reseau";
 import { useState, useEffect, useRef } from "react";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { formatDateFR } from "@/src/lib/dates";
@@ -56,6 +57,8 @@ export default function FormReservation({
   const [heureArrivee, setHeureArrivee] = useState("");
   const [heureDepart, setHeureDepart] = useState("");
   const [loading, setLoading] = useState(false);
+  // Ce qui n'a pas marché, dit au-dessus du formulaire. La saisie, elle, reste.
+  const [erreurReseau, setErreurReseau] = useState<string | null>(null);
   const [forcer, setForcer] = useState(false);
   const [forcerRaison, setForcerRaison] = useState("");
   // Journée d'essai : une seule par jour, forçage admin sur un créneau libre.
@@ -179,16 +182,23 @@ export default function FormReservation({
   // remis à zéro de manière synchrone dans l'effet.
   useEffect(() => {
     let annule = false;
-    (async () => {
+    // Lancée sans être attendue, volontairement : tout ce qu'elle fait passe
+    // par appelerApi, qui rattrape l'échec et pose le message.
+    void (async () => {
       if (type !== "essai" || !dateDebut) {
         if (!annule) setEtatEssai(null);
         return;
       }
-      const r = await fetch(`/api/reservations/essai-du-jour?date=${dateDebut}`);
+      const r = await appelerApi<EtatJourneeEssai>(
+        "FormReservation.essaiDuJour",
+        `/api/reservations/essai-du-jour?date=${dateDebut}`,
+        {},
+        { siEchec: (phrase) => { if (!annule) setErreurReseau(phrase); } },
+      );
       if (annule) return;
       if (!r.ok) { setEtatEssai(null); return; }
-      const etat: EtatJourneeEssai = await r.json();
-      if (!annule) setEtatEssai(etat);
+      setErreurReseau(null);
+      setEtatEssai(r.valeur);
     })();
     return () => { annule = true; };
   }, [type, dateDebut]);
@@ -386,16 +396,16 @@ export default function FormReservation({
           fd.set("date_fin", dFin);
         }
 
-        const response = await fetch("/api/reservations", {
+        const r = await appelerApi("FormReservation.creerSerie", "/api/reservations", {
           method: "POST",
           body: fd,
-        });
+        }, { siEchec: setErreurReseau });
 
-        if (response.ok) {
-          nbCreees++;
-        }
+        if (r.ok) nbCreees++;
+        else break; // inutile d'insister : on dit ce qui s'est passé
       }
 
+      if (nbCreees === 0) { setLoading(false); return; }
       alert(`✅ ${nbCreees} réservation(s) créée(s) !`);
       // Le routeur de Next, et non window.location : la navigation reste
       // interne, et refresh() va rechercher la liste côté serveur.
@@ -428,25 +438,27 @@ export default function FormReservation({
       formData.set("forcer_essai_heure", creneauRetenu);
     }
 
-    const response = await fetch("/api/reservations", {
-      method: "POST",
-      body: formData,
-    });
-
-    if (response.ok) {
-      const { id } = await response.json();
-      router.push(`/reservations/${id}`);
-      router.refresh();
-    } else {
-      const { error } = await response.json();
-      alert("Erreur : " + error);
-      setLoading(false);
-    }
+    const r = await appelerApi<{ id: string }>(
+      "FormReservation.creer",
+      "/api/reservations",
+      { method: "POST", body: formData },
+      { toujours: () => setLoading(false), siEchec: setErreurReseau },
+    );
+    if (!r.ok) return; // la saisie reste à l'écran, prête à repartir
+    router.push(`/reservations/${r.valeur.id}`);
+    router.refresh();
   };
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-3xl mx-auto bg-white rounded-xl p-8 shadow-sm">
+
+        {erreurReseau && (
+          <p role="alert" className="mb-4 p-3 rounded-xl text-sm font-semibold"
+            style={{ backgroundColor: "#FDECEC", color: "#8A1F1F", border: "1px solid #F0C2C2" }}>
+            {erreurReseau}
+          </p>
+        )}
 
         <h1 className="text-4xl font-bold mb-6" style={{ color: "#1B2B5E" }}>
           ➕ Nouvelle réservation

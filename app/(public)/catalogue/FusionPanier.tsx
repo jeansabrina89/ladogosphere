@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fusionnerPanierLocal } from "./actionsFusion";
 import { lirePanier, viderPanier } from "./panierNavigateur";
+import { tenterReseau } from "@/src/lib/reseau";
 
 /**
  * Le panier du navigateur rejoint le compte, à la connexion.
@@ -27,9 +28,16 @@ export default function FusionPanier() {
     if (local.lignes.length === 0) return;
 
     let vivant = true;
-    (async () => {
-      const res = await fusionnerPanierLocal(local);
-      if (!vivant) return;
+    void (async () => {
+      // Le panier du navigateur n'est PAS vidé si l'appel n'aboutit pas : on
+      // ne perd pas une sélection parce que le réseau a lâché.
+      const tentative = await tenterReseau(
+        "FusionPanier.fusionner",
+        () => fusionnerPanierLocal(local),
+        { siEchec: (phrase) => { if (vivant) setRefus(phrase); } },
+      );
+      if (!vivant || !tentative.ok) return;
+      const res = tentative.valeur;
 
       // Le panier local part dans tous les cas où le serveur a répondu : le
       // garder ferait repasser la fusion à chaque écran.

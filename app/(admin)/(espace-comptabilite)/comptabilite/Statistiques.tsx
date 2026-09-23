@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { tenterReseau } from "@/src/lib/reseau";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
@@ -62,8 +63,17 @@ export default function Statistiques({
     ? ((totalAnneeFacture - totalAnneePrec) / totalAnneePrec * 100).toFixed(1)
     : null;
 
-  const exporterExcel = () => {
-    import("xlsx").then(XLSX => {
+  // L'échec possible ici n'est pas un refus du serveur : c'est le MODULE de
+  // tableur qui n'arrive pas. La phrase le dit autrement, et le bouton
+  // redevient cliquable.
+  const [erreurExport, setErreurExport] = useState<string | null>(null);
+  const [exportEnCours, setExportEnCours] = useState(false);
+
+  const exporterExcel = async () => {
+    setExportEnCours(true);
+    setErreurExport(null);
+    await tenterReseau("Statistiques.exporterExcel", async () => {
+      const XLSX = await import("xlsx");
       const wb = XLSX.utils.book_new();
 
       const wsCA = XLSX.utils.json_to_sheet(statsMois.map(m => ({
@@ -109,6 +119,10 @@ export default function Statistiques({
       }
 
       XLSX.writeFile(wb, `dogosphere_stats_${annee}.xlsx`);
+    }, {
+      toujours: () => setExportEnCours(false),
+      siEchec: setErreurExport,
+      message: "L'export n'a pas pu être chargé. Réessayez dans un instant.",
     });
   };
 
@@ -183,11 +197,16 @@ export default function Statistiques({
               </button>
             ))}
           </div>
-          <button onClick={exporterExcel}
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
+          <button onClick={() => { void exporterExcel(); }} disabled={exportEnCours}
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
             style={{ backgroundColor: "#C9A84C" }}>
-            📥 Exporter stats Excel
+            {exportEnCours ? "Préparation…" : "📥 Exporter stats Excel"}
           </button>
+          {erreurExport && (
+            <p role="alert" className="mt-2 text-sm font-semibold" style={{ color: "#8A1F1F" }}>
+              {erreurExport}
+            </p>
+          )}
         </div>
 
         <h3 className="font-bold mb-3" style={{ color: "#1B2B5E" }}>
