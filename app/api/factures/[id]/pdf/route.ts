@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/src/utils/supabase/server";
+import { lireAppelant } from "@/src/lib/garde";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { urlSigneePdf, genererPdfFacture } from "@/src/lib/factureDocument";
 
@@ -9,15 +9,15 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
+  // La lecture commune de l'appelant (garde.ts) : un compte désactivé n'ouvre plus rien.
+  const appelant = await lireAppelant();
+  if (!appelant) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
+  if (!appelant.actif) return NextResponse.json({ error: "Compte désactivé" }, { status: 403 });
+  const user = { id: appelant.userId };
 
   const { id } = await params;
 
-  const { data: profile } = await supabase
-    .from("profiles").select("role, perm_encaissements").eq("id", user.id).single();
-  const estPersonnel = profile?.role === "admin" || profile?.role === "employe";
+  const estPersonnel = appelant.role === "admin" || appelant.role === "employe";
 
   const { data: facture } = await supabaseAdmin
     .from("factures")

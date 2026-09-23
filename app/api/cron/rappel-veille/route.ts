@@ -6,13 +6,12 @@ import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { recalculerPaiementsReservations } from "@/src/lib/paiementReservation";
 import { TYPES_RAPPEL_VEILLE, doitRecevoirRappelVeille } from "@/src/lib/rappelVeilleLogique";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { verifierCron } from "@/src/lib/cron";
 
 export async function GET(req: NextRequest) {
-  // Vérification sécurité — token Vercel cron
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Vérification sécurité — token Vercel cron, par la porte commune.
+  const refus = verifierCron(req, "rappel-veille");
+  if (refus) return refus;
 
   const aujourdHui = new Date().toISOString().split("T")[0];
 

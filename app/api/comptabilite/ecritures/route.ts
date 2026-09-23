@@ -1,22 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { exigerAdmin, garderRoute } from "@/src/lib/garde";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 
-async function idAdmin(supabase: SupabaseClient): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  return profile?.role === "admin" ? user.id : null;
-}
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const auteurId = await idAdmin(supabase);
-  if (!auteurId) {
-    return NextResponse.json({ error: "Accès réservé à l'administration." }, { status: 403 });
-  }
+  const g = await garderRoute(exigerAdmin("ecriture_manuelle"));
+  if (g.refus) return g.refus;
+  const auteurId = g.appelant.userId;
 
   let body: {
     date?: string;

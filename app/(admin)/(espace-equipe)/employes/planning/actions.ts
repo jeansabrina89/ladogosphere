@@ -1,7 +1,7 @@
 "use server";
 
+import { exiger, garderAction } from "@/src/lib/garde";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { createClient } from "@/src/utils/supabase/server";
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { revalidatePath } from "next/cache";
 
@@ -199,14 +199,8 @@ export async function recupererPlanningMois(
   mois: number,
   annee: number,
 ): Promise<{ error?: string; lignes?: LignePlanningExport[] }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Non connecté" };
-
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (!["admin", "employe"].includes(profile?.role ?? ""))
-    return { error: "Accès réservé au personnel" };
+  const g = await garderAction(exiger({ action: "planning_mois" }));
+  if (g.erreur) return { error: g.erreur };
 
   const debut = `${annee}-${String(mois).padStart(2, "0")}-01`;
   const fin = new Date(annee, mois, 0).toISOString().split("T")[0];

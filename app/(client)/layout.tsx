@@ -9,7 +9,7 @@ import {
   RETOUR_PENSION_BANDEAU,
   ficheDoitDevenirInterne,
 } from "@/src/lib/personnel";
-import { basculerFicheEnInterne } from "@/app/(client)/mon-compte/actionsPersonnel";
+import { basculerFicheEnInterneServeur } from "@/src/lib/ficheInterne";
 import { catalogueVisible } from "@/src/lib/prestationsLogique";
 
 /**
@@ -64,7 +64,9 @@ export default async function ClientLayout({ children }: { children: React.React
     // voyait l'adhésion et la journée d'essai. On la bascule en interne, une
     // fois pour toutes. Jamais l'inverse (cf. ficheDoitDevenirInterne).
     if (fiche && ficheDoitDevenirInterne({ role: profil?.role, ficheInterne: !!fiche.interne })) {
-      await basculerFicheEnInterne(fiche.id);
+      // La fiche est celle de la personne connectée (auth_user_id), et son
+      // profil est du personnel : la vérification est faite ici même.
+      await basculerFicheEnInterneServeur(fiche.id, user.id);
       ficheInterne = true;
     }
   }

@@ -29,7 +29,9 @@ export type EntiteJournal =
   // Un réglage de la table clé/valeur qui touche ce que les clients reçoivent.
   | "parametre"
   // Les fiches, les adhésions et les messages : tout geste du personnel se trace.
-  | "chien" | "client" | "campagne";
+  | "chien" | "client" | "campagne"
+  // Un refus de la garde (garde.ts) : l'entité est le compte qui a frappé.
+  | "acces";
 
 export type EvenementJournal = {
   entite: EntiteJournal;
@@ -335,6 +337,12 @@ const LIBELLES_PAR_ENTITE: Record<string, Record<string, string>> = {
   },
   campagne: {
     message_libre: "Message libre envoyé",
+  },
+  entite_juridique: {
+    coordonnees: "Coordonnées de paiement modifiées",
+  },
+  acces: {
+    refus: "Accès refusé",
   },
 };
 

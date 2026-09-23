@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "../utils/supabase/server";
+import { lireAppelant } from "./garde";
 import {
   permissionStock,
   accesStockAccorde,
@@ -51,6 +51,8 @@ export function permissionsBoutique(
 
 export type ContexteAcces = {
   connecte: boolean;
+  /** Faux : profil désactivé. Absent : actif (même règle que is_admin() en SQL). */
+  actif?: boolean;
   role?: string | null;
   email?: string | null;
   permissions?: Record<string, unknown> | null;
@@ -82,6 +84,11 @@ export function deciderAccesAdmin(
 ): DecisionAcces {
   if (!contexte.connecte) {
     return { autorise: false, redirection: "/login", motif: "Non connecté" };
+  }
+
+  // Un profil désactivé ne rentre plus, même admin : sa session ne vaut plus rien.
+  if (contexte.actif === false) {
+    return { autorise: false, redirection: "/login", motif: "Compte désactivé" };
   }
 
   const role = contexte.role ?? null;
@@ -121,26 +128,18 @@ export type AccesAdmin = {
 };
 
 async function lireContexte(): Promise<{ contexte: ContexteAcces; user: { id: string; email: string | null } | null }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { contexte: { connecte: false }, user: null };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(`role, email, ${PERMISSIONS_PERSONNEL.join(", ")}`)
-    .eq("id", user.id)
-    .single();
-
-  const brut = profile as ({ role: string | null; email: string | null } & Record<string, unknown>) | null;
-
+  // La même lecture que les gardes des actions et des routes (garde.ts).
+  const appelant = await lireAppelant();
+  if (!appelant) return { contexte: { connecte: false }, user: null };
   return {
     contexte: {
       connecte: true,
-      role: brut?.role ?? null,
-      email: brut?.email ?? user.email ?? null,
-      permissions: brut ?? null,
+      actif: appelant.actif,
+      role: appelant.role,
+      email: appelant.email,
+      permissions: appelant.brut,
     },
-    user: { id: user.id, email: user.email ?? null },
+    user: { id: appelant.userId, email: appelant.email },
   };
 }
 

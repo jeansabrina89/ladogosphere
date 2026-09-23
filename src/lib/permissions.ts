@@ -5,41 +5,57 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 type SupabaseClientLike = SupabaseClient;
 import { createClient } from "../utils/supabase/server";
 import type { PerimetreStock, NiveauStock } from "./perimetreStock";
+import type { PermissionPersonnel } from "./permissionsCatalogue";
+import {
+  AccesRefuse,
+  lireAppelant,
+  verifierAppelant,
+  type Exigence,
+} from "./garde";
+
+/**
+ * Les gardes historiques, gardées pour leur façon de RÉPONDRE (objet d'erreur
+ * pour une action, 401/403 pour une route) et pour leurs messages. La décision,
+ * elle, se prend en un seul endroit : `verifierAppelant` (garde.ts), qui lit
+ * l'utilisateur par `getUser()`, relit le profil — `actif` compris — et
+ * journalise chaque refus.
+ */
+
+type ClientSession = Awaited<ReturnType<typeof createClient>>;
+
+/** Le refus traduit dans le message qu'affichait la garde historique. */
+async function tenter(
+  exigence: Exigence,
+  messages: { role: string; permission?: string },
+  client?: SupabaseClientLike,
+): Promise<{ ok: true; userId: string; isAdmin: boolean } | { ok: false; statut: 401 | 403; message: string }> {
+  try {
+    const a = await verifierAppelant(exigence, { client: client as unknown as ClientSession | undefined });
+    return { ok: true, userId: a.userId, isAdmin: a.isAdmin };
+  } catch (e) {
+    if (!(e instanceof AccesRefuse)) throw e;
+    const message =
+      e.motif === "non_connecte" ? "Non connecté"
+      : e.motif === "inactif" ? "Compte désactivé"
+      : e.motif === "permission" && messages.permission ? messages.permission
+      : messages.role;
+    return { ok: false, statut: e.statut, message };
+  }
+}
+
+const RESERVE_ADMIN = "Accès réservé à l'admin";
+const RESERVE_PERSONNEL = "Accès réservé au personnel";
 
 // ── API Routes ──────────────────────────────────────────────────────────────
 
 export async function exigerPersonnel(supabase: SupabaseClientLike): Promise<NextResponse | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (!["admin", "employe"].includes(profile?.role ?? "")) {
-    return NextResponse.json({ error: "Accès réservé au personnel" }, { status: 403 });
-  }
-  return null;
+  const r = await tenter({}, { role: RESERVE_PERSONNEL }, supabase);
+  return r.ok ? null : NextResponse.json({ error: r.message }, { status: r.statut });
 }
 
-/**
- * Le nom de la colonne lue n’est connu qu’à l’exécution : supabase-js analyse
- * le `select` comme un littéral et ne sait rien typer d’une chaîne construite.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ClientSelectDynamique = any;
-
-export async function exigerPermissionApi(supabase: ClientSelectDynamique, perm: string): Promise<NextResponse | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(`role, ${perm}`)
-    .eq("id", user.id)
-    .single();
-  if (profile?.role === "admin") return null;
-  if (profile?.role === "employe" && profile?.[perm] === true) return null;
-  return NextResponse.json({ error: "Accès réservé à l'admin" }, { status: 403 });
+export async function exigerPermissionApi(supabase: SupabaseClientLike, perm: string): Promise<NextResponse | null> {
+  const r = await tenter({ permissions: [perm as PermissionPersonnel] }, { role: RESERVE_ADMIN }, supabase);
+  return r.ok ? null : NextResponse.json({ error: r.message }, { status: r.statut });
 }
 
 // ── Server Actions ───────────────────────────────────────────────────────────
@@ -47,20 +63,8 @@ export async function exigerPermissionApi(supabase: ClientSelectDynamique, perm:
 export async function verifierPermission(
   perm: string
 ): Promise<{ error?: string; userId?: string; isAdmin?: boolean }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Non connecté" };
-  const { data: rawProfile } = await supabase
-    .from("profiles")
-    .select(`role, ${perm}`)
-    .eq("id", user.id)
-    .single();
-  // Template-literal select prevents Supabase from inferring the exact column set; cast to known shape
-  const profile = rawProfile as { role: string; [key: string]: unknown } | null;
-  if (profile?.role === "admin") return { userId: user.id, isAdmin: true };
-  if (profile?.role === "employe" && profile?.[perm] === true)
-    return { userId: user.id, isAdmin: false };
-  return { error: "Accès réservé à l'admin" };
+  const r = await tenter({ permissions: [perm as PermissionPersonnel] }, { role: RESERVE_ADMIN });
+  return r.ok ? { userId: r.userId, isAdmin: r.isAdmin } : { error: r.message };
 }
 
 /**
@@ -68,31 +72,14 @@ export async function verifierPermission(
  * Pour les gestes comptables sensibles (resynchronisation, export du grand livre).
  */
 export async function verifierAdmin(): Promise<{ error?: string; userId?: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Non connecté" };
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (profile?.role !== "admin") return { error: "Accès réservé à l'admin" };
-  return { userId: user.id };
+  const r = await tenter({ adminSeul: true }, { role: RESERVE_ADMIN });
+  return r.ok ? { userId: r.userId } : { error: r.message };
 }
 
 /** Même règle que verifierAdmin, côté Route Handler. */
 export async function exigerAdminApi(supabase: SupabaseClientLike): Promise<NextResponse | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (profile?.role !== "admin") {
-    return NextResponse.json({ error: "Accès réservé à l'admin" }, { status: 403 });
-  }
-  return null;
+  const r = await tenter({ adminSeul: true }, { role: RESERVE_ADMIN }, supabase);
+  return r.ok ? null : NextResponse.json({ error: r.message }, { status: r.statut });
 }
 
 /**
@@ -135,53 +122,45 @@ export type ProfilePerms = {
   perm_prestations: boolean;
 };
 
+/**
+ * Ce que l'écran peut montrer. Même lecture que la garde : un profil
+ * désactivé, ou un client, n'a aucune permission de personnel.
+ */
 export async function getProfilePerms(): Promise<ProfilePerms> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return falsePerms();
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(`role,
-      perm_chiens_creer, perm_chiens_modifier,
-      perm_clients_creer, perm_clients_modifier, perm_depenses,
-      perm_boutique_vente, perm_boutique_gestion, perm_atelier,
-      perm_reservations_creer, perm_reservations_modifier, perm_reservations_annuler,
-      perm_journee_essai, perm_encaissements, perm_factures, perm_tarifs_urgence,
-      perm_checkin, perm_box, perm_planning,
-      perm_timbrage_equipe, perm_vacances_equipe, perm_prestations`)
-    .eq("id", user.id)
-    .single();
-
-  if (!profile) return falsePerms();
-  const isAdmin = profile.role === "admin";
+  const appelant = await lireAppelant();
+  if (!appelant || !appelant.actif) return falsePerms();
+  const isAdmin = appelant.isAdmin;
+  const p = appelant.permissions;
+  // Un client n'a aucune colonne perm_* vraie, mais on ne s'y fie pas.
+  const personnel = isAdmin || appelant.role === "employe";
+  const v = (cle: PermissionPersonnel) => personnel && p[cle];
 
   return {
     isAdmin,
-    perm_chiens_creer: isAdmin || !!profile.perm_chiens_creer,
-    perm_chiens_modifier: isAdmin || !!profile.perm_chiens_modifier,
-    perm_clients_creer: isAdmin || !!profile.perm_clients_creer,
-    perm_clients_modifier: isAdmin || !!profile.perm_clients_modifier,
-    perm_depenses: isAdmin || !!profile.perm_depenses,
-    // La gestion emporte la vente : voir permissionsBoutique.
-    perm_boutique_vente: isAdmin || !!profile.perm_boutique_vente || !!profile.perm_boutique_gestion,
-    perm_boutique_gestion: isAdmin || !!profile.perm_boutique_gestion,
+    perm_chiens_creer: v("perm_chiens_creer"),
+    perm_chiens_modifier: v("perm_chiens_modifier"),
+    perm_clients_creer: v("perm_clients_creer"),
+    perm_clients_modifier: v("perm_clients_modifier"),
+    perm_depenses: v("perm_depenses"),
+    // La gestion emporte la vente : voir permissionsEffectives.
+    perm_boutique_vente: v("perm_boutique_vente"),
+    perm_boutique_gestion: v("perm_boutique_gestion"),
     // L'atelier ne découle d'aucune permission boutique : on peut tenir le
     // magasin sans toucher aux fournitures de fabrication, et l'inverse.
-    perm_atelier: isAdmin || !!profile.perm_atelier,
-    perm_reservations_creer: isAdmin || !!profile.perm_reservations_creer,
-    perm_reservations_modifier: isAdmin || !!profile.perm_reservations_modifier,
-    perm_reservations_annuler: isAdmin || !!profile.perm_reservations_annuler,
-    perm_journee_essai: isAdmin || !!profile.perm_journee_essai,
-    perm_encaissements: isAdmin || !!profile.perm_encaissements,
-    perm_factures: isAdmin || !!profile.perm_factures,
-    perm_tarifs_urgence: isAdmin || !!profile.perm_tarifs_urgence,
-    perm_checkin: isAdmin || !!profile.perm_checkin,
-    perm_box: isAdmin || !!profile.perm_box,
-    perm_planning: isAdmin || !!profile.perm_planning,
-    perm_timbrage_equipe: isAdmin || !!profile.perm_timbrage_equipe,
-    perm_vacances_equipe: isAdmin || !!profile.perm_vacances_equipe,
-    perm_prestations: isAdmin || !!profile.perm_prestations,
+    perm_atelier: v("perm_atelier"),
+    perm_reservations_creer: v("perm_reservations_creer"),
+    perm_reservations_modifier: v("perm_reservations_modifier"),
+    perm_reservations_annuler: v("perm_reservations_annuler"),
+    perm_journee_essai: v("perm_journee_essai"),
+    perm_encaissements: v("perm_encaissements"),
+    perm_factures: v("perm_factures"),
+    perm_tarifs_urgence: v("perm_tarifs_urgence"),
+    perm_checkin: v("perm_checkin"),
+    perm_box: v("perm_box"),
+    perm_planning: v("perm_planning"),
+    perm_timbrage_equipe: v("perm_timbrage_equipe"),
+    perm_vacances_equipe: v("perm_vacances_equipe"),
+    perm_prestations: v("perm_prestations"),
   };
 }
 
@@ -214,6 +193,12 @@ function falsePerms(): ProfilePerms {
 
 // ── Boutique : deux niveaux, et la gestion emporte la vente ─────────────────
 
+function messageBoutique(niveau: "vente" | "gestion"): string {
+  return niveau === "gestion"
+    ? "Cette action demande la permission « Boutique — gestion »."
+    : "Cette action demande la permission « Boutique — vente ».";
+}
+
 /**
  * Garde des actions serveur de la boutique.
  *
@@ -228,29 +213,11 @@ function falsePerms(): ProfilePerms {
 export async function verifierPermissionBoutique(
   niveau: "vente" | "gestion"
 ): Promise<{ error?: string; userId?: string; isAdmin?: boolean }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Non connecté" };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, perm_boutique_vente, perm_boutique_gestion")
-    .eq("id", user.id)
-    .single();
-
-  if (profile?.role === "admin") return { userId: user.id, isAdmin: true };
-  if (profile?.role !== "employe") return { error: "Accès réservé au personnel" };
-
-  const gestion = profile.perm_boutique_gestion === true;
-  const accorde = niveau === "gestion" ? gestion : gestion || profile.perm_boutique_vente === true;
-
-  return accorde
-    ? { userId: user.id, isAdmin: false }
-    : {
-        error: niveau === "gestion"
-          ? "Cette action demande la permission « Boutique — gestion »."
-          : "Cette action demande la permission « Boutique — vente ».",
-      };
+  const r = await tenter(
+    { permissions: [niveau === "gestion" ? "perm_boutique_gestion" : "perm_boutique_vente"] },
+    { role: RESERVE_PERSONNEL, permission: messageBoutique(niveau) },
+  );
+  return r.ok ? { userId: r.userId, isAdmin: r.isAdmin } : { error: r.message };
 }
 
 /**
@@ -270,7 +237,7 @@ export async function verifierPermissionStock(
   const verif = await verifierPermission("perm_atelier");
   if (verif.error) {
     return {
-      error: verif.error === "Accès réservé à l'admin"
+      error: verif.error === RESERVE_ADMIN
         ? "Cette action demande la permission « Atelier »."
         : verif.error,
     };
@@ -283,30 +250,10 @@ export async function exigerBoutiqueApi(
   supabase: SupabaseClientLike,
   niveau: "vente" | "gestion"
 ): Promise<NextResponse | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, perm_boutique_vente, perm_boutique_gestion")
-    .eq("id", user.id)
-    .single();
-
-  if (profile?.role === "admin") return null;
-  if (profile?.role !== "employe") {
-    return NextResponse.json({ error: "Accès réservé au personnel" }, { status: 403 });
-  }
-
-  const gestion = profile.perm_boutique_gestion === true;
-  const accorde = niveau === "gestion" ? gestion : gestion || profile.perm_boutique_vente === true;
-  if (accorde) return null;
-
-  return NextResponse.json(
-    {
-      error: niveau === "gestion"
-        ? "Cette action demande la permission « Boutique — gestion »."
-        : "Cette action demande la permission « Boutique — vente ».",
-    },
-    { status: 403 }
+  const r = await tenter(
+    { permissions: [niveau === "gestion" ? "perm_boutique_gestion" : "perm_boutique_vente"] },
+    { role: RESERVE_PERSONNEL, permission: messageBoutique(niveau) },
+    supabase,
   );
+  return r.ok ? null : NextResponse.json({ error: r.message }, { status: r.statut });
 }

@@ -6,6 +6,7 @@ import { ajouterJoursISO } from "@/src/lib/cotisationPeriode";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { envoyerFactureParEmail } from "@/src/lib/factureDocument";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { verifierCron } from "@/src/lib/cron";
 import {
   STATUTS_EMISE_OUVERTE,
   facturesAEnvoyerCeMatin,
@@ -46,10 +47,8 @@ type AdhesionEchue = {
 };
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const refus = verifierCron(req, "quotidien-matin");
+  if (refus) return refus;
 
   const aujourdhui = aujourdhuiISO();
 

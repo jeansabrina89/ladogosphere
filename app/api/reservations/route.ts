@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { lireCorpsFormulaire } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
+import { lireAppelant } from "@/src/lib/garde";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
 import { verifierChiensPourReservation, marquerChiensEssaiProgramme, etatJourneeEssai } from "@/src/lib/essaiReservation";
@@ -60,10 +61,7 @@ export async function POST(req: NextRequest) {
   if (type_reservation === "essai") {
     const etat = await etatJourneeEssai(date_debut);
     if (!etat.disponible) {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: profil } = await supabaseAdmin
-        .from("profiles").select("role").eq("id", user?.id ?? "").maybeSingle();
-      const estAdmin = profil?.role === "admin";
+      const estAdmin = (await lireAppelant(supabase))?.isAdmin === true;
 
       const forcerEssai = formData.get("forcer_essai") === "on";
       const heureForcee = heureCourte(formData.get("forcer_essai_heure") as string);

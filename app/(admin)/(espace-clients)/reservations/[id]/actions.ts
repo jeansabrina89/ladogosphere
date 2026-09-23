@@ -2,7 +2,6 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { calculerMontant } from "@/src/lib/calculTarif";
@@ -14,17 +13,8 @@ import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { factureEmisePourReservation } from "@/src/lib/factureResa";
 import { recalculerTotalEtPaiement, type RecalculResult } from "@/src/lib/prixReservation";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
-import { idUtilisateurCourant } from "@/src/lib/permissions";
+import { idUtilisateurCourant, verifierAdmin } from "@/src/lib/permissions";
 
-async function verifierAdmin(): Promise<{ error?: string; userId?: string }> {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Non connecté" };
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return { error: "Accès réservé à l'admin" };
-  return { userId: user.id };
-}
 
 const STATUTS_CLOTURES = ["terminee", "annulee", "refusee"];
 

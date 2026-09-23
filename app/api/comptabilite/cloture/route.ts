@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/src/utils/supabase/server";
+import { exigerAdmin, garderRoute } from "@/src/lib/garde";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return NextResponse.json({ error: "Accès réservé à l'administration." }, { status: 403 });
+  const g = await garderRoute(exigerAdmin("cloture_exercice"));
+  if (g.refus) return g.refus;
+  const user = { id: g.appelant.userId };
 
   let body: { annee?: number };
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Requête invalide." }, { status: 400 }); }

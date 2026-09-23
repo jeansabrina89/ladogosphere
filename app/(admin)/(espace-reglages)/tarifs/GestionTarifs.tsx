@@ -102,23 +102,31 @@ export default function GestionTarifs({
       prix: tarifsLocaux[getKey(t.categorie, t.membre)] ?? parseFloat(t.prix),
     }));
 
+    // Deux portes : les prix, et l'identité de paiement de l'entreprise.
     const res = await fetch("/api/tarifs", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        updates, cotisation, iban,
-        coordonnees: {
-          titulaire,
-          adresse_rue: adrRue,
-          adresse_numero: adrNumero,
-          adresse_npa: adrNpa,
-          adresse_ville: adrVille,
-          adresse_pays: adrPays,
-        },
-      }),
+      body: JSON.stringify({ updates, cotisation }),
     });
+    const resEntite = res.ok
+      ? await fetch("/api/entite/coordonnees", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            iban,
+            coordonnees: {
+              titulaire,
+              adresse_rue: adrRue,
+              adresse_numero: adrNumero,
+              adresse_npa: adrNpa,
+              adresse_ville: adrVille,
+              adresse_pays: adrPays,
+            },
+          }),
+        })
+      : res;
 
-    if (res.ok) {
+    if (res.ok && resEntite.ok) {
       setSucces("✅ Paramètres sauvegardés !");
       router.refresh();
     }

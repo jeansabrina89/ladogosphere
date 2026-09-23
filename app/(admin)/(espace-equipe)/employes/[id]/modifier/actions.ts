@@ -5,16 +5,8 @@ import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { permissionsDepuisFormulaire } from "@/src/lib/permissionsCatalogue";
 import { enregistrerInitiales } from "@/src/lib/auteursDb";
+import { verifierAdmin } from "@/src/lib/permissions";
 
-async function verifierAdmin(): Promise<{ error?: string }> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Non connecté" };
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return { error: "Accès réservé à l'admin" };
-  return {};
-}
 
 export async function modifierEmploye(
   profil_id: string,
@@ -101,6 +93,10 @@ export async function modifierEmploye(
   // ci-dessus : son trigger d'initiales appelle une fonction SQL, et ces
   // fonctions ne sont plus exécutables par le rôle d'un navigateur.
   if (profil_id) {
+    const { data: avant } = await supabaseAdmin
+      .from("profiles").select("actif").eq("id", profil_id).maybeSingle();
+    const desactive = avant?.actif !== false && formData.get("actif") !== "on";
+
     await supabaseAdmin
       .from("profiles")
       .update({
@@ -114,6 +110,13 @@ export async function modifierEmploye(
         ...permissionsDepuisFormulaire(formData),
       })
       .eq("id", profil_id);
+
+    // Désactivé : ses sessions ouvertes se ferment. Les gardes (garde.ts) lui
+    // refusent déjà tout au geste suivant ; sans ceci, son jeton de
+    // rafraîchissement continuait de renouveler sa session.
+    if (desactive) {
+      await supabaseAdmin.rpc("revoquer_sessions", { p_user_id: profil_id });
+    }
   }
 
   // Changer le mot de passe si rempli

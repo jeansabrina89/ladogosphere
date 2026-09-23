@@ -1,25 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { lireCorpsJson } from "@/src/lib/corpsRequete";
-import { createClient } from "@/src/utils/supabase/server";
+import { exigerAdmin, garderRoute } from "@/src/lib/garde";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-
-async function exigerAdmin() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { erreur: NextResponse.json({ error: "Non connecté" }, { status: 401 }), user: null };
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") {
-    return { erreur: NextResponse.json({ error: "Accès réservé à l'administration" }, { status: 403 }), user: null };
-  }
-  return { erreur: null, user };
-}
 
 const CHAMPS = ["sujet", "titre", "intro", "message_final"] as const;
 
 export async function POST(req: NextRequest) {
-  const { erreur, user } = await exigerAdmin();
-  if (erreur) return erreur;
+  const g = await garderRoute(exigerAdmin("modele_email"));
+  if (g.refus) return g.refus;
+  const user = { id: g.appelant.userId };
 
   const lecture = await lireCorpsJson(req);
   if (!lecture.ok) return lecture.reponse;
@@ -29,7 +18,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Type manquant" }, { status: 400 });
   }
 
-  const ligne: Record<string, unknown> = { type, updated_at: new Date().toISOString(), updated_by: user!.id };
+  const ligne: Record<string, unknown> = { type, updated_at: new Date().toISOString(), updated_by: user.id };
   for (const champ of CHAMPS) {
     const v = body?.[champ];
     // Chaine vide -> null = repli sur le texte par defaut

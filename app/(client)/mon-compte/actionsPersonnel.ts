@@ -6,7 +6,8 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getEmployeRhActuel } from "@/src/lib/employeActuel";
 import { refusRattachementFiche } from "@/src/lib/ficheDeRecette";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
-import { idUtilisateurCourant } from "@/src/lib/permissions";
+import { exigerAdmin } from "@/src/lib/garde";
+import { basculerFicheEnInterneServeur } from "@/src/lib/ficheInterne";
 
 export type ResultatFicheInterne = { ok: true; client_id: string } | { ok: false; error: string };
 
@@ -98,29 +99,12 @@ export async function creerFicheInterne(): Promise<ResultatFicheInterne> {
 
 /**
  * Bascule une fiche `clients` existante en fiche INTERNE (personnel) et valide
- * ses chiens. Appelée par le layout client quand un compte admin/employé avait
- * encore une fiche ordinaire. Le sens inverse n'existe pas.
+ * ses chiens. Exportée d'un fichier "use server", elle est une porte d'entrée
+ * publique : l'admin seule la franchit. Le layout client, lui, n'y passe plus —
+ * il appelle directement basculerFicheEnInterneServeur, après avoir vérifié
+ * que la fiche est celle du membre du personnel connecté.
  */
 export async function basculerFicheEnInterne(client_id: string): Promise<void> {
-  await tracerEvenement({
-    entite: "client", entiteId: client_id, evenement: "bascule_interne",
-    apres: { interne: true, cotisation_exemptee: true, membre: true, chiens_valides: true },
-    userId: await idUtilisateurCourant(),
-  });
-  await supabaseAdmin
-    .from("clients")
-    .update({
-      interne: true,
-      cotisation_exemptee: true,
-      cotisation_exemptee_raison: "Personnel de la pension",
-      membre: true,
-    })
-    .eq("id", client_id);
-
-  // Aucune journée d'essai n'est jamais exigée pour les chiens du personnel.
-  await supabaseAdmin
-    .from("chiens")
-    .update({ statut_essai: "valide" })
-    .eq("client_id", client_id)
-    .neq("statut_essai", "valide");
+  const admin = await exigerAdmin("basculerFicheEnInterne");
+  await basculerFicheEnInterneServeur(client_id, admin.userId);
 }

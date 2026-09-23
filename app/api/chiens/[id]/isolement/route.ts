@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { lireCorpsJson } from "@/src/lib/corpsRequete";
-import { createClient } from "@/src/utils/supabase/server";
+import { exiger, garderRoute } from "@/src/lib/garde";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 
@@ -8,20 +8,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = await createClient();
   const { id } = await params;
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Non connecté" }, { status: 401 });
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (!["admin", "employe"].includes(profile?.role ?? "")) {
-    return NextResponse.json({ error: "Accès réservé au personnel" }, { status: 403 });
-  }
+  const g = await garderRoute(exiger({ action: "isolement_chien" }));
+  if (g.refus) return g.refus;
+  const user = { id: g.appelant.userId };
 
   const lecture = await lireCorpsJson(req);
   if (!lecture.ok) return lecture.reponse;

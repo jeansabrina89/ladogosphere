@@ -1,19 +1,10 @@
 "use server";
 
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { revalidatePath } from "next/cache";
 import { usageBox } from "@/src/lib/usageBox";
+import { verifierAdmin } from "@/src/lib/permissions";
 
-async function verifierAdmin(): Promise<{ error?: string }> {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Non connecté" };
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return { error: "Accès réservé à l'admin" };
-  return {};
-}
 
 export async function creerBox(formData: FormData): Promise<{ error?: string }> {
   const verif = await verifierAdmin();

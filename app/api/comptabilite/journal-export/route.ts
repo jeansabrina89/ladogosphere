@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
-import { createClient } from "@/src/utils/supabase/server";
+import { exigerAdmin, garderRoute } from "@/src/lib/garde";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import * as XLSX from "xlsx";
 
 export async function GET(req: NextRequest) {
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
-  if (!user) return new NextResponse("Non autorise", { status: 401 });
-  const supabase = await createClient();
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return new NextResponse("Acces refuse", { status: 403 });
+  const g = await garderRoute(exigerAdmin("export_journal"));
+  if (g.refus) return g.refus;
 
   const { searchParams } = new URL(req.url);
   const mois = searchParams.get("mois");

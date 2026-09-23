@@ -366,11 +366,12 @@ describe("la route est réservée à l’administration", () => {
   });
 
   it("c’est la même règle que les autres routes d’e-mails", () => {
+    // Une seule garde (garde.ts) : les routes d'e-mails exigent l'admin par elle.
     const modeles = lire("app", "api", "emails", "modeles", "route.ts");
-    expect(modeles).toContain('profile?.role !== "admin"');
+    expect(modeles).toContain("exigerAdmin(");
     const permissions = lire("src", "lib", "permissions.ts");
     expect(permissions).toContain("export async function exigerAdminApi");
-    expect(permissions).toContain('profile?.role !== "admin"');
+    expect(permissions).toContain("adminSeul: true");
   });
 });
 

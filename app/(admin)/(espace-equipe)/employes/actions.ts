@@ -5,16 +5,13 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "crypto";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { verifierAdmin } from "@/src/lib/permissions";
 
 export async function supprimerEmploye(id: string): Promise<{ error?: string }> {
+  // Sécurité : admin uniquement (garde commune, garde.ts)
+  const verif = await verifierAdmin();
+  if (verif.error) return { error: verif.error };
   const supabase = await createSupabaseServerClient();
-
-  // Sécurité : admin uniquement
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Non connecté" };
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return { error: "Accès réservé à l'admin" };
 
   // Historique RH lié, puis l'employé
   const { data: fiches } = await supabase
@@ -72,14 +69,10 @@ export async function creerAccesEmploye(
   ficheId: string,
   confirmer: boolean = false
 ): Promise<AccesEmployeState> {
-  const supabase = await createSupabaseServerClient();
-
-  // Sécurité : admin uniquement
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Non connecté" };
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return { error: "Accès réservé à l'admin" };
+  // Sécurité : admin uniquement (garde commune, garde.ts)
+  const verif = await verifierAdmin();
+  if (verif.error) return { error: verif.error };
+  const user = { id: verif.userId! };
 
   const { data: fiche, error: ficheError } = await supabaseAdmin
     .from("employes_rh")
@@ -188,14 +181,9 @@ export async function creerAccesEmploye(
 export async function reinitialiserMotDePasseEmploye(
   profilId: string
 ): Promise<AccesEmployeState> {
-  const supabase = await createSupabaseServerClient();
-
-  // Sécurité : admin uniquement
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Non connecté" };
-  const { data: profile } = await supabase
-    .from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return { error: "Accès réservé à l'admin" };
+  // Sécurité : admin uniquement (garde commune, garde.ts)
+  const verif = await verifierAdmin();
+  if (verif.error) return { error: verif.error };
 
   const nouveauMdp = randomBytes(9).toString("base64url");
 

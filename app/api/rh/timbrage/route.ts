@@ -3,11 +3,7 @@ import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPersonnel, exigerPermissionApi } from "@/src/lib/apiAuth";
-
-async function getProfileRole(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
-  const { data } = await supabase.from("profiles").select("role").eq("id", userId).single();
-  return data?.role ?? null;
-}
+import { lireAppelant } from "@/src/lib/garde";
 
 async function getMonEmployeId(userId: string): Promise<string | null> {
   const { data } = await supabaseAdmin
@@ -31,7 +27,7 @@ export async function POST(req: NextRequest) {
   } = body;
 
   const { data: { user } } = await supabase.auth.getUser();
-  const role = await getProfileRole(supabase, user!.id);
+  const role = (await lireAppelant(supabase))?.role ?? null;
 
   if (role !== "admin") {
     const monId = await getMonEmployeId(user!.id);
@@ -74,7 +70,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "employe_id et date requis" }, { status: 400 });
 
   const { data: { user } } = await supabase.auth.getUser();
-  const role = await getProfileRole(supabase, user!.id);
+  const role = (await lireAppelant(supabase))?.role ?? null;
 
   if (role !== "admin") {
     const monId = await getMonEmployeId(user!.id);
@@ -113,7 +109,7 @@ export async function PATCH(req: NextRequest) {
   const dateFin   = new Date(annee, moisNum, 0).toISOString().split("T")[0];
 
   const { data: { user } } = await supabase.auth.getUser();
-  const role = await getProfileRole(supabase, user!.id);
+  const role = (await lireAppelant(supabase))?.role ?? null;
 
   if (role !== "admin") {
     const monId = await getMonEmployeId(user!.id);
