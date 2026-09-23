@@ -1,0 +1,84 @@
+import { describe, it, expect } from "vitest";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+
+/**
+ * Le passage obligé se garde tout seul, sinon il ne tient pas.
+ *
+ * Une règle que chaque auteur de route doit se rappeler est une règle que le
+ * prochain oubliera — c'est exactement ce qui est arrivé : quatre routes
+ * convertissaient, trois déposaient les octets bruts, et personne ne s'en
+ * était aperçu avant qu'on aille regarder.
+ *
+ * Ce test relit les sources et refuse tout envoi vers le stockage écrit
+ * ailleurs qu'au dépôt commun. Il échouera en nommant le fichier fautif.
+ */
+
+const RACINES = ["app", "src"];
+
+/**
+ * Les envois connus, avec la raison pour laquelle ils ne passent pas (encore)
+ * par `deposerImage`. Toute autre ligne fait échouer ce test.
+ *
+ * Les quatre routes de la boutique et des options convertissent déjà par
+ * `convertirEnWebp` : elles sont sûres, mais pas encore ramenées sur le chemin
+ * unique — ce sera le lot d'extension. Les deux dernières ne déposent pas
+ * d'image.
+ */
+const ENVOIS_CONNUS: Record<string, string> = {
+  "src/lib/depotImage.ts": "LE passage obligé",
+  "app/api/articles/[id]/photo/route.ts": "convertit déjà ; à ramener sur le chemin unique",
+  "app/api/options/groupes/[id]/couleurs/route.ts": "convertit déjà ; à ramener sur le chemin unique",
+  "app/api/options/groupes/[id]/guide/route.ts": "convertit déjà ; à ramener sur le chemin unique",
+  "app/api/options/valeurs/[id]/photo/route.ts": "convertit déjà ; à ramener sur le chemin unique",
+  "src/lib/pieces.ts": "justificatifs : bucket privé, images non nettoyées — voir docs/SECURITE.md",
+  "src/lib/factureDocument.ts": "PDF que nous fabriquons nous-mêmes, sans métadonnée reçue",
+};
+
+function fichiersSources(dossier: string, trouves: string[] = []): string[] {
+  for (const entree of readdirSync(dossier)) {
+    if (entree === "node_modules" || entree === ".next") continue;
+    const chemin = join(dossier, entree);
+    if (statSync(chemin).isDirectory()) fichiersSources(chemin, trouves);
+    else if (/\.(ts|tsx)$/.test(entree)) trouves.push(chemin);
+  }
+  return trouves;
+}
+
+describe("le dépôt d'image est un passage obligé", () => {
+  const sources = RACINES.flatMap((r) => fichiersSources(join(process.cwd(), r)));
+
+  it("aucune source ne dépose au stockage en dehors des envois connus", () => {
+    const fautifs: string[] = [];
+    for (const chemin of sources) {
+      const texte = readFileSync(chemin, "utf8");
+      // `.upload(` précédé, de près ou de loin, d'un `.storage`.
+      if (!/\.storage[\s\S]{0,200}?\.upload\s*\(/.test(texte)) continue;
+      const relatif = chemin
+        .slice(process.cwd().length + 1)
+        .split(String.fromCharCode(92))
+        .join("/");
+      if (!(relatif in ENVOIS_CONNUS)) fautifs.push(relatif);
+    }
+    expect(
+      fautifs,
+      `Ces fichiers envoient au stockage sans passer par src/lib/depotImage.ts. ` +
+        `Une image déposée telle quelle garde ses métadonnées — et le bucket des photos de chiens est public. ` +
+        `Passez par deposerImage(), ou inscrivez ici la raison écrite de ne pas le faire : ${fautifs.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("la liste des envois connus ne contient pas de mort : chaque fichier existe et dépose vraiment", () => {
+    for (const relatif of Object.keys(ENVOIS_CONNUS)) {
+      const texte = readFileSync(join(process.cwd(), relatif), "utf8");
+      expect(/\.storage[\s\S]{0,200}?\.upload\s*\(/.test(texte), relatif).toBe(true);
+    }
+  });
+
+  it("la route des photos de chiens passe par le dépôt commun", () => {
+    const texte = readFileSync(join(process.cwd(), "app/api/chiens/[id]/photo/route.ts"), "utf8");
+    expect(texte).toContain("deposerImage(");
+    // Et elle ne fabrique plus elle-même son envoi.
+    expect(/\.storage[\s\S]{0,200}?\.upload\s*\(/.test(texte)).toBe(false);
+  });
+});

@@ -3,12 +3,10 @@ import { lireCorpsFormulaire } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { deposerImage } from "@/src/lib/depotImage";
+import { FORMAT_CHIEN } from "@/src/lib/imageBoutique";
 
-const EXT: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-};
+const BUCKET_CHIENS = "chiens-photos";
 
 export async function POST(
   req: NextRequest,
@@ -34,19 +32,18 @@ export async function POST(
   const file = form.get("photo") as File | null;
   if (!file || file.size === 0) return NextResponse.json({ error: "Aucun fichier reçu." }, { status: 400 });
 
-  const ext = EXT[file.type];
-  if (!ext) return NextResponse.json({ error: "Format accepté : JPEG, PNG ou WebP." }, { status: 400 });
-  if (file.size > 4 * 1024 * 1024) return NextResponse.json({ error: "La photo ne doit pas dépasser 4 Mo." }, { status: 400 });
+  // Le dépôt convertit, redimensionne et JETTE les métadonnées : une photo
+  // prise chez le client ne publie pas l'adresse du client.
+  const depot = await deposerImage({
+    bucket: BUCKET_CHIENS,
+    cheminSansExtension: `${id}/${Date.now()}`,
+    fichier: file,
+    format: FORMAT_CHIEN,
+    ecraser: true,
+  });
+  if (!depot.ok) return NextResponse.json({ error: depot.error }, { status: depot.statut });
 
-  const buffer = await file.arrayBuffer();
-  const chemin = `${id}/${Date.now()}.${ext}`;
-
-  const { error: upErr } = await supabaseAdmin.storage
-    .from("chiens-photos")
-    .upload(chemin, buffer, { contentType: file.type, upsert: true });
-  if (upErr) return NextResponse.json({ error: "Échec de l'envoi de l'image." }, { status: 500 });
-
-  const { data: pub } = supabaseAdmin.storage.from("chiens-photos").getPublicUrl(chemin);
+  const { data: pub } = supabaseAdmin.storage.from(BUCKET_CHIENS).getPublicUrl(depot.chemin);
 
   const { error: updErr } = await supabaseAdmin
     .from("chiens")

@@ -32,10 +32,19 @@ export const LARGEUR_COLORIS = 400;
 /** Photo d'article : large, mais pas au-delà de ce qu'un écran affiche. */
 export const LARGEUR_ARTICLE = 1200;
 
-export type FormatImage = { largeur: number; carre: boolean };
+/**
+ * `carre` recadre au centre. `plusGrandCote` borne la plus grande dimension —
+ * une photo debout et une photo couchée sortent alors de la même taille, ce
+ * qu'attend une fiche qui les montre l'une sous l'autre.
+ */
+export type FormatImage = { largeur: number; carre: boolean; plusGrandCote?: boolean };
+
+/** Photo de chien : la fiche n'en montre qu'une, jamais plus grande que ça. */
+export const LARGEUR_CHIEN = 1600;
 
 export const FORMAT_COLORIS: FormatImage = { largeur: LARGEUR_COLORIS, carre: true };
 export const FORMAT_ARTICLE: FormatImage = { largeur: LARGEUR_ARTICLE, carre: false };
+export const FORMAT_CHIEN: FormatImage = { largeur: LARGEUR_CHIEN, carre: false, plusGrandCote: true };
 
 /** Refus du fichier reçu, ou null s'il peut être converti. */
 export function refusFichierImage(f: { type?: string | null; size?: number | null }): string | null {
@@ -71,7 +80,9 @@ export async function convertirEnWebp(
 
     const redimensionnee = format.carre
       ? image.resize(format.largeur, format.largeur, { fit: "cover", position: "centre", withoutEnlargement: true })
-      : image.resize({ width: format.largeur, withoutEnlargement: true });
+      : format.plusGrandCote
+        ? image.resize({ width: format.largeur, height: format.largeur, fit: "inside", withoutEnlargement: true })
+        : image.resize({ width: format.largeur, withoutEnlargement: true });
 
     const { data, info } = await redimensionnee
       .webp({ quality: 82, effort: 4 })
