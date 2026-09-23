@@ -4,6 +4,7 @@ import path from "node:path";
 import React from "react";
 import * as Sentry from "@sentry/nextjs";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { deposerDocument } from "@/src/lib/depotImage";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { lireParametresTva, affichage } from "@/src/lib/tva";
 import { piedTva, ventilerPanier, type LigneVentilable } from "@/src/lib/tvaLogique";
@@ -213,12 +214,17 @@ export async function genererPdfFacture(
   const sha256 = createHash("sha256").update(buffer).digest("hex");
   const chemin = `${infos.exercice}/${f.numero}.pdf`;
 
-  const { error: erreurDepot } = await supabaseAdmin.storage
-    .from(BUCKET_FACTURES)
-    .upload(chemin, buffer, { contentType: "application/pdf", upsert: false });
-
-  // Un fichier déjà présent n'est pas une erreur : le PDF est immuable.
-  if (erreurDepot && !/exists/i.test(erreurDepot.message)) throw erreurDepot;
+  // Tout dépôt passe par la porte commune — ici celle des PDF, qui ne se
+  // convertissent pas. Un fichier déjà présent n'est pas une erreur : le PDF
+  // d'une facture est immuable.
+  const depot = await deposerDocument({
+    bucket: BUCKET_FACTURES,
+    chemin,
+    octets: buffer,
+    type: "application/pdf",
+    siDejaPresent: "garder",
+  });
+  if (!depot.ok) throw new Error(depot.error);
 
   await supabaseAdmin
     .from("factures")

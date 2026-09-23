@@ -7,9 +7,8 @@ import {
   BUCKET_PHOTOS,
   FORMAT_ARTICLE,
   cheminImage,
-  convertirEnWebp,
-  refusFichierImage,
 } from "@/src/lib/imageBoutique";
+import { deposerImage } from "@/src/lib/depotImage";
 
 /**
  * Photo d'un article, déposée dans le bucket PUBLIC de la boutique.
@@ -46,22 +45,16 @@ export async function POST(
     return NextResponse.json({ error: "Aucun fichier reçu." }, { status: 400 });
   }
 
-  const refus = refusFichierImage({ type: fichier.type, size: fichier.size });
-  if (refus) return NextResponse.json({ error: refus }, { status: 400 });
-
-  const conversion = await convertirEnWebp(
-    Buffer.from(await fichier.arrayBuffer()),
-    FORMAT_ARTICLE
-  );
-  if (!conversion.ok) return NextResponse.json({ error: conversion.error }, { status: 400 });
-
-  const chemin = cheminImage("article", id);
-  const { error: erreurDepot } = await supabaseAdmin.storage
-    .from(BUCKET_PHOTOS)
-    .upload(chemin, conversion.octets, { contentType: "image/webp", upsert: false });
-  if (erreurDepot) {
-    return NextResponse.json({ error: "Le dépôt de l'image a échoué." }, { status: 500 });
-  }
+  // Un seul chemin mène au bucket : il convertit, redimensionne et jette les
+  // métadonnées. Rien n'entre sans y passer.
+  const depot = await deposerImage({
+    bucket: BUCKET_PHOTOS,
+    cheminSansExtension: cheminImage("article", id),
+    fichier,
+    format: FORMAT_ARTICLE,
+  });
+  if (!depot.ok) return NextResponse.json({ error: depot.error }, { status: depot.statut });
+  const chemin = depot.chemin;
 
   const { error } = await supabaseAdmin
     .from("articles")
@@ -81,7 +74,7 @@ export async function POST(
   return NextResponse.json({
     ok: true,
     photo_path: chemin,
-    largeur: conversion.largeur,
-    hauteur: conversion.hauteur,
+    largeur: depot.largeur,
+    hauteur: depot.hauteur,
   });
 }

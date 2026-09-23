@@ -203,8 +203,15 @@ describe("peutValiderDepense", () => {
 
 describe("refusFichierPiece", () => {
   it("accepte photo et PDF", () => {
-    for (const type of ["image/jpeg", "image/png", "image/heic", "application/pdf"]) {
+    for (const type of ["image/jpeg", "image/png", "application/pdf"]) {
       expect(refusFichierPiece({ type, size: 1024 })).toBeNull();
+    }
+  });
+
+  it("refuse le HEIC en disant quoi faire : on ne sait pas le lire, donc pas le nettoyer", () => {
+    for (const type of ["image/heic", "image/heif"]) {
+      expect(refusFichierPiece({ type, size: 1024 }))
+        .toBe("Ce format de photo n'est pas accepté. Envoyez un JPEG ou un PNG.");
     }
   });
 

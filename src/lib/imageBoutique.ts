@@ -46,6 +46,14 @@ export const FORMAT_COLORIS: FormatImage = { largeur: LARGEUR_COLORIS, carre: tr
 export const FORMAT_ARTICLE: FormatImage = { largeur: LARGEUR_ARTICLE, carre: false };
 export const FORMAT_CHIEN: FormatImage = { largeur: LARGEUR_CHIEN, carre: false, plusGrandCote: true };
 
+/**
+ * Justificatif : un ticket de caisse se lit, il ne se regarde pas. 2000 px sur
+ * le plus grand côté gardent lisibles les petits caractères d'un reçu
+ * photographié de travers, là où 1600 commencent à les avaler.
+ */
+export const LARGEUR_PIECE = 2000;
+export const FORMAT_PIECE: FormatImage = { largeur: LARGEUR_PIECE, carre: false, plusGrandCote: true };
+
 /** Refus du fichier reçu, ou null s'il peut être converti. */
 export function refusFichierImage(f: { type?: string | null; size?: number | null }): string | null {
   const mime = (f.type ?? "").toLowerCase();
@@ -106,7 +114,12 @@ export async function convertirEnWebp(
   }
 }
 
-/** Chemin de stockage : jamais le nom d'origine, qui vient du navigateur. */
+/**
+ * Chemin de stockage : jamais le nom d'origine, qui vient du navigateur.
+ *
+ * SANS extension : c'est le dépôt qui la pose, et elle vaut toujours `.webp`.
+ * L'appelant ne peut donc pas annoncer un type que le fichier n'a pas.
+ */
 export function cheminImage(prefixe: string, id: string): string {
-  return `${prefixe}/${id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
+  return `${prefixe}/${id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }

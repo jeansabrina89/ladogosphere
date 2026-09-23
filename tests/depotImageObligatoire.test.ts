@@ -17,22 +17,16 @@ import { join } from "node:path";
 const RACINES = ["app", "src"];
 
 /**
- * Les envois connus, avec la raison pour laquelle ils ne passent pas (encore)
- * par `deposerImage`. Toute autre ligne fait échouer ce test.
+ * Les envois autorisés. **Un seul**, et c'est le but : la liste des exceptions
+ * a été vidée le 23 septembre 2026, photos de chiens, boutique, options,
+ * justificatifs et PDF de factures compris.
  *
- * Les quatre routes de la boutique et des options convertissent déjà par
- * `convertirEnWebp` : elles sont sûres, mais pas encore ramenées sur le chemin
- * unique — ce sera le lot d'extension. Les deux dernières ne déposent pas
- * d'image.
+ * N'ajouter une ligne ici qu'avec la raison écrite, et en sachant que chaque
+ * ligne ajoutée est un endroit où une photo peut sortir avec l'adresse d'un
+ * client dedans.
  */
 const ENVOIS_CONNUS: Record<string, string> = {
-  "src/lib/depotImage.ts": "LE passage obligé",
-  "app/api/articles/[id]/photo/route.ts": "convertit déjà ; à ramener sur le chemin unique",
-  "app/api/options/groupes/[id]/couleurs/route.ts": "convertit déjà ; à ramener sur le chemin unique",
-  "app/api/options/groupes/[id]/guide/route.ts": "convertit déjà ; à ramener sur le chemin unique",
-  "app/api/options/valeurs/[id]/photo/route.ts": "convertit déjà ; à ramener sur le chemin unique",
-  "src/lib/pieces.ts": "justificatifs : bucket privé, images non nettoyées — voir docs/SECURITE.md",
-  "src/lib/factureDocument.ts": "PDF que nous fabriquons nous-mêmes, sans métadonnée reçue",
+  "src/lib/depotImage.ts": "LE passage obligé — deposerImage() et deposerDocument()",
 };
 
 function fichiersSources(dossier: string, trouves: string[] = []): string[] {
@@ -75,10 +69,25 @@ describe("le dépôt d'image est un passage obligé", () => {
     }
   });
 
-  it("la route des photos de chiens passe par le dépôt commun", () => {
-    const texte = readFileSync(join(process.cwd(), "app/api/chiens/[id]/photo/route.ts"), "utf8");
-    expect(texte).toContain("deposerImage(");
-    // Et elle ne fabrique plus elle-même son envoi.
-    expect(/\.storage[\s\S]{0,200}?\.upload\s*\(/.test(texte)).toBe(false);
+  it("le garde-fou ne tolère plus aucune exception", () => {
+    expect(Object.keys(ENVOIS_CONNUS)).toEqual(["src/lib/depotImage.ts"]);
+  });
+
+  it("chaque chemin d'entrée passe par le dépôt commun", () => {
+    const chemins = [
+      "app/api/chiens/[id]/photo/route.ts",
+      "app/api/articles/[id]/photo/route.ts",
+      "app/api/options/groupes/[id]/couleurs/route.ts",
+      "app/api/options/groupes/[id]/guide/route.ts",
+      "app/api/options/valeurs/[id]/photo/route.ts",
+      "src/lib/pieces.ts",
+      "src/lib/factureDocument.ts",
+    ];
+    for (const relatif of chemins) {
+      const texte = readFileSync(join(process.cwd(), relatif), "utf8");
+      expect(/deposer(Image|Document)\(/.test(texte), relatif).toBe(true);
+      // Et aucun ne fabrique plus son propre envoi.
+      expect(/\.storage[\s\S]{0,200}?\.upload\s*\(/.test(texte), relatif).toBe(false);
+    }
   });
 });

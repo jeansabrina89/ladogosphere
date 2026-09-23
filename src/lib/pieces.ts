@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
 import * as Sentry from "@sentry/nextjs";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { extensionPiece, refusFichierPiece } from "@/src/lib/depensesLogique";
+import { refusFichierPiece } from "@/src/lib/depensesLogique";
+import { deposerImage, deposerDocument } from "@/src/lib/depotImage";
+import { FORMAT_PIECE } from "@/src/lib/imageBoutique";
 
 /**
  * Pièces justificatives : dépôt dans un bucket PRIVÉ, lecture par URL signée
@@ -46,18 +48,52 @@ export async function deposerPiece(input: {
   const refus = refusFichierPiece({ type: fichier.type, size: fichier.size });
   if (refus) return { ok: false, error: refus };
 
-  const octets = Buffer.from(await fichier.arrayBuffer());
-  const sha256 = createHash("sha256").update(octets).digest("hex");
-  const ext = extensionPiece(fichier.type);
-  const chemin = `${input.entite}/${input.entite_id}/${Date.now()}-${sha256.slice(0, 12)}.${ext}`;
+  const estPdf = fichier.type.toLowerCase() === "application/pdf";
+  const base = `${input.entite}/${input.entite_id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
-  const { error: erreurDepot } = await supabaseAdmin.storage
-    .from(BUCKET_JUSTIFICATIFS)
-    .upload(chemin, octets, { contentType: fichier.type, upsert: false });
-  if (erreurDepot) {
-    Sentry.captureException(erreurDepot);
-    return { ok: false, error: "Le dépôt du fichier a échoué. Réessayez." };
+  // Une photo de ticket est souvent prise au domicile d'un client : elle passe
+  // par le dépôt commun, qui la convertit et jette ses métadonnées. Un PDF ne
+  // se convertit pas — déposé tel quel, risque écrit dans docs/SECURITE.md, et
+  // le bucket est privé.
+  //
+  // Ce qu'on enregistre ensuite décrit ce qui est DANS le bucket, pas ce qui a
+  // été reçu : une photo y est arrivée en WebP, redimensionnée.
+  let chemin: string;
+  let octets: Buffer;
+  let mime: string;
+
+  if (estPdf) {
+    const brut = Buffer.from(await fichier.arrayBuffer());
+    const depot = await deposerDocument({
+      bucket: BUCKET_JUSTIFICATIFS,
+      chemin: `${base}.pdf`,
+      octets: brut,
+      type: fichier.type,
+    });
+    if (!depot.ok) {
+      Sentry.captureException(new Error(depot.error));
+      return { ok: false, error: depot.error };
+    }
+    chemin = depot.chemin;
+    octets = brut;
+    mime = "application/pdf";
+  } else {
+    const depot = await deposerImage({
+      bucket: BUCKET_JUSTIFICATIFS,
+      cheminSansExtension: base,
+      fichier,
+      format: FORMAT_PIECE,
+    });
+    if (!depot.ok) {
+      if (depot.statut === 500) Sentry.captureException(new Error(depot.error));
+      return { ok: false, error: depot.error };
+    }
+    chemin = depot.chemin;
+    octets = depot.octets;
+    mime = "image/webp";
   }
+
+  const sha256 = createHash("sha256").update(octets).digest("hex");
 
   const { data, error } = await supabaseAdmin
     .from("pieces")
@@ -65,7 +101,7 @@ export async function deposerPiece(input: {
       entite: input.entite,
       entite_id: input.entite_id,
       nom_fichier: nomSur(fichier.name),
-      mime: fichier.type,
+      mime,
       taille: octets.length,
       storage_path: chemin,
       sha256,

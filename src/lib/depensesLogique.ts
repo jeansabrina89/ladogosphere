@@ -198,16 +198,26 @@ export const TAILLE_MAX_PIECE = 10 * 1024 * 1024; // 10 Mo
 export const MIMES_PIECE: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
-  "image/heic": "heic",
-  "image/heif": "heif",
   "application/pdf": "pdf",
 };
+
+/**
+ * Le HEIC est sorti de la liste : sharp ne sait pas le lire (ses binaires
+ * n'embarquent aucun codec HEVC, retiré pour raisons de brevets), et une
+ * image qui ne se lit pas ne se nettoie pas. Plutôt que de la déposer telle
+ * quelle avec ses coordonnées, on la refuse en disant quoi faire — ce sont des
+ * employés qui déposent les justificatifs, ils peuvent refaire la photo.
+ */
+export const MIMES_PHOTO_ILLISIBLE = ["image/heic", "image/heif"];
 
 /** Refus de dépôt, ou null si le fichier est acceptable. */
 export function refusFichierPiece(f: { type?: string | null; size?: number | null }): string | null {
   const mime = (f.type ?? "").toLowerCase();
+  if (MIMES_PHOTO_ILLISIBLE.includes(mime)) {
+    return "Ce format de photo n'est pas accepté. Envoyez un JPEG ou un PNG.";
+  }
   if (!MIMES_PIECE[mime]) {
-    return "Format accepté : photo (JPEG, PNG, HEIC) ou PDF.";
+    return "Format accepté : photo (JPEG, PNG) ou PDF.";
   }
   const taille = Number(f.size ?? 0);
   if (!taille) return "Fichier vide.";

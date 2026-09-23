@@ -8,9 +8,9 @@ import {
   BUCKET_PHOTOS,
   FORMAT_COLORIS,
   cheminImage,
-  convertirEnWebp,
   refusFichierImage,
 } from "@/src/lib/imageBoutique";
+import { deposerImage } from "@/src/lib/depotImage";
 
 /**
  * Dépôt multiple de coloris : une valeur par image, le nom du fichier devenant
@@ -64,15 +64,6 @@ export async function POST(
       continue;
     }
 
-    const conversion = await convertirEnWebp(
-      Buffer.from(await fichier.arrayBuffer()),
-      FORMAT_COLORIS
-    );
-    if (!conversion.ok) {
-      refuses.push({ fichier: fichier.name, raison: conversion.error });
-      continue;
-    }
-
     ordre += 1;
     const { data: valeur, error: erreurValeur } = await supabaseAdmin
       .from("options_valeurs")
@@ -88,15 +79,18 @@ export async function POST(
       continue;
     }
 
-    const chemin = cheminImage("coloris", valeur.id as string);
-    const { error: erreurDepot } = await supabaseAdmin.storage
-      .from(BUCKET_PHOTOS)
-      .upload(chemin, conversion.octets, { contentType: "image/webp", upsert: false });
-    if (erreurDepot) {
+    const depot = await deposerImage({
+      bucket: BUCKET_PHOTOS,
+      cheminSansExtension: cheminImage("coloris", valeur.id as string),
+      fichier,
+      format: FORMAT_COLORIS,
+    });
+    if (!depot.ok) {
       // Une valeur sans visuel s'affiche par son seul nom : on la garde.
-      refuses.push({ fichier: fichier.name, raison: "Le dépôt de l'image a échoué." });
+      refuses.push({ fichier: fichier.name, raison: depot.error });
       continue;
     }
+    const chemin = depot.chemin;
 
     await supabaseAdmin.from("options_valeurs").update({ image_path: chemin }).eq("id", valeur.id);
     creees.push({ id: valeur.id as string, libelle: valeur.libelle as string, image_path: chemin });

@@ -61,10 +61,16 @@ jette tout ce qu'elle portait ; un format illisible est refusé, jamais déposé
 brut. `tests/depotImageObligatoire.test.ts` relit les sources et refuse tout
 envoi au stockage écrit ailleurs qu'à ce dépôt.
 
-**Ce qui reste à ramener sur ce chemin** (lot d'extension, non fait ici) : les
-quatre routes de la boutique et des options, qui convertissent déjà par
-`convertirEnWebp` — elles sont sûres, simplement pas encore unifiées — et les
-justificatifs (`src/lib/pieces.ts`), qui déposent les octets bruts.
+**Tous les chemins y passent depuis le 23 septembre 2026** : photo de chien,
+photo d'article, coloris, image de guide, photo de valeur d'option,
+justificatif, et jusqu'au PDF des factures que nous fabriquons. Le garde-fou
+n'a **aucune exception à tolérer** : la liste des envois autorisés ne contient
+que `src/lib/depotImage.ts`. Une ligne ajoutée à cette liste est un endroit où
+une photo peut ressortir avec l'adresse d'un client dedans.
+
+Deux portes, et deux seulement : `deposerImage` convertit et nettoie ;
+`deposerDocument` dépose un PDF tel quel et **refuse une image**, afin qu'on ne
+puisse pas s'en servir pour contourner la première.
 
 ### Risque accepté : les PDF déposés ne sont pas nettoyés
 
@@ -119,8 +125,31 @@ retiré pour raisons de brevets ; l'écriture échoue de même
 (`heifsave: Unsupported compression`). Ce n'est pas propre à une plateforme :
 les paquets `@img/sharp-*` sont bâtis d'une seule recette.
 
-**Conséquence.** Un HEIC est REFUSÉ avec une phrase qui donne la manœuvre
-(Réglages ▸ Appareil photo ▸ Formats ▸ « Le plus compatible »), jamais déposé
-brut. La route des photos de chiens n'acceptait déjà que JPEG, PNG et WebP.
-Reste ouverte la question des justificatifs, qui acceptent `image/heic` et le
-conservent tel quel : la trancher avant de les ramener sur le chemin unique.
+### Décision : le HEIC est refusé partout
+
+**Date :** 23 septembre 2026 — décision prise, ce n'est plus une question
+ouverte.
+
+**Ce qui a été choisi.** Aucun HEIC n'entre, nulle part. Ni dans les photos de
+chiens (qui ne l'acceptaient déjà pas), ni dans les justificatifs — d'où il
+sort de `MIMES_PIECE` et de la liste des types du bucket
+(`20260923183000_justificatifs_accepte_webp.sql`). Le refus dit la manœuvre :
+« Ce format de photo n'est pas accepté. Envoyez un JPEG ou un PNG. »
+
+**Pourquoi refuser plutôt qu'accepter.** Une image que la bibliothèque ne sait
+pas lire est une image qu'on ne sait pas nettoyer. L'accepter reviendrait à
+déposer un fichier brut, avec ses coordonnées, en faisant une exception au seul
+endroit qui protège tous les autres — et une exception dans un passage obligé
+n'est plus un passage obligé.
+
+**Pourquoi c'est tenable.** Ce sont des **employés** qui déposent les
+justificatifs, pas des clients : ils peuvent refaire la photo. Et iOS convertit
+déjà en JPEG dans la plupart des envois faits depuis un navigateur.
+
+**Ce qui ferait rouvrir la décision.** Que des **clients** déposent eux-mêmes
+des photos (une réclamation avec pièce jointe, un dépôt de document depuis
+l'espace client) : refuser le format natif de leur téléphone leur ferait
+abandonner l'envoi, et le remède serait pire. Il faudrait alors convertir dans
+le navigateur avant l'envoi, ou embarquer un décodeur HEVC — en sachant ce que
+cela engage côté brevets. Rouvrir aussi si une version de sharp rétablit la
+lecture du HEIC dans ses binaires précompilés.
