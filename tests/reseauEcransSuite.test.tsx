@@ -74,6 +74,11 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  // Le mock de xlsx se retire ICI, pas en fin de corps de test : un nettoyage
+  // qui ne s'exécute que si le test réussit n'est pas un nettoyage. Laissé en
+  // place après un échec, il ferait tomber les tests suivants du fichier — et
+  // la trace deviendrait illisible au moment où l'on en a le plus besoin.
+  vi.doUnmock("xlsx");
 });
 
 // ── Création d'une réservation : ce que le 18d n'avait jamais vu tourner ────
@@ -179,7 +184,6 @@ describe("Export Excel des statistiques", () => {
     expect(alerte.textContent).not.toContain("joindre le serveur");
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /Exporter stats Excel/i }).hasAttribute("disabled")).toBe(false));
-    vi.doUnmock("xlsx");
   });
 });
 

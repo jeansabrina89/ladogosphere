@@ -90,17 +90,32 @@ Ce qui a été écarté, preuves à l'appui :
 - **le jsdom mal nettoyé** — les trois fichiers jsdom appellent `cleanup()` et
   `vi.unstubAllGlobals()` dans un `afterEach`.
 
-Ce qui reste plausible, et non corrigé à ce jour : les **deux** exécutions en
-échec étaient deux à quatre fois plus lentes que la normale (import 125 s
-contre 65 s ; environnement 104 s contre 11 s). Or le délai d'un test reste
-celui de vitest, **5 000 ms**, quand l'attente de rendu vaut 4 000 : sous
-charge, c'est le test entier qui expire, et le relèvement de
-`asyncUtilTimeout` n'y change rien. Deux fragilités repérées au passage, à
-traiter si le sujet se rouvre : `vi.doUnmock("xlsx")` placé en FIN de corps de
-test dans `tests/reseauEcransSuite.test.tsx` (un échec plus tôt le saute et
-laisse le mock en place pour la suite du fichier), et les tests qui lisent
-l'heure réelle (`tests/encaissement.test.ts`,
-`tests/paiementDemandeRelance.test.ts`), sensibles à un passage de minuit UTC.
+Ce qui reste plausible : les **deux** exécutions en échec étaient deux à quatre
+fois plus lentes que la normale (import 125 s contre 65 s ; environnement 104 s
+contre 11 s).
+
+**Corrigé le 24 septembre 2026**, non pour faire taire l'échec mais pour qu'il
+parle :
+
+- **Les deux délais étaient dans le mauvais ordre.** Le test expirait à 5 000 ms
+  quand l'attente de rendu en demandait 4 000 : on recevait « Test timed out »,
+  qui ne nomme rien. Le délai des fichiers jsdom est passé à **15 secondes**
+  (`tests/setup/attenteJsdom.ts`), l'attente restant à 4 ; les tests en
+  environnement node gardent les 5 secondes d'origine. Vérifié : l'échec d'une
+  attente dit maintenant `Unable to find role="button" and name …` au lieu de
+  `Test timed out`. La règle générale : le délai d'un test reste toujours
+  confortablement supérieur à la plus longue attente qu'il contient.
+- **`vi.doUnmock("xlsx")` est passé dans un `afterEach`.** En fin de corps de
+  test, il ne s'exécutait que si le test réussissait — donc jamais quand on en
+  avait besoin — et un échec aurait entraîné les tests suivants du fichier,
+  rendant la trace illisible au pire moment.
+
+Non corrigé, et c'est délibéré : les tests qui lisent l'heure réelle
+(`tests/encaissement.test.ts`, `tests/paiementDemandeRelance.test.ts`) sont
+sensibles à un passage de minuit UTC — soit 2 h du matin ici, ce qui ne
+correspond à aucune des deux occurrences. Les figer demanderait de décider
+quelle heure ils doivent voir : c'est un sujet en soi, pas un effet de bord à
+traiter au passage.
 
 Deux occurrences réelles ne s'effacent pas parce qu'on n'a pas su les
-reproduire. Au prochain échec, la sortie sera là.
+reproduire. Au prochain échec, la sortie sera là — et elle nommera l'élément.
