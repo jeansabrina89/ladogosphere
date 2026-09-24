@@ -47,3 +47,6 @@ supabase/.branches
 
 # sauvegardes de donnees — contiennent des donnees clients, jamais sur GitHub
 backups/
+
+# sorties completes des executions de tests — gardees pour analyser un echec isole
+traces-tests/

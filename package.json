@@ -9,6 +9,7 @@
     "lint": "eslint",
     "lint:types": "eslint . --config eslint.types.config.mjs",
     "test": "vitest run",
+    "test:trace": "node scripts/test-trace.mjs",
     "backup:data": "node scripts/sauvegarde-donnees.mjs",
     "backup:schema": "node scripts/sauvegarde-schema.mjs"
   },

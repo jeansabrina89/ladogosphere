@@ -66,3 +66,41 @@ logiciel, et les tests de composants ont pour cela un délai confortable
 (`tests/setup/attenteJsdom.ts`). Mais l'instabilité qui persiste après ce
 relèvement ne vient plus de la charge : c'est une course, et elle se cherche
 avec la sortie qu'on a gardée.
+
+**La sortie se garde toute seule** : `npm run test:trace` lance la suite en
+écrivant TOUJOURS la sortie complète dans `traces-tests/<horodatage>.txt`
+avant tout filtrage, et rend le code de sortie de vitest. C'est lui qu'on
+utilise pour les vérifications de fin de lot, `npm test` restant la version
+courte. La règle précédente demandait d'y penser au pire moment — celui où
+l'on veut juste savoir si c'est vert — et elle a été enfreinte deux fois en
+deux jours par celui-là même qui l'avait écrite.
+
+## Sujet ouvert : deux échecs isolés jamais reproduits
+
+Au 24 septembre 2026, deux exécutions de la suite ont signalé un échec, à
+deux jours et deux lots différents, sans que la sortie ait été conservée. La
+suite a ensuite été lancée **vingt et une fois d'affilée** avec `test:trace` :
+aucun échec.
+
+Ce qui a été écarté, preuves à l'appui :
+
+- **la fuite d'état entre fichiers de test** — vitest isole chaque fichier
+  (`isolate: true` par défaut, vérifié dans ses valeurs par défaut) : registre
+  de modules et environnement neufs à chaque fichier ;
+- **le jsdom mal nettoyé** — les trois fichiers jsdom appellent `cleanup()` et
+  `vi.unstubAllGlobals()` dans un `afterEach`.
+
+Ce qui reste plausible, et non corrigé à ce jour : les **deux** exécutions en
+échec étaient deux à quatre fois plus lentes que la normale (import 125 s
+contre 65 s ; environnement 104 s contre 11 s). Or le délai d'un test reste
+celui de vitest, **5 000 ms**, quand l'attente de rendu vaut 4 000 : sous
+charge, c'est le test entier qui expire, et le relèvement de
+`asyncUtilTimeout` n'y change rien. Deux fragilités repérées au passage, à
+traiter si le sujet se rouvre : `vi.doUnmock("xlsx")` placé en FIN de corps de
+test dans `tests/reseauEcransSuite.test.tsx` (un échec plus tôt le saute et
+laisse le mock en place pour la suite du fichier), et les tests qui lisent
+l'heure réelle (`tests/encaissement.test.ts`,
+`tests/paiementDemandeRelance.test.ts`), sensibles à un passage de minuit UTC.
+
+Deux occurrences réelles ne s'effacent pas parce qu'on n'a pas su les
+reproduire. Au prochain échec, la sortie sera là.
