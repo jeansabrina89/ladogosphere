@@ -92,7 +92,7 @@ describe("C-06c : le justificatif d'une dépense validée", () => {
   it("ne se retire pas en désignant une autre dépense", async () => {
     // L'attaque : la dépense du formulaire est un brouillon — elle passe la
     // garde — et la pièce appartient à une dépense validée.
-    const etat = await retirerPiece({}, formulaire(PIECE_DE_LA_VALIDEE, BROUILLON));
+    const etat = await retirerPiece({ erreur: null }, formulaire(PIECE_DE_LA_VALIDEE, BROUILLON));
 
     expect(
       H.supprimees,
@@ -108,14 +108,14 @@ describe("C-06c : le justificatif d'une dépense validée", () => {
       id: "piece-du-brouillon", entite: "depense", entite_id: BROUILLON,
     });
 
-    const etat = await retirerPiece({}, formulaire("piece-du-brouillon", BROUILLON));
+    const etat = await retirerPiece({ erreur: null }, formulaire("piece-du-brouillon", BROUILLON));
 
     expect(etat.erreur).toBeNull();
     expect(H.supprimees).toEqual(["piece-du-brouillon"]);
   });
 
   it("une pièce qui n'existe pas se refuse sans rien détruire", async () => {
-    const etat = await retirerPiece({}, formulaire("piece-fantome", BROUILLON));
+    const etat = await retirerPiece({ erreur: null }, formulaire("piece-fantome", BROUILLON));
     expect(etat.erreur).toBeTruthy();
     expect(H.supprimees).toEqual([]);
   });
@@ -124,7 +124,7 @@ describe("C-06c : le justificatif d'une dépense validée", () => {
     H.pieces.set("piece-de-facture", {
       id: "piece-de-facture", entite: "facture", entite_id: "fac-1",
     });
-    const etat = await retirerPiece({}, formulaire("piece-de-facture", BROUILLON));
+    const etat = await retirerPiece({ erreur: null }, formulaire("piece-de-facture", BROUILLON));
     expect(etat.erreur).toBeTruthy();
     expect(H.supprimees).toEqual([]);
   });

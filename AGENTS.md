@@ -164,6 +164,16 @@ deux fois (mesuré).
 Deux occurrences réelles ne s'effacent pas parce qu'on n'a pas su les
 reproduire. Celle-ci, on l'a.
 
+# Un lot de sécurité ouvre le suivi, et le referme
+
+Tout lot de sécurité ouvre `docs/SUIVI-AUDIT-2026-09-22.md` au début et le met
+à jour à la fin.
+
+La numérotation des lots 18b à 18g a dérivé : le contenu assigné à trois
+d'entre eux n'a jamais été reporté, et personne ne s'en est aperçu pendant
+trois semaines. Un tableau qu'on ouvre avant de commencer ne se perd pas de la
+même façon qu'une intention.
+
 # À traiter au lot 19d : une facture renoncée empêche de clore l'exercice
 
 Depuis le 24 septembre 2026, la réconciliation quotidienne des documents de
