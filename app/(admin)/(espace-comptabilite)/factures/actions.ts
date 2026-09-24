@@ -262,6 +262,12 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
   const aujourdhui = new Date().toISOString().split("T")[0];
 
   // Contre-passation : un versement négatif, jamais une ligne effacée.
+  //
+  // `annule_de` DÉSIGNE le paiement annulé, et un index unique partiel en base
+  // n'en accepte qu'un seul. C'est le verrou : une clé d'idempotence n'aurait
+  // arrêté que le double clic, pas une seconde annulation demandée plus tard.
+  // Deux appels simultanés butent tous deux sur la base, jamais sur un état
+  // lu avant.
   const { error: insErr } = await supabaseAdmin.from("paiements_resa").insert({
     reservation_id: p.reservation_id,
     facture_id: p.facture_id,
@@ -272,9 +278,15 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
     arrondi: destination === "avoir" ? 0 : -r2(Number(p.arrondi ?? 0)),
     motif: `Annulation : ${motif}`,
     source: "manuel",
+    annule_de: paiementId,
     created_by: verif.userId ?? null,
   });
-  if (insErr) return { error: insErr.message };
+  if (insErr) {
+    // La violation d'unicité n'est pas une panne : c'est la réponse à une
+    // question déjà posée. On la dit en français.
+    if (insErr.code === "23505") return { error: "Ce paiement est déjà annulé." };
+    return { error: insErr.message };
+  }
 
   // Mise en avoir : la trésorerie ne bouge pas, la dette envers le client naît.
   if (destination === "avoir" && p.client_id) {
