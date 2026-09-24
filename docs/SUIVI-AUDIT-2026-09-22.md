@@ -19,10 +19,10 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
 |---|---|---|---|---|
 | C-06a — `annulerReservation` prend le client du formulaire | **FERMÉ** | 22 | `43cf2ab` | oui |
 | C-06b — `annulerPaiement` rejouable | **FERMÉ** | 22 | `22daebf` | oui |
-| C-06c — `retirerPiece` sans vérifier l'appartenance | **FERMÉ** | 22 | `949a933` | oui |
+| C-06c — `retirerPiece` sans vérifier l'appartenance | **FERMÉ** | 22, 22-bis | `949a933`, `c810c5d` | oui — DEUX : dépense validée, et deux brouillons (le cas où seule l'appartenance protège) |
 | C-07a — `ajouterAvoir` sous `perm_encaissements` | PARTIEL — aucune permission « avoirs » n'existe ; question de conception | 21 | — | non |
 | C-07b — statut « annulée » sans la permission ni la logique | **FERMÉ** | 22 | `f7a4dac` | oui |
-| C-07c — valider son propre timbrage / ses propres vacances | OUVERT | 21 | — | non |
+| C-07c — valider son propre timbrage / ses propres vacances | OUVERT — reclassé FORGEABLE au recensement du 22-bis | 21 | — | non |
 | C-07d — garde unique `exiger()`, lecture de `profiles.actif` | FERMÉ | 18b | — | oui |
 | C-09 — en-têtes de sécurité, CSP | OUVERT — seul HSTS est servi (par Vercel) | 21 | — | non |
 | C-10 — `/auth/confirm?next=` redirection ouverte | **FERMÉ** | 22 | `de2205b` | oui |
@@ -57,8 +57,27 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
 8. Le reste — C-07a, C-07c, C-11, C-13, S-04, S-07, S-08 — soit inerte, soit
    atteignable seulement par un compte déjà autorisé.
 
+## Motif appartenance — recensement du 22-bis
+
+Recensement complet : [RECENSEMENT-APPARTENANCE-2026-09.md](RECENSEMENT-APPARTENANCE-2026-09.md).
+
+| Verdict | Lignes |
+|---|---|
+| SÛR | 16 |
+| SANS OBJET | 11 |
+| **FORGEABLE** | **3** |
+| **CLIENT→CLIENT** | **0** |
+
+**Aucun CLIENT→CLIENT.** La frontière client/personnel est tenue par la
+session et par RLS, sans exception trouvée. Les trois FORGEABLE sont internes
+au personnel : un chien rattaché à la prestation d'un autre client
+(`prestations/actions.ts:126-128`), et deux auto-validations — son propre
+timbrage, ses propres vacances — qui sont C-07c reclassé.
+
 ## Le motif de fond, relevé au lot 21
 
 `verifierPermission` vérifie la permission, **jamais l'appartenance de
-l'objet**. C-06a et C-06c en étaient deux manifestations. Un recensement
-complet reste à faire : il aura son propre lot.
+l'objet**. C-06a et C-06c en étaient deux manifestations, `ajouterAvoir` une
+troisième. **Le recensement a été fait au lot 22-bis** : voir la section
+ci-dessus et le tableau complet. Il reste trois cas FORGEABLE, tous internes
+au personnel, et aucun CLIENT→CLIENT.
