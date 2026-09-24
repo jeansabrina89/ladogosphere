@@ -201,7 +201,23 @@ export async function retirerPiece(
   const pieceId = String(formData.get("piece_id") ?? "");
   const depenseId = String(formData.get("id") ?? "");
 
-  const depense = await lireDepense(depenseId);
+  // La PIÈCE dit à qui elle appartient — le formulaire, lui, dit ce qu'on veut
+  // bien lui faire dire. Les deux identifiants venaient de là, sans lien
+  // vérifié : désigner un brouillon passait la garde, et la pièce détruite
+  // était celle d'une dépense validée.
+  const { data: piece } = await supabaseAdmin
+    .from("pieces")
+    .select("id, entite, entite_id")
+    .eq("id", pieceId)
+    .maybeSingle();
+  if (!piece) return { erreur: "Justificatif introuvable.", id: depenseId };
+  if (piece.entite !== "depense" || piece.entite_id !== depenseId) {
+    return { erreur: "Ce justificatif n'appartient pas à cette dépense.", id: depenseId };
+  }
+
+  // La garde porte désormais sur la dépense PROPRIÉTAIRE de la pièce. Ici les
+  // deux coïncident, puisqu'on vient de l'exiger.
+  const depense = await lireDepense(piece.entite_id as string);
   if (!depense) return { erreur: "Dépense introuvable." };
   if (depense.numero) {
     return { erreur: "Le justificatif d'une dépense validée fait partie de la pièce comptable.", id: depenseId };
