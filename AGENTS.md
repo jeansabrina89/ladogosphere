@@ -15,6 +15,18 @@ contrainte, vue, fonction, trigger, politique RLS, droit. Le fichier se nomme
 migration est appliquée — sans quoi l'historique du dépôt et celui de Supabase
 cessent de se répondre.
 
+Une migration appliquée par l'outil MCP reçoit sa version **à l'application** :
+le fichier du dépôt prend CETTE version, relue dans `schema_migrations`, jamais
+une heure choisie à la main. Six fichiers ont porté une version inventée
+jusqu'au 24 septembre 2026 — l'heure locale suisse, quand la base enregistre
+l'heure UTC. Deux heures d'écart suffisent à ce que les deux historiques ne se
+répondent plus, et rien ne le signale.
+
+```sql
+select version, name from supabase_migrations.schema_migrations
+order by version desc limit 5;
+```
+
 Le connecteur Supabase applique en une commande ce qui n'a demandé aucun
 fichier : c'est précisément pour cela que la règle est écrite ici. Une base
 qu'on ne peut pas reconstruire depuis le dépôt n'est sauvegardée nulle part, et
