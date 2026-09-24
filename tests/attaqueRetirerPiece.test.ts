@@ -129,3 +129,39 @@ describe("C-06c : le justificatif d'une dépense validée", () => {
     expect(H.supprimees).toEqual([]);
   });
 });
+
+describe("C-06c : deux BROUILLONS — seule l'appartenance protège", () => {
+  const BROUILLON_B = "dep-brouillon-b";
+  const PIECE_DE_B = "piece-du-brouillon-b";
+
+  beforeEach(() => {
+    // Les deux dépenses sont en brouillon : la garde « dépense validée » ne
+    // bloque plus rien. Ce qui reste est le lien entre la pièce et sa dépense.
+    H.depenses.set(BROUILLON_B, { id: BROUILLON_B, numero: null });
+    H.pieces.set(PIECE_DE_B, { id: PIECE_DE_B, entite: "depense", entite_id: BROUILLON_B });
+  });
+
+  it("le justificatif du brouillon B ne se retire pas depuis le brouillon A", async () => {
+    const etat = await retirerPiece({ erreur: null }, formulaire(PIECE_DE_B, BROUILLON));
+
+    expect(
+      H.supprimees,
+      "le justificatif d'une AUTRE dépense a été détruit : seule l'appartenance protégeait ce cas",
+    ).toEqual([]);
+    // En base ET dans le bucket : `supprimerPiece` fait les deux, et n'a pas été appelée.
+    expect(H.pieces.has(PIECE_DE_B)).toBe(true);
+    expect(etat.erreur).toBe("Ce justificatif n'appartient pas à cette dépense.");
+  });
+
+  it("chacun retire le sien, et rien de plus", async () => {
+    H.pieces.set("piece-du-brouillon-a", {
+      id: "piece-du-brouillon-a", entite: "depense", entite_id: BROUILLON,
+    });
+
+    const etat = await retirerPiece({ erreur: null }, formulaire("piece-du-brouillon-a", BROUILLON));
+
+    expect(etat.erreur).toBeNull();
+    expect(H.supprimees).toEqual(["piece-du-brouillon-a"]);
+    expect(H.pieces.has(PIECE_DE_B)).toBe(true);
+  });
+});
