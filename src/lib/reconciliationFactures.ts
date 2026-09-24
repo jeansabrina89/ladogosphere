@@ -53,6 +53,15 @@ export const STATUTS_SANS_DOCUMENT_ATTENDU = ["brouillon"];
  */
 const SANS_REGENERATION = "document perdu : reconstruire masquerait l'écart avec la copie du client";
 
+/**
+ * La taille d'une page du listage de stockage.
+ *
+ * L'API pagine à CENT par défaut ; mille est son maximum. On demande le
+ * maximum ET on redemande tant que la page est pleine : sans la seconde
+ * moitié, tout ce qui dépasse une page serait déclaré perdu.
+ */
+const PAGE_STOCKAGE = 1000;
+
 /** Après ce nombre d'échecs consécutifs, la tâche cesse d'essayer. */
 export const TENTATIVES_AVANT_RENONCEMENT = 5;
 
@@ -87,29 +96,53 @@ export async function facturesSansDocument(): Promise<FactureSansDocument[]> {
  * chemin, donc `facturesSansDocument` ne les voit pas. Sans ce relevé, une
  * perte serait parfaitement muette.
  *
- * Le coût est borné : on LISTE les dossiers du bucket (un appel par exercice),
- * on ne télécharge rien. Dix mille factures coûtent autant que dix.
+ * Le coût : on LISTE, on ne télécharge rien — et le listage se paie par PAGE
+ * de mille objets, pas par facture. Un exercice de 107 factures coûte un
+ * appel ; un exercice de 10 000 en coûte dix. J'avais écrit « dix mille
+ * factures coûtent autant que dix » : c'était faux, et le rendu `appels` est
+ * là pour que la prochaine affirmation soit vérifiable plutôt que crue.
  */
-export async function documentsPerdus(): Promise<{ numero: string; chemin: string }[]> {
+export async function documentsPerdus(): Promise<{
+  perdus: { numero: string; chemin: string }[];
+  /** Ce que le relevé a coûté, pour que l'affirmation soit vérifiable. */
+  appels: number;
+}> {
   const { data } = await supabaseAdmin
     .from("factures")
     .select("numero, pdf_path")
     .not("pdf_path", "is", null);
   const avecChemin = (data ?? []) as { numero: string; pdf_path: string }[];
-  if (avecChemin.length === 0) return [];
+  let appels = 0;
+  if (avecChemin.length === 0) return { perdus: [], appels };
 
   const dossiers = new Set(avecChemin.map((f) => f.pdf_path.split("/")[0]));
   const presents = new Set<string>();
   for (const dossier of dossiers) {
-    const { data: objets } = await supabaseAdmin.storage
-      .from(BUCKET_FACTURES)
-      .list(dossier, { limit: 1000 });
-    for (const o of objets ?? []) presents.add(`${dossier}/${o.name}`);
+    // La liste est PAGINÉE. Sans redemander, tout ce qui dépasse la page
+    // serait déclaré perdu — et une alerte fausse sur des factures bien
+    // présentes est pire que pas d'alerte : on cesse de la lire.
+    //
+    // `limit` écarte déjà le défaut par défaut (cent objets) ; la boucle
+    // écarte celui de la page pleine, à mille.
+    let debut = 0;
+    for (;;) {
+      const { data: objets, error } = await supabaseAdmin.storage
+        .from(BUCKET_FACTURES)
+        .list(dossier, { limit: PAGE_STOCKAGE, offset: debut });
+      appels += 1;
+      if (error || !objets || objets.length === 0) break;
+      for (const o of objets) presents.add(`${dossier}/${o.name}`);
+      if (objets.length < PAGE_STOCKAGE) break;
+      debut += objets.length;
+    }
   }
 
-  return avecChemin
-    .filter((f) => !presents.has(f.pdf_path))
-    .map((f) => ({ numero: f.numero, chemin: f.pdf_path }));
+  return {
+    perdus: avecChemin
+      .filter((f) => !presents.has(f.pdf_path))
+      .map((f) => ({ numero: f.numero, chemin: f.pdf_path })),
+    appels,
+  };
 }
 
 export type BilanReconciliation = {
@@ -136,7 +169,7 @@ export type BilanReconciliation = {
 export async function reconcilierDocumentsFactures(): Promise<BilanReconciliation> {
   const candidates = await facturesSansDocument();
   // Les pertes se relèvent AVANT, et ne rejoignent jamais la fabrication.
-  const perdusReleves = await documentsPerdus();
+  const perdusReleves = (await documentsPerdus()).perdus;
   const irreparables: { numero: string; statut: string }[] = [];
   const renoncees: string[] = [];
   const perdus: string[] = perdusReleves.map((p) => p.numero);

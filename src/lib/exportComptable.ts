@@ -153,7 +153,7 @@ export async function inventaireExercice(exercice: number): Promise<Inventaire> 
   }));
   // Le chemin est ecrit, l objet a disparu : ce n est pas la meme chose, et ca
   // ne se repare pas de la meme facon.
-  const perdus = await documentsPerdus();
+  const perdus = (await documentsPerdus()).perdus;
 
   const perimetre = new Set(prefixes);
   return inventorier({
