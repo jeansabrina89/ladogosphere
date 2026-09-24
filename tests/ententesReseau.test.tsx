@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, waitFor, cleanup, within } from "@testing-library/react";
 import "./setup/attenteJsdom"; // quatre secondes d'attente, pas une
 
 /**
@@ -82,17 +82,42 @@ describe("Ententes : le premier chargement échoue", () => {
   });
 
   it("« Réessayer » recharge vraiment, et la liste apparaît", async () => {
-    const fetchSimule = vi.fn()
-      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
-      .mockResolvedValue(reponse(LISTE));
+    // Instrumenté pour départager deux hypothèses sur un échec intermittent
+    // (une fois sur huit exécutions de la suite entière) : une écriture
+    // périmée du composant, ou un reste de DOM d'un test voisin.
+    const journal: string[] = [];
+    let rang = 0;
+    // Le simulateur garde la forme qu'il avait quand l'échec a été observé :
+    // UN SEUL objet Response partagé par tous les appels qui réussissent. Un
+    // corps de réponse ne se lit qu'une fois — un troisième appel le relirait
+    // et lèverait « Body is unusable », que `appelerApi` traite en échec
+    // réseau. C'est précisément le message vu dans la trace du 24 septembre.
+    const partagee = reponse(LISTE);
+    const fetchSimule = vi.fn(async () => {
+      const n = ++rang;
+      journal.push(`appel#${n}`);
+      if (n === 1) { journal.push(`echec#${n}`); throw new TypeError("Failed to fetch"); }
+      journal.push(`succes#${n}`);
+      return partagee;
+    });
     vi.stubGlobal("fetch", fetchSimule);
-    afficher();
+    const { container } = afficher();
 
     const reessayer = await screen.findByRole("button", { name: /Réessayer/i });
     reessayer.click();
 
     await waitFor(() => expect(screen.queryAllByText(/Nala/).length).toBeGreaterThan(0));
-    expect(screen.queryByRole("alert")).toBeNull();
+
+    // Le départage tient dans ces deux nombres : un bandeau DANS ce conteneur
+    // accuse le composant ; un bandeau ailleurs dans la page accuse le
+    // nettoyage entre tests. L'assertion est plus stricte qu'avant, pas moins.
+    const ici = within(container).queryAllByRole("alert");
+    const partout = screen.queryAllByRole("alert");
+    expect(
+      { dansCeConteneur: ici.length, dansToutLeDocument: partout.length },
+      `ordre des appels : ${journal.join(" → ")} | conteneurs montés : ${document.body.childElementCount}` +
+        ` | texte du bandeau : ${(partout[0]?.textContent ?? "aucun").slice(0, 80)}`,
+    ).toEqual({ dansCeConteneur: 0, dansToutLeDocument: 0 });
   });
 });
 

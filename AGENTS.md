@@ -143,9 +143,23 @@ Deux mécanismes candidats, non tranchés et **non corrigés** :
 2. un reste de DOM du test voisin : `screen` interroge tout `document.body`,
    et le test précédent du même fichier affiche le même bandeau.
 
-Départager les deux demande d'instrumenter le test (compter les bandeaux, pas
-seulement leur présence) — à faire avant toute correction, et sans rendre
-l'assertion plus tolérante.
+**Le test est instrumenté depuis le 24 septembre** : il compte les bandeaux
+DANS son conteneur et dans tout le document, et joint à l'échec l'ordre réel
+des appels. Un bandeau dans le conteneur accusera le composant ; un bandeau
+ailleurs accusera le nettoyage entre tests. L'assertion est plus stricte
+qu'avant, pas moins.
+
+**Vingt exécutions complètes de plus, aucun échec** — dix avec le simulateur
+instrumenté, dix avec sa forme d'origine. Non reproduit, donc non corrigé :
+`Ententes.tsx` n'a toujours aucune garde de séquence.
+
+Un fait mesuré, qui ne prouve rien à lui seul mais qui oriente : le simulateur
+de ce test partage UN SEUL objet `Response` entre tous les appels qui
+réussissent. Or un corps de réponse ne se lit qu'une fois — un troisième appel
+lèverait « Body is unusable: Body has already been read », que `appelerApi`
+traite en échec réseau et affiche avec le message exact vu dans la trace. Il
+manque le déclencheur : dans le scénario nominal, le composant n'appelle que
+deux fois (mesuré).
 
 Deux occurrences réelles ne s'effacent pas parce qu'on n'a pas su les
 reproduire. Celle-ci, on l'a.
