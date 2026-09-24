@@ -77,8 +77,10 @@ describe("justificatif : une photo", () => {
     });
 
     expect(r.ok).toBe(true);
-    expect(H.deposes).toHaveLength(1);
-    const arrivee = H.deposes[0];
+    // Deux dépôts depuis le 24 septembre 2026 : le nettoyé et l'original
+    // conservé pour la comptabilité (voir depotJustificatifOrigine.test.ts).
+    expect(H.deposes).toHaveLength(2);
+    const arrivee = H.deposes.find((d) => d.chemin.endsWith(".webp"))!;
     expect(arrivee.bucket).toBe("justificatifs");
 
     // Le constat qui compte d'abord : ce qui est dans le bucket ne dit plus où

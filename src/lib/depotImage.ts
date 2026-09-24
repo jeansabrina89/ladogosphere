@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import {
   convertirEnWebp,
@@ -30,8 +31,31 @@ import {
  * au stockage écrit ailleurs qu'ici. Il n'a aucune exception à tolérer.
  */
 
+/**
+ * L'original conservé à côté du fichier nettoyé — le fichier tel que la
+ * personne l'a remis, métadonnées comprises.
+ *
+ * Il porte l'EXIF et la position : il ne s'affiche JAMAIS. Il n'existe que
+ * pour la conservation comptable et ne se sert que par URL signée.
+ */
+export type OriginalConserve = { chemin: string; mime: string; octets: Buffer };
+
+/** L'extension de l'original suit son type réel : c'est le fichier remis. */
+const EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
 export type ResultatDepotImage =
-  | { ok: true; chemin: string; largeur: number; hauteur: number; octets: Buffer }
+  | {
+      ok: true;
+      chemin: string;
+      largeur: number;
+      hauteur: number;
+      octets: Buffer;
+      origine?: OriginalConserve;
+    }
   | { ok: false; error: string; statut: 400 | 500 };
 
 export async function deposerImage(input: {
@@ -47,6 +71,13 @@ export async function deposerImage(input: {
   ecraser?: boolean;
   /** Le refus à dire quand le type n'est pas accepté, si le lieu a le sien. */
   refusDeType?: (mime: string) => string | null;
+  /**
+   * Conserver AUSSI le fichier remis, tel quel, sous `<chemin>.origine.<ext>`.
+   * Pour les pièces comptables, qui se gardent dix ans et dont rien ne dit
+   * qu'une conversion soit admise. Le second dépôt se fait ici, pour que le
+   * stockage n'ait toujours qu'une seule porte.
+   */
+  garderOriginal?: boolean;
 }): Promise<ResultatDepotImage> {
   const { bucket, fichier, format } = input;
 
@@ -56,7 +87,8 @@ export async function deposerImage(input: {
   const refus = refusFichierImage({ type: fichier.type, size: fichier.size });
   if (refus) return { ok: false, error: refus, statut: 400 };
 
-  const conversion = await convertirEnWebp(Buffer.from(await fichier.arrayBuffer()), format);
+  const brut = Buffer.from(await fichier.arrayBuffer());
+  const conversion = await convertirEnWebp(brut, format);
   // Un format illisible s'arrête ici, avec la phrase de la conversion : le
   // fichier d'origine ne part pas au stockage en consolation.
   if (!conversion.ok) return { ok: false, error: conversion.error, statut: 400 };
@@ -67,12 +99,39 @@ export async function deposerImage(input: {
     .upload(chemin, conversion.octets, { contentType: "image/webp", upsert: !!input.ecraser });
   if (error) return { ok: false, error: "Le dépôt de l'image a échoué.", statut: 500 };
 
+  let origine: OriginalConserve | undefined;
+  if (input.garderOriginal) {
+    const mime = (fichier.type ?? "").toLowerCase();
+    const cheminOrigine = `${input.cheminSansExtension}.origine.${EXTENSIONS[mime] ?? "bin"}`;
+    const { error: erreurOrigine } = await supabaseAdmin.storage
+      .from(bucket)
+      .upload(cheminOrigine, brut, { contentType: mime, upsert: !!input.ecraser });
+
+    if (erreurOrigine) {
+      // Une pièce à moitié déposée est pire qu'une pièce refusée : la personne
+      // croirait avoir tout remis. On retire le nettoyé et on refuse l'ensemble.
+      const { error: erreurRetrait } = await supabaseAdmin.storage.from(bucket).remove([chemin]);
+      if (erreurRetrait) {
+        // Le nettoyé reste dans le bucket sans ligne en base pour le désigner :
+        // personne ne le retrouvera par l'application. Ça se dit, ça ne s'avale pas.
+        Sentry.captureMessage("Fichier orphelin après échec du dépôt de l'original", {
+          level: "error",
+          tags: { endroit: "depotImage.deposerImage", bucket },
+          extra: { chemin, erreurRetrait: erreurRetrait.message },
+        });
+      }
+      return { ok: false, error: "Le dépôt de l'image a échoué.", statut: 500 };
+    }
+    origine = { chemin: cheminOrigine, mime, octets: brut };
+  }
+
   return {
     ok: true,
     chemin,
     largeur: conversion.largeur,
     hauteur: conversion.hauteur,
     octets: conversion.octets,
+    origine,
   };
 }
 

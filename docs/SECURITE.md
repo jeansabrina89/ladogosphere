@@ -72,6 +72,43 @@ Deux portes, et deux seulement : `deposerImage` convertit et nettoie ;
 `deposerDocument` dépose un PDF tel quel et **refuse une image**, afin qu'on ne
 puisse pas s'en servir pour contourner la première.
 
+### Décision : l'original d'un justificatif est conservé à côté du nettoyé
+
+**Date :** 24 septembre 2026
+
+**Pourquoi.** Depuis le nettoyage des métadonnées, une photo de justificatif
+était convertie en WebP et le fichier remis par l'employé n'existait plus nulle
+part. Or le droit suisse impose de conserver les pièces comptables **dix ans**,
+et nous n'avons **aucune réponse formelle** sur l'admissibilité d'une pièce
+convertie. Plutôt que de parier sur une interprétation, on garde les deux :
+l'original pour la conservation, la version nettoyée pour l'affichage.
+
+**Ce que cela implique.** L'original est déposé tel quel, **avec ses
+métadonnées** — EXIF, marque de l'appareil, et la position du lieu de la prise
+de vue. Il vit dans le bucket privé `justificatifs`, sous le même préfixe que
+le nettoyé, suffixé `.origine.<ext>`. Les colonnes `origine_path`,
+`origine_mime` et `origine_sha256` le désignent ; `origine_path is null`
+signifie qu'il n'y en a pas — un PDF (qui EST l'original) ou une pièce déposée
+avant ce jour.
+
+**La règle qui va avec.** L'original ne s'affiche **jamais**. Tout écran, toute
+vignette, tout aperçu utilise la version nettoyée. Une seule route le sert,
+`/api/pieces/[id]/origine`, par URL signée de deux minutes et sous les mêmes
+gardes de permission — et **aucun écran n'y mène**, volontairement : un lien
+« original » à côté de chaque pièce serait l'endroit où quelqu'un cliquerait
+par réflexe. Elle existe pour la consultation comptable et l'export, le jour
+d'un contrôle.
+
+La suppression d'une pièce emporte **les deux fichiers**. Un original resté
+seul dans le bucket serait une pièce qu'on croit effacée et qui ne l'est pas.
+
+**Ce qui rouvrirait la décision :** une **réponse formelle sur l'OLICO**
+(ordonnance concernant la tenue et la conservation des livres de comptes). Si
+une pièce convertie est explicitement admise, l'original devient une donnée
+conservée sans nécessité — donc à supprimer, puisque garder des coordonnées
+GPS dix ans sans raison ne se justifie plus. S'il est explicitement exigé, rien
+ne change.
+
 ### Risque accepté : les PDF déposés ne sont pas nettoyés
 
 **Date :** 23 septembre 2026

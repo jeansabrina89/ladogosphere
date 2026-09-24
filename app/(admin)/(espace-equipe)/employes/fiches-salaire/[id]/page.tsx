@@ -107,7 +107,7 @@ export default async function FicheSalairePage({
         {/* En-tête */}
         <div className="flex justify-between items-start mb-8">
           <div>
-            <img src="/Logo.png" alt="La Dogosphère" style={{ height: "70px", marginBottom: "8px" }} />
+            <img src="/logo-compact.webp" alt="La Dogosphère" style={{ height: "70px", marginBottom: "8px" }} />
             <p className="text-sm text-gray-500">Pension canine</p>
             <p className="text-sm text-gray-500">Sion, Valais</p>
           </div>

@@ -169,7 +169,7 @@ export default async function FacturePage({
             <div className="flex justify-between items-start mb-8">
               <div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/Logo.png" alt="La Dogosphère" style={{ height: 76, marginBottom: 8 }} />
+                <img src="/logo-compact.webp" alt="La Dogosphère" style={{ height: 76, marginBottom: 8 }} />
                 <p className="text-sm" style={{ color: GRIS }}>{coords.titulaire}</p>
                 {[coords.adresse.rue, coords.adresse.numero].filter(Boolean).length > 0 && (
                   <p className="text-sm" style={{ color: GRIS }}>
