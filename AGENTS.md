@@ -117,5 +117,35 @@ correspond à aucune des deux occurrences. Les figer demanderait de décider
 quelle heure ils doivent voir : c'est un sujet en soi, pas un effet de bord à
 traiter au passage.
 
+### Le 24 septembre 2026 : l'échec a enfin été attrapé
+
+`npm run test:trace` a conservé la trace
+(`traces-tests/2026-09-24T08-50-36.txt`). Le test est nommé :
+
+> `tests/ententesReseau.test.tsx > Ententes : le premier chargement échoue >
+> « Réessayer » recharge vraiment, et la liste apparaît`
+> `AssertionError: expected <p role="alert">…</p> to be null` (ligne 95)
+
+Ce n'est **pas** un dépassement de délai : la liste est bien chargée, et le
+bandeau d'erreur est encore là au moment de l'assertion. Fréquence observée :
+une fois sur huit exécutions complètes le 24 septembre ; **zéro sur
+vingt-cinq** exécutions du seul fichier — il faut la suite entière pour le
+voir.
+
+Deux mécanismes candidats, non tranchés et **non corrigés** :
+
+1. une lecture périmée qui écrit son échec APRÈS le succès de la suivante —
+   `charger()` d'`Ententes.tsx` n'a aucune garde de séquence, donc une
+   réponse en retard peut écraser l'état d'une réponse plus récente. Ce
+   serait alors un vrai défaut du composant, visible en production sur un
+   réseau instable, c'est-à-dire exactement la situation pour laquelle il a
+   été écrit ;
+2. un reste de DOM du test voisin : `screen` interroge tout `document.body`,
+   et le test précédent du même fichier affiche le même bandeau.
+
+Départager les deux demande d'instrumenter le test (compter les bandeaux, pas
+seulement leur présence) — à faire avant toute correction, et sans rendre
+l'assertion plus tolérante.
+
 Deux occurrences réelles ne s'effacent pas parce qu'on n'a pas su les
-reproduire. Au prochain échec, la sortie sera là — et elle nommera l'élément.
+reproduire. Celle-ci, on l'a.
