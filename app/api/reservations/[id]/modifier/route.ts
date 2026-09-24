@@ -27,6 +27,20 @@ export async function POST(
   const formData = lecture.corps;
 
   const statut = formData.get("statut") as string;
+
+  // Cette route écrit un mot, rien de plus. « Annulée » demande un avoir rendu,
+  // une écriture comptable et un box libéré — tout cela vit dans
+  // `annulerReservation`, derrière `perm_reservations_annuler`.
+  //
+  // Le refus vaut pour TOUT LE MONDE, administratrice comprise : ce n'est pas
+  // une question de permission mais de conséquence. Une réservation marquée
+  // annulée sans l'être est pire qu'une annulation refusée.
+  if (statut === "annulee") {
+    return NextResponse.json(
+      { error: "Une annulation passe par le bouton « Annuler la réservation » : elle rend l'avoir et libère le box." },
+      { status: 400 },
+    );
+  }
   const box_id = formData.get("box_id") as string || null;
   const commentaire_admin = formData.get("commentaire_admin") as string || null;
   const heure_arrivee = formData.get("heure_arrivee") as string || null;

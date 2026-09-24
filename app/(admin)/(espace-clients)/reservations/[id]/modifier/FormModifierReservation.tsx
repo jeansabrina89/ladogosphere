@@ -155,7 +155,9 @@ export default function FormModifierReservation({ id }: { id: string }) {
               <option value="en_attente">⏳ En attente</option>
               <option value="validee">✅ Validée</option>
               <option value="refusee">❌ Refusée</option>
-              <option value="annulee">🚫 Annulée</option>
+              {/* Pas d option « Annulée » : l annulation rend l avoir et libere
+                  le box, ce que ce formulaire ne sait pas faire. Elle passe par
+                  le bouton dedie, et la route refuse ce statut. */}
               <option value="terminee">🏁 Terminée</option>
             </select>
           </div>
