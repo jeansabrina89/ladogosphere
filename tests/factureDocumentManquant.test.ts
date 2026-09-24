@@ -18,6 +18,8 @@ const H = vi.hoisted(() => ({
   /** Combien de fois la génération a été tentée. */
   generations: 0,
   journal: [] as { evenement: string; apres: unknown }[],
+  /** Les chemins dont l objet a disparu du bucket. */
+  objetsPerdus: new Set<string>(),
   traces: [] as { message: string; contexte: unknown }[],
 }));
 
@@ -38,8 +40,11 @@ vi.mock("@/src/lib/supabase-admin", () => {
     const chain: Record<string, unknown> = {
       select: () => chain,
       eq: (col: string, val: unknown) => { filtres[col] = val; return chain; },
-      is: () => chain,
-      not: () => chain,
+      // Les deux requetes de la reconciliation se distinguent par leur filtre
+      // sur pdf_path : « is null » cherche les manquants, « not is null »
+      // cherche les chemins ecrits, dont on verifiera la presence au bucket.
+      is: (col: string) => { if (col === "pdf_path") filtres.pdfNul = true; return chain; },
+      not: (col: string) => { if (col === "pdf_path") filtres.pdfEcrit = true; return chain; },
       in: () => chain,
       order: () => chain,
       update: (valeurs: Record<string, unknown>) => ({
@@ -57,13 +62,27 @@ vi.mock("@/src/lib/supabase-admin", () => {
     if (table === "factures") {
       (chain as { then?: unknown }).then = (resoudre: (v: unknown) => void) =>
         resoudre({
-          data: [...H.factures.values()].filter((f) => !f.pdf_path && f.numero && f.statut !== "brouillon"),
+          data: filtres.pdfEcrit
+            ? [...H.factures.values()].filter((f) => !!f.pdf_path)
+            : [...H.factures.values()].filter((f) => !f.pdf_path && f.numero && f.statut !== "brouillon"),
           error: null,
         });
     }
     return chain;
   };
-  return { supabaseAdmin: { from, storage: { from: () => ({}) } } };
+  // Le bucket : `list` rend ce qui EXISTE, donc pas les objets perdus.
+  const storage = {
+    from: () => ({
+      list: async (dossier: string) => ({
+        data: [...H.factures.values()]
+          .filter((f) => typeof f.pdf_path === "string" && (f.pdf_path as string).startsWith(dossier + "/"))
+          .filter((f) => !H.objetsPerdus.has(f.pdf_path as string))
+          .map((f) => ({ name: (f.pdf_path as string).split("/")[1] })),
+        error: null,
+      }),
+    }),
+  };
+  return { supabaseAdmin: { from, storage } };
 });
 
 // Ce fichier teste la RECONCILIATION : `finaliserEmission` y est simulee.
@@ -78,9 +97,22 @@ vi.mock("@/src/lib/factureDocument", () => ({
     if (f) f.pdf_path = `2026/${String(f.numero)}.pdf`;
     return {};
   },
+  // La lecture dit LAQUELLE des deux absences : jamais cree, ou perdu.
+  lirePdfFacture: async (id: string) => {
+    const f = H.factures.get(id);
+    if (!f?.pdf_path) return { etat: "aucun_chemin" };
+    if (H.objetsPerdus.has(String(f.pdf_path))) {
+      return { etat: "illisible", raison: "objet absent du stockage" };
+    }
+    return { etat: "present", octets: Buffer.from("%PDF") };
+  },
 }));
 
-import { reconcilierDocumentsFactures, facturesSansDocument } from "@/src/lib/reconciliationFactures";
+import {
+  reconcilierDocumentsFactures,
+  facturesSansDocument,
+  reprendreDocumentFacture,
+} from "@/src/lib/reconciliationFactures";
 
 beforeEach(() => {
   H.factures.clear();
@@ -88,12 +120,13 @@ beforeEach(() => {
   H.generations = 0;
   H.journal.length = 0;
   H.traces.length = 0;
+  H.objetsPerdus.clear();
 });
 
 const facture = (id: string, o: Record<string, unknown> = {}) => {
   H.factures.set(id, {
     id, numero: `FAC-2026-${id}`, statut: "envoyee", date_facture: "2026-03-01",
-    pdf_path: null, ...o,
+    pdf_path: null, document_tentatives: 0, document_renonce_le: null, ...o,
   });
 };
 
@@ -166,5 +199,97 @@ describe("la réconciliation répare", () => {
     expect(bilan.manquantes).toBe(0);
     expect(H.generations).toBe(0);
     expect(H.traces).toHaveLength(0);
+  });
+});
+
+describe("un document PERDU ne se reconstruit pas en douce", () => {
+  it("chemin écrit, objet disparu : relevé, alerté, JAMAIS refabriqué", async () => {
+    // Elle a un chemin : elle n est donc pas candidate a la fabrication. Mais
+    // l objet n est plus dans le bucket -- c est une perte, pas une absence.
+    facture("0001", { pdf_path: "2026/FAC-2026-0001.pdf" });
+    H.objetsPerdus.add("2026/FAC-2026-0001.pdf");
+
+    const bilan = await reconcilierDocumentsFactures();
+
+    expect(bilan.perdus).toEqual(["FAC-2026-0001"]);
+    expect(
+      H.generations,
+      "la reconciliation a refabrique par-dessus une perte : le document differerait de la copie du client, et pdf_sha256 serait ecrase",
+    ).toBe(0);
+    // La perte se dit, avec la regle qui explique pourquoi on ne repare pas.
+    expect(H.traces).toHaveLength(1);
+    expect(H.traces[0].message).toContain("perdus");
+  });
+
+  it("un document bien present n est ni perdu ni refabrique", async () => {
+    facture("0002", { pdf_path: "2026/FAC-2026-0002.pdf" });
+    const bilan = await reconcilierDocumentsFactures();
+    expect(bilan.perdus).toEqual([]);
+    expect(H.generations).toBe(0);
+    expect(H.traces).toHaveLength(0);
+  });
+});
+
+describe("le renoncement, après cinq échecs", () => {
+  it("les cinq premiers jours alertent, le sixième renonce", async () => {
+    facture("0007");
+    H.generationReussit = false;
+
+    for (let jour = 1; jour <= 5; jour++) {
+      H.traces.length = 0;
+      const b = await reconcilierDocumentsFactures();
+      expect(b.irreparables, `jour ${jour}`).toHaveLength(1);
+      expect(b.renoncees).toHaveLength(0);
+      expect(H.factures.get("0007")!.document_tentatives).toBe(jour);
+    }
+
+    H.traces.length = 0;
+    const sixieme = await reconcilierDocumentsFactures();
+
+    expect(sixieme.renoncees).toEqual(["FAC-2026-0007"]);
+    expect(H.factures.get("0007")!.document_renonce_le).toBeTruthy();
+    // Une seule alerte, celle du renoncement : c'est un événement.
+    expect(H.traces).toHaveLength(1);
+    expect(H.traces[0].message).toContain("Renoncement");
+    // Et le journal garde COMBIEN de fois on a essayé.
+    const trace = H.journal.find((j) => j.evenement === "document_renonce");
+    expect(trace?.apres).toMatchObject({ numero: "FAC-2026-0007", tentatives: 6 });
+  });
+
+  it("une facture renoncée sort de la ronde : plus de tentative, plus d'alerte", async () => {
+    facture("0008", { document_tentatives: 6, document_renonce_le: "2026-09-20T07:00:00Z" });
+    H.generationReussit = false;
+
+    const b = await reconcilierDocumentsFactures();
+
+    expect(b.ignorees).toBe(1);
+    expect(H.generations).toBe(0);
+    expect(H.traces).toHaveLength(0);
+  });
+
+  it("le compteur mesure des échecs CONSÉCUTIFS : une réussite l'efface", async () => {
+    facture("0009", { document_tentatives: 3 });
+    H.generationReussit = true;
+
+    await reconcilierDocumentsFactures();
+
+    expect(H.factures.get("0009")!.document_tentatives).toBe(0);
+  });
+});
+
+describe("reprendre une facture renoncée, à la main", () => {
+  it("remet le compteur à zéro, refabrique, et inscrit le geste", async () => {
+    facture("0010", { document_tentatives: 6, document_renonce_le: "2026-09-20T07:00:00Z" });
+    H.generationReussit = true;
+
+    const res = await reprendreDocumentFacture("0010", "u-gerante");
+
+    expect(res.error).toBeUndefined();
+    expect(H.factures.get("0010")!.document_renonce_le).toBeNull();
+    expect(H.factures.get("0010")!.document_tentatives).toBe(0);
+    expect(H.factures.get("0010")!.pdf_path).toBe("2026/FAC-2026-0010.pdf");
+    // Le geste humain laisse sa trace, avec qui l'a fait.
+    const trace = H.journal.find((j) => j.evenement === "document_repris");
+    expect(trace?.apres).toMatchObject({ numero: "FAC-2026-0010", apresTentatives: 6 });
   });
 });

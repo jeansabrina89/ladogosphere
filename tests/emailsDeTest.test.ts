@@ -222,8 +222,10 @@ describe("un envoi de test n’écrit que dans emails_envoyes", () => {
     ]) {
       expect(code, interdit).not.toContain(interdit);
     }
-    // Le PDF est TÉLÉCHARGÉ, jamais généré : le générer écrirait sur la facture.
-    expect(code).toContain("telechargerPdf(");
+    // Le PDF est LU, jamais généré : le générer écrirait sur la facture.
+    // `lirePdfFacture` remplace `telechargerPdf` depuis le 24 septembre 2026 :
+    // elle distingue « jamais créé » de « perdu », et ne fabrique rien.
+    expect(code).toContain("lirePdfFacture(");
   });
 
   it("le jeton d’un retour en stock est factice : aucune alerte n’est lue", () => {

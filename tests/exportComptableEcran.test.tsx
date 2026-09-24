@@ -7,9 +7,15 @@ import "./setup/attenteJsdom";
  * L'écran d'inventaire : les anomalies se voient, et rien n'invite à agir.
  */
 
-const H = vi.hoisted(() => ({ appels: [] as string[] }));
+const H = vi.hoisted(() => ({ appels: [] as string[], reprises: [] as string[] }));
 
 vi.mock("@sentry/nextjs", () => ({ captureMessage: () => {}, captureException: () => {} }));
+
+// L action serveur touche la base des son chargement : on la simule, comme
+// toute frontiere serveur dans un test de rendu.
+vi.mock("@/app/(admin)/(espace-comptabilite)/export-comptable/actions", () => ({
+  reprendreDocument: async (id: string) => { H.reprises.push(id); return { ok: true }; },
+}));
 
 import InventaireExport from "@/app/(admin)/(espace-comptabilite)/export-comptable/Inventaire";
 
@@ -31,17 +37,21 @@ function inventaire(avecAnomalies: boolean) {
           manquants: [{ chemin: "2026/FAC-2026-0009.pdf", categorie: "facture", dateComptable: "2026-05-20" }],
           orphelins: [{ chemin: "depense/d1/zzz-inconnu.webp", octets: 7_000 }],
           originauxManquants: [{ chemin: "depense/d2/bbb.origine.jpg", dateComptable: "2026-04-02" }],
-          facturesSansDocument: [{ numero: "FAC-2026-0008", statut: "envoyee", dateComptable: "2026-07-15" }],
+          facturesSansDocument: [
+            { id: "f8", numero: "FAC-2026-0008", statut: "envoyee", dateComptable: "2026-07-15", renonceLe: null },
+            { id: "f9", numero: "FAC-2026-0009", statut: "envoyee", dateComptable: "2026-07-16", renonceLe: "2026-09-20T07:00:00Z" },
+          ],
+          facturesDocumentPerdu: [{ numero: "FAC-2026-0002", chemin: "2026/FAC-2026-0002.pdf" }],
           sansExercice: [{ chemin: "RECETTE4000-x/justificatif.pdf", entite: "depense", entiteId: "d-perdu" }],
         }
-      : { manquants: [], orphelins: [], originauxManquants: [], facturesSansDocument: [], sansExercice: [] },
+      : { manquants: [], orphelins: [], originauxManquants: [], facturesSansDocument: [], sansExercice: [], facturesDocumentPerdu: [] },
   };
 }
 
 const reponse = (corps: unknown, statut = 200) =>
   new Response(JSON.stringify(corps), { status: statut, headers: { "content-type": "application/json" } });
 
-beforeEach(() => { H.appels.length = 0; });
+beforeEach(() => { H.appels.length = 0; H.reprises.length = 0; });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("écran d'inventaire", () => {
@@ -61,7 +71,10 @@ describe("écran d'inventaire", () => {
     // Les deux catégories ajoutées au lot 20 comptent dans le total.
     expect(alerte.textContent).toContain("FAC-2026-0008");
     expect(alerte.textContent).toContain("RECETTE4000-x/justificatif.pdf");
-    expect(screen.getByText(/Anomalies \(5\)/)).toBeTruthy();
+    // « Document PERDU » est une catégorie à part : la pièce a existé.
+    expect(alerte.textContent).toContain("Document PERDU");
+    expect(alerte.textContent).toContain("2026/FAC-2026-0002.pdf");
+    expect(screen.getByText(/Anomalies \(7\)/)).toBeTruthy();
   });
 
   it("sans anomalie, l'écran le dit au lieu de laisser un vide", async () => {
@@ -79,12 +92,27 @@ describe("écran d'inventaire", () => {
     expect(document.body.textContent).toContain("234 ko");
   });
 
-  it("aucun bouton d'action : ni actif, ni grisé", async () => {
+  it("le SEUL bouton est « Reprendre », et seulement sur une facture renoncée", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => reponse(inventaire(true))));
     render(<InventaireExport exercices={[2026]} exerciceInitial={2026} />);
     await screen.findByRole("alert");
-    // Un bouton grisé inviterait à revenir voir ; il n'y a rien à revenir chercher.
-    expect(screen.queryAllByRole("button")).toHaveLength(0);
+
+    // L'écran reste en lecture, à une exception près, voulue : une facture que
+    // la réconciliation a laissée tomber n'a plus aucun chemin de retour hors
+    // de la base. FAC-2026-0008 n'est pas renoncée : elle n'a pas de bouton.
+    const boutons = screen.queryAllByRole("button");
+    expect(boutons).toHaveLength(1);
+    expect(boutons[0].textContent).toContain("Reprendre");
+  });
+
+  it("reprendre une facture renoncée appelle l'action, avec SON identifiant", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => reponse(inventaire(true))));
+    render(<InventaireExport exercices={[2026]} exerciceInitial={2026} />);
+    await screen.findByRole("alert");
+
+    fireEvent.click(screen.getByRole("button", { name: /Reprendre/i }));
+    // f9 est la renoncée ; f8 ne doit jamais partir.
+    await waitFor(() => expect(H.reprises).toEqual(["f9"]));
   });
 
   it("changer d'exercice relit, et l'attente retombe", async () => {

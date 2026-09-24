@@ -4,7 +4,7 @@ import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerAdminApi } from "@/src/lib/permissions";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
-import { telechargerPdf } from "@/src/lib/factureDocument";
+import { lirePdfFacture } from "@/src/lib/factureDocument";
 import { urlPhotoArticle } from "@/src/lib/boutiqueLogique";
 import {
   PREFIXE_TEST,
@@ -81,7 +81,11 @@ async function rassemblerContexte(destinataire: string): Promise<ContexteEnvoiTe
 
   // `telechargerPdf` LIT le bucket. On n'appelle jamais `genererPdfFacture` :
   // il déposerait un fichier et écrirait `pdf_path` sur la facture.
-  const pdf = derniere ? await telechargerPdf(derniere.id) : null;
+  // Un apercu se contente des octets ou de rien : qu il n y ait jamais eu de
+  // document ou qu il soit perdu ne change pas ce qu on affiche. L indifference
+  // est voulue — la perte, elle, est tracee par lirePdfFacture.
+  const lecture = derniere ? await lirePdfFacture(derniere.id) : { etat: "aucun_chemin" as const };
+  const pdf = lecture.etat === "present" ? lecture.octets : null;
 
   return {
     destinataire,

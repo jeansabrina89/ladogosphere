@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { appelerApi } from "@/src/lib/reseau";
+import { reprendreDocument } from "./actions";
 import { poidsLisible, type Inventaire } from "@/src/lib/exportComptableLogique";
 
 /**
@@ -51,10 +52,26 @@ export default function InventaireExport({ exercices, exerciceInitial }: {
     return () => { vivant = false; };
   }, [exercice]);
 
+  // La reprise d une facture renoncee : le seul geste de cet ecran, et il
+  // n existe que pour elles.
+  const [repriseEnCours, setRepriseEnCours] = useState<string | null>(null);
+  const [repriseMessage, setRepriseMessage] = useState<string | null>(null);
+
+  async function reprendre(numero: string) {
+    const cible = inventaire?.anomalies.facturesSansDocument.find((f) => f.numero === numero);
+    if (!cible?.id) return;
+    setRepriseEnCours(numero);
+    const r = await reprendreDocument(cible.id);
+    setRepriseEnCours(null);
+    setRepriseMessage(r.error ? `${numero} : ${r.error}` : `${numero} : document refabriqué.`);
+    setExercice((e) => e); // relit l inventaire
+  }
+
   const anomalies = inventaire?.anomalies;
   const nbAnomalies = anomalies
     ? anomalies.manquants.length + anomalies.orphelins.length + anomalies.originauxManquants.length
       + anomalies.facturesSansDocument.length + anomalies.sansExercice.length
+      + anomalies.facturesDocumentPerdu.length
     : 0;
 
   return (
@@ -117,6 +134,13 @@ export default function InventaireExport({ exercices, exerciceInitial }: {
             {inventaire.total.nbFactures} facture(s) et {inventaire.total.nbPieces} justificatif(s).
           </p>
 
+          {repriseMessage && (
+            <p role="status" className="mb-4 p-3 rounded-xl text-sm font-semibold"
+              style={{ backgroundColor: "#E4F1EC", color: "#1F6E5B", border: "1px solid #B9DDD1" }}>
+              {repriseMessage}
+            </p>
+          )}
+
           <section>
             <h2 className="font-semibold mb-2" style={{ color: MARINE }}>
               Anomalies {nbAnomalies > 0 ? `(${nbAnomalies})` : ""}
@@ -166,7 +190,36 @@ export default function InventaireExport({ exercices, exerciceInitial }: {
                       {anomalies!.facturesSansDocument.map((f) => (
                         <li key={f.numero}>
                           <code>{f.numero}</code> — {f.dateComptable} — {f.statut}
+                          {f.renonceLe && (
+                            <>
+                              {" — "}
+                              <strong>renoncé</strong>, la tâche du matin n&apos;essaie plus
+                              {" "}
+                              <button type="button" disabled={repriseEnCours !== null}
+                                onClick={() => { void reprendre(f.numero); }}
+                                className="underline disabled:opacity-50">
+                                {repriseEnCours === f.numero ? "Reprise…" : "Reprendre"}
+                              </button>
+                            </>
+                          )}
                         </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {anomalies!.facturesDocumentPerdu.length > 0 && (
+                  <div className="mb-3">
+                    <p className="font-semibold">
+                      Document PERDU : le fichier a disparu du stockage ({anomalies!.facturesDocumentPerdu.length})
+                    </p>
+                    <p className="text-xs">
+                      La pièce a existé — une cliente peut en détenir une copie. Rien ne sera
+                      refabriqué par-dessus : un document reconstruit différerait du sien, et son
+                      empreinte serait écrasée. À traiter à la main, depuis une sauvegarde.
+                    </p>
+                    <ul className="list-disc ml-5">
+                      {anomalies!.facturesDocumentPerdu.map((f) => (
+                        <li key={f.numero}><code>{f.numero}</code> — {f.chemin}</li>
                       ))}
                     </ul>
                   </div>

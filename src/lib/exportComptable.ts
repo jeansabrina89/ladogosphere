@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { BUCKET_FACTURES } from "@/src/lib/factureDocument";
 import { BUCKET_JUSTIFICATIFS } from "@/src/lib/pieces";
-import { facturesSansDocument } from "@/src/lib/reconciliationFactures";
+import { facturesSansDocument, documentsPerdus } from "@/src/lib/reconciliationFactures";
 import {
   inventorier,
   type FichierReference,
@@ -148,8 +148,12 @@ export async function inventaireExercice(exercice: number): Promise<Inventaire> 
   // Les factures emises dont le document n existe pas : elles ne sont
   // referencees nulle part, donc aucun parcours de stockage ne les verrait.
   const sansDocument = (await facturesSansDocument()).map((f) => ({
-    numero: f.numero, statut: f.statut, dateComptable: f.date_facture,
+    id: f.id, numero: f.numero, statut: f.statut, dateComptable: f.date_facture,
+    renonceLe: f.document_renonce_le,
   }));
+  // Le chemin est ecrit, l objet a disparu : ce n est pas la meme chose, et ca
+  // ne se repare pas de la meme facon.
+  const perdus = await documentsPerdus();
 
   const perimetre = new Set(prefixes);
   return inventorier({
@@ -157,6 +161,7 @@ export async function inventaireExercice(exercice: number): Promise<Inventaire> 
     references,
     tailles,
     facturesSansDocument: sansDocument,
+    facturesDocumentPerdu: perdus.map((p) => ({ numero: p.numero, chemin: p.chemin })),
     sansExercice: pieces
       .filter((p) => !p.dateComptable)
       .map((p) => ({ chemin: p.chemin, entite: p.entite, entiteId: p.entiteId })),

@@ -50,7 +50,13 @@ export type Anomalies = {
    * pas un défaut d'affichage : la pièce existe comptablement et n'existe pas
    * documentairement, alors que la loi demande dix ans de conservation.
    */
-  facturesSansDocument: { numero: string; statut: string; dateComptable: string }[];
+  facturesSansDocument: { id: string; numero: string; statut: string; dateComptable: string; renonceLe: string | null }[];
+  /**
+   * Document PERDU : le chemin est ecrit, l objet a disparu du bucket. Ce
+   * n est PAS « jamais cree » -- la piece a existe, une cliente peut en
+   * detenir une copie, et rien ne sera refabrique par-dessus.
+   */
+  facturesDocumentPerdu: { numero: string; chemin: string }[];
   /**
    * Pièce dont le document parent est introuvable : sans lui, aucune date
    * comptable, donc aucun exercice, donc jamais exportée. Elle n'appartient à
@@ -104,7 +110,9 @@ export function inventorier(input: {
   dansLePerimetre: (chemin: string) => boolean;
   appelsStockage: number;
   /** Factures emises sans document conserve, toutes annees confondues. */
-  facturesSansDocument?: { numero: string; statut: string; dateComptable: string }[];
+  facturesSansDocument?: { id: string; numero: string; statut: string; dateComptable: string; renonceLe: string | null }[];
+  /** Documents perdus : chemin ecrit, objet absent. */
+  facturesDocumentPerdu?: { numero: string; chemin: string }[];
   /** Pieces dont le parent est introuvable : sans exercice, jamais exportees. */
   sansExercice?: { chemin: string; entite: string; entiteId: string }[];
 }): Inventaire {
@@ -120,6 +128,7 @@ export function inventorier(input: {
     facturesSansDocument: (input.facturesSansDocument ?? [])
       .filter((f) => anneeDe(f.dateComptable) === input.exercice),
     sansExercice: input.sansExercice ?? [],
+    facturesDocumentPerdu: input.facturesDocumentPerdu ?? [],
   };
 
   for (const ref of references) {

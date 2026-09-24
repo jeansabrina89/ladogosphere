@@ -163,3 +163,41 @@ deux fois (mesuré).
 
 Deux occurrences réelles ne s'effacent pas parce qu'on n'a pas su les
 reproduire. Celle-ci, on l'a.
+
+# À traiter au lot 19d : une facture renoncée empêche de clore l'exercice
+
+Depuis le 24 septembre 2026, la réconciliation quotidienne des documents de
+facture **renonce** après six échecs consécutifs : la facture sort de la ronde,
+cesse d'alerter, et attend une reprise à la main depuis l'écran d'export
+comptable (`document_renonce_le`).
+
+**La clôture d'exercice du lot 19d DOIT refuser de clore tant qu'une facture de
+l'exercice porte `document_renonce_le` non nul.** Sans cela, on aura remplacé
+une alerte quotidienne qu'on finissait par ignorer par un état parfaitement
+silencieux — ce qui est un recul, pas un progrès. Une pièce comptable sans
+document est exactement ce qu'une clôture doit empêcher de sceller.
+
+Le refus nomme les factures concernées et renvoie à l'écran d'export, où le
+bouton « Reprendre » existe déjà.
+
+# Dette de test datée : l'avertissement de `emettreFactureCommande`
+
+**Ouverte le 24 septembre 2026.** Quand une commande en ligne est payée par
+facture et que le document ne peut pas être fabriqué, la cliente reçoit
+« Commande confirmée » **suivi de l'avertissement** — la facture est émise, sa
+pièce suivra. Cette propagation n'est pas testée.
+
+**Ce qu'un test prouverait :** que l'avertissement traverse
+`emettreFactureCommande` → `confirmerCommande` → le message rendu, et qu'il
+n'écrase pas la confirmation elle-même (la commande tient, c'est le premier
+point à ne pas perdre).
+
+**Coût estimé :** `confirmerCommande` a huit dépendances — session, panier,
+catalogue, TVA, RPC d'émission, e-mail, journal, revalidation. Monter le décor
+demanderait une bonne heure, pour prouver trois lignes de propagation.
+
+**Pourquoi c'est écrit plutôt que clos.** La même phrase — « il faut un décor
+trop gros » — a été écrite au lot 18g à propos de `GestionOptions`, et s'est
+révélée fausse deux lots plus tard : il suffisait de rendre l'écran et
+d'ouvrir le formulaire d'ajout. Un œil neuf trouvera peut-être le même
+raccourci ici. Une dette écrite se rouvre ; une question close, non.

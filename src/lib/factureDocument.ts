@@ -283,17 +283,46 @@ export async function urlSigneePdf(factureId: string, secondes = 120): Promise<s
   return data?.signedUrl ?? null;
 }
 
-/** Contenu du PDF stocké, pour la pièce jointe d'un e-mail. */
-export async function telechargerPdf(factureId: string): Promise<Buffer | null> {
+/**
+ * Ce que dit la lecture d'un PDF stocké.
+ *
+ * Trois états, parce qu'un `null` qui veut dire deux choses ne permet à
+ * personne de réagir correctement :
+ *
+ *   • `aucun_chemin` — la facture n'a pas de document. Ce n'est pas un
+ *     incident : il n'y en a jamais eu. On peut en fabriquer un.
+ *   • `illisible` — le chemin est écrit, l'objet n'est plus là. C'est une
+ *     PERTE, et elle ne se répare pas en refabriquant : le document
+ *     reconstruit différerait de celui que la cliente détient, et l'écriture
+ *     de son empreinte écraserait `pdf_sha256`, seule trace de l'original.
+ *   • `present` — les octets.
+ */
+export type LecturePdf =
+  | { etat: "present"; octets: Buffer }
+  | { etat: "aucun_chemin" }
+  | { etat: "illisible"; raison: string };
+
+export async function lirePdfFacture(factureId: string): Promise<LecturePdf> {
   const { data: f } = await supabaseAdmin
-    .from("factures").select("pdf_path").eq("id", factureId).maybeSingle();
-  if (!f?.pdf_path) return null;
+    .from("factures").select("pdf_path, numero").eq("id", factureId).maybeSingle();
+  if (!f?.pdf_path) return { etat: "aucun_chemin" };
 
   const { data, error } = await supabaseAdmin.storage
     .from(BUCKET_FACTURES)
     .download(f.pdf_path as string);
-  if (error || !data) return null;
-  return Buffer.from(await data.arrayBuffer());
+
+  if (error || !data) {
+    const raison = error?.message ?? "objet absent du stockage";
+    // Un objet perdu dans le bucket est une anomalie de conservation. Elle se
+    // dit ici, au seul endroit qui la constate.
+    Sentry.captureMessage("Document de facture illisible dans le stockage", {
+      level: "error",
+      tags: { endroit: "factureDocument.lirePdfFacture" },
+      extra: { numero: (f.numero as string) ?? null, chemin: f.pdf_path, raison },
+    });
+    return { etat: "illisible", raison };
+  }
+  return { etat: "present", octets: Buffer.from(await data.arrayBuffer()) };
 }
 
 /**
@@ -393,15 +422,19 @@ export async function envoyerFactureParEmail(
   if (!client?.email) return { error: "Ce client n'a pas d'adresse e-mail." };
 
   const { envoyerEmailFactureEmise } = await import("@/src/lib/email");
-  let pdf = await telechargerPdf(factureId);
+  let lecture = await lirePdfFacture(factureId);
 
   // Le PDF est JOINT à l'e-mail. Sans lui, le client recevait une annonce de
   // facture sans facture — et l'envoi était marqué fait, donc jamais repris.
-  // On fabrique le document ici plutôt que d'envoyer une coquille vide.
-  if (!pdf) {
+  //
+  // On ne fabrique QUE si rien n'a jamais existé. Sur un document perdu, on
+  // refuse d'envoyer plutôt que d'envoyer une reconstruction : la cliente
+  // comparerait deux pièces différentes portant le même numéro.
+  if (lecture.etat === "aucun_chemin") {
     await finaliserEmission(factureId, userId ?? null);
-    pdf = await telechargerPdf(factureId);
+    lecture = await lirePdfFacture(factureId);
   }
+  const pdf = lecture.etat === "present" ? lecture.octets : null;
   if (!pdf) {
     // L'envoi du matin inscrit cet échec au journal et retentera demain :
     // `email_envoye_le` n'est posé qu'après un envoi réussi.

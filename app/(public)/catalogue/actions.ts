@@ -5,7 +5,7 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { recalculerResteFacture, synchroniserComptaFacture } from "@/src/lib/comptaFacture";
-import { finaliserEmission, marquerFactureEnvoyee, telechargerPdf } from "@/src/lib/factureDocument";
+import { finaliserEmission, marquerFactureEnvoyee, lirePdfFacture } from "@/src/lib/factureDocument";
 import { envoyerConfirmationCommande } from "@/src/lib/confirmationCommande";
 import { envoyerEmailCommandeConfirmee } from "@/src/lib/email";
 import {
@@ -373,7 +373,15 @@ export async function confirmerCommande(entree: EntreeConfirmation): Promise<Ret
       const { data } = await supabaseAdmin.from("factures").select("numero").eq("id", id).maybeSingle();
       return (data?.numero as string | null) ?? null;
     },
-    telechargerPdf,
+    // La confirmation joint la facture si elle existe, et se comporte pareil
+    // dans les deux cas d absence : elle part sans piece jointe et ne marque
+    // pas la facture envoyee, donc le passage du matin la reprend. La
+    // distinction entre « jamais cree » et « perdu » ne lui servirait a rien —
+    // cette indifference est un choix, pas un oubli.
+    telechargerPdf: async (id: string) => {
+      const lecture = await lirePdfFacture(id);
+      return lecture.etat === "present" ? lecture.octets : null;
+    },
     envoyerConfirmation: envoyerEmailCommandeConfirmee,
     marquerFactureEnvoyee,
   });
