@@ -69,7 +69,7 @@ const emailTemplate = async (contenu: string) => `
           <!-- Header -->
           <tr>
             <td style="background-color:#1B2B5E; padding:30px 40px; text-align:center;">
-              <img src="${SITE_URL}/Logo.png" alt="La Dogosphère" style="height:70px; margin-bottom:10px;" />
+              <img src="${SITE_URL}/logo-mail.png" alt="La Dogosphère" width="70" height="70" style="height:70px; width:70px; margin-bottom:10px;" />
               <p style="color:#9CA3AF; margin:0; font-size:13px; letter-spacing:1px; text-transform:uppercase;">Pension Canine — Sion, Valais</p>
             </td>
           </tr>
@@ -98,7 +98,7 @@ const emailTemplate = async (contenu: string) => `
                     </p>${ligneAvisGooglePiedDePage(await lienAvisGoogle())}
                   </td>
                   <td style="text-align:right; vertical-align:top;">
-                    <img src="${SITE_URL}/Logo.png" alt="Logo" style="height:50px; opacity:0.3;" />
+                    <img src="${SITE_URL}/logo-mail.png" alt="Logo" width="50" height="50" style="height:50px; width:50px; opacity:0.3;" />
                   </td>
                 </tr>
               </table>
