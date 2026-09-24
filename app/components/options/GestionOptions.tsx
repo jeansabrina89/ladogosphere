@@ -1055,6 +1055,8 @@ function FormValeur({
   const [quantite, setQuantite] = useState(String(valeur?.composant_quantite ?? ""));
   const [defaut, setDefaut] = useState(valeur?.defaut ?? false);
   const [enCours, setEnCours] = useState(false);
+  /** Bascule SYNCHRONE : un état ne prend effet qu'au rendu suivant. */
+  const enVol = useRef(false);
   const [photoEnCours, setPhotoEnCours] = useState(false);
 
   async function envoyerPhoto(valeurId: string, fichier: File) {
@@ -1073,6 +1075,16 @@ function FormValeur({
   }
 
   async function enregistrer() {
+    // Le bouton est grisé par `enCours`, mais la touche Entrée, elle, ne
+    // regarde rien : deux pressions rapides — ou une touche maintenue, qui
+    // répète l'événement — partaient deux fois. Un affichage périmé se
+    // rattrape en rechargeant ; une écriture en double reste en base.
+    //
+    // La garde est un `ref` et non l'état : `setEnCours(true)` ne prend effet
+    // qu'au rendu suivant, donc deux pressions dans le même tour le verraient
+    // encore à faux. Un ref bascule tout de suite.
+    if (enVol.current) return;
+    enVol.current = true;
     setEnCours(true);
     // `toujours` éteint l'attente : sans lui, un réseau coupé laissait le
     // bouton grisé et la saisie prisonnière.
@@ -1097,7 +1109,8 @@ function FormValeur({
         if (!res.error && res.id && fichier) await envoyerPhoto(res.id, fichier);
         return res;
       },
-      { toujours: () => setEnCours(false), siEchec: (phrase) => onFini({ error: phrase }) },
+      { toujours: () => { enVol.current = false; setEnCours(false); },
+        siEchec: (phrase) => onFini({ error: phrase }) },
     );
     if (!tentative.ok) return; // la saisie reste, le message est déjà affiché
     const res = tentative.valeur;

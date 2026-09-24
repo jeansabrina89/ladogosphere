@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, cleanup, within } from "@testing-library/react";
 import "./setup/attenteJsdom"; // quatre secondes d'attente, pas une
 
 /**
@@ -98,6 +98,61 @@ describe("Modifier une réservation : le chargement échoue", () => {
     // Le formulaire est toujours là, avec ses champs.
     expect(container.querySelector("form")).not.toBeNull();
     expect(H.pousse).toEqual([]); // on n'a pas navigué : rien n'a été enregistré
+  });
+});
+
+describe("Modifier une réservation : deux chargements en vol", () => {
+  it("pendant la lecture, il n'y a plus de « Réessayer » à cliquer", async () => {
+    // La protection d'INTERFACE ici ne prend pas la forme d'un bouton grisé :
+    // le clic efface le message, donc tout le bloc d'erreur — bouton compris —
+    // laisse la place à « Chargement… ». Le second clic n'a rien à viser.
+    let lacher: (() => void) | null = null;
+    const lent = new Promise<void>((r) => { lacher = () => r(); });
+    let rang = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      const n = ++rang;
+      if (n === 1) throw new TypeError("Failed to fetch");
+      await lent;
+      return reponse(DETAILS);
+    }));
+
+    render(<FormModifierReservation id={RESA} />);
+    const bouton = await screen.findByRole("button", { name: /Réessayer/i });
+    bouton.click();
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Réessayer/i })).toBeNull());
+    expect(screen.queryByText(/Chargement/)).not.toBeNull();
+    lacher!();
+  });
+
+  it("un appel LENT qui échoue n'écrase pas le résultat d'un appel RAPIDE", async () => {
+    // Protection d'ÉTAT : le bouton grisé ne couvre pas ce cas — ici les deux
+    // appels partent du montage et d'un clic avant que le premier ait répondu.
+    let lacher: (() => void) | null = null;
+    const lent = new Promise<void>((r) => { lacher = () => r(); });
+    let rang = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      const n = ++rang;
+      if (n === 1) throw new TypeError("Failed to fetch"); // le montage
+      if (n === 2) { await lent; throw new TypeError("Failed to fetch"); } // lent, en panne
+      return reponse(DETAILS); // rapide, et bon
+    }));
+
+    const { container } = render(<FormModifierReservation id={RESA} />);
+    const bouton = await screen.findByRole("button", { name: /Réessayer/i });
+    bouton.click();                       // part, et va traîner
+    bouton.click();                       // part, et répond tout de suite
+
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Enregistrer/i })).not.toBeNull());
+
+    lacher!(); // le premier retombe enfin, en panne, et dépassé
+    await new Promise((r) => setTimeout(r, 50));
+
+    expect(
+      within(container).queryAllByRole("alert").length,
+      "une réponse dépassée a écrit dans l'état : l'erreur recouvre un formulaire chargé",
+    ).toBe(0);
+    expect(screen.queryByRole("button", { name: /Enregistrer/i })).not.toBeNull();
   });
 });
 

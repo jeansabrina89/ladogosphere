@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import SuggestionBox from "./SuggestionBox";
 import { formatBoxLabel } from "@/src/lib/boxes";
@@ -26,28 +26,51 @@ export default function FormModifierReservation({ id }: { id: string }) {
   const [typeSejourChoisi, setTypeSejourChoisi] = useState("pension");
   const [erreur, setErreur] = useState<string | null>(null);
 
-  // La réponse est rangée dans une fonction de rappel, comme avant : l'état
-  // n'est pas posé en plein effet.
-  const charger = useCallback(() => appelerApi<{
-    reservation: { box_id?: string | null; type_sejour?: string | null };
-    boxes: { id: string }[];
-    peutUrgence?: boolean;
-  }>(
-    "FormModifierReservation.charger",
-    `/api/reservations/${id}/details`,
-    {},
-    { siEchec: setErreur },
-  ).then((r) => {
-    if (!r.ok) return; // l'écran sort de l'attente par le message, pas par le vide
-    setRes(r.valeur.reservation);
-    setBoxes(r.valeur.boxes);
-    setBoxId(r.valeur.reservation?.box_id || "");
-    setPeutUrgence(!!r.valeur.peutUrgence);
-    const t = typeSejour(r.valeur.reservation?.type_sejour);
-    setTypeSejourInitial(t);
-    setTypeSejourChoisi(t);
-    setErreur(null);
-  }), [id]);
+  /**
+   * DEUX protections, qui ne couvrent pas le même ensemble.
+   *
+   * `chargementEnCours` grise « Réessayer » : c'est une protection
+   * d'INTERFACE. Elle ferme le chemin le plus probable — deux clics — et le
+   * rend visible à qui est devant l'écran.
+   *
+   * Le jeton est une protection d'ÉTAT. Elle ferme tout le reste : le montage
+   * suivi d'un clic rapide, un remontage, un retour de navigation. Sans elle,
+   * une réponse LENTE écrit après une réponse plus RÉCENTE, et l'écran montre
+   * une erreur par-dessus des données correctes.
+   *
+   * Un appel dépassé n'écrit RIEN — ni données, ni erreur, ni fin d'attente.
+   */
+  const jeton = useRef(0);
+  // Vrai dès le départ : au premier rendu, la lecture est en cours.
+  const [chargementEnCours, setChargementEnCours] = useState(true);
+
+  const charger = useCallback(() => {
+    const mien = ++jeton.current;
+    // La réponse est rangée dans une fonction de rappel, comme avant : l'état
+    // n'est pas posé en plein effet.
+    return appelerApi<{
+      reservation: { box_id?: string | null; type_sejour?: string | null };
+      boxes: { id: string }[];
+      peutUrgence?: boolean;
+    }>(
+      "FormModifierReservation.charger",
+      `/api/reservations/${id}/details`,
+      {},
+      { siEchec: (phrase) => { if (mien === jeton.current) setErreur(phrase); } },
+    ).then((r) => {
+      if (mien !== jeton.current) return; // dépassé : on se tait, entièrement
+      setChargementEnCours(false);
+      if (!r.ok) return; // l'écran sort de l'attente par le message, pas par le vide
+      setRes(r.valeur.reservation);
+      setBoxes(r.valeur.boxes);
+      setBoxId(r.valeur.reservation?.box_id || "");
+      setPeutUrgence(!!r.valeur.peutUrgence);
+      const t = typeSejour(r.valeur.reservation?.type_sejour);
+      setTypeSejourInitial(t);
+      setTypeSejourChoisi(t);
+      setErreur(null);
+    });
+  }, [id]);
 
   useEffect(() => { void charger(); }, [charger]);
 
@@ -60,8 +83,14 @@ export default function FormModifierReservation({ id }: { id: string }) {
           <div role="alert" className="max-w-xl rounded-xl p-4 font-semibold"
             style={{ backgroundColor: "#FDECEC", color: "#8A1F1F", border: "1px solid #F0C2C2" }}>
             <p className="mb-3">{erreur}</p>
-            <button type="button" onClick={() => { setErreur(null); void charger(); }}
-              className="px-3 py-1 rounded-lg" style={{ backgroundColor: "#8A1F1F", color: "white" }}>
+            {/* `disabled` est une seconde serrure sur la même porte : le clic
+                efface déjà le message, donc ce bloc — et ce bouton avec lui —
+                disparaît le temps de la lecture. Si un jour on cesse
+                d'effacer le message, la serrure sera déjà là. */}
+            <button type="button" disabled={chargementEnCours}
+              onClick={() => { setErreur(null); setChargementEnCours(true); void charger(); }}
+              className="px-3 py-1 rounded-lg disabled:opacity-50"
+              style={{ backgroundColor: "#8A1F1F", color: "white" }}>
               Réessayer
             </button>
           </div>

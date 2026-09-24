@@ -239,7 +239,9 @@ describe("branchement des deux écrans à étapes", () => {
   it("GestionOptions : l'enregistrement d'une valeur rend la main", async () => {
     const src = await lire("app", "components", "options", "GestionOptions.tsx");
     expect(src).toContain('tenterReseau(\n      "GestionOptions.enregistrerValeur"');
-    expect(src).toContain("toujours: () => setEnCours(false)");
+    // La main est rendue ET la serrure du clavier rouverte, au meme endroit.
+    expect(src).toContain("toujours: () => { enVol.current = false; setEnCours(false); }");
+    expect(src).toContain("if (enVol.current) return;");
     expect(src).toContain("siEchec: (phrase) => onFini({ error: phrase })");
   });
 
