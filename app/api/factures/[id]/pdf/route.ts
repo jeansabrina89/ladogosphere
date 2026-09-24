@@ -39,7 +39,16 @@ export async function GET(
 
   // Le PDF d'une facture émise avant cette phase n'existe pas encore : on le
   // fabrique une fois, puis il ne bouge plus.
-  if (!facture.pdf_path && estPersonnel) {
+  //
+  // L'autorisation se joue PLUS HAUT, sur la propriété de la facture : le
+  // client qui arrive ici est déjà celui à qui elle appartient. Réserver la
+  // fabrication au personnel laissait ce client devant une page vide pour un
+  // document qui est le sien.
+  //
+  // La génération n'a lieu qu'une fois : `genererPdfFacture` sort immédiatement
+  // si `pdf_path` est renseigné, et l'écrit dès le dépôt réussi. Un client qui
+  // rafraîchit ne fabrique donc pas un PDF à chaque appel.
+  if (!facture.pdf_path) {
     await genererPdfFacture(id);
   }
 

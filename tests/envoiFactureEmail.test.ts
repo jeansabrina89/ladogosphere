@@ -38,7 +38,10 @@ vi.mock("@/src/lib/supabase-admin", () => {
     supabaseAdmin: {
       from,
       // Aucun PDF déposé : l'envoi part sans pièce, ce qui ne change rien ici.
-      storage: { from: () => ({ download: () => Promise.resolve({ data: null, error: null }) }) },
+      // Le PDF est JOINT a l e-mail : sans document, l envoi est refuse
+      // (lot 20). Ces scenarios sont ceux d un envoi qui aboutit, donc le
+      // document est la.
+      storage: { from: () => ({ download: () => Promise.resolve({ data: new Blob(["%PDF-1.4"]), error: null }) }) },
     },
   };
 });
@@ -65,12 +68,12 @@ beforeEach(() => {
   H.factures = {
     f1: {
       id: "f1", numero: "FAC-2026-0100", date_facture: "2026-09-15", date_echeance: "2026-10-15",
-      montant_total: 120, montant_restant: 120, pdf_path: null,
+      montant_total: 120, montant_restant: 120, pdf_path: "2026/FAC-2026-0100.pdf",
       clients: { prenom: "Camille", email: "camille@exemple.ch" },
     },
     sansAdresse: {
       id: "sansAdresse", numero: "FAC-2026-0101", date_facture: "2026-09-15",
-      montant_total: 50, montant_restant: 50, pdf_path: null,
+      montant_total: 50, montant_restant: 50, pdf_path: "2026/FAC-2026-0101.pdf",
       clients: { prenom: "Luc", email: null },
     },
   };

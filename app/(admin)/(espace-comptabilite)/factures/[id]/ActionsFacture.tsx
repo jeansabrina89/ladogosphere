@@ -75,7 +75,13 @@ export default function ActionsFacture({
             disabled={nbLignes === 0 || enCours !== null}
             onClick={() => lancer("emettre", async () => {
               const r = await emettreFactureAction(factureId);
-              if (!r.error) setMessage({ texte: `Facture ${r.numero} émise.`, erreur: false });
+              // Le document a pu manquer alors que l'émission, elle, a eu lieu :
+              // on dit les deux, et on ne l'annonce pas comme un succès simple.
+              if (!r.error) {
+                setMessage(r.avertissement
+                  ? { texte: `Facture ${r.numero} émise. ${r.avertissement}`, erreur: true }
+                  : { texte: `Facture ${r.numero} émise.`, erreur: false });
+              }
               return r;
             })}
           />

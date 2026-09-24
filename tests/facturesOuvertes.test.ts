@@ -185,7 +185,10 @@ describe("l’envoi du matin", () => {
   });
 
   it("rend compte des deux tâches, et trace aussi les échecs", () => {
-    expect(route).toContain("return NextResponse.json({ ok: true, date: aujourdhui, adhesions, factures })");
+    // La reconciliation des documents s est ajoutee au compte rendu, AVANT
+    // l envoi : une facture refabriquee le matin part le matin meme.
+    expect(route).toContain("return NextResponse.json({ ok: true, date: aujourdhui, adhesions, documents, factures })");
+    expect(route.indexOf("reconcilierDocumentsFactures(")).toBeLessThan(route.indexOf("envoyerFacturesOuvertes(aujourdhui)"));
     expect(route).toContain('evenement: "envoi_echec"');
   });
 });

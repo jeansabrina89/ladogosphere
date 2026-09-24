@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { BUCKET_FACTURES } from "@/src/lib/factureDocument";
 import { BUCKET_JUSTIFICATIFS } from "@/src/lib/pieces";
+import { facturesSansDocument } from "@/src/lib/reconciliationFactures";
 import {
   inventorier,
   type FichierReference,
@@ -57,7 +58,7 @@ async function listerDossier(
  * parent, JAMAIS sa date de dépôt.
  */
 async function datesComptablesDesPieces(): Promise<
-  { chemin: string; origineChemin: string | null; dateComptable: string }[]
+  { chemin: string; origineChemin: string | null; dateComptable: string; entite: string; entiteId: string }[]
 > {
   const { data: pieces } = await supabaseAdmin
     .from("pieces")
@@ -90,9 +91,11 @@ async function datesComptablesDesPieces(): Promise<
   return lignes.map((l) => ({
     chemin: l.storage_path,
     origineChemin: l.origine_path,
-    // Un parent introuvable donne une date vide : la pièce tombe alors hors
-    // de tout exercice, et se voit dans l'inventaire par son absence.
+    // Un parent introuvable donne une date vide : la pièce n'appartient alors
+    // à aucun exercice, et l'inventaire la nomme dans `sansExercice`.
     dateComptable: parId.get(l.entite_id) ?? "",
+    entite: l.entite,
+    entiteId: l.entite_id,
   }));
 }
 
@@ -142,11 +145,21 @@ export async function inventaireExercice(exercice: number): Promise<Inventaire> 
     prefixes.push(`${dossier}/`);
   }
 
+  // Les factures emises dont le document n existe pas : elles ne sont
+  // referencees nulle part, donc aucun parcours de stockage ne les verrait.
+  const sansDocument = (await facturesSansDocument()).map((f) => ({
+    numero: f.numero, statut: f.statut, dateComptable: f.date_facture,
+  }));
+
   const perimetre = new Set(prefixes);
   return inventorier({
     exercice,
     references,
     tailles,
+    facturesSansDocument: sansDocument,
+    sansExercice: pieces
+      .filter((p) => !p.dateComptable)
+      .map((p) => ({ chemin: p.chemin, entite: p.entite, entiteId: p.entiteId })),
     // Un fichier n'est un orphelin que dans un dossier qu'on a effectivement
     // parcouru. Ailleurs, on ne sait pas — et on ne le prétend pas.
     dansLePerimetre: (chemin) =>

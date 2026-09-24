@@ -45,6 +45,18 @@ export type Anomalies = {
   orphelins: { chemin: string; octets: number }[];
   /** `origine_path` renseigné, mais le fichier d'origine n'est pas là. */
   originauxManquants: { chemin: string; dateComptable: string }[];
+  /**
+   * Facture émise — numérotée — dont aucun document n'est conservé. Ce n'est
+   * pas un défaut d'affichage : la pièce existe comptablement et n'existe pas
+   * documentairement, alors que la loi demande dix ans de conservation.
+   */
+  facturesSansDocument: { numero: string; statut: string; dateComptable: string }[];
+  /**
+   * Pièce dont le document parent est introuvable : sans lui, aucune date
+   * comptable, donc aucun exercice, donc jamais exportée. Elle n'appartient à
+   * rien — et c'est justement pour ça qu'il faut la nommer.
+   */
+  sansExercice: { chemin: string; entite: string; entiteId: string }[];
 };
 
 export type Inventaire = {
@@ -91,12 +103,24 @@ export function inventorier(input: {
   tailles: TaillesStockage;
   dansLePerimetre: (chemin: string) => boolean;
   appelsStockage: number;
+  /** Factures emises sans document conserve, toutes annees confondues. */
+  facturesSansDocument?: { numero: string; statut: string; dateComptable: string }[];
+  /** Pieces dont le parent est introuvable : sans exercice, jamais exportees. */
+  sansExercice?: { chemin: string; entite: string; entiteId: string }[];
 }): Inventaire {
   const { exercice, references, tailles } = input;
 
   const mois = Array.from({ length: 12 }, (_, i) => moisVide(i + 1));
   const total = moisVide(0);
-  const anomalies: Anomalies = { manquants: [], orphelins: [], originauxManquants: [] };
+  const anomalies: Anomalies = {
+    manquants: [], orphelins: [], originauxManquants: [],
+    // Les factures sans document se filtrent sur l exercice inventorie ; les
+    // pieces sans exercice, elles, ne peuvent se ranger nulle part : on les
+    // montre toutes, sur tous les exercices, sinon personne ne les verrait.
+    facturesSansDocument: (input.facturesSansDocument ?? [])
+      .filter((f) => anneeDe(f.dateComptable) === input.exercice),
+    sansExercice: input.sansExercice ?? [],
+  };
 
   for (const ref of references) {
     const presente = tailles.has(ref.chemin);

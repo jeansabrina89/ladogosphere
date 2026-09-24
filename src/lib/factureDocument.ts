@@ -311,14 +311,35 @@ export async function telechargerPdf(factureId: string): Promise<Buffer | null> 
 export async function finaliserEmission(
   factureId: string,
   userId?: string | null,
-): Promise<void> {
+): Promise<{ error?: string }> {
   try {
     await genererPdfFacture(factureId, userId);
   } catch (e) {
     Sentry.captureException(e);
     console.error("finalisation emission facture:", e);
+    return { error: MESSAGE_DOCUMENT_ABSENT };
   }
+
+  // La génération peut échouer SANS lever : facture introuvable, dépôt refusé
+  // en amont. Le seul fait qui compte est celui-ci — le chemin est-il écrit ?
+  const { data } = await supabaseAdmin
+    .from("factures").select("pdf_path").eq("id", factureId).maybeSingle();
+  if (!data?.pdf_path) return { error: MESSAGE_DOCUMENT_ABSENT };
+  return {};
 }
+
+/**
+ * Ce qu'on dit quand le document manque.
+ *
+ * Deux choses vraies, et les deux comptent : la facture EST émise et porte son
+ * numéro — on ne peut pas revenir en arrière, la numérotation doit rester
+ * continue — et le document n'existe pas encore. Tant qu'il n'existe pas,
+ * l'envoyer au client ferait partir un e-mail SANS la facture jointe.
+ */
+export const MESSAGE_DOCUMENT_ABSENT =
+  "La facture est émise et porte son numéro, mais son document PDF n'a pas pu être créé. " +
+  "Elle ne peut pas être envoyée au client tant qu'il manque. Réessayez : " +
+  "le document sera fabriqué, et la tâche de nuit s'en charge sinon.";
 
 /**
  * La facture est arrivée chez le client : on le note, une fois pour toutes.
@@ -372,7 +393,20 @@ export async function envoyerFactureParEmail(
   if (!client?.email) return { error: "Ce client n'a pas d'adresse e-mail." };
 
   const { envoyerEmailFactureEmise } = await import("@/src/lib/email");
-  const pdf = await telechargerPdf(factureId);
+  let pdf = await telechargerPdf(factureId);
+
+  // Le PDF est JOINT à l'e-mail. Sans lui, le client recevait une annonce de
+  // facture sans facture — et l'envoi était marqué fait, donc jamais repris.
+  // On fabrique le document ici plutôt que d'envoyer une coquille vide.
+  if (!pdf) {
+    await finaliserEmission(factureId, userId ?? null);
+    pdf = await telechargerPdf(factureId);
+  }
+  if (!pdf) {
+    // L'envoi du matin inscrit cet échec au journal et retentera demain :
+    // `email_envoye_le` n'est posé qu'après un envoi réussi.
+    return { error: "Le document de la facture est introuvable : rien n'a été envoyé." };
+  }
 
   try {
     await envoyerEmailFactureEmise({

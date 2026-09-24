@@ -7,6 +7,7 @@ import { aujourdhuiISO } from "@/src/lib/dates";
 import { envoyerFactureParEmail } from "@/src/lib/factureDocument";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { verifierCron } from "@/src/lib/cron";
+import { reconcilierDocumentsFactures } from "@/src/lib/reconciliationFactures";
 import {
   STATUTS_EMISE_OUVERTE,
   facturesAEnvoyerCeMatin,
@@ -53,9 +54,12 @@ export async function GET(req: NextRequest) {
   const aujourdhui = aujourdhuiISO();
 
   const adhesions = await rappelerAdhesionsEchues(aujourdhui);
+  // AVANT l envoi, et c est tout l interet de l ordre : une facture dont le
+  // document est refabrique ce matin part le matin meme, avec sa piece jointe.
+  const documents = await reconcilierDocumentsFactures();
   const factures = await envoyerFacturesOuvertes(aujourdhui);
 
-  return NextResponse.json({ ok: true, date: aujourdhui, adhesions, factures });
+  return NextResponse.json({ ok: true, date: aujourdhui, adhesions, documents, factures });
 }
 
 // ── 1. Adhésions échues ─────────────────────────────────────────────────────

@@ -316,7 +316,9 @@ export async function annulerPaiement(formData: FormData): Promise<{ error?: str
 // Émission et envoi
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function emettreFactureAction(factureId: string): Promise<{ error?: string; numero?: string }> {
+export async function emettreFactureAction(
+  factureId: string,
+): Promise<{ error?: string; numero?: string; avertissement?: string }> {
   const verif = await verifierPermission("perm_encaissements");
   if (verif.error) return { error: verif.error };
 
@@ -336,10 +338,12 @@ export async function emettreFactureAction(factureId: string): Promise<{ error?:
   await synchroniserComptaFacture(factureId, verif.userId ?? null);
   // Émise, la facture devient ce qui est dû : les réservations qu'elle couvre se dérivent d'elle.
   await recalculerPaiementsDeFacture(factureId);
-  await finaliserEmission(factureId, verif.userId ?? null);
+  // L'échec du document ne s'avale plus. La facture RESTE émise — le numéro est
+  // attribué et la numérotation doit rester continue — mais on le dit.
+  const doc = await finaliserEmission(factureId, verif.userId ?? null);
 
   rafraichir(factureId);
-  return { numero: (data as string) ?? undefined };
+  return { numero: (data as string) ?? undefined, avertissement: doc.error };
 }
 
 export async function renvoyerFactureAction(factureId: string): Promise<{ error?: string; ok?: boolean }> {

@@ -31,8 +31,10 @@ function inventaire(avecAnomalies: boolean) {
           manquants: [{ chemin: "2026/FAC-2026-0009.pdf", categorie: "facture", dateComptable: "2026-05-20" }],
           orphelins: [{ chemin: "depense/d1/zzz-inconnu.webp", octets: 7_000 }],
           originauxManquants: [{ chemin: "depense/d2/bbb.origine.jpg", dateComptable: "2026-04-02" }],
+          facturesSansDocument: [{ numero: "FAC-2026-0008", statut: "envoyee", dateComptable: "2026-07-15" }],
+          sansExercice: [{ chemin: "RECETTE4000-x/justificatif.pdf", entite: "depense", entiteId: "d-perdu" }],
         }
-      : { manquants: [], orphelins: [], originauxManquants: [] },
+      : { manquants: [], orphelins: [], originauxManquants: [], facturesSansDocument: [], sansExercice: [] },
   };
 }
 
@@ -56,7 +58,10 @@ describe("écran d'inventaire", () => {
     expect(alerte.textContent).toContain("depense/d1/zzz-inconnu.webp");
     expect(alerte.textContent).toContain("depense/d2/bbb.origine.jpg");
     // Le compte est annoncé dans le titre : on ne découvre pas les anomalies en lisant.
-    expect(screen.getByText(/Anomalies \(3\)/)).toBeTruthy();
+    // Les deux catégories ajoutées au lot 20 comptent dans le total.
+    expect(alerte.textContent).toContain("FAC-2026-0008");
+    expect(alerte.textContent).toContain("RECETTE4000-x/justificatif.pdf");
+    expect(screen.getByText(/Anomalies \(5\)/)).toBeTruthy();
   });
 
   it("sans anomalie, l'écran le dit au lieu de laisser un vide", async () => {

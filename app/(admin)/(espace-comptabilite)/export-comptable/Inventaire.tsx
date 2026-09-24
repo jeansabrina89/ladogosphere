@@ -54,6 +54,7 @@ export default function InventaireExport({ exercices, exerciceInitial }: {
   const anomalies = inventaire?.anomalies;
   const nbAnomalies = anomalies
     ? anomalies.manquants.length + anomalies.orphelins.length + anomalies.originauxManquants.length
+      + anomalies.facturesSansDocument.length + anomalies.sansExercice.length
     : 0;
 
   return (
@@ -148,6 +149,43 @@ export default function InventaireExport({ exercices, exerciceInitial }: {
                     <ul className="list-disc ml-5">
                       {anomalies!.originauxManquants.map((a) => (
                         <li key={a.chemin}><code>{a.chemin}</code> — {a.dateComptable}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {anomalies!.facturesSansDocument.length > 0 && (
+                  <div className="mb-3">
+                    <p className="font-semibold">
+                      Facture émise sans document conservé ({anomalies!.facturesSansDocument.length})
+                    </p>
+                    <p className="text-xs">
+                      La pièce existe comptablement — elle porte son numéro — et n&apos;existe pas
+                      documentairement. La tâche du matin tente de la refabriquer chaque jour.
+                    </p>
+                    <ul className="list-disc ml-5">
+                      {anomalies!.facturesSansDocument.map((f) => (
+                        <li key={f.numero}>
+                          <code>{f.numero}</code> — {f.dateComptable} — {f.statut}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {anomalies!.sansExercice.length > 0 && (
+                  <div className="mb-3">
+                    <p className="font-semibold">
+                      Pièce sans exercice : document parent introuvable ({anomalies!.sansExercice.length})
+                    </p>
+                    <p className="text-xs">
+                      Sans parent, aucune date comptable — donc aucun exercice, donc jamais
+                      exportée. Elle n&apos;apparaîtrait dans aucun export tant que rien ne la
+                      rattache.
+                    </p>
+                    <ul className="list-disc ml-5">
+                      {anomalies!.sansExercice.map((s) => (
+                        <li key={s.chemin}>
+                          <code>{s.chemin}</code> — {s.entite} {s.entiteId}
+                        </li>
                       ))}
                     </ul>
                   </div>
