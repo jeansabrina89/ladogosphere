@@ -71,26 +71,31 @@ mécanismes s'en chargent, et ils se recouvrent :
 | `clients/[id]/actions.ts:130,192` | modifier / supprimer un mouvement d'avoir | employé `perm_encaissements` | `mouvement_id` + `client_id` | **argent** | oui — `ligne.client_id !== client_id` | SÛR |
 | `clients/[id]/actions.ts:32` | **ajouterAvoir** | employé `perm_encaissements` | `client_id` (formulaire) | **argent** | non — mais voir ci-dessous | SANS OBJET |
 | `clients/[id]/actions.ts:71` | **retirerAvoir** | employé `perm_encaissements` | `client_id` (formulaire) | **argent** | non — idem | SANS OBJET |
-| `prestations/actions.ts:126-128` | créer une prestation | employé `perm_prestations` | `client_id` + `chien_id` | écriture | **non — le chien n'est pas rattaché au client** | **FORGEABLE** |
+| `prestations/actions.ts:126-128` | créer une prestation | employé `perm_prestations` | `client_id` + `chien_id` | écriture | oui depuis le lot 22-ter — `chien.client_id` relu | SÛR |
 | `prestations/actions.ts:281` | ajuster un abonnement | employé | `abonnement_id` | écriture | oui — `abo.client_id` relu | SÛR |
 | `checkin/actions.ts:11,33` | check-in / check-out | employé `perm_checkin` | `checkin_id` | écriture | sans objet — la ligne EST l'objet | SANS OBJET |
 | `boutique/attentes/actions.ts:22` | traiter une alerte | employé `perm_boutique_*` | `alerte_id` | écriture | sans objet | SANS OBJET |
 | `api/rh/timbrage/route.ts:32-37` | saisir un timbrage | employé | `employe_id` | écriture | oui — son propre identifiant, ou la permission | SANS OBJET |
-| `api/rh/timbrage/route.ts:78,117` | **valider un timbrage** | employé `perm_timbrage_equipe` | `employe_id` | écriture | **non — rien n'exclut le sien** | **FORGEABLE** |
-| `api/rh/vacances/route.ts:43` | **approuver des vacances** | employé `perm_vacances_equipe` | `id` (corps) | écriture | **non — rien n'exclut la sienne** | **FORGEABLE** |
+| `api/rh/timbrage/route.ts:117` | **valider un timbrage** | employé `perm_timbrage_equipe` | `employe_id` | écriture | oui depuis le lot 22-ter — le sien est refusé | SÛR |
+| `api/rh/vacances/route.ts:43` | **approuver des vacances** | employé `perm_vacances_equipe` | `id` (corps) | écriture | oui depuis le lot 22-ter — la sienne est refusée | SÛR |
 | 12 autres sites d'administration (fournisseurs, boxes, formules, modèles, employés, réglages) | divers | employé + permission | `id` | écriture | sans objet — l'identifiant désigne l'objet même de l'écran | SANS OBJET |
 
 ## Totaux
 
 | Verdict | Lignes |
 |---|---|
-| SÛR | 16 |
+| SÛR | **19** |
 | SANS OBJET | 11 |
-| **FORGEABLE** | **3** |
+| **FORGEABLE** | **0** |
 | **CLIENT→CLIENT** | **0** |
 | **Total** | **30** |
 
-## Les trois FORGEABLE
+Les trois FORGEABLE ont été fermés au **lot 22-ter**, chacun avec son test
+d'attaque : `c496fdf` (le chien de la prestation) et `90a3799` (les deux
+auto-validations). Le tableau ci-dessous garde le constat d'origine, daté, et
+dit pour chacun ce qui l'a refermé.
+
+## Les trois FORGEABLE — tous fermés au lot 22-ter
 
 **1. `prestations/actions.ts:126-128` — un chien qui n'est pas celui du client.**
 La prestation est créée avec `client_id` et `chien_id`, tous deux du
@@ -98,19 +103,29 @@ formulaire ; le client est relu (locataire de box ?), le chien ne l'est pas.
 Une prestation peut donc porter le chien d'un autre client. Conséquence :
 incohérence au planning, pas d'argent déplacé.
 *Correction : relire le chien et vérifier `chien.client_id === clientId` — deux
-lignes.* **Aucun test aujourd'hui.**
+lignes.*
+**FERMÉ au lot 22-ter, commit `c496fdf`**, test `tests/attaquePrestationChien.test.ts`
+(4 cas) : le chien d'un autre client est refusé, rien n'est écrit.
 
 **2. `api/rh/timbrage/route.ts:78,117` — valider son propre timbrage.**
 La permission `perm_timbrage_equipe` ouvre la validation de toute l'équipe,
 et rien ne distingue « la mienne » des autres. Un employé qui la porte valide
 ses propres heures.
 *Correction : refuser quand `employe_id` est celui de l'appelant, sauf pour
-l'administratrice — quelques lignes.* **Aucun test.**
+l'administratrice — quelques lignes.*
+**FERMÉ au lot 22-ter, commit `90a3799`.** Le recensement disait moins que la
+réalité : sur le PATCH, le chemin « c'est moi » sautait la garde de permission
+**entièrement**, donc un employé **sans** `perm_timbrage_equipe` validait déjà
+son propre mois. Les deux couches sont désormais posées, et chacune a son test
+qui rougit seule.
 
 **3. `api/rh/vacances/route.ts:43` — approuver ses propres vacances.**
 Même motif, même permission, même absence d'exclusion.
 *Correction : lire le demandeur et refuser l'auto-approbation — quelques
-lignes.* **Aucun test.**
+lignes.*
+**FERMÉ au lot 22-ter, commit `90a3799`.** La demande était lue **après** avoir
+été modifiée : on ne savait de qui elle était qu'une fois le statut déjà changé.
+La lecture passe avant l'écriture.
 
 Les deux derniers sont C-07c du suivi d'audit, reclassés ici.
 
