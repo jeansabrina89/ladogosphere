@@ -350,9 +350,12 @@ export async function confirmerCommande(entree: EntreeConfirmation): Promise<Ret
   }
 
   let factureId: string | null = null;
+  /** Dit quand la facture est emise mais son document absent. */
+  let avertissementFacture: string | null = null;
   if (entree.mode_paiement === "facture") {
     const facture = await emettreFactureCommande(res.id, client.id, total.aPayer);
     factureId = facture.factureId ?? null;
+    avertissementFacture = facture.avertissement ?? null;
     if (facture.error) {
       // La commande tient : c'est la facture qui a manqué, et on le dit.
       rafraichir();
@@ -376,7 +379,12 @@ export async function confirmerCommande(entree: EntreeConfirmation): Promise<Ret
   });
 
   rafraichir();
-  return { id: res.id, numero: res.numero, message: `Commande ${res.numero} confirmée.` };
+  return {
+    id: res.id, numero: res.numero,
+    message: avertissementFacture
+      ? `Commande ${res.numero} confirmée. ${avertissementFacture}`
+      : `Commande ${res.numero} confirmée.`,
+  };
 }
 
 /**
@@ -530,7 +538,7 @@ async function emettreFactureCommande(
   commandeId: string,
   clientId: string,
   total: number
-): Promise<{ error?: string; factureId?: string }> {
+): Promise<{ error?: string; factureId?: string; avertissement?: string }> {
   const { data: client } = await supabaseAdmin
     .from("clients").select("adresse").eq("id", clientId).maybeSingle();
   if (!(client?.adresse ?? "").trim()) {
@@ -642,7 +650,11 @@ async function emettreFactureCommande(
 
   await synchroniserComptaFacture(facture.id, null);
   await supabaseAdmin.from("commandes").update({ facture_id: facture.id }).eq("id", commandeId);
-  await finaliserEmission(facture.id, null);
+  // L'échec du document ne se perd plus ici : sans PDF, la confirmation part
+  // SANS la facture jointe. La commande tient, la facture est émise, et la
+  // pièce suivra — le passage du matin la refabrique puis l'envoie, puisque
+  // `email_envoye_le` n'est posé qu'après un envoi réussi.
+  const doc = await finaliserEmission(facture.id, null);
 
-  return { factureId: facture.id };
+  return { factureId: facture.id, avertissement: doc.error };
 }
