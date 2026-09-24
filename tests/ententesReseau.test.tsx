@@ -87,18 +87,17 @@ describe("Ententes : le premier chargement échoue", () => {
     // périmée du composant, ou un reste de DOM d'un test voisin.
     const journal: string[] = [];
     let rang = 0;
-    // Le simulateur garde la forme qu'il avait quand l'échec a été observé :
-    // UN SEUL objet Response partagé par tous les appels qui réussissent. Un
-    // corps de réponse ne se lit qu'une fois — un troisième appel le relirait
-    // et lèverait « Body is unusable », que `appelerApi` traite en échec
-    // réseau. C'est précisément le message vu dans la trace du 24 septembre.
-    const partagee = reponse(LISTE);
+    // CHAQUE appel reçoit son propre objet Response, comme un vrai fetch. Le
+    // simulateur en partageait un seul : or un corps ne se lit qu'une fois,
+    // donc un deuxième lecteur recevait « Body is unusable », que `appelerApi`
+    // traite en échec réseau. Un simulateur qui ne supporte pas d'être appelé
+    // deux fois invente des pannes que la production n'aurait pas.
     const fetchSimule = vi.fn(async () => {
       const n = ++rang;
       journal.push(`appel#${n}`);
       if (n === 1) { journal.push(`echec#${n}`); throw new TypeError("Failed to fetch"); }
       journal.push(`succes#${n}`);
-      return partagee;
+      return reponse(LISTE);
     });
     vi.stubGlobal("fetch", fetchSimule);
     const { container } = afficher();
@@ -118,6 +117,44 @@ describe("Ententes : le premier chargement échoue", () => {
       `ordre des appels : ${journal.join(" → ")} | conteneurs montés : ${document.body.childElementCount}` +
         ` | texte du bandeau : ${(partout[0]?.textContent ?? "aucun").slice(0, 80)}`,
     ).toEqual({ dansCeConteneur: 0, dansToutLeDocument: 0 });
+  });
+});
+
+describe("Ententes : deux chargements en vol", () => {
+  it("un appel LENT qui échoue n'écrase pas le résultat d'un appel RAPIDE", async () => {
+    // Le scénario que personne ne sait provoquer à la main mais qu'un réseau
+    // instable fabrique tout seul : « Réessayer » cliqué deux fois, la
+    // première réponse arrivant APRÈS la seconde, et en panne.
+    let lacher: (() => void) | null = null;
+    const lent = new Promise<void>((r) => { lacher = () => r(); });
+
+    let rang = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      const n = ++rang;
+      if (n === 1) throw new TypeError("Failed to fetch"); // le chargement initial
+      if (n === 2) { await lent; throw new TypeError("Failed to fetch"); } // lent, et en panne
+      return reponse(LISTE); // rapide, et bon
+    }));
+
+    const { container } = afficher();
+
+    // Premier clic : part, et va traîner.
+    const reessayer = await screen.findByRole("button", { name: /Réessayer/i });
+    reessayer.click();
+    // Deuxième clic : part, et répond tout de suite.
+    reessayer.click();
+    await waitFor(() => expect(screen.queryAllByText(/Nala/).length).toBeGreaterThan(0));
+
+    // Maintenant seulement, le premier appel retombe — en panne.
+    lacher!();
+    await new Promise((r) => setTimeout(r, 50));
+
+    // Sa panne est périmée : elle ne doit rien afficher par-dessus la liste.
+    expect(
+      within(container).queryAllByRole("alert").length,
+      "une réponse dépassée a écrit dans l'état : le bandeau d'erreur recouvre une liste correcte",
+    ).toBe(0);
+    expect(screen.queryAllByText(/Nala/).length).toBeGreaterThan(0);
   });
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { appelerApi } from "@/src/lib/reseau";
 
 type Chien = { id: string; nom: string; race: string };
@@ -33,13 +33,31 @@ export default function Ententes({
   // Ce qui n'a pas marché, dit en français. La liste déjà affichée, elle, reste.
   const [erreur, setErreur] = useState<string | null>(null);
 
+  /**
+   * Le jeton du chargement en cours.
+   *
+   * `charger()` part de cinq endroits — le montage, « Réessayer », et la
+   * relecture qui suit un ajout, une suppression ou une case cochée — et deux
+   * de ces départs peuvent se chevaucher : rien ne désactive « Réessayer »
+   * pendant qu'il charge. Sans jeton, une réponse LENTE écrase une réponse
+   * plus RÉCENTE : un message d'erreur s'affiche par-dessus une liste
+   * correcte, ou une liste périmée remplace la bonne.
+   *
+   * Un appel périmé n'écrit donc RIEN : ni données, ni erreur.
+   */
+  const jeton = useRef(0);
+
   const charger = async () => {
+    const mien = ++jeton.current;
     const res = await appelerApi<{ ententes?: Entente[]; famille_uniquement?: boolean }>(
       "Ententes.charger",
       `/api/chiens/${chien_id}/ententes`,
       {},
-      { siEchec: setErreur },
+      // Le refus lui-même passe par le jeton : une panne périmée n'a pas à
+      // s'afficher par-dessus un chargement qui, lui, a abouti.
+      { siEchec: (phrase) => { if (mien === jeton.current) setErreur(phrase); } },
     );
+    if (mien !== jeton.current) return; // dépassé : on se tait
     if (!res.ok) return; // l'affichage précédent tient, le message dit pourquoi
     setErreur(null);
     setEntentes(res.valeur?.ententes || []);
