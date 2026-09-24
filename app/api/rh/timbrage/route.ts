@@ -108,14 +108,27 @@ export async function PATCH(req: NextRequest) {
   // new Date(annee, moisNum, 0) → dernier jour du mois moisNum
   const dateFin   = new Date(annee, moisNum, 0).toISOString().split("T")[0];
 
-  const { data: { user } } = await supabase.auth.getUser();
   const role = (await lireAppelant(supabase))?.role ?? null;
 
   if (role !== "admin") {
-    const monId = await getMonEmployeId(user!.id);
-    if (!monId || employe_id !== monId) {
-      const permGarde = await exigerPermissionApi(supabase, "perm_timbrage_equipe");
-      if (permGarde) return permGarde;
+    // Valider un mois est un geste d'équipe : la permission est exigée, même
+    // sur son propre mois. Elle ne l'était pas — le chemin « c'est moi »
+    // sautait la garde entière, et un employé sans `perm_timbrage_equipe`
+    // validait déjà ses propres heures.
+    const permGarde = await exigerPermissionApi(supabase, "perm_timbrage_equipe");
+    if (permGarde) return permGarde;
+
+    // Et celui qui porte ce droit ne valide pas ce qu'il a lui-même saisi :
+    // valider, c'est qu'un autre a regardé. L'administratrice le peut,
+    // puisque personne au-dessus d'elle ne le ferait à sa place.
+    // Décision de Sabrina, 24 septembre 2026.
+    const { data: { user } } = await supabase.auth.getUser();
+    const monId = user ? await getMonEmployeId(user.id) : null;
+    if (monId && employe_id === monId) {
+      return NextResponse.json(
+        { error: "Un autre responsable doit valider vos propres heures." },
+        { status: 403 },
+      );
     }
   }
 

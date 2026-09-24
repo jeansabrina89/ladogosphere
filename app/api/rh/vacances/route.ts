@@ -3,7 +3,14 @@ import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { exigerPersonnel, exigerPermissionApi } from "@/src/lib/apiAuth";
+import { lireAppelant } from "@/src/lib/garde";
 import { joursVacancesTheoriques } from "@/src/lib/planningUtils";
+
+async function getMonEmployeId(userId: string): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from("employes_rh").select("id").eq("profile_id", userId).maybeSingle();
+  return data?.id ?? null;
+}
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -46,23 +53,40 @@ export async function PATCH(req: NextRequest) {
   if (!lecture2.ok) return lecture2.reponse;
   const { id, statut, note_admin } = lecture2.corps;
 
-  // 1. Mettre à jour le statut et la note admin
-  const { error } = await supabaseAdmin
-    .from("demandes_vacances")
-    .update({ statut, note_admin })
-    .eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  // 2. Récupérer la demande pour la propagation
+  // 1. La demande, lue AVANT toute écriture. Elle l'était après : on ne
+  //    savait de qui elle était qu'une fois le statut déjà changé.
   const { data: demande, error: errDemande } = await supabaseAdmin
     .from("demandes_vacances")
     .select("employe_id, date_debut, date_fin")
     .eq("id", id)
     .single();
   if (errDemande || !demande) {
-    return NextResponse.json({ error: "Demande introuvable après mise à jour." }, { status: 500 });
+    return NextResponse.json({ error: "Demande introuvable." }, { status: 404 });
   }
   const { employe_id, date_debut, date_fin } = demande;
+
+  // 2. Personne n'approuve ses propres vacances : approuver, c'est qu'un
+  //    autre a regardé. L'administratrice le peut, puisque personne
+  //    au-dessus d'elle ne le ferait à sa place.
+  //    Décision de Sabrina, 24 septembre 2026.
+  const role = (await lireAppelant(supabase))?.role ?? null;
+  if (role !== "admin") {
+    const { data: { user } } = await supabase.auth.getUser();
+    const monId = user ? await getMonEmployeId(user.id) : null;
+    if (monId && employe_id === monId) {
+      return NextResponse.json(
+        { error: "Un autre responsable doit valider vos propres vacances." },
+        { status: 403 },
+      );
+    }
+  }
+
+  // 3. Mettre à jour le statut et la note admin
+  const { error } = await supabaseAdmin
+    .from("demandes_vacances")
+    .update({ statut, note_admin })
+    .eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // 3. Taux de l'employé (pour le décompte théorique si planning absent)
   const { data: empRh } = await supabaseAdmin
