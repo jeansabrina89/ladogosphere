@@ -2,13 +2,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cheminDeRetourSur } from "@/src/lib/cheminDeRetour";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const token_hash = searchParams.get("token_hash");
   const type = searchParams.get("type");
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/";
+  // Le parametre est resolu contre NOTRE origine et rejete s il en sort : une
+  // URL absolue ignorerait la base, et « //evil.com » passerait un
+  // startsWith("/"). Voir src/lib/cheminDeRetour.ts.
+  const next = cheminDeRetourSur(searchParams.get("next"), origin);
 
   const cookieStore = await cookies();
   const supabase = createServerClient(
