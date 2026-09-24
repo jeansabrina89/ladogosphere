@@ -452,7 +452,6 @@ export default async function ReservationPage({
             <BoutonAnnuler
               id={res.id}
               montant_paye={Number(res.montant_paye) || 0}
-              client_id={client_id ?? null}
             />
           )}
 

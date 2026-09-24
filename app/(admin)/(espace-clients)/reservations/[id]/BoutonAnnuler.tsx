@@ -6,18 +6,17 @@ import { annulerReservation } from "./modifier/actions";
 export default function BoutonAnnuler({
   id,
   montant_paye,
-  client_id,
 }: {
   id: string;
   montant_paye: number;
-  client_id?: string | null;
 }) {
   const mettreEnAvoirRef = useRef<HTMLInputElement>(null);
 
   return (
     <form action={annulerReservation}>
       <input type="hidden" name="id" value={id} />
-      <input type="hidden" name="client_id" value={client_id || ""} />
+      {/* Aucun client_id ici : l action le lit sur la reservation. Un champ
+          cache force ne detournera donc plus l avoir vers un autre compte. */}
       <input type="hidden" name="mettre_en_avoir" defaultValue="false" ref={mettreEnAvoirRef} />
       <button
         type="submit"

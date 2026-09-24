@@ -148,16 +148,20 @@ export async function annulerReservation(formData: FormData) {
   if (verif.error) throw new Error(verif.error);
 
   const id = formData.get("id") as string;
-  const client_id = (formData.get("client_id") as string) || null;
   const mettreEnAvoir = formData.get("mettre_en_avoir") === "true";
 
-  // Charger l'état de paiement
+  // Charger l'état de paiement — ET le client.
   const { data: resa } = await supabaseAdmin
     .from("reservations")
-    .select("montant_paye, numero, statut")
+    .select("montant_paye, numero, statut, client_id")
     .eq("id", id)
     .single();
   const montantPaye = Number(resa?.montant_paye || 0);
+
+  // Le client vient de LA RÉSERVATION, jamais du formulaire. Il en venait :
+  // un champ caché forgé créditait l'avoir d'une réservation payée au compte
+  // de son choix, et celui qui avait payé ne voyait rien revenir.
+  const client_id = (resa?.client_id as string | null) ?? null;
 
   // Si demandé : mettre le montant payé en avoir AVANT d'annuler
   if (mettreEnAvoir && montantPaye > 0 && client_id) {
