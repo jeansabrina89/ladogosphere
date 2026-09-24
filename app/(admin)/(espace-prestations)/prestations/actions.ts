@@ -144,6 +144,18 @@ export async function ajouterPrestation(formData: FormData): Promise<Resultat> {
   }
   if (!prestation?.actif) return { error: "Cette prestation n'est plus au catalogue." };
 
+  // Le chien doit être CELUI du client. Il ne l'était pas : les deux
+  // identifiants venaient du formulaire sans rien qui les relie, et une
+  // prestation pouvait porter le chien d'un autre. Au planning du jour,
+  // l'équipe aurait lu un nom de chien qui n'est pas dans ce box.
+  if (chienId) {
+    const { data: chien } = await supabaseAdmin
+      .from("chiens").select("id, client_id").eq("id", chienId).maybeSingle();
+    if (!chien || chien.client_id !== clientId) {
+      return { error: "Ce chien n'appartient pas à ce locataire." };
+    }
+  }
+
   const garde24h = estGarde(unitePrestation(prestation.unite as string));
 
   // Une garde en cours bloque les demandes concurrentes sur le même chien :
