@@ -223,3 +223,17 @@ trop gros » — a été écrite au lot 18g à propos de `GestionOptions`, et s'
 révélée fausse deux lots plus tard : il suffisait de rendre l'écran et
 d'ouvrir le formulaire d'ajout. Un œil neuf trouvera peut-être le même
 raccourci ici. Une dette écrite se rouvre ; une question close, non.
+
+# Avant la première écriture réelle : la check-list de production
+
+`docs/MISE-EN-PRODUCTION.md` porte les étapes qui n'appartiennent à aucun lot,
+parce qu'elles se font ENTRE deux lots. La première est le retrait des données
+comptables de test de 2024 à 2027.
+
+**Aucun exercice ne se clôture d'ici là.** Clôturer 2026 ferait passer son
+résultat — −7 942, entièrement de test — dans le 2970, donc dans les fonds
+propres de la vraie comptabilité, et cela ne se défait pas. Le report « exercices
+antérieurs non clôturés » tient les bilans justes en attendant.
+
+Une étape qui n'est écrite dans aucun lot ne se rappelle nulle part : c'est
+exactement ainsi que le contenu des lots 18e à 18g s'est perdu.
