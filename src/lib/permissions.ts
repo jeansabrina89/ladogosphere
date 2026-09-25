@@ -109,6 +109,7 @@ export type ProfilePerms = {
   perm_reservations_modifier: boolean;
   perm_reservations_annuler: boolean;
   perm_journee_essai: boolean;
+  perm_avoirs: boolean;
   perm_encaissements: boolean;
   /** Le travail administratif de facturation, distinct du geste au comptoir. */
   perm_factures: boolean;
@@ -152,6 +153,7 @@ export async function getProfilePerms(): Promise<ProfilePerms> {
     perm_reservations_modifier: v("perm_reservations_modifier"),
     perm_reservations_annuler: v("perm_reservations_annuler"),
     perm_journee_essai: v("perm_journee_essai"),
+    perm_avoirs: v("perm_avoirs"),
     perm_encaissements: v("perm_encaissements"),
     perm_factures: v("perm_factures"),
     perm_tarifs_urgence: v("perm_tarifs_urgence"),
@@ -179,6 +181,7 @@ function falsePerms(): ProfilePerms {
     perm_reservations_modifier: false,
     perm_reservations_annuler: false,
     perm_journee_essai: false,
+    perm_avoirs: false,
     perm_encaissements: false,
     perm_factures: false,
     perm_tarifs_urgence: false,

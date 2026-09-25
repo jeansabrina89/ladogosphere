@@ -270,8 +270,15 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           )}
         </section>
 
-        {/* 5. Avoir client — composant inchangé */}
-        {(perms.isAdmin || perms.perm_encaissements) && (
+        {/*
+          5. Avoir client.
+          Le bloc porte les boutons qui créditent, corrigent et retirent : il
+          suit donc `perm_avoirs`, comme la route. Montrer un bouton pour un
+          geste que la route refuse fait découvrir le refus en cliquant.
+          Qui tient la caisse sans ce droit ne voit plus ce bloc ; le solde de
+          l'avoir reste visible ailleurs, là où il sert à encaisser.
+        */}
+        {(perms.isAdmin || perms.perm_avoirs) && (
           <section style={{ marginBottom: 28 }}>
             <GestionAvoir client_id={client.id} solde={soldeAvoir} mouvements={mouvementsAvoir} />
           </section>

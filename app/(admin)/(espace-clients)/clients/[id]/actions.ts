@@ -27,7 +27,12 @@ const TYPES_CREDIT = ["ajout_manuel", "annulation_paiement", "trop_percu"];
 const TYPES_MANUELS = ["ajout_manuel", "retrait_manuel"];
 
 export async function ajouterAvoir(formData: FormData): Promise<{ error?: string }> {
-  const verif = await verifierPermission("perm_encaissements");
+  // Crediter un avoir, c est DONNER de l argent a un client. Encaisser, c est
+  // recevoir. Les deux vivaient sous la meme permission : qui tenait la caisse
+  // pouvait crediter n importe qui, de n importe quel montant.
+  // Decision de Sabrina, 26 septembre 2026. Payer AVEC un avoir reste un
+  // encaissement, et ne bouge pas.
+  const verif = await verifierPermission("perm_avoirs");
   if (verif.error) return verif;
 
   const client_id = formData.get("client_id") as string;
@@ -66,7 +71,12 @@ export async function ajouterAvoir(formData: FormData): Promise<{ error?: string
 }
 
 export async function retirerAvoir(formData: FormData): Promise<{ error?: string }> {
-  const verif = await verifierPermission("perm_encaissements");
+  // Crediter un avoir, c est DONNER de l argent a un client. Encaisser, c est
+  // recevoir. Les deux vivaient sous la meme permission : qui tenait la caisse
+  // pouvait crediter n importe qui, de n importe quel montant.
+  // Decision de Sabrina, 26 septembre 2026. Payer AVEC un avoir reste un
+  // encaissement, et ne bouge pas.
+  const verif = await verifierPermission("perm_avoirs");
   if (verif.error) return verif;
 
   const client_id = formData.get("client_id") as string;
@@ -110,7 +120,12 @@ export async function retirerAvoir(formData: FormData): Promise<{ error?: string
 }
 
 export async function modifierMouvementAvoir(formData: FormData): Promise<{ error?: string }> {
-  const verif = await verifierPermission("perm_encaissements");
+  // Crediter un avoir, c est DONNER de l argent a un client. Encaisser, c est
+  // recevoir. Les deux vivaient sous la meme permission : qui tenait la caisse
+  // pouvait crediter n importe qui, de n importe quel montant.
+  // Decision de Sabrina, 26 septembre 2026. Payer AVEC un avoir reste un
+  // encaissement, et ne bouge pas.
+  const verif = await verifierPermission("perm_avoirs");
   if (verif.error) return verif;
 
   const mouvement_id  = (formData.get("mouvement_id") as string)?.trim();
@@ -177,7 +192,12 @@ export async function modifierMouvementAvoir(formData: FormData): Promise<{ erro
 }
 
 export async function supprimerMouvementAvoir(formData: FormData): Promise<{ error?: string }> {
-  const verif = await verifierPermission("perm_encaissements");
+  // Crediter un avoir, c est DONNER de l argent a un client. Encaisser, c est
+  // recevoir. Les deux vivaient sous la meme permission : qui tenait la caisse
+  // pouvait crediter n importe qui, de n importe quel montant.
+  // Decision de Sabrina, 26 septembre 2026. Payer AVEC un avoir reste un
+  // encaissement, et ne bouge pas.
+  const verif = await verifierPermission("perm_avoirs");
   if (verif.error) return verif;
 
   const mouvement_id = (formData.get("mouvement_id") as string)?.trim();

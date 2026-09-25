@@ -27,6 +27,7 @@
  */
 export const PERMISSIONS_PERSONNEL = [
   "perm_atelier",
+  "perm_avoirs",
   "perm_boutique_vente",
   "perm_boutique_gestion",
   "perm_box",
@@ -100,8 +101,12 @@ export const DOMAINES: DomainePermissions[] = [
     nom: "Comptoir",
     entrees: [
       {
+        cle: "perm_avoirs", court: "Créditer un avoir",
+        aide: "Donner de l argent a un client : crediter, corriger ou retirer un avoir a la main. Separee des encaissements par decision du 26 septembre 2026 — encaisser, c est recevoir ; crediter, c est donner.",
+      },
+      {
         cle: "perm_encaissements", court: "Encaissements",
-        aide: "Le geste au comptoir : encaisser un paiement, créer un avoir, enregistrer une adhésion ou un abonnement. Depuis la fiche de réservation, l'écran de départ et la caisse.",
+        aide: "Le geste au comptoir : encaisser un paiement, payer AVEC un avoir, enregistrer une adhésion ou un abonnement. Depuis la fiche de réservation, l'écran de départ et la caisse.",
       },
       {
         cle: "perm_factures", court: "Factures",
