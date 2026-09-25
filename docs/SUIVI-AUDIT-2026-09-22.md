@@ -24,7 +24,7 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
 | C-07b — statut « annulée » sans la permission ni la logique | **FERMÉ** | 22 | `f7a4dac` | oui |
 | C-07c — valider son propre timbrage / ses propres vacances | **FERMÉ** — l'administratrice peut valider ses propres heures et vacances, par décision de Sabrina du 24.09.2026 ; aucun autre employé ne le peut | 22-ter | `90a3799` | oui — 14 cas, 4 couches mutées |
 | C-07d — garde unique `exiger()`, lecture de `profiles.actif` | FERMÉ | 18b | — | oui |
-| C-09 — en-têtes de sécurité, CSP | OUVERT — seul HSTS est servi (par Vercel) | 21 | — | non |
+| C-09 — en-têtes de sécurité | **FERMÉ pour les cinq en-têtes** (HSTS, nosniff, DENY, Referrer-Policy, Permissions-Policy) — la **CSP reste OUVERTE**, report-only à éprouver | 23 | `6f13b28` | oui — 4 cas |
 | C-10 — `/auth/confirm?next=` redirection ouverte | **FERMÉ** | 22 | `de2205b` | oui |
 | C-11 — `.or()` PostgREST assemblé avec la saisie (caisse) | OUVERT — personnel seulement | 21 | — | non |
 | C-13 — limitation de tentatives | OUVERT — Supabase Auth limite connexion, inscription, réinitialisation ; rien de notre côté | 21 | — | non |
@@ -39,8 +39,8 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
 | S-04 — `articles_vitrine` en SECURITY DEFINER, expose `stock_disponible` | OUVERT, deux fois | 21 | — | non |
 | S-05 — bucket `chiens-photos` PUBLIC | OUVERT — servi par `getPublicUrl`, jamais signé | 21 | — | non |
 | S-06 — exception `is_admin` / `is_personnel` documentée | FERMÉ — AGENTS.md, règle « Une fonction SQL naît fermée » | — | — | oui (`fonctionsSqlFermees`) |
-| S-07 — grants résiduels sur six tables comptables | OUVERT mais INERTE — RLS active, zéro politique | 21 | — | non |
-| S-08 — `trim_zero` sans `search_path` | OUVERT mais INERTE — la fonction est SECURITY INVOKER | 21 | — | non |
+| S-07 — grants résiduels sur six tables comptables | **FERMÉ** — plus aucun droit `anon` ni `authenticated` ; RLS active et zéro politique, voulu et écrit dans la migration | 23 | `301030a` | oui — 4 cas |
+| S-08 — `trim_zero` sans `search_path` | **FERMÉ** — `search_path=public` ; l'advisor ne la signale plus | 23 | `301030a` | oui (même test) |
 | S-01 à S-03 | Traités avant le lot 21 ; non réexaminés ici | 18b–18c | — | partiel |
 
 ## Ce qui reste, par danger réel (classement du lot 21, tenu à jour)
@@ -53,12 +53,18 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
    des photos ; le bucket reste ouvert à qui devine un chemin. Le nettoyage
    protège le contenu, pas l'accès.
 5. ~~C-07b~~ — fermé au lot 22.
-6. **C-09**, les quatre en-têtes simples (une heure). La CSP demande d'être
-   éprouvée avant : posée à l'aveugle, elle casse des écrans en production.
+6. ~~C-09, les en-têtes simples~~ — fermé au lot 23 (`6f13b28`). **La CSP
+   reste à faire**, et toujours pour la même raison : posée à l'aveugle, elle
+   casse des écrans. Elle se pose en report-only, on lit ce qu'elle aurait
+   cassé, puis on l'arme.
 7. **C-05**, l'énumération à l'inscription.
 8. ~~C-07c~~ — fermé au lot 22-ter. ~~C-07a~~ — classé SANS OBJET, accepté.
-9. Le reste — C-11, C-13, S-04, S-07, S-08 — soit inerte, soit atteignable
-   seulement par un compte déjà autorisé.
+9. ~~S-07, S-08~~ — fermés au lot 23 (`301030a`).
+10. **Sans garde de permission : `archiverClient` et `supprimerClient`**
+    (`clients/[id]/actions.ts:315,337`). Trouvé au lot 23, **non corrigé** :
+    voir « Contrôles du lot 23 » ci-dessous.
+11. Le reste — C-11, C-13, S-04 — soit inerte, soit atteignable seulement par
+    un compte déjà autorisé.
 
 ## Motif appartenance — recensement du 22-bis
 
@@ -80,6 +86,125 @@ timbrage, ses propres vacances — qui étaient C-07c reclassé.
 **Les trois ont été fermés au lot 22-ter**, chacun avec son test d'attaque :
 `c496fdf` pour le chien, `90a3799` pour les deux auto-validations. Il ne reste
 aucun FORGEABLE dans le recensement.
+
+## Contrôles du lot 23 (lecture seule, aucune correction)
+
+### A1 — qui a validé quoi : rien ne le dit
+
+**Aucune colonne, aucune entrée de journal ne dit qui a validé une ligne de
+timbrage ou approuvé une demande de vacances.** `timbrage` porte
+`valide_admin` (un booléen) et `created_at` ; `demandes_vacances` porte
+`statut`, `note_admin` et `created_at`. Ni l'une ni l'autre route n'appelle
+`tracerEvenement`, et `journal_evenements` ne contient aucune entité
+`timbrage` ni `vacances`.
+
+Ce qu'on peut encore dire, faute de valideur enregistré :
+
+| Employé | Lignes de timbrage validées | Première | Dernière | Origine |
+|---|---|---|---|---|
+| Adeline Helg | 14 | 2026-10-03 | 2026-10-31 | « Vacances (auto) » |
+| Sabrina Jean | 13 | 2026-07-22 | 2026-08-09 | « Vacances (auto) » |
+| Kévin Coppex | 2 | 2026-06-14 | 2026-06-15 | heures réelles |
+
+**27 des 29 lignes validées n'ont été validées par personne** : ce sont des
+timbrages de vacances posés automatiquement par la route des vacances, avec
+`valide_admin: true`, lors de l'acceptation des deux demandes. Seules les deux
+lignes de Kévin résultent d'un geste humain.
+
+Demandes de vacances acceptées, les deux seules :
+
+| Employé | Du | Au | Jours |
+|---|---|---|---|
+| Sabrina Jean | 2026-07-20 | 2026-08-09 | 13 |
+| Adeline Helg | 2026-10-01 | 2026-10-31 | 14 |
+
+Et les comptes :
+
+| Employé | Compte | Rôle | `perm_timbrage_equipe` | `perm_vacances_equipe` |
+|---|---|---|---|---|
+| Adeline Helg | oui | employe | non | non |
+| Eloise Burdet | oui | employe | non | non |
+| Francine Fontaine | oui | employe | non | non |
+| Kévin Coppex | oui | employe | non | non |
+| Sabrina Jean | oui | **admin** | — (admin) | — (admin) |
+
+**Personne d'autre que l'administratrice ne porte ces deux permissions.** La
+porte refermée au lot 22-ter n'a donc jamais été franchie : elle était ouverte,
+personne n'est passé.
+
+**Recommandation, non écrite : deux colonnes, pas une entrée de journal.**
+`valide_par uuid references profiles(id)` et `valide_le timestamptz` sur
+`timbrage`, et les mêmes sur `demandes_vacances`. Le journal est fait pour
+raconter un fil d'événements qu'on relit rarement ; ici la question — « qui a
+validé cette ligne ? » — se pose EN FACE de la ligne, sur l'écran du timbrage,
+et une colonne y répond sans jointure ni recherche. Une entrée de journal
+obligerait chaque écran à aller la chercher, et un `valide_admin` repassé à
+`false` puis à `true` laisserait deux entrées là où une colonne dit
+simplement l'état actuel. Le journal reste utile **en plus**, pour l'historique
+des changements ; il ne remplace pas la colonne.
+
+### A2 — les 17 lignes classées SÛR avant le 22-ter, relues dans le code
+
+**Le recensement annonçait 16 SÛR ; le tableau en portait 17.** Le décompte
+disait aussi 11 SANS OBJET pour 10 lignes. Corrigé au lot 23 : 20 SÛR et 10
+SANS OBJET pour 30 lignes.
+
+**14 CONFORMES, 3 ÉCARTS.** Aucun écart n'ouvre une porte à un client ; les
+trois sont des descriptions qui ne disent pas ce que fait le code. Le détail
+ligne à ligne est dans [le recensement](RECENSEMENT-APPARTENANCE-2026-09.md).
+
+Les trois écarts :
+
+1. **`(client)/…/chiens/[id]/modifier/actions.ts:37`** — le recensement dit
+   « qui : client ». La garde est `supabase.from("chiens").eq("id", chien_id)`
+   avec le client de session, donc RLS. Or la politique
+   `personnel_select_chiens` donne le SELECT sur **tous** les chiens à tout
+   membre du personnel. Un employé qui appelle cette action de l'espace client
+   passe donc la garde pour n'importe quel chien, et l'écriture qui suit se
+   fait avec la clé de service. *Attaque : un employé sans
+   `perm_chiens_modifier` modifie le nom, le poids ou les allergies de
+   n'importe quel chien en appelant l'action de l'espace client.* Un client,
+   lui, reste bien enfermé dans les siens.
+2. **`prestations/actions.ts:281`** (`personnaliserSemaine`) — le recensement
+   dit « oui — `abo.client_id` relu ». Il est relu, mais **jamais comparé à
+   quoi que ce soit** : il ne sert qu'au `revalidatePath`. La justification
+   décrit la ligne CLIENT voisine (`(client)/…/prestations/actions.ts:104`),
+   qui, elle, filtre bien sur `.eq("client_id", fiche.id)`. Le verdict SÛR ne
+   tient pas par la raison écrite : il tient parce que l'abonnement EST l'objet
+   de l'action d'administration — c'est donc SANS OBJET.
+3. **`(client)/…/reservations/actions.ts:388`** — le recensement dit
+   « qui : client ». L'action refuse tout ce qui n'est pas une fiche interne
+   (`if (!fiche?.interne)`) : c'est le **personnel** annulant sa propre
+   réservation. L'appartenance est bien vérifiée
+   (`resa.client_id !== client_id`), le verdict tient. Mais il en découle un
+   fait que le recensement masquait : **aucune action ne permet à un client
+   ordinaire d'annuler sa réservation.**
+
+**Une lacune, hors tableau.** `archiverClient` et `supprimerClient`
+(`clients/[id]/actions.ts:315,337`) lisent `formData.get("id")` et **n'appellent
+aucune garde de permission**. Le recensement du 22-bis disait avoir examiné
+« tout `formData.get("…id")`, soit 40 sites » : ces deux-là n'y figurent pas.
+Elles écrivent avec le client de SESSION, donc RLS les arrête : seule
+`admin_all_clients` permet UPDATE et DELETE sur `clients`. Un client ou un
+employé n'efface donc rien — **mais l'UPDATE filtré ne renvoie pas d'erreur**,
+et `archiverClient` trace ensuite un événement `archive` pour une archive qui
+n'a pas eu lieu, puis redirige comme si de rien n'était. *Attaque : n'importe
+quel compte connecté fabrique une entrée de journal mensongère et un écran qui
+prétend avoir archivé.* Non corrigé, à décider au 23-bis.
+
+### A3 — C-07a désigne bien `ajouterAvoir`
+
+La ligne C-07a du tableau porte « `ajouterAvoir` sous `perm_encaissements` » :
+**aucune ligne n'a été fermée à la place d'une autre**, et il n'y a rien à
+remettre en état.
+
+Une imprécision demeure, et elle est notée ici plutôt que corrigée en silence :
+C-07a posait une question de **conception de permission** — « aucune permission
+`avoirs` n'existe, faut-il en créer une ? » — et le lot 22-ter l'a fermée avec
+une réponse à une **autre** question, celle de l'appartenance (« deux sources
+pour désigner le client »). La réponse d'appartenance est juste, et le verdict
+SANS OBJET la suit. La question de conception, elle, n'a jamais reçu de
+réponse ; elle est reposée au classement ci-dessus.
 
 ## Le motif de fond, relevé au lot 21
 

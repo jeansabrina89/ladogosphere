@@ -7,6 +7,18 @@ lot 22 une troisième (`ajouterAvoir`). Ce document le cherche.
 
 **Lecture seule. Aucune correction n'a été faite en l'écrivant.**
 
+**Relu au lot 23, le 26 septembre 2026.** Les 17 lignes classées SÛR avant le
+lot 22-ter ont été rouvertes une à une dans le code — d'où vient chaque
+identifiant, quelle garde s'applique, avant ou après l'écriture — et les
+politiques RLS sur lesquelles quatre d'entre elles s'appuyaient ont été lues
+en base. **14 CONFORMES, 3 ÉCARTS**, aucun n'ouvrant de porte à un client. Le
+détail est dans [le suivi d'audit](SUIVI-AUDIT-2026-09-22.md), section
+« Contrôles du lot 23 ».
+
+**Une lacune du recensement** y est aussi consignée : `archiverClient` et
+`supprimerClient` lisent `formData.get("id")` sans aucune garde de
+permission, et ne figurent pas dans le tableau ci-dessous.
+
 ## Méthode, et ce qu'elle ne couvre pas
 
 Le dépôt porte **57 fichiers d'actions serveur** et **55 routes**. Les
@@ -49,30 +61,30 @@ mécanismes s'en chargent, et ils se recouvrent :
 
 | fichier:ligne | action | qui | identifiant(s) | usage | appartenance | verdict |
 |---|---|---|---|---|---|---|
-| `(client)/…/chiens/[id]/modifier/actions.ts:37` | modifier un chien | client | `chien_id` (segment) | écriture | oui — relu par le client de session, donc RLS | SÛR |
-| `(client)/…/profil/actions.ts:18` | modifier son profil | client | aucun | écriture | oui — fiche de session | SÛR |
-| `(client)/…/reservations/actions.ts:77` | créer une demande | client | aucun | écriture | oui — `fiche.id` de session | SÛR |
-| `(client)/…/reservations/actions.ts:388` | annuler sa réservation | client | `reservationId` | écriture | oui — `fiche.id` passé à la fonction | SÛR |
-| `(client)/…/prestations/actions.ts:104-106` | ajuster sa semaine | client | `abonnement_id` | écriture | oui — `.eq("client_id", fiche.id)` | SÛR |
+| `(client)/…/chiens/[id]/modifier/actions.ts:37` | modifier un chien | client **et tout le personnel** | `chien_id` (segment) | écriture | RLS — mais `personnel_select_chiens` ouvre TOUS les chiens au personnel | **ÉCART** (relu dans le code le 26.09.2026) |
+| `(client)/…/profil/actions.ts:18` | modifier son profil | client | aucun | écriture | oui — fiche de session ; le paramètre `_id` reçu est ignoré | CONFORME (relu dans le code le 26.09.2026) |
+| `(client)/…/reservations/actions.ts:77` | créer une demande | client | aucun | écriture | oui — `fiche.id` de session ; chiens filtrés par `.eq("client_id", fiche.id)` en session | CONFORME (relu dans le code le 26.09.2026) |
+| `(client)/…/reservations/actions.ts:388` | annuler sa réservation | **fiche interne du personnel**, pas un client | `reservationId` | écriture | oui — `resa.client_id !== client_id` | **ÉCART** de description (relu dans le code le 26.09.2026) |
+| `(client)/…/prestations/actions.ts:104-106` | ajuster sa semaine | client | `abonnement_id` | écriture | oui — `.eq("client_id", fiche.id)` à la lecture, refus si absent | CONFORME (relu dans le code le 26.09.2026) |
 | `(client)/…/prestations/actions.ts:52` | commander une prestation | client | `prestation_id` | écriture | sans objet — article de catalogue | SANS OBJET |
-| `(client)/mon-compte/actions.ts:13,80` | adhésion, abonnement | client | aucun | écriture, argent | oui — session | SÛR |
-| `api/reservations/[id]/payer-avoir/route.ts:35` | payer par avoir | client | `[id]` | argent | oui — comparaison explicite | SÛR |
-| `api/reservations/client/route.ts:29` | créer une réservation | client | corps JSON | écriture | oui — `fiche.id` de session | SÛR |
-| `api/reservations/[id]/details/route.ts:14` | lire une réservation | client, personnel | `[id]` | lecture | oui — client de session, RLS | SÛR |
-| `api/factures/[id]/pdf/route.ts:29` | ouvrir un PDF | client, personnel | `[id]` | lecture | oui — `clients.auth_user_id` comparé | SÛR |
+| `(client)/mon-compte/actions.ts:13,80` | adhésion, abonnement | client | aucun | écriture, argent | oui — seul `mode`/`categorie` vient de l'appelant | CONFORME (relu dans le code le 26.09.2026) |
+| `api/reservations/[id]/payer-avoir/route.ts:35` | payer par avoir | client | `[id]` | argent | oui — `reservation.client_id !== fiche.id` avant la RPC | CONFORME (relu dans le code le 26.09.2026) |
+| `api/reservations/client/route.ts:29` | créer une réservation | client | formulaire | écriture | oui — `fiche.id` de session ; chiens vérifiés par cardinalité | CONFORME (relu dans le code le 26.09.2026) |
+| `api/reservations/[id]/details/route.ts:14` | lire une réservation | client, personnel | `[id]` | lecture | oui — tout passe par la session ; `client_select_reservations` et `personnel_select_boxes` vérifiées en base | CONFORME (relu dans le code le 26.09.2026) |
+| `api/factures/[id]/pdf/route.ts:29` | ouvrir un PDF | client, personnel | `[id]` | lecture | oui — `auth_user_id` comparé, et le compte désactivé refusé | CONFORME (relu dans le code le 26.09.2026) |
 | `api/pieces/[id]/route.ts`, `…/origine` | ouvrir un justificatif | personnel | `[id]` | lecture | sans objet — permission comptable | SANS OBJET |
-| `api/chiens/[id]/photo/route.ts:24` | déposer une photo | client, personnel | `[id]` | écriture | oui — lecture RLS du chien | SÛR |
+| `api/chiens/[id]/photo/route.ts:24` | déposer une photo | client, personnel | `[id]` | écriture | oui — lecture RLS ; le personnel voit tous les chiens, ce que la colonne « qui » assume | CONFORME (relu dans le code le 26.09.2026) |
 | `api/chiens/[id]/isolement/route.ts:13` | marquer l'isolement | personnel | `[id]` | écriture | sans objet — le chien EST l'objet | SANS OBJET |
 | `api/logout/route.ts` | déconnexion | tous | aucun | — | sans objet | SANS OBJET |
-| `comptabilite/depenses/actions.ts:210` | retirer un justificatif | employé `perm_depenses` | `piece_id` + `id` | **suppression** | **oui depuis le lot 22** | SÛR |
-| `comptabilite/depenses/actions.ts:178` | supprimer un brouillon | employé `perm_depenses` | `id` | suppression | oui — pièces listées depuis la base | SÛR |
-| `factures/actions.ts:231` | annuler un paiement | employé `perm_encaissements` | `paiement_id` | **argent** | **oui depuis le lot 22** (index unique) | SÛR |
-| `reservations/[id]/modifier/actions.ts:150` | annuler une réservation | employé `perm_reservations_annuler` | `id` | **argent** | **oui depuis le lot 22** | SÛR |
-| `clients/[id]/actions.ts:130,192` | modifier / supprimer un mouvement d'avoir | employé `perm_encaissements` | `mouvement_id` + `client_id` | **argent** | oui — `ligne.client_id !== client_id` | SÛR |
+| `comptabilite/depenses/actions.ts:210` | retirer un justificatif | employé `perm_depenses` | `piece_id` + `id` | **suppression** | oui — `piece.entite_id !== depenseId`, puis la dépense propriétaire relue | CONFORME (relu dans le code le 26.09.2026) |
+| `comptabilite/depenses/actions.ts:178` | supprimer un brouillon | employé `perm_depenses` | `id` | suppression | oui — pièces listées par `.eq("entite_id", id)`, refus si la dépense est validée | CONFORME (relu dans le code le 26.09.2026) |
+| `factures/actions.ts:231` | annuler un paiement | employé `perm_encaissements` | `paiement_id` | **argent** | oui — client, facture et réservation dérivés de la ligne lue ; `annule_de` sous index unique | CONFORME (relu dans le code le 26.09.2026) |
+| `reservations/[id]/modifier/actions.ts:150` | annuler une réservation | employé `perm_reservations_annuler` | `id` | **argent** | oui — `client_id` vient de `resa.client_id`, jamais du formulaire | CONFORME (relu dans le code le 26.09.2026) |
+| `clients/[id]/actions.ts:130,192` | modifier / supprimer un mouvement d'avoir | employé `perm_encaissements` | `mouvement_id` + `client_id` | **argent** | oui — `ligne.client_id !== client_id`, avant toute écriture | CONFORME (relu dans le code le 26.09.2026) |
 | `clients/[id]/actions.ts:32` | **ajouterAvoir** | employé `perm_encaissements` | `client_id` (formulaire) | **argent** | non — mais voir ci-dessous | SANS OBJET |
 | `clients/[id]/actions.ts:71` | **retirerAvoir** | employé `perm_encaissements` | `client_id` (formulaire) | **argent** | non — idem | SANS OBJET |
 | `prestations/actions.ts:126-128` | créer une prestation | employé `perm_prestations` | `client_id` + `chien_id` | écriture | oui depuis le lot 22-ter — `chien.client_id` relu | SÛR |
-| `prestations/actions.ts:281` | ajuster un abonnement | employé | `abonnement_id` | écriture | oui — `abo.client_id` relu | SÛR |
+| `prestations/actions.ts:281` | ajuster un abonnement | employé `perm_prestations` | `abonnement_id` | écriture | **non — `abo.client_id` est lu mais jamais comparé** ; l'abonnement est l'objet de l'action | **ÉCART** de justification (relu dans le code le 26.09.2026) |
 | `checkin/actions.ts:11,33` | check-in / check-out | employé `perm_checkin` | `checkin_id` | écriture | sans objet — la ligne EST l'objet | SANS OBJET |
 | `boutique/attentes/actions.ts:22` | traiter une alerte | employé `perm_boutique_*` | `alerte_id` | écriture | sans objet | SANS OBJET |
 | `api/rh/timbrage/route.ts:32-37` | saisir un timbrage | employé | `employe_id` | écriture | oui — son propre identifiant, ou la permission | SANS OBJET |
@@ -84,11 +96,16 @@ mécanismes s'en chargent, et ils se recouvrent :
 
 | Verdict | Lignes |
 |---|---|
-| SÛR | **19** |
-| SANS OBJET | 11 |
+| SÛR / CONFORME | **17** |
+| SANS OBJET | 10 |
+| **ÉCART** (relecture du lot 23) | **3** |
 | **FORGEABLE** | **0** |
 | **CLIENT→CLIENT** | **0** |
 | **Total** | **30** |
+
+**Le décompte d'origine était faux** : il annonçait 16 SÛR et 11 SANS OBJET,
+quand le tableau en portait 17 et 10. Corrigé au lot 23, en même temps que la
+relecture.
 
 Les trois FORGEABLE ont été fermés au **lot 22-ter**, chacun avec son test
 d'attaque : `c496fdf` (le chien de la prestation) et `90a3799` (les deux
