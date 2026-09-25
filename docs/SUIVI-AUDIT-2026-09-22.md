@@ -20,7 +20,7 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
 | C-06a — `annulerReservation` prend le client du formulaire | **FERMÉ** | 22 | `43cf2ab` | oui |
 | C-06b — `annulerPaiement` rejouable | **FERMÉ** | 22 | `22daebf` | oui |
 | C-06c — `retirerPiece` sans vérifier l'appartenance | **FERMÉ** | 22, 22-bis | `949a933`, `c810c5d` | oui — DEUX : dépense validée, et deux brouillons (le cas où seule l'appartenance protège) |
-| C-07a — `ajouterAvoir` sous `perm_encaissements` | **FERMÉ** — `perm_avoirs` créée : créditer, corriger ou retirer à la main demande ce droit ; payer AVEC un avoir reste un encaissement. Décision de Sabrina du 26.09.2026. **Réserve : `creerAvoir` (note de crédit sur facture) n'entre dans aucune des deux catégories et reste sous `perm_encaissements` — la permission est donc contournable par là** | 23-bis | `01f7461` | oui — 15 cas |
+| C-07a — `ajouterAvoir` sous `perm_encaissements` | **FERMÉ** — `perm_avoirs` créée : créditer, corriger ou retirer à la main demande ce droit ; payer AVEC un avoir reste un encaissement. Décision de Sabrina du 26.09.2026. **`creerAvoir` (note de crédit sur facture émise), y compris `destination: "credit"`, et `annulerAbonnementParAvoir` restent sous `perm_encaissements`, par décision de Sabrina du 26.09.2026 ; `perm_avoirs` couvre le crédit manuel non adossé à une facture** | 23-bis, 23-ter | `01f7461` | oui — 15 cas |
 | C-07b — statut « annulée » sans la permission ni la logique | **FERMÉ** | 22 | `f7a4dac` | oui |
 | C-07c — valider son propre timbrage / ses propres vacances | **FERMÉ** — l'administratrice peut valider ses propres heures et vacances, par décision de Sabrina du 24.09.2026 ; aucun autre employé ne le peut | 22-ter | `90a3799` | oui — 14 cas, 4 couches mutées |
 | C-07d — garde unique `exiger()`, lecture de `profiles.actif` | FERMÉ | 18b | — | oui |
@@ -33,7 +33,7 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
 | Prestations — le chien n'était pas rattaché au client (FORGEABLE du recensement 22-bis, hors numérotation d'audit) | **FERMÉ** | 22-ter | `c496fdf` | oui — 4 cas |
 | Espace client — modifier un chien s'en remettait à RLS, que le personnel traverse | **FERMÉ** | 23-bis | `70b030f` | oui — 7 cas |
 | `archiverClient` / `supprimerClient` sans garde, et journal mensonger | **FERMÉ** | 23-bis | `4549026` | oui — 9 cas, 2 couches mutées |
-| **`archiverChien` / `supprimerChien`** — les mêmes, trouvés au balayage du 23-bis | **OUVERT** — non corrigés, lot séparé | 23-bis | — | non |
+| `archiverChien` / `supprimerChien` — les mêmes, trouvés au balayage du 23-bis | **FERMÉ** | 23-ter | `61a3170` | oui — 9 cas, 2 couches mutées |
 | Trace du valideur RH — qui a validé un timbrage, qui a traité des vacances | **FAIT** — colonnes `valide_par`/`valide_le` et `traite_par`/`traite_le` ; **les lignes antérieures au 26.09.2026 restent sans valideur connu**, et l'écran affiche « — » plutôt que de deviner | 23-bis | `19a1607` | oui — 9 cas, 3 couches mutées |
 
 ## La base
@@ -65,15 +65,16 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
 8. ~~C-07c~~ — fermé au lot 22-ter. ~~C-07a~~ — classé SANS OBJET, accepté.
 9. ~~S-07, S-08~~ — fermés au lot 23 (`301030a`).
 10. ~~`archiverClient` / `supprimerClient`~~ — fermés au 23-bis (`4549026`).
-11. **`archiverChien` et `supprimerChien`** (`chiens/[id]/actions.ts:8,30`).
-    Les jumeaux exacts des précédents, trouvés au balayage mécanique du
-    23-bis. Aucune garde, et un `tracerEvenement` qui écrit une archive
-    n'ayant pas eu lieu. RLS les arrête ; le journal ment quand même. **Non
-    corrigés, lot séparé.** La correction est celle d'`archiverClient` mot
-    pour mot.
-12. **`creerAvoir` reste sous `perm_encaissements`** : tant qu'il y reste, la
-    nouvelle `perm_avoirs` se contourne par une note de crédit sur facture.
-    À trancher.
+11. ~~`archiverChien` et `supprimerChien`~~ — fermés au 23-ter (`61a3170`),
+    par la correction d'`archiverClient` mot pour mot. La garde retenue est
+    `exigerAdmin()` pour les deux : l'écran ne montrait déjà ces boutons qu'à
+    l'administratrice, et la route dit désormais la même chose.
+12. ~~`creerAvoir`~~ — **tranché le 26.09.2026** : la note de crédit reste sous
+    `perm_encaissements`, y compris avec `destination: "credit"`, et
+    `annulerAbonnementParAvoir` avec elle. Elle est adossée à une facture émise
+    et à ses lignes, avec un motif obligatoire ; `perm_avoirs` couvre le crédit
+    manuel, qui ne l'est pas. Ce n'est donc pas un contournement mais une autre
+    porte, plus étroite, et documentée.
 13. Le reste — C-11, C-13, S-04 — soit inerte, soit atteignable seulement par
     un compte déjà autorisé.
 
@@ -225,9 +226,10 @@ dont **121 portent une garde**. Le détail, les six sites sans garde et leur
 classement sont dans
 [le recensement](RECENSEMENT-APPARTENANCE-2026-09.md#balayage-mécanique--ajouté-au-23-bis).
 
-**Ce qui reste ouvert après ce lot** : `archiverChien` / `supprimerChien`
-(FORGEABLE, non corrigés) et la question de `creerAvoir` (ci-dessus, au
-classement par danger).
+**Ce qui restait ouvert après le 23-bis, et ce qu'il en est** :
+`archiverChien` / `supprimerChien` — **fermés au 23-ter** (`61a3170`) ; la
+question de `creerAvoir` — **tranchée le 26.09.2026**, elle reste sous
+`perm_encaissements`.
 
 **Ce qui a été trouvé faux dans un rapport intermédiaire, et vérifié à la
 main** : `basculerFicheEnInterneServeur` était donnée comme vivant dans un
