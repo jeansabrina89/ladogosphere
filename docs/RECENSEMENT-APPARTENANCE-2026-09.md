@@ -162,6 +162,66 @@ une même désignation. La corriger — lire l'identifiant de l'URL, ignorer le
 formulaire — coûte deux lignes et supprime une question que le prochain
 lecteur se posera.
 
+## Balayage mécanique — ajouté au 23-bis
+
+Le recensement du 22-bis affirmait couvrir « tout `formData.get("…id")`, soit
+40 sites ». `archiverClient` et `supprimerClient` lisaient pourtant
+`formData.get("id")` et n'y figuraient pas. La liste a donc été refaite
+**mécaniquement**, sur quatre motifs : `formData.get`/`getAll` dont la clé
+porte un identifiant, les segments d'URL (`params`), `searchParams`, et le
+corps JSON des routes.
+
+**127 sites** : 59 actions serveur, 52 routes API, 16 fonctions de `src/lib`
+appelées avec un identifiant reçu du navigateur. Les 30 lignes du tableau
+ci-dessus en couvraient une quarantaine — le balayage triple la surface
+examinée, sans rien trouver de nouveau qui touche un client.
+
+**121 sites portent une garde** : `verifierPermission`, `exiger`,
+`exigerPersonnel`, `exigerPermissionApi`, `exigerAdminApi`,
+`exigerBoutiqueApi`, `exigerAdminPage`, `garderRoute`, ou une garde locale
+(`garde()`, `gardeFacturation()`, `ficheDuLocataire()`). Restent six sites
+sans garde, détaillés ci-dessous.
+
+### Les six sites sans garde
+
+| fichier:ligne | qui peut appeler | garde | verdict |
+|---|---|---|---|
+| `(espace-clients)/chiens/[id]/actions.ts:8` — `archiverChien` | tout compte connecté | **aucune** | **FORGEABLE** (ajouté au 23-bis) |
+| `(espace-clients)/chiens/[id]/actions.ts:30` — `supprimerChien` | tout compte connecté | **aucune** | **FORGEABLE** (ajouté au 23-bis) |
+| `clients/[id]/actions.ts:315` — `archiverClient` | — | `exigerAdmin()` **depuis le 23-bis** | SÛR (`4549026`) |
+| `clients/[id]/actions.ts:337` — `supprimerClient` | — | `exigerAdmin()` **depuis le 23-bis** | SÛR (`4549026`) |
+| `api/reservations/[id]/details/route.ts:10` — `GET` | client, personnel | aucune garde de rôle, mais **tout passe par la session** | SÛR — relu au lot 23, RLS vérifiée en base |
+| 16 fonctions de `src/lib` (checkin, pièces, PDF, compta, cohabitation, fiche interne) | — | aucune garde interne | **SÛR par construction** — voir ci-dessous |
+
+**Les deux FORGEABLE sont les jumeaux exacts de ceux que le 23-bis vient de
+refermer.** Même forme, même défaut : aucune garde, écriture par le client de
+session, et un `tracerEvenement` qui suit sans vérifier que quelque chose a
+bougé. RLS les arrête (`admin_all_chiens` seule permet UPDATE et DELETE sur
+`chiens`), mais un UPDATE filtré ne renvoie pas d'erreur : `archiverChien`
+écrit donc au journal une archive qui n'a pas eu lieu, et redirige comme si
+c'était fait. **Non corrigés : un lot séparé, comme demandé.** La correction est
+celle de `archiverClient` mot pour mot.
+
+**Les 16 fonctions de `src/lib` sont sûres par construction, et il a fallu le
+vérifier plutôt que le croire.** Le relevé les donnait « sans garde », ce qui
+est vrai, et l'une d'elles — `basculerFicheEnInterneServeur` — était même
+présentée comme vivant dans un fichier `"use server"`, ce qui aurait fait
+d'elle une action serveur invocable directement depuis le navigateur. C'est
+faux : **aucun fichier de `src/lib` ne porte `"use server"`**, vérifié sur
+l'arbre entier. Ces fonctions ne sont donc atteignables que par le code serveur
+qui les appelle, et chacun de ces appelants porte sa garde. `ficheInterne.ts`
+le dit lui-même en tête de fichier.
+
+### Une garde non standard, signalée sans réserve
+
+`reservations/[id]/actions.ts:291` (`basculerOffreReservation`) ne passe par
+aucun des helpers : elle lit `getProfilePerms()` puis refuse si
+`!perms.isAdmin`. Le résultat est le bon — `getProfilePerms` lit la session et
+`profiles`, et renvoie `false` partout pour un profil désactivé ou un client.
+Mais c'est la seule garde du dépôt écrite à la main, donc la seule qui ne
+profitera pas d'un durcissement de `deciderGarde`. À aligner un jour, sans
+urgence.
+
 ## Ce que ce recensement apprend
 
 Le motif existe, mais **il ne touche jamais les clients** : la frontière
