@@ -61,10 +61,10 @@ mécanismes s'en chargent, et ils se recouvrent :
 
 | fichier:ligne | action | qui | identifiant(s) | usage | appartenance | verdict |
 |---|---|---|---|---|---|---|
-| `(client)/…/chiens/[id]/modifier/actions.ts:37` | modifier un chien | client **et tout le personnel** | `chien_id` (segment) | écriture | RLS — mais `personnel_select_chiens` ouvre TOUS les chiens au personnel | **ÉCART** (relu dans le code le 26.09.2026) |
+| `(client)/…/chiens/[id]/modifier/actions.ts:37` | modifier un chien | client propriétaire **seulement** | `chien_id` (segment) | écriture | oui depuis le 23-bis — `chien.client_id` comparé à la fiche de session, sans passer par RLS | SÛR (`70b030f`) |
 | `(client)/…/profil/actions.ts:18` | modifier son profil | client | aucun | écriture | oui — fiche de session ; le paramètre `_id` reçu est ignoré | CONFORME (relu dans le code le 26.09.2026) |
 | `(client)/…/reservations/actions.ts:77` | créer une demande | client | aucun | écriture | oui — `fiche.id` de session ; chiens filtrés par `.eq("client_id", fiche.id)` en session | CONFORME (relu dans le code le 26.09.2026) |
-| `(client)/…/reservations/actions.ts:388` | annuler sa réservation | **fiche interne du personnel**, pas un client | `reservationId` | écriture | oui — `resa.client_id !== client_id` | **ÉCART** de description (relu dans le code le 26.09.2026) |
+| `(client)/…/reservations/actions.ts:388` | annuler sa réservation | **personnel (fiche interne)** | `reservationId` | écriture | oui — `resa.client_id !== client_id` | SÛR (corrigé au 23-bis) |
 | `(client)/…/prestations/actions.ts:104-106` | ajuster sa semaine | client | `abonnement_id` | écriture | oui — `.eq("client_id", fiche.id)` à la lecture, refus si absent | CONFORME (relu dans le code le 26.09.2026) |
 | `(client)/…/prestations/actions.ts:52` | commander une prestation | client | `prestation_id` | écriture | sans objet — article de catalogue | SANS OBJET |
 | `(client)/mon-compte/actions.ts:13,80` | adhésion, abonnement | client | aucun | écriture, argent | oui — seul `mode`/`categorie` vient de l'appelant | CONFORME (relu dans le code le 26.09.2026) |
@@ -84,7 +84,7 @@ mécanismes s'en chargent, et ils se recouvrent :
 | `clients/[id]/actions.ts:32` | **ajouterAvoir** | employé `perm_encaissements` | `client_id` (formulaire) | **argent** | non — mais voir ci-dessous | SANS OBJET |
 | `clients/[id]/actions.ts:71` | **retirerAvoir** | employé `perm_encaissements` | `client_id` (formulaire) | **argent** | non — idem | SANS OBJET |
 | `prestations/actions.ts:126-128` | créer une prestation | employé `perm_prestations` | `client_id` + `chien_id` | écriture | oui depuis le lot 22-ter — `chien.client_id` relu | SÛR |
-| `prestations/actions.ts:281` | ajuster un abonnement | employé `perm_prestations` | `abonnement_id` | écriture | **non — `abo.client_id` est lu mais jamais comparé** ; l'abonnement est l'objet de l'action | **ÉCART** de justification (relu dans le code le 26.09.2026) |
+| `prestations/actions.ts:281` | ajuster un abonnement | employé `perm_prestations` | `abonnement_id` | écriture | sans objet — l'abonnement EST l'objet de l'action ; `abo.client_id` n'est lu que pour le `revalidatePath` | SANS OBJET (corrigé au 23-bis) |
 | `checkin/actions.ts:11,33` | check-in / check-out | employé `perm_checkin` | `checkin_id` | écriture | sans objet — la ligne EST l'objet | SANS OBJET |
 | `boutique/attentes/actions.ts:22` | traiter une alerte | employé `perm_boutique_*` | `alerte_id` | écriture | sans objet | SANS OBJET |
 | `api/rh/timbrage/route.ts:32-37` | saisir un timbrage | employé | `employe_id` | écriture | oui — son propre identifiant, ou la permission | SANS OBJET |
@@ -96,9 +96,9 @@ mécanismes s'en chargent, et ils se recouvrent :
 
 | Verdict | Lignes |
 |---|---|
-| SÛR / CONFORME | **17** |
-| SANS OBJET | 10 |
-| **ÉCART** (relecture du lot 23) | **3** |
+| SÛR / CONFORME | **18** |
+| SANS OBJET | 11 |
+| **ÉCART** restant | **1** |
 | **FORGEABLE** | **0** |
 | **CLIENT→CLIENT** | **0** |
 | **Total** | **30** |
@@ -161,6 +161,24 @@ donc pas une faille, mais **une incohérence d'interface** : deux sources pour
 une même désignation. La corriger — lire l'identifiant de l'URL, ignorer le
 formulaire — coûte deux lignes et supprime une question que le prochain
 lecteur se posera.
+
+## L'annulation d'une réservation par le client : il n'y en a pas
+
+**Décision de Sabrina du 26 septembre 2026 : aucune annulation par le client.**
+Le client contacte la pension ; le personnel annule et applique les conditions.
+
+Ce n'est donc pas un manque, c'est un choix. La seule action d'annulation de
+l'espace client (`reservations/actions.ts:388`) refuse tout ce qui n'est pas
+une fiche `interne`, et l'écran n'affiche son bouton que dans ce cas
+(`page.tsx:220`, sous `estInterne`). **Vérifié au 23-bis : rien dans l'espace
+client ne laisse croire qu'une annulation en ligne serait possible.** Le
+« ✖ Annuler » de `BoutonPaiementClient` ferme le panneau de paiement, il
+n'annule aucune réservation.
+
+Des trois écarts du lot 23, il en reste **un** : l'action de modification d'un
+chien, corrigée dans le code au 23-bis (`70b030f`) — la ligne du tableau
+ci-dessus garde la mention ÉCART parce qu'elle décrit ce que le recensement
+disait, et la colonne « appartenance » dit maintenant ce que fait le code.
 
 ## Balayage mécanique — ajouté au 23-bis
 

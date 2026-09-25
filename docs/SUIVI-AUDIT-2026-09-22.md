@@ -20,7 +20,7 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
 | C-06a — `annulerReservation` prend le client du formulaire | **FERMÉ** | 22 | `43cf2ab` | oui |
 | C-06b — `annulerPaiement` rejouable | **FERMÉ** | 22 | `22daebf` | oui |
 | C-06c — `retirerPiece` sans vérifier l'appartenance | **FERMÉ** | 22, 22-bis | `949a933`, `c810c5d` | oui — DEUX : dépense validée, et deux brouillons (le cas où seule l'appartenance protège) |
-| C-07a — `ajouterAvoir` sous `perm_encaissements` | **SANS OBJET, accepté** — le client désigné est l'objet de l'action, et toute personne autorisée peut créditer n'importe quel client. Deux sources (URL et formulaire) sans conséquence de sécurité | 22-ter | — | sans objet |
+| C-07a — `ajouterAvoir` sous `perm_encaissements` | **FERMÉ** — `perm_avoirs` créée : créditer, corriger ou retirer à la main demande ce droit ; payer AVEC un avoir reste un encaissement. Décision de Sabrina du 26.09.2026. **Réserve : `creerAvoir` (note de crédit sur facture) n'entre dans aucune des deux catégories et reste sous `perm_encaissements` — la permission est donc contournable par là** | 23-bis | `01f7461` | oui — 15 cas |
 | C-07b — statut « annulée » sans la permission ni la logique | **FERMÉ** | 22 | `f7a4dac` | oui |
 | C-07c — valider son propre timbrage / ses propres vacances | **FERMÉ** — l'administratrice peut valider ses propres heures et vacances, par décision de Sabrina du 24.09.2026 ; aucun autre employé ne le peut | 22-ter | `90a3799` | oui — 14 cas, 4 couches mutées |
 | C-07d — garde unique `exiger()`, lecture de `profiles.actif` | FERMÉ | 18b | — | oui |
@@ -31,6 +31,10 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
 | C-05 — l'inscription révèle qu'une adresse est connue | OUVERT — le refus du doublon, lui, fonctionne | 21 | — | non |
 | C-01 à C-04, C-08, C-12 | Traités avant le lot 21 (18b à 18d) ; non réexaminés ici | 18b–18d | — | partiel |
 | Prestations — le chien n'était pas rattaché au client (FORGEABLE du recensement 22-bis, hors numérotation d'audit) | **FERMÉ** | 22-ter | `c496fdf` | oui — 4 cas |
+| Espace client — modifier un chien s'en remettait à RLS, que le personnel traverse | **FERMÉ** | 23-bis | `70b030f` | oui — 7 cas |
+| `archiverClient` / `supprimerClient` sans garde, et journal mensonger | **FERMÉ** | 23-bis | `4549026` | oui — 9 cas, 2 couches mutées |
+| **`archiverChien` / `supprimerChien`** — les mêmes, trouvés au balayage du 23-bis | **OUVERT** — non corrigés, lot séparé | 23-bis | — | non |
+| Trace du valideur RH — qui a validé un timbrage, qui a traité des vacances | **FAIT** — colonnes `valide_par`/`valide_le` et `traite_par`/`traite_le` ; **les lignes antérieures au 26.09.2026 restent sans valideur connu**, et l'écran affiche « — » plutôt que de deviner | 23-bis | `19a1607` | oui — 9 cas, 3 couches mutées |
 
 ## La base
 
@@ -60,10 +64,17 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
 7. **C-05**, l'énumération à l'inscription.
 8. ~~C-07c~~ — fermé au lot 22-ter. ~~C-07a~~ — classé SANS OBJET, accepté.
 9. ~~S-07, S-08~~ — fermés au lot 23 (`301030a`).
-10. **Sans garde de permission : `archiverClient` et `supprimerClient`**
-    (`clients/[id]/actions.ts:315,337`). Trouvé au lot 23, **non corrigé** :
-    voir « Contrôles du lot 23 » ci-dessous.
-11. Le reste — C-11, C-13, S-04 — soit inerte, soit atteignable seulement par
+10. ~~`archiverClient` / `supprimerClient`~~ — fermés au 23-bis (`4549026`).
+11. **`archiverChien` et `supprimerChien`** (`chiens/[id]/actions.ts:8,30`).
+    Les jumeaux exacts des précédents, trouvés au balayage mécanique du
+    23-bis. Aucune garde, et un `tracerEvenement` qui écrit une archive
+    n'ayant pas eu lieu. RLS les arrête ; le journal ment quand même. **Non
+    corrigés, lot séparé.** La correction est celle d'`archiverClient` mot
+    pour mot.
+12. **`creerAvoir` reste sous `perm_encaissements`** : tant qu'il y reste, la
+    nouvelle `perm_avoirs` se contourne par une note de crédit sur facture.
+    À trancher.
+13. Le reste — C-11, C-13, S-04 — soit inerte, soit atteignable seulement par
     un compte déjà autorisé.
 
 ## Motif appartenance — recensement du 22-bis
@@ -205,6 +216,25 @@ une réponse à une **autre** question, celle de l'appartenance (« deux sources
 pour désigner le client »). La réponse d'appartenance est juste, et le verdict
 SANS OBJET la suit. La question de conception, elle, n'a jamais reçu de
 réponse ; elle est reposée au classement ci-dessus.
+
+## Contrôles du lot 23-bis
+
+**Le balayage mécanique des identifiants venus du navigateur** a remplacé
+l'affirmation du 22-bis (« 40 sites ») par un compte vérifiable : **127 sites**,
+dont **121 portent une garde**. Le détail, les six sites sans garde et leur
+classement sont dans
+[le recensement](RECENSEMENT-APPARTENANCE-2026-09.md#balayage-mécanique--ajouté-au-23-bis).
+
+**Ce qui reste ouvert après ce lot** : `archiverChien` / `supprimerChien`
+(FORGEABLE, non corrigés) et la question de `creerAvoir` (ci-dessus, au
+classement par danger).
+
+**Ce qui a été trouvé faux dans un rapport intermédiaire, et vérifié à la
+main** : `basculerFicheEnInterneServeur` était donnée comme vivant dans un
+fichier `"use server"`, ce qui en aurait fait une action serveur invocable
+depuis le navigateur. Aucun fichier de `src/lib` ne porte `"use server"` —
+vérifié sur l'arbre entier. Les 16 fonctions de `src/lib` qui reçoivent un
+identifiant du navigateur sont donc sûres par construction.
 
 ## Le motif de fond, relevé au lot 21
 
