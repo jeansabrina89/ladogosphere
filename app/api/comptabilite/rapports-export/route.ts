@@ -55,6 +55,11 @@ export async function GET(req: NextRequest) {
   for (const a of rap.actifs) bi.push([`${a.numero} ${a.libelle}`, a.montant]);
   bi.push(["Total actif", rap.totalActif], [], ["Passif", ""]);
   for (const p of rap.passifs) bi.push([`${p.numero} ${p.libelle}`, p.montant]);
+  // Le meme report qu a l ecran : sans lui, l export montrerait un bilan qui
+  // ne tombe pas juste, et on chercherait l erreur dans la comptabilite.
+  if (rap.reportExercicesAnterieurs !== 0) {
+    bi.push(["Résultat des exercices antérieurs non clôturés", rap.reportExercicesAnterieurs]);
+  }
   if (!rap.exerciceCloture) bi.push(["Résultat de l'exercice", rap.resultatAuBilan]);
   bi.push(["Total passif", rap.totalPassif]);
   const wsBI = XLSX.utils.aoa_to_sheet(bi);

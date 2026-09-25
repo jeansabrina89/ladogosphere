@@ -204,6 +204,22 @@ export default async function RapportsPage({
                           <td className="py-0.5 text-right" style={{ color: marine }}>{chf(p.montant)}</td>
                         </tr>
                       ))}
+                      {/*
+                        Les exercices d'avant qui n'ont pas été clôturés : leur
+                        résultat n'est jamais passé par 2970, donc il manquerait
+                        au passif. La ligne ne s'affiche que s'il y a quelque
+                        chose à reporter.
+                      */}
+                      {rap.reportExercicesAnterieurs !== 0 && (
+                        <tr>
+                          <td className="py-0.5" style={{ color: sousTexte }}>
+                            Résultat des exercices antérieurs non clôturés
+                          </td>
+                          <td className="py-0.5 text-right" style={{ color: marine }}>
+                            {chf(rap.reportExercicesAnterieurs)}
+                          </td>
+                        </tr>
+                      )}
                       {!rap.exerciceCloture && (
                         <tr>
                           <td className="py-0.5" style={{ color: sousTexte }}>Résultat de l&apos;exercice</td>

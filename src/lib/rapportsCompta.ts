@@ -40,6 +40,36 @@ export function construireRapport(params: {
     }
   }
 
+  // 1bis) Le resultat des exercices anterieurs qui n ont PAS ete clotures.
+  //
+  // Une cloture solde les comptes de resultat vers 2970, qui est un compte de
+  // passif : le resultat entre alors dans le bilan par le report a nouveau
+  // ci-dessus. Tant qu elle n a pas eu lieu, ce resultat reste sur les comptes
+  // de charge et de produit — hors du bilan — et l actif ne repond plus au
+  // passif. C est l ecart que Sabrina a vu sur 2027 : -7942, soit exactement le
+  // resultat de 2026, reste ouvert.
+  //
+  // On le retrouve sans rien deviner : le solde cumule des comptes de resultat
+  // anterieurs vaut ZERO pour un exercice clos (l ecriture de cloture les a
+  // soldes) et vaut le resultat pour un exercice ouvert. Aucun double compte
+  // n est possible, et c est ce qui rend ce calcul sur : ce qui est passe par
+  // 2970 n est plus ici.
+  let resultatAnterieurDC = 0;
+  for (const e of ecrituresAnterieures) {
+    for (const l of e.ecritures_lignes ?? []) {
+      const t = typeDe(l.compte_numero);
+      if (t !== "produit" && t !== "charge") continue;
+      resultatAnterieurDC += (Number(l.debit) || 0) - (Number(l.credit) || 0);
+    }
+  }
+  /**
+   * Ce que les exercices ouverts d avant apportent aux fonds propres.
+   *
+   * Le `|| 0` n est pas decoratif : `-(0)` vaut `-0` en JavaScript, et un bilan
+   * qui afficherait « -0.00 » ferait douter d un calcul qui est juste.
+   */
+  const reportExercicesAnterieurs = r2(-resultatAnterieurDC) || 0;
+
   // 2) Mouvements de l exercice
   type Ligne = { compte: string; date: string; libelle: string; debit: number; credit: number; pieceType: string | null };
   const lignes: Ligne[] = [];
@@ -122,8 +152,10 @@ export function construireRapport(params: {
     .sort((a, b) => a.numero.localeCompare(b.numero));
   const totalActif = r2(actifs.reduce((s, a) => s + a.montant, 0));
   const totalPassifHorsResultat = r2(passifs.reduce((s, p) => s + p.montant, 0));
+  // Le resultat de l exercice LU n entre au passif que s il n est pas cloture :
+  // s il l est, il est deja dans 2970, donc deja dans `passifs`.
   const resultatAuBilan = exerciceCloture ? 0 : resultat;
-  const totalPassif = r2(totalPassifHorsResultat + resultatAuBilan);
+  const totalPassif = r2(totalPassifHorsResultat + reportExercicesAnterieurs + resultatAuBilan);
 
   // 6) Grand-livre : solde de depart = report a nouveau (comptes de bilan)
   const numerosGL = [...new Set<string>([...comptesBilan, ...balance.map((b) => b.numero)])].sort((a, b) =>
@@ -145,7 +177,8 @@ export function construireRapport(params: {
   return {
     balance, totalDebit, totalCredit,
     produits, charges, totalProduits, totalCharges, resultat,
-    actifs, passifs, totalActif, totalPassif, resultatAuBilan, exerciceCloture,
+    actifs, passifs, totalActif, totalPassif, resultatAuBilan,
+    reportExercicesAnterieurs, exerciceCloture,
     grandLivre,
   };
 }
