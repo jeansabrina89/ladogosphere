@@ -9,6 +9,9 @@ import FormModifierVacances from "./FormModifierVacances";
 import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
 import BadgeStatut from "@/app/components/ui/BadgeStatut";
+import AuteurGeste from "@/app/components/AuteurGeste";
+import { lireAuteurs } from "@/src/lib/auteursDb";
+import { auteurAffiche } from "@/src/lib/auteur";
 
 export default async function GestionVacancesPage() {
   const supabase = await createClient();
@@ -24,6 +27,9 @@ export default async function GestionVacancesPage() {
     .select("id, prenom, nom, taux_travail")
     .eq("actif", true)
     .order("nom");
+
+  // Les noms de ceux qui ont tranche, lus une fois pour tout l ecran.
+  const auteurs = await lireAuteurs((demandes ?? []).map((d) => d.traite_par as string | null));
 
   const enAttente = demandes?.filter(d => d.statut === "en_attente") ?? [];
   const traitees = demandes?.filter(d => d.statut !== "en_attente") ?? [];
@@ -116,6 +122,20 @@ export default async function GestionVacancesPage() {
                     {d.note_admin && (
                       <p className="text-xs text-[#1F6E5B] mt-1">Note : &quot;{d.note_admin}&quot;</p>
                     )}
+                    {/*
+                      Qui a tranché. « — » pour les demandes traitées avant le
+                      26 septembre 2026 : la colonne n'existait pas, et on ne
+                      devine pas un nom.
+                    */}
+                    <p className="text-xs text-gray-400 mt-1">
+                      Traité par{" "}
+                      {d.traite_par ? (
+                        <AuteurGeste auteur={auteurAffiche(auteurs.get(d.traite_par as string))} />
+                      ) : (
+                        "—"
+                      )}
+                      {d.traite_le ? ` le ${formatDateFR(String(d.traite_le).slice(0, 10))}` : ""}
+                    </p>
                   </div>
                   <div className="flex gap-2 items-center">
                     <BadgeStatut statut={d.statut} />

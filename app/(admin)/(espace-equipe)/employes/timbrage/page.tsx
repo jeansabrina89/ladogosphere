@@ -7,6 +7,8 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { calculerDecompteHeures } from "@/src/lib/decompteHeures";
 import TimbrageCalendrier from "./TimbrageCalendrier";
 import BoutonToutValider from "./BoutonToutValider";
+import { lireAuteurs } from "@/src/lib/auteursDb";
+import { auteurAffiche } from "@/src/lib/auteur";
 
 const NOMS_MOIS = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -72,7 +74,7 @@ export default async function TimbrageAdminPage({
       .gte("date", dateDebutMois).lte("date", dateFinMois),
     // Note mensuelle : inclut 'note' pour le formulaire d'édition
     supabaseAdmin.from("timbrage")
-      .select("date, type_absence, heure_debut_matin, heure_fin_matin, heure_debut_aprem, heure_fin_aprem, valide_admin, note")
+      .select("date, type_absence, heure_debut_matin, heure_fin_matin, heure_debut_aprem, heure_fin_aprem, valide_admin, valide_par, valide_le, note")
       .eq("employe_id", emp.id).gte("date", dateDebutMois).lte("date", dateFinMois),
     supabaseAdmin.from("planning_employes")
       .select("date, statut").eq("employe_id", emp.id)
@@ -89,6 +91,16 @@ export default async function TimbrageAdminPage({
   ]);
 
   // Décomptes (plafonnés à aujourd'hui — totaux seulement)
+  // Les initiales de ceux qui ont valide, lues une fois pour le mois entier.
+  const profilsValideurs = await lireAuteurs(
+    (timbragesMoisData ?? []).map((t) => (t as { valide_par?: string | null }).valide_par ?? null),
+  );
+  const valideurs: Record<string, { texte: string; titre: string | null }> = {};
+  for (const [id, profil] of profilsValideurs) {
+    const a = auteurAffiche(profil);
+    valideurs[id] = { texte: a.texte, titre: a.titre ?? null };
+  }
+
   const decompteMois = calculerDecompteHeures({
     planning: planningMoisData ?? [],
     timbrages: timbragesMoisData ?? [],
@@ -247,6 +259,7 @@ export default async function TimbrageAdminPage({
 
         {/* Calendrier interactif — partagé admin/employé */}
         <TimbrageCalendrier
+          valideurs={valideurs}
           employeId={emp.id}
           mois={moisParam}
           planning={planningMoisData ?? []}

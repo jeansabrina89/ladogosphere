@@ -14,6 +14,8 @@ type TimbrageRow = {
   heure_debut_aprem: string | null;
   heure_fin_aprem: string | null;
   valide_admin: boolean | null;
+  valide_par: string | null;
+  valide_le: string | null;
   note: string | null;
 };
 
@@ -122,7 +124,7 @@ function getBadge(
 // ── FormPanel ─────────────────────────────────────────────────────────────────
 
 function FormPanel({
-  empId, date, timbrage, onClose, onSaved, showValideAdmin,
+  empId, date, timbrage, onClose, onSaved, showValideAdmin, valideurs,
 }: {
   empId: string;
   date: string;
@@ -130,6 +132,8 @@ function FormPanel({
   onClose: () => void;
   onSaved: () => void;
   showValideAdmin: boolean;
+  /** userId -> ce qu on affiche de la personne. */
+  valideurs: Record<string, { texte: string; titre: string | null }>;
 }) {
   const [mode, setMode] = useState<"travail" | "absence">(
     timbrage?.type_absence ? "absence" : "travail"
@@ -269,6 +273,26 @@ function FormPanel({
             </label>
           </div>
         )}
+        {showValideAdmin && (
+          /*
+            Qui a validé cette ligne. « — » pour les lignes validées avant le
+            26 septembre 2026 : la colonne n existait pas, et on ne devine pas
+            un nom. Le voir ICI plutôt que dans la case du calendrier : la
+            question se pose quand on ouvre le jour, pas en survolant le mois.
+          */
+          <p className="text-xs text-gray-400 md:col-span-2">
+            Validé par{" "}
+            {timbrage?.valide_par ? (
+              <abbr title={valideurs[timbrage.valide_par]?.titre ?? undefined}
+                style={{ textDecoration: "none", fontWeight: 600, cursor: "help" }}>
+                {valideurs[timbrage.valide_par]?.texte ?? "?"}
+              </abbr>
+            ) : ("—")}
+            {timbrage?.valide_le
+              ? ` le ${new Date(timbrage.valide_le).toLocaleDateString("fr-CH")}`
+              : ""}
+          </p>
+        )}
       </div>
 
       <div className="flex gap-2 flex-wrap">
@@ -297,7 +321,7 @@ function FormPanel({
 // ── Calendrier ────────────────────────────────────────────────────────────────
 
 export default function TimbrageCalendrier({
-  employeId, mois, planning, timbrages, decompteJours, mode,
+  employeId, mois, planning, timbrages, decompteJours, mode, valideurs = {},
 }: {
   employeId: string;
   mois: string;           // "YYYY-MM"
@@ -305,6 +329,8 @@ export default function TimbrageCalendrier({
   timbrages: TimbrageRow[];
   decompteJours: JourDecompte[];
   mode: "admin" | "employe";
+  /** userId -> ce qu on affiche de la personne qui a validé. */
+  valideurs?: Record<string, { texte: string; titre: string | null }>;
 }) {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -496,6 +522,7 @@ export default function TimbrageCalendrier({
             onClose={() => setSelectedDate(null)}
             onSaved={() => { setSelectedDate(null); router.refresh(); }}
             showValideAdmin={mode === "admin"}
+            valideurs={valideurs}
           />
         </div>
       )}

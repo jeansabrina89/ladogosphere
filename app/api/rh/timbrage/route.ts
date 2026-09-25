@@ -108,7 +108,8 @@ export async function PATCH(req: NextRequest) {
   // new Date(annee, moisNum, 0) → dernier jour du mois moisNum
   const dateFin   = new Date(annee, moisNum, 0).toISOString().split("T")[0];
 
-  const role = (await lireAppelant(supabase))?.role ?? null;
+  const appelant = await lireAppelant(supabase);
+  const role = appelant?.role ?? null;
 
   if (role !== "admin") {
     // Valider un mois est un geste d'équipe : la permission est exigée, même
@@ -132,9 +133,17 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
+  // Qui valide, et quand. Le valideur vient de la SESSION, jamais du corps de
+  // la requête : sinon la trace dirait ce que l'appelant veut qu'elle dise.
+  // Dévalider efface les deux : une ligne repassée à « non validée » n'a plus
+  // de valideur, et garder l'ancien laisserait croire qu'il l'a voulu ainsi.
+  const trace = valide_admin
+    ? { valide_par: appelant?.userId ?? null, valide_le: new Date().toISOString() }
+    : { valide_par: null, valide_le: null };
+
   const { error } = await supabaseAdmin
     .from("timbrage")
-    .update({ valide_admin })
+    .update({ valide_admin, ...trace })
     .eq("employe_id", employe_id)
     .gte("date", dateDebut)
     .lte("date", dateFin);

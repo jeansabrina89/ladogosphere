@@ -69,7 +69,8 @@ export async function PATCH(req: NextRequest) {
   //    autre a regardé. L'administratrice le peut, puisque personne
   //    au-dessus d'elle ne le ferait à sa place.
   //    Décision de Sabrina, 24 septembre 2026.
-  const role = (await lireAppelant(supabase))?.role ?? null;
+  const appelant = await lireAppelant(supabase);
+  const role = appelant?.role ?? null;
   if (role !== "admin") {
     const { data: { user } } = await supabase.auth.getUser();
     const monId = user ? await getMonEmployeId(user.id) : null;
@@ -81,10 +82,21 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  // 3. Mettre à jour le statut et la note admin
+  // 3. Mettre à jour le statut, la note, et QUI a tranché.
+  //
+  // « traité » et non « validé » : accepter et refuser comptent l'un comme
+  // l'autre. Le nom vient de la SESSION, jamais du corps de la requête.
+  // Remettre une demande « en_attente » efface le traitement : elle redevient
+  // une demande que personne n'a encore regardée.
+  const traitee = statut === "acceptee" || statut === "refusee";
   const { error } = await supabaseAdmin
     .from("demandes_vacances")
-    .update({ statut, note_admin })
+    .update({
+      statut,
+      note_admin,
+      traite_par: traitee ? appelant?.userId ?? null : null,
+      traite_le: traitee ? new Date().toISOString() : null,
+    })
     .eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -172,6 +184,12 @@ export async function PATCH(req: NextRequest) {
             date: row.date,
             type_absence: "vacances",
             valide_admin: true,
+            // Ces lignes naissent validées, sans que personne ne clique :
+            // le valideur est celui qui a accepté la demande. Sans cela, 27
+            // des 29 lignes validées de la base n'auraient de valideur nulle
+            // part, comme c'était le cas avant le 26 septembre 2026.
+            valide_par: appelant?.userId ?? null,
+            valide_le: new Date().toISOString(),
             note: "Vacances (auto)",
           });
         if (errT) return NextResponse.json({ error: errT.message }, { status: 500 });
