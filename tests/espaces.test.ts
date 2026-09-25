@@ -432,3 +432,49 @@ describe("espaceDuChemin : départage à précision égale", () => {
     expect(espaceDuChemin("/x/y", [racine, autre])).toBe("racine");
   });
 });
+
+describe("la comptabilité : tous ses écrans sont dans le menu", () => {
+  /**
+   * Sabrina n'a pas trouvé la page Rapports. Un audit du 6 septembre notait
+   * déjà que Journal, Rapports et Clôture n'étaient pas au menu. Journal et
+   * Rapports y sont depuis ; mais trois écrans manquaient encore, et l'un
+   * d'eux — `/export-comptable` — n'était atteignable par AUCUN lien de
+   * l'application : il fallait taper l'adresse.
+   *
+   * Un écran qu'on ne trouve pas est un écran qui n'existe pas.
+   */
+  const hrefs = (d: DroitsNav) => entreesEspace("comptabilite", d).map((e) => e.href);
+
+  it("l'administratrice atteint les trois écrans qui manquaient", () => {
+    const menu = hrefs(ADMIN);
+    expect(menu).toContain("/comptabilite/reconciliation");
+    expect(menu).toContain("/comptabilite/non-clotures");
+    expect(
+      menu,
+      "l'export comptable n'est atteignable par aucun lien de l'application",
+    ).toContain("/export-comptable");
+  });
+
+  it("et ceux que l'audit du 6 septembre signalait", () => {
+    const menu = hrefs(ADMIN);
+    expect(menu).toContain("/comptabilite/journal");
+    expect(menu).toContain("/comptabilite/rapports");
+  });
+
+  it("aucune de ces entrées n'apparaît pour qui n'a pas la comptabilité", () => {
+    // L'espace entier est réservé à l'administratrice : une employée, même
+    // porteuse de toutes les permissions, ne voit rien de ceci.
+    expect(cles(COMPLETE)).not.toContain("comptabilite");
+    expect(hrefs(COMPLETE)).toEqual([]);
+    expect(hrefs(COMPTOIR)).toEqual([]);
+    expect(hrefs(droits())).toEqual([]);
+  });
+
+  it("chaque entrée du menu mène à un écran que la même personne peut ouvrir", () => {
+    // La règle n° 2 du fichier, appliquée aux nouvelles entrées : une entrée de
+    // menu ne mène jamais à une porte qui se referme.
+    for (const entree of entreesEspace("comptabilite", ADMIN)) {
+      expect(ouvert(entree.exigence, ADMIN), `${entree.href} se refermerait`).toBe(true);
+    }
+  });
+});

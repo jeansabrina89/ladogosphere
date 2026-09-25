@@ -232,6 +232,13 @@ export const ESPACES: Espace[] = [
       { href: "/comptabilite/journal", label: "📒 Journal", exigence: ADMIN },
       { href: "/comptabilite/tva", label: "🧾 Décompte TVA", exigence: ADMIN },
       { href: "/comptabilite/rapports", label: "📊 Rapports", exigence: ADMIN },
+      // Trois écrans qui existaient sans figurer ici. Réconciliation et
+      // « Non clôturés » n'étaient atteignables que par un bouton de la page
+      // d'accueil de la comptabilité ; `/export-comptable` ne l'était par
+      // AUCUN lien de l'application — seulement en tapant l'adresse.
+      { href: "/comptabilite/reconciliation", label: "🔄 Réconciliation", exigence: ADMIN },
+      { href: "/comptabilite/non-clotures", label: "⚠️ Non clôturés", exigence: ADMIN },
+      { href: "/export-comptable", label: "📥 Export comptable", exigence: ADMIN },
     ],
   },
   {
