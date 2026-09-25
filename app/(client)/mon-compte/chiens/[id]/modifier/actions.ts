@@ -33,14 +33,31 @@ export async function modifierChienClient(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return refus("Non authentifié.");
 
-  // Vérifie via la session (RLS) que ce chien t'appartient
-  const { data: chien } = await supabase
-    .from("chiens")
+  // Cet écran est celui du PROPRIÉTAIRE, et de personne d'autre.
+  //
+  // La garde était une lecture faite avec le client de session : si le chien
+  // remontait, c'est qu'on y avait droit. Vrai pour un client — la politique
+  // `client_select_chiens` ne lui rend que les siens. Faux pour le personnel :
+  // `personnel_select_chiens` lui ouvre le SELECT sur TOUS les chiens. Un
+  // employé passait donc ici pour n'importe quel chien, et l'écriture qui suit
+  // a la clé de service, hors RLS. Le personnel a son propre écran, avec sa
+  // propre garde ; cette action-ci n'est pas une porte de service.
+  //
+  // On ne s'en remet plus à RLS pour cette décision : on compare nous-mêmes.
+  const { data: fiche } = await supabaseAdmin
+    .from("clients")
     .select("id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  if (!fiche) return refus("Accès refusé à ce chien.");
+
+  const { data: chien } = await supabaseAdmin
+    .from("chiens")
+    .select("id, client_id")
     .eq("id", chien_id)
     .maybeSingle();
 
-  if (!chien) return refus("Accès refusé à ce chien.");
+  if (!chien || chien.client_id !== fiche.id) return refus("Accès refusé à ce chien.");
 
   const nom = (formData.get("nom") as string || "").trim();
   const race = (formData.get("race") as string || "").trim();
