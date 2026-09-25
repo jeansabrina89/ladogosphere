@@ -14,6 +14,7 @@ import { encaisser } from "@/app/(admin)/(espace-comptabilite)/factures/actions"
 import { creerAvoir } from "@/app/(admin)/(espace-comptabilite)/factures/actionsCreation";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { idUtilisateurCourant } from "@/src/lib/permissions";
+import { exigerAdmin } from "@/src/lib/garde";
 import { synchroniserComptaAvoir, contrePasserComptaAvoir } from "@/src/lib/comptaAvoir";
 
 // Types crédit (montant positif) vs débit (montant négatif)
@@ -314,16 +315,29 @@ export async function confirmerPaiementAbonnement(
 }
 
 export async function archiverClient(formData: FormData) {
+  // Première couche : la garde. Elle manquait, et RLS tenait seule.
+  await exigerAdmin("client_archiver");
+
   const supabase = await createClient();
   const id = formData.get("id") as string;
   const actif = formData.get("actif") === "true";
 
-  const { error } = await supabase
+  // Seconde couche : compter ce qui a VRAIMENT bougé.
+  //
+  // Un UPDATE que RLS filtre ne renvoie aucune erreur : il touche zéro ligne
+  // et dit que tout va bien. On tracait donc une archive qui n'avait pas eu
+  // lieu, puis on redirigeait comme si c'était fait. Le `.select()` rend les
+  // lignes touchées : zéro ligne est un échec, et il se dit.
+  const { data: touchees, error } = await supabase
     .from("clients")
     .update({ actif: !actif })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
 
   if (error) throw new Error(error.message);
+  if (!touchees || touchees.length === 0) {
+    throw new Error("Cette fiche client n'a pas pu être archivée : elle est introuvable.");
+  }
 
   await tracerEvenement({
     entite: "client", entiteId: id,
@@ -336,15 +350,26 @@ export async function archiverClient(formData: FormData) {
 }
 
 export async function supprimerClient(formData: FormData) {
+  // Même garde, même raison : supprimer une fiche est le geste le moins
+  // réversible de cet écran.
+  await exigerAdmin("client_supprimer");
+
   const supabase = await createClient();
   const id = formData.get("id") as string;
 
-  const { error } = await supabase
+  // Et le même compte de lignes : un DELETE filtré par RLS ne se plaint pas,
+  // il supprime zéro ligne. L'écran annonçait la suppression quand même.
+  const { data: supprimees, error } = await supabase
     .from("clients")
     .delete()
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
 
   if (error) throw new Error(error.message);
+  if (!supprimees || supprimees.length === 0) {
+    throw new Error("Cette fiche client n'a pas pu être supprimée : elle est introuvable.");
+  }
+
   redirect("/clients");
 }
 
