@@ -9,12 +9,13 @@ import {
   piedTva,
   secteurParDefautCompte,
   tauxApplicable,
-  tauxParDefautCategorie,
   tauxParDefautCompte,
   tauxValide,
   ventilerPanier,
   type LigneVentilable,
 } from "@/src/lib/tvaLogique";
+// Le taux d'une catégorie vit avec la TABLE des catégories (APP 28).
+import { tauxPropose } from "@/src/lib/boutiqueLogique";
 
 /**
  * La ventilation d'un panier : le port et la remise au prorata, et la somme
@@ -44,16 +45,32 @@ describe("les taux légaux", () => {
 });
 
 describe("l’attribution par défaut", () => {
+  /*
+   * Le taux d'une catégorie vient de la TABLE des catégories depuis APP 28.
+   * `tauxParDefautCategorie` et sa liste indépendante ont été supprimées de
+   * `tvaLogique` : elles doublaient `CATEGORIES_ARTICLE`, et le doublon a coûté
+   * un taux faux au lot APP 27.
+   */
   it("met au taux réduit ce qui se mange", () => {
-    for (const c of ["alimentation_seche", "alimentation_humide", "friandises", "mastication", "litiere"]) {
-      expect(tauxParDefautCategorie(c)).toBe(TAUX_REDUIT);
+    for (const c of ["alimentation_seche", "alimentation_humide", "alimentation_complete",
+                     "friandises", "mastication", "litiere"]) {
+      expect(tauxPropose(c), c).toBe(TAUX_REDUIT);
     }
   });
 
   it("met au taux normal tout le reste de la boutique", () => {
-    for (const c of ["colliers", "laisses", "harnais", "muselieres", "jouets", "peluches", "couchages", "soins", "medaillons_accessoires", "divers"]) {
-      expect(tauxParDefautCategorie(c)).toBe(TAUX_NORMAL);
+    for (const c of ["colliers", "laisses", "harnais", "muselieres", "jouets", "peluches",
+                     "couchages", "soins", "medaillons_accessoires", "divers",
+                     "griffoirs", "cages_enclos"]) {
+      expect(tauxPropose(c), c).toBe(TAUX_NORMAL);
     }
+  });
+
+  it("une catégorie inconnue retombe au taux NORMAL, le plus élevé", () => {
+    // L'erreur qui ne fait pas payer trop peu de TVA à Sabrina.
+    expect(tauxPropose("chapeaux")).toBe(TAUX_NORMAL);
+    expect(tauxPropose(null)).toBe(TAUX_NORMAL);
+    expect(tauxPropose("")).toBe(TAUX_NORMAL);
   });
 
   it("met la pension, la garderie et les prestations au taux normal", () => {

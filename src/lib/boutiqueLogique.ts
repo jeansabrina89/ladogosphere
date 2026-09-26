@@ -12,7 +12,7 @@
 // Réexportés depuis la source unique, pour que les écrans de la boutique
 // n'aient pas deux endroits où lire le même chiffre.
 export { TAUX_REDUIT, TAUX_NORMAL } from "@/src/lib/tvaLogique";
-import { TAUX_LEGAUX, TAUX_NORMAL, TAUX_REDUIT, refusTauxLegal, tauxParDefautCategorie } from "@/src/lib/tvaLogique";
+import { TAUX_LEGAUX, TAUX_NORMAL, TAUX_REDUIT, refusTauxLegal } from "@/src/lib/tvaLogique";
 
 export type CategorieArticle =
   | "alimentation_seche"
@@ -123,11 +123,23 @@ export function libelleCategorieArticle(categorie: string | null | undefined): s
 }
 
 /**
- * Taux proposé par la catégorie. 2,6 % pour l'alimentation, les friandises et
- * la litière ; 8,1 % pour le reste. Proposé seulement : la saisie prime.
+ * Taux proposé par la catégorie — LU DANS LA TABLE, jamais dans une seconde liste.
+ *
+ * 2,6 % pour ce qui se mange (et la litière, choix du dépôt antérieur à APP 27),
+ * 8,1 % pour le reste. Proposé seulement : chaque article garde son taux propre,
+ * et l'écran de l'article le laisse changer.
+ *
+ * Depuis APP 28, ce taux vient du champ `taux` de `CATEGORIES_ARTICLE` et de
+ * lui seul. Une liste indépendante vivait dans `tvaLogique` ; au lot APP 27 elle
+ * a été oubliée, et le sac de foin est parti à 8,1 %. Une catégorie ajoutée n'a
+ * plus qu'UN endroit où déclarer son taux : sa propre ligne, juste au-dessus.
+ *
+ * Une catégorie inconnue retombe au taux normal : c'est le plus élevé, donc
+ * l'erreur qui ne fait pas payer trop peu de TVA à Sabrina.
  */
 export function tauxPropose(categorie: string | null | undefined): number {
-  return tauxParDefautCategorie(categorie);
+  const c = String(categorie ?? "").trim();
+  return CATEGORIES_ARTICLE.find((x) => x.valeur === c)?.taux ?? TAUX_NORMAL;
 }
 
 export function estPerissable(categorie: string | null | undefined): boolean {

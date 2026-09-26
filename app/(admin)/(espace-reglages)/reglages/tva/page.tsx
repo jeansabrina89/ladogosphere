@@ -10,9 +10,10 @@ import {
   ADHESION_CONTRE_PRESTATION,
   PRESTATIONS_TVA,
   libelleSecteur,
-  tauxParDefautCategorie,
 } from "@/src/lib/tvaLogique";
-import { CATEGORIES_ARTICLE } from "@/src/lib/boutiqueLogique";
+// Le taux d'une catégorie vient de la TABLE des catégories depuis APP 28 :
+// c'est elle qui le porte, et c'était le second endroit qu'on a supprimé.
+import { CATEGORIES_ARTICLE, tauxPropose } from "@/src/lib/boutiqueLogique";
 import { METHODES, libellePeriodicite, refusDecompte } from "@/src/lib/decompteTvaLogique";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
@@ -73,10 +74,10 @@ export default async function ReglagesTvaPage() {
       categorie: c.valeur,
       libelle: c.libelle,
       articles: e?.n ?? 0,
-      taux: e && e.taux.size === 1 ? [...e.taux][0] : e ? null : tauxParDefautCategorie(c.valeur),
+      taux: e && e.taux.size === 1 ? [...e.taux][0] : e ? null : tauxPropose(c.valeur),
       secteur: e && e.secteur.size === 1 ? [...e.secteur][0] : e ? null : "commerce",
       motif: e?.motif ?? null,
-      tauxAttendu: tauxParDefautCategorie(c.valeur),
+      tauxAttendu: tauxPropose(c.valeur),
     };
   });
 

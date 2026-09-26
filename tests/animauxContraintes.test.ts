@@ -217,28 +217,48 @@ describe("l'ordre des rayons : trois listes qui doivent rester jumelles", () => 
   });
 });
 
-describe("le taux de TVA : deux listes qui doivent rester d'accord", () => {
-  it("CATEGORIES_ARTICLE et CATEGORIES_TAUX_REDUIT disent le même taux", async () => {
+describe("le taux de TVA : UNE seule source", () => {
+  it("le taux vient de la table, et la seconde liste n'existe plus", async () => {
     /**
-     * Deux endroits portent le taux d'un rayon, et APP 27 les a désaccordés :
+     * Ce test gardait, à APP 27, l'ACCORD entre deux listes : celle des
+     * catégories et une liste indépendante de taux réduits, dans `tvaLogique`.
+     * Il avait attrapé leur désaccord — « alimentation_complete » ajoutée à
+     * l'une et oubliée dans l'autre, donc le sac de foin à 8,1 % au lieu de
+     * 2,6 %.
      *
-     *   - `CATEGORIES_ARTICLE` (boutiqueLogique), qui donne le taux proposé à la
-     *     création d'un article ;
-     *   - `CATEGORIES_TAUX_REDUIT` (tvaLogique), que `tauxPropose` interroge
-     *     réellement.
-     *
-     * J'ai ajouté « alimentation_complete » à la première et oublié la seconde.
-     * Le sac de foin serait parti à 8,1 % au lieu de 2,6 %. Personne ne s'en
-     * plaint : la cliente ne vérifie pas le taux, et le trop-perçu ne se voit
-     * qu'au décompte TVA, des mois plus tard, avec un rattrapage à la main.
-     *
-     * C'est un test du compte de catégories qui l'a fait apparaître. Celui-ci
-     * vise la cause, pas le symptôme.
+     * APP 28 a supprimé la seconde liste : le taux se lit dans la table, et
+     * dans elle seule. Ce test garde donc autre chose, et de plus solide — non
+     * plus que les deux s'accordent, mais qu'il n'y en a plus qu'une.
+     */
+    const tva = readFileSync(join(__dirname, "..", "src/lib/tvaLogique.ts"), "utf8");
+    expect(tva, "la liste indépendante ne doit plus exister")
+      .not.toMatch(/export const CATEGORIES_TAUX_REDUIT/);
+    expect(tva, "ni la fonction qui la lisait")
+      .not.toMatch(/export function tauxParDefautCategorie/);
+    // Et le module dit POURQUOI elle est partie : sans cela, quelqu'un la
+    // remettra en la croyant oubliée.
+    expect(tva).toMatch(/N'EST PLUS ICI/);
+
+    const boutique = readFileSync(join(__dirname, "..", "src/lib/boutiqueLogique.ts"), "utf8");
+    expect(boutique, "le taux se lit dans la table")
+      .toContain("CATEGORIES_ARTICLE.find((x) => x.valeur === c)?.taux");
+  });
+
+  it("une catégorie ajoutée n'a plus qu'UN endroit où déclarer son taux", async () => {
+    /**
+     * La preuve demandée au lot : le taux rendu pour chaque rayon est celui
+     * écrit sur SA ligne de la table. Si une seconde source existait encore,
+     * elle se verrait ici — un rayon dont le taux diverge de sa propre ligne.
      */
     const { CATEGORIES_ARTICLE, tauxPropose } = await import("@/src/lib/boutiqueLogique");
     for (const c of CATEGORIES_ARTICLE) {
       expect(tauxPropose(c.valeur), `le taux de « ${c.libelle} »`).toBe(c.taux);
     }
+    // Et le contrôle qui compte vraiment : changer le taux d'une ligne change
+    // ce que la boutique propose, sans toucher à rien d'autre. On le vérifie
+    // sur les deux valeurs légales, puisqu'il n'y en a que deux.
+    const taux = new Set(CATEGORIES_ARTICLE.map((c) => c.taux));
+    expect(taux.size, "deux taux légaux, et pas un troisième").toBe(2);
   });
 
   it("les aliments sont au taux réduit, les objets au taux normal", async () => {

@@ -66,39 +66,23 @@ export function etiquetteLigneTva(taux: number): string {
 
 // ── Attribution par défaut ─────────────────────────────────────────────────
 
-/**
- * Ce qui se mange est au taux réduit. C'est la seule règle de fond ; tout le
- * reste de la boutique est au taux normal.
+/*
+ * LE RATTACHEMENT CATÉGORIE → TAUX N'EST PLUS ICI (APP 28).
  *
- * Un défaut, pas une fatalité : chaque article garde son taux propre, et
- * l'écran de l'article le laisse changer.
+ * Une liste `CATEGORIES_TAUX_REDUIT` vivait à cet endroit, et elle DOUBLAIT
+ * `CATEGORIES_ARTICLE` (boutiqueLogique), dont chaque entrée porte déjà son
+ * taux. Au lot APP 27, la catégorie « alimentation_complete » a été ajoutée à
+ * l'une et oubliée dans l'autre : le sac de foin partait à 8,1 % au lieu de
+ * 2,6 %. La cliente ne vérifie pas le taux, et le trop-perçu ne se voit
+ * qu'au décompte TVA, des mois plus tard, avec un rattrapage à la main.
+ *
+ * Ce module garde ce qui est FISCAL — les taux légaux eux-mêmes, et ce qui
+ * les valide. Quel rayon relève de quel taux est une donnée de CATALOGUE :
+ * elle vit avec la table des catégories, dans `boutiqueLogique.tauxPropose`.
+ *
+ * Ce n'est pas un déplacement de confort : c'est la suppression du second
+ * endroit. Deux listes qui disent la même chose finissent par ne plus la dire.
  */
-export const CATEGORIES_TAUX_REDUIT = [
-  "alimentation_seche",
-  "alimentation_humide",
-  /*
-   * APP 27 : granulés, graines et foin des NAC. Un ALIMENT, donc 2,6 %.
-   *
-   * Cette liste avait été oubliée en ajoutant le rayon, et le sac de foin
-   * serait parti à 8,1 %. Personne ne s'en serait plaint : la cliente ne
-   * vérifie pas le taux, et le trop-perçu se serait vu au décompte TVA, des
-   * mois plus tard, avec un rattrapage à faire à la main.
-   *
-   * Un test compare désormais cette liste à `CATEGORIES_ARTICLE`, qui porte le
-   * même taux de son côté. Deux listes qui disent la même chose finissent par
-   * ne plus la dire.
-   */
-  "alimentation_complete",
-  "friandises",
-  "mastication",
-  "litiere",
-] as const;
-
-export function tauxParDefautCategorie(categorie: string | null | undefined): number {
-  const c = String(categorie ?? "").trim();
-  return (CATEGORIES_TAUX_REDUIT as readonly string[]).includes(c) ? TAUX_REDUIT : TAUX_NORMAL;
-}
-
 /**
  * Taux par défaut d'une prestation, d'après son compte de produit.
  *
