@@ -252,3 +252,35 @@ Le lot 22-ter a aussi montré la limite d'un recensement : il disait du timbrage
 que la permission protégeait la validation, et le code disait autre chose — le
 chemin « c'est moi » sautait la garde entière. **Relire la ligne dans le code
 avant de la corriger** est ce qui l'a trouvé.
+
+## Risque accepté, daté du 26.09.2026 : le stock partiel et le comptoir
+
+**Décision de Sabrina, prise en connaissance de cause.**
+
+Une ligne de commande passe **entière** sur commande, jamais coupée en deux : la
+cliente qui en veut trois et dont il reste un attend ses trois ensemble, pour un
+seul retrait. Et une ligne sur commande **ne réserve rien** — c'est ce qui
+empêche `stock_actuel - stock_reserve` de descendre sous zéro.
+
+**Le risque qui en découle** : l'unité déjà présente n'est protégée par rien.
+Elle peut être vendue au comptoir avant l'arrivée de la marchandise commandée.
+
+**Pourquoi c'est sans conséquence** : Sabrina commande au fournisseur la
+quantité **TOTALE de la ligne**, pas seulement le manque. Les trois sacs
+arrivent, la cliente est servie, et le sac vendu au comptoir entre-temps ne
+manque à personne.
+
+**Ce que cela impose à l'écran « À commander chez les fournisseurs »** : il
+affiche la quantité TOTALE de la ligne, jamais l'écart entre le commandé et le
+présent. Un écran qui afficherait « il en manque 2 » ferait commander 2 sacs, et
+c'est alors que la vente au comptoir coûterait cher — la cliente qui attend
+depuis trois semaines repartirait avec deux sacs sur trois. Le risque ci-dessus
+n'est accepté QU'À CETTE CONDITION, et l'écran la porte.
+
+**Ce qui a été corrigé pour de bon, au passage** : la caisse appelait
+« disponible » le stock brut, sans retirer `stock_reserve`. Une commande en ligne
+confirmée réservait donc un sac que le comptoir pouvait vendre au premier venu —
+un défaut **antérieur à ce lot**, qui rendait creuse toute réservation. Fermé au
+lot APP 26 (`stockDisponible`), sur trois couches, chacune testée sous mutation.
+La conséquence assumée : la caisse refuse désormais de vendre ce qu'une commande
+en ligne a réservé, et c'est exactement ce qu'on lui demande.
