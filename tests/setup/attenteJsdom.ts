@@ -1,5 +1,4 @@
 import { configure } from "@testing-library/dom";
-import { vi } from "vitest";
 
 /**
  * Le délai d'attente des tests de composants — ceux qui tournent dans jsdom.
@@ -19,20 +18,20 @@ import { vi } from "vitest";
 configure({ asyncUtilTimeout: 4000 });
 
 /**
- * Le délai du TEST, porté à 15 secondes — et ce n'est pas de la tolérance,
- * c'est du diagnostic.
+ * LE DÉLAI DU TEST N'EST PLUS ICI — il est dans `vitest.config.ts`.
  *
- * Avec les 5 secondes de vitest, le test expirait AVANT l'attente qu'il
- * contient : on recevait « Test timed out in 5000ms », qui ne nomme rien — ni
- * l'élément cherché, ni ce que la page affichait à la place. La cause restait
- * introuvable, ce qui est exactement ce qui nous est arrivé deux fois.
+ * Il y valait quinze secondes pour les seuls fichiers jsdom, ceux qui
+ * importent ce fichier ; les tests en environnement node gardaient les cinq
+ * secondes par défaut, et l'un d'eux a expiré au lot APP 27 sur une machine
+ * chargée. La valeur est donc montée dans la configuration, où elle vaut pour
+ * tout le monde — et où elle n'est écrite qu'une fois.
  *
- * Dans le bon ordre, c'est l'attente qui abandonne la première, à 4 secondes,
- * et elle dit QUEL élément elle n'a pas trouvé, avec le contenu du DOM. Le
- * test, lui, a encore onze secondes devant lui pour rapporter cet échec.
+ * Ce qui reste ici est l'attente de RENDU, qui n'est pas la même chose : elle
+ * abandonne la première, à quatre secondes, et elle dit QUEL élément elle n'a
+ * pas trouvé, avec le contenu du DOM. Le test, lui, a encore onze secondes
+ * devant lui pour rapporter cet échec.
  *
- * La règle qui vaut au-delà de ce fichier : le délai d'un test reste toujours
- * confortablement supérieur à la plus longue attente qu'il contient. Relever
- * l'un sans l'autre ne fait que déplacer le silence.
+ * La règle qui lie les deux, et qui vaut au-delà de ce fichier : le délai d'un
+ * test reste toujours confortablement supérieur à la plus longue attente qu'il
+ * contient. Relever l'un sans l'autre ne fait que déplacer le silence.
  */
-vi.setConfig({ testTimeout: 15000 });
