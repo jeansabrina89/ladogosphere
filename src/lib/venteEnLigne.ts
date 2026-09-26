@@ -61,12 +61,24 @@ export type LigneCommande = {
   remise_libelle: string | null;
   /** Les choix figés d'un article sur mesure, tant que la ligne est au panier. */
   configuration?: unknown[] | null;
+  /*
+   * APP 26 : cette ligne attend une commande chez le fournisseur, et sous quel
+   * délai — celui PROMIS, figé à la confirmation. Si le fournisseur a changé son
+   * délai depuis, ce qui compte est ce qu'on a dit à la cliente.
+   *
+   * `commandee_au_fournisseur_le` n'est pas exposé ici : la cliente n'a pas à
+   * suivre l'intendance de la pension. Ce qui la concerne est le délai promis.
+   */
+  sur_commande?: boolean | null;
+  delai_commande_min_jours?: number | null;
+  delai_commande_max_jours?: number | null;
 };
 
 const COLONNES_LIGNE = `
   id, commande_id, article_id, commande_personnalisee_id, configuration, libelle,
   quantite, prix_unitaire, taux_tva, secteur_tdfn, montant,
-  prix_base, remise_pourcentage, remise_origine, remise_libelle
+  prix_base, remise_pourcentage, remise_origine, remise_libelle,
+  sur_commande, delai_commande_min_jours, delai_commande_max_jours
 `;
 
 // ── Paramètres de la boutique en ligne ─────────────────────────────────────

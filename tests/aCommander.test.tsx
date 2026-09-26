@@ -199,3 +199,32 @@ describe("la liste des articles : le filtre et le signal", () => {
     expect(c).toMatch(/reste « Épuisé »/);
   });
 });
+
+describe("ce que la cliente relit dans « Mes commandes »", () => {
+  const src = (c: string) => readFileSync(join(__dirname, "..", c), "utf8");
+
+  it("le délai PROMIS est relisible, par la même fonction qu'ailleurs", () => {
+    // Elle l'a lu avant de payer. Trois semaines plus tard, c'est la première
+    // chose qu'elle vient chercher ici — et elle doit y trouver le délai promis,
+    // celui figé sur la ligne, pas celui du fournisseur aujourd'hui.
+    const p = src("app/(client)/mon-compte/commandes/page.tsx");
+    expect(p).toContain("phraseDelaiCommande");
+    expect(p).toContain("l.sur_commande");
+
+    // Les colonnes sont demandées à la base, sinon tout ce qui précède est mort.
+    const v = src("src/lib/venteEnLigne.ts");
+    expect(v).toMatch(/sur_commande, delai_commande_min_jours, delai_commande_max_jours/);
+  });
+
+  it("l'intendance de la pension ne descend PAS chez la cliente", () => {
+    // `commandee_au_fournisseur_le` dit quand Sabrina a passé sa commande. Ce
+    // n'est pas une information promise, et une date affichée devient une
+    // promesse : si elle commande deux jours plus tard, la cliente y lirait un
+    // retard là où le délai annoncé est tenu.
+    const v = src("src/lib/venteEnLigne.ts");
+    const colonnes = v.match(/const COLONNES_LIGNE = `[^`]*`/)?.[0] ?? "";
+    expect(colonnes).not.toContain("commandee_au_fournisseur_le");
+    expect(src("app/(client)/mon-compte/commandes/page.tsx"))
+      .not.toContain("commandee_au_fournisseur_le");
+  });
+});

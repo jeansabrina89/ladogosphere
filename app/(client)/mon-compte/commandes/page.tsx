@@ -11,6 +11,7 @@ import {
   libelleModeRemise,
   libelleModePaiement,
   formatAdresse,
+  phraseDelaiCommande,
 } from "@/src/lib/venteEnLigneLogique";
 import { formatDateFR } from "@/src/lib/dates";
 import EnTete from "@/app/components/ui/EnTete";
@@ -104,6 +105,15 @@ export default async function MesCommandesPage() {
                       <span style={{ color: MARINE, fontSize: 15, overflowWrap: "anywhere", minWidth: 0 }}>
                         {Number(l.quantite)} × {l.libelle}
                         <OptionsChoisies options={libellesConfiguration(choix.get(l.id))} />
+                        {/* APP 26 : la ligne attend le fournisseur. La cliente
+                            l'a lu avant de payer ; elle doit pouvoir le
+                            RELIRE — c'est la première chose qu'elle vient
+                            chercher ici trois semaines plus tard. */}
+                        {l.sur_commande && phraseDelaiCommande(l) && (
+                          <span style={{ display: "block", color: "#8A5A1F", fontSize: 13.5, fontWeight: 600 }}>
+                            Commandé chez notre fournisseur · {phraseDelaiCommande(l)?.replace("Livré sous ", "livré sous ")}
+                          </span>
+                        )}
                       </span>
                       <span style={{ color: MARINE, fontSize: 15, fontWeight: 600, whiteSpace: "nowrap" }}>
                         {chf(Number(l.montant))}
