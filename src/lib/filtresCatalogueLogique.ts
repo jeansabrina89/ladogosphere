@@ -1,4 +1,5 @@
 import {
+  ANIMAUX,
   type ChampEtiquette,
   valeursPourAnimaux,
   groupeVautPourAnimaux,
@@ -475,6 +476,8 @@ const PARAMS: { param: string; filtre: keyof Filtres }[] = [
   { param: "marque", filtre: "marques" },
   { param: "prix", filtre: "prix" },
   { param: "age", filtre: "ages" },
+  { param: "espece", filtre: "especes" },
+  { param: "soin", filtre: "types_soin" },
   { param: "besoin", filtre: "besoins" },
   { param: "taille", filtre: "tailles_chien" },
   { param: "gout", filtre: "gouts" },
@@ -495,6 +498,11 @@ const BASCULES: { param: string; filtre: keyof Filtres }[] = [
 /** L'URL à écrire. Un filtre vide ne laisse aucun paramètre derrière lui. */
 export function versParams(f: Filtres): URLSearchParams {
   const p = new URLSearchParams();
+  /*
+   * L'onglet vient en PREMIER dans l'adresse, avant le rayon : c'est le choix le
+   * plus large, et une adresse se lit comme on l'a construite.
+   */
+  if (f.animal) p.set("animal", f.animal);
   if (f.categorie) p.set("cat", f.categorie);
   for (const { param, filtre } of PARAMS) {
     const valeurs = f[filtre] as string[];
@@ -522,6 +530,17 @@ export function depuisParams(
       .filter((v) => v.length > 0);
 
   const f: Filtres = { ...FILTRES_VIDES };
+
+  /*
+   * L'onglet, vérifié contre le vocabulaire : « ?animal=licorne » ramène à
+   * « Tous » plutôt que de vider la grille sans rien dire. Le brief demande
+   * qu'un lien vers un onglet devenu vide ne produise AUCUNE erreur — un onglet
+   * inconnu et un onglet vide se traitent donc pareil, et c'est la page qui
+   * décide de ne pas afficher un onglet sans article.
+   */
+  const animal = String(lire.get("animal") ?? "").trim();
+  f.animal = (ANIMAUX as readonly string[]).includes(animal) ? animal : null;
+
   const cat = String(lire.get("cat") ?? "").trim();
   f.categorie = cat.length > 0 ? cat : null;
 
@@ -552,4 +571,73 @@ export function depuisParams(
     (f[filtre] as boolean) = lire.get(param) === "1";
   }
   return f;
+}
+
+// ── Les onglets d'animal (APP 27) ───────────────────────────────────────────
+
+export type OngletAnimal = {
+  /** null pour « Tous ». */
+  valeur: string | null;
+  libelle: string;
+  nombre: number;
+  actif: boolean;
+};
+
+/**
+ * Les onglets à afficher, et la règle qui décide s'il y en a.
+ *
+ * Décision de Sabrina : un onglet n'apparaît QUE s'il contient au moins un
+ * article. Il apparaît tout seul quand elle active le premier article de cet
+ * animal, et disparaît quand le dernier est désactivé. Aucun onglet vide, jamais
+ * — un onglet qu'on ouvre pour trouver une page blanche est pire qu'un onglet
+ * absent, parce qu'il a fait espérer.
+ *
+ * ET, conséquence de la même règle : tant qu'un SEUL animal a des articles, il
+ * n'y a aucun onglet du tout. La boutique reste exactement comme aujourd'hui,
+ * sans une rangée d'onglets qui ne mènerait nulle part. C'est le cas le jour de
+ * l'ouverture, où tout est pour chiens.
+ *
+ * Les articles passés ici sont ceux que cette personne a le droit de voir : ce
+ * qui est masqué ou retiré ne compte pas, donc ne fait pas apparaître d'onglet.
+ */
+export function ongletsAnimaux(
+  articles: ArticleFiltrable[],
+  animalChoisi: string | null
+): OngletAnimal[] {
+  const compte = new Map<string, number>();
+  for (const a of articles) {
+    for (const animal of a.animaux ?? []) {
+      compte.set(animal, (compte.get(animal) ?? 0) + 1);
+    }
+  }
+
+  const presents = ANIMAUX.filter((a) => (compte.get(a) ?? 0) > 0);
+  // Un seul animal servi : aucun onglet. Deux, alors « Tous » a un sens.
+  if (presents.length < 2) return [];
+
+  return [
+    { valeur: null, libelle: "Tous", nombre: articles.length, actif: animalChoisi === null },
+    ...presents.map((a) => ({
+      valeur: a as string,
+      libelle: libelleValeur("animaux", a),
+      nombre: compte.get(a) ?? 0,
+      actif: animalChoisi === a,
+    })),
+  ];
+}
+
+/**
+ * L'onglet réellement retenu : celui demandé s'il existe encore, sinon « Tous ».
+ *
+ * Un lien envoyé par courriel, ou un signet, peut viser un onglet dont le
+ * dernier article vient d'être désactivé. Il ramène alors à « Tous » sans
+ * erreur et sans page blanche — la cliente voit la boutique, pas un message.
+ */
+export function ongletRetenu(
+  articles: ArticleFiltrable[],
+  demande: string | null
+): string | null {
+  if (!demande) return null;
+  const onglets = ongletsAnimaux(articles, demande);
+  return onglets.some((o) => o.valeur === demande) ? demande : null;
 }

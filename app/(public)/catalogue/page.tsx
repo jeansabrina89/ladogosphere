@@ -80,6 +80,11 @@ export default async function BoutiqueClientPage() {
       // Les étiquettes : ce sont les filtres. Toutes publiques — ce sont les
       // colonnes de la vue `articles_vitrine`, et rien de plus ne descend.
       expediable: a.expediable,
+      // APP 27 : l'animal range l'article dans un onglet ; l'espèce et le type
+      // de soin sont des filtres, comme les autres étiquettes.
+      animaux: a.animaux,
+      especes: a.especes,
+      types_soin: a.types_soin,
       ages: a.ages,
       besoins: a.besoins,
       tailles_chien: a.tailles_chien,

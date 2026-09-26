@@ -148,6 +148,15 @@ export type ArticleEnLigne = {
   /* Les étiquettes des filtres (APP 24-FILTRES) : un client connecté filtre
      avec les mêmes qu'un visiteur. Elles sont publiques par nature — ce sont
      des colonnes de la vue `articles_vitrine`. */
+  /*
+   * APP 27 : pour QUI l'article est fait, et les deux étiquettes qui en
+   * dépendent. Sans elles, le client CONNECTÉ n'aurait aucun onglet là où le
+   * visiteur en a — la même boutique, deux visages. C'est le compilateur qui a
+   * relevé l'oubli, comme pour les délais d'APP 26.
+   */
+  animaux: string[];
+  especes: string[];
+  types_soin: string[];
   ages: string[];
   besoins: string[];
   tailles_chien: string[];
@@ -169,6 +178,7 @@ const COLONNES_ARTICLE = `
   id, reference, nom, description, categorie, marque, prix_vente, taux_tva, secteur_tdfn, unite,
   photo_path, type_article, delai_fabrication_jours, poids_grammes, expediable,
   stock_actuel, stock_reserve, date_limite, remise_membre_exclue,
+  animaux, especes, types_soin,
   ages, besoins, tailles_chien, proteines, sans_cereales, monoproteine,
   taille_article, couleurs, matieres, usages_jouet
 `;

@@ -9,6 +9,8 @@ import {
   filtrer,
   filtresAffiches,
   nombreFiltresActifs,
+  ongletsAnimaux,
+  ongletRetenu,
   versParams,
   type ArticleFiltrable,
   type Filtres,
@@ -64,6 +66,11 @@ export type ArticleVitrine = {
   /* Les étiquettes (APP 24-FILTRES) : ce sont les filtres eux-mêmes. Toutes
      publiques — ce sont les colonnes de la vue `articles_vitrine`. */
   expediable?: boolean | null;
+  /* APP 27 : pour QUI l'article est fait. C'est ce qui le range dans un
+     onglet — sans cette colonne, il n'y a pas d'onglets. */
+  animaux?: string[] | null;
+  especes?: string[] | null;
+  types_soin?: string[] | null;
   ages?: string[] | null;
   besoins?: string[] | null;
   tailles_chien?: string[] | null;
@@ -128,7 +135,7 @@ export default function CatalogueBoutique({
    * Next le reconnaît et `useSearchParams` suit.
    */
   const params = useSearchParams();
-  const filtres = useMemo(() => depuisParams(params), [params]);
+  const demandes = useMemo(() => depuisParams(params), [params]);
 
   function appliquer(suivants: Filtres) {
     const qs = versParams(suivants).toString();
@@ -139,6 +146,32 @@ export default function CatalogueBoutique({
   // tout y est déjà affiché, et les comptes par valeur ont de toute façon
   // besoin de l'ensemble. Aucune donnée de plus ne descend au navigateur.
   const filtrables = articles as unknown as ArticleFiltrable[];
+
+  /*
+   * LES ONGLETS D'ANIMAL (APP 27).
+   *
+   * Un onglet n'existe que s'il a au moins un article, et il n'y en a AUCUN tant
+   * qu'un seul animal est servi — la règle vit dans « ongletsAnimaux », pas ici.
+   *
+   * « ongletRetenu » traite le lien périmé : un signet vers « Rongeurs » dont le
+   * dernier article vient d'être désactivé ramène à « Tous », sans erreur et sans
+   * grille vide. On ne corrige pas l'adresse pour autant — la cliente n'a pas à
+   * voir son lien réécrit sous ses yeux ; elle voit simplement la boutique.
+   */
+  const filtres = useMemo(
+    () => ({ ...demandes, animal: ongletRetenu(filtrables, demandes.animal) }),
+    [demandes, filtrables]
+  );
+  /*
+   * La barre reçoit l'onglet RETENU, pas celui demandé.
+   *
+   * Un lien vers « Furets » sans article affiche toute la boutique — il faut donc
+   * que « Tous » se marque actif, sinon la cliente voit tous les articles avec
+   * aucun onglet allumé, et ne sait plus où elle est. Passer l'onglet demandé
+   * n'allumait rien du tout : c'est un test d'écran qui l'a relevé.
+   */
+  const onglets = ongletsAnimaux(filtrables, filtres.animal);
+
   const retenus = filtrer(filtrables, filtres) as unknown as ArticleVitrine[];
   const affiches = filtresAffiches(filtrables, filtres);
 
@@ -322,6 +355,53 @@ export default function CatalogueBoutique({
         aria-label="Chercher un article"
         style={champ}
       />
+
+      {/*
+        * Les onglets d'animal. Sur téléphone ils DÉFILENT horizontalement :
+        * six onglets plus « Tous » ne tiennent pas sur 375 px, et les replier
+        * sur deux lignes ferait sauter la grille d'un demi-écran. Le conteneur
+        * porte donc « overflow-x: auto » et les onglets « flex-shrink: 0 » —
+        * sans le second, ils se compriment au lieu de défiler, et la page prend
+        * une barre horizontale. Vérifié à 375 px.
+        */}
+      {onglets.length > 0 && (
+        <nav
+          aria-label="Choisir un animal"
+          style={{
+            display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4,
+            // Le défilement reste DANS la barre : la page, elle, ne bouge pas.
+            scrollbarWidth: "thin", WebkitOverflowScrolling: "touch",
+          }}
+        >
+          {onglets.map((o) => (
+            <button
+              key={o.valeur ?? "tous"}
+              type="button"
+              aria-pressed={o.actif}
+              onClick={() => appliquer({ ...filtres, animal: o.valeur })}
+              style={{
+                flexShrink: 0,
+                minHeight: CIBLE,
+                padding: "8px 16px",
+                borderRadius: 999,
+                border: o.actif ? "1px solid #C9A84C" : BORDURE,
+                background: o.actif ? "#F4EAC9" : "#FFFFFF",
+                color: o.actif ? "#6E5410" : MARINE,
+                fontSize: 15,
+                fontWeight: o.actif ? 700 : 500,
+                fontFamily: "inherit",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {o.libelle}{" "}
+              <span style={{ color: o.actif ? "#6E5410" : SOUS, fontWeight: 500 }}>
+                ({o.nombre})
+              </span>
+            </button>
+          ))}
+        </nav>
+      )}
 
       {/* Le panneau à gauche sur écran large, un bouton plein écran sur
           téléphone — c'est le composant qui s'en charge. */}

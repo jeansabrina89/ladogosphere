@@ -13,6 +13,10 @@ import {
   FILTRES_VIDES,
   filtrer,
   filtresAffiches,
+  ongletsAnimaux,
+  ongletRetenu,
+  depuisParams,
+  versParams,
   type ArticleFiltrable,
   type Filtres,
 } from "@/src/lib/filtresCatalogueLogique";
@@ -270,5 +274,115 @@ describe("la table vit en UN seul endroit", () => {
       join(__dirname, "..", "src/lib/filtresCatalogueLogique.ts"), "utf8");
     expect(filtres).toContain("groupeVautPourAnimaux");
     expect(filtres).toContain("valeursPourAnimaux");
+  });
+});
+
+describe("les onglets d'animal : aucun onglet vide, jamais", () => {
+  const chien = (n = 1) => Array.from({ length: n }, () => art({ animaux: ["chien"] }));
+  const rongeur = () => art({ animaux: ["rongeur"] });
+  const partage = () => art({ animaux: ["chien", "chat"] });
+
+  it("un seul animal servi : AUCUN onglet du tout", () => {
+    /**
+     * Le jour de l'ouverture, tout est pour chiens. Une rangée d'onglets qui ne
+     * mènerait qu'à un seul endroit ne servirait qu'à occuper la place, et
+     * ferait croire qu'il y a autre chose à voir.
+     */
+    expect(ongletsAnimaux(chien(5), null)).toEqual([]);
+    expect(ongletsAnimaux([], null)).toEqual([]);
+  });
+
+  it("un article actif pour rongeurs fait apparaître « Rongeurs » — et « Tous »", () => {
+    const onglets = ongletsAnimaux([...chien(3), rongeur()], null);
+    expect(onglets.map((o) => o.libelle)).toEqual(["Tous", "Chiens", "Rongeurs"]);
+    // « Tous » compte les articles, pas les animaux.
+    expect(onglets[0].nombre).toBe(4);
+    expect(onglets.find((o) => o.valeur === "rongeur")?.nombre).toBe(1);
+  });
+
+  it("retirer le dernier article d'un animal fait disparaître son onglet", () => {
+    // C'est la même règle lue à l'envers, et c'est ce que Sabrina a demandé :
+    // l'onglet suit les articles, elle n'a rien à déclarer.
+    const avec = ongletsAnimaux([...chien(3), rongeur()], null);
+    expect(avec.map((o) => o.valeur)).toContain("rongeur");
+    const sans = ongletsAnimaux(chien(3), null);
+    expect(sans).toEqual([]);
+  });
+
+  it("un onglet n'est jamais rendu avec zéro article", () => {
+    const onglets = ongletsAnimaux([...chien(2), rongeur(), partage()], null);
+    for (const o of onglets) {
+      expect(o.nombre, o.libelle).toBeGreaterThan(0);
+    }
+    // Les animaux sans article n'y sont pas du tout.
+    for (const absent of ["furet", "reptile", "oiseau"]) {
+      expect(onglets.map((o) => o.valeur), absent).not.toContain(absent);
+    }
+  });
+
+  it("l'ordre des onglets est celui du vocabulaire, pas celui des articles", () => {
+    // Deux boutiques au même contenu se lisent pareil, quel que soit l'ordre de
+    // saisie des articles.
+    const onglets = ongletsAnimaux(
+      [art({ animaux: ["oiseau"] }), rongeur(), ...chien(1)], null);
+    expect(onglets.map((o) => o.valeur)).toEqual([null, "chien", "rongeur", "oiseau"]);
+  });
+
+  it("l'onglet choisi est marqué actif, et lui seul", () => {
+    const onglets = ongletsAnimaux([...chien(2), rongeur()], "rongeur");
+    expect(onglets.filter((o) => o.actif).map((o) => o.valeur)).toEqual(["rongeur"]);
+  });
+
+  it("un article pour deux animaux compte dans les DEUX onglets", () => {
+    const onglets = ongletsAnimaux([partage()], null);
+    expect(onglets.find((o) => o.valeur === "chien")?.nombre).toBe(1);
+    expect(onglets.find((o) => o.valeur === "chat")?.nombre).toBe(1);
+    // Mais « Tous » ne le compte qu'une fois : c'est UN article.
+    expect(onglets[0].nombre).toBe(1);
+  });
+});
+
+describe("un lien vers un onglet devenu vide", () => {
+  it("ramène à « Tous », sans erreur et sans page blanche", () => {
+    /**
+     * Un signet, un lien envoyé par courriel : l'onglet visé peut avoir perdu
+     * son dernier article entre-temps. La cliente doit voir la boutique, pas un
+     * message d'erreur — et surtout pas une grille vide qui laisserait croire
+     * que tout a disparu.
+     */
+    const articles = [...Array.from({ length: 3 }, () => art({ animaux: ["chien"] })),
+                      art({ animaux: ["rongeur"] })];
+    expect(ongletRetenu(articles, "rongeur")).toBe("rongeur");
+    // Le furet n'a aucun article : le lien ramène à « Tous ».
+    expect(ongletRetenu(articles, "furet")).toBeNull();
+    // Un animal inventé aussi.
+    expect(ongletRetenu(articles, "licorne")).toBeNull();
+    // Et quand il ne reste qu'un animal, plus aucun onglet n'existe.
+    expect(ongletRetenu(Array.from({ length: 2 }, () => art({ animaux: ["chien"] })), "chien"))
+      .toBeNull();
+  });
+
+  it("l'adresse ne retient qu'un animal du vocabulaire", () => {
+    // Une adresse bricolée à la main ne doit rien pouvoir injecter.
+    expect(depuisParams(new URLSearchParams("animal=rongeur")).animal).toBe("rongeur");
+    expect(depuisParams(new URLSearchParams("animal=licorne")).animal).toBeNull();
+    expect(depuisParams(new URLSearchParams("animal=")).animal).toBeNull();
+    expect(depuisParams(new URLSearchParams("")).animal).toBeNull();
+  });
+
+  it("l'onglet voyage dans l'adresse, avant le rayon", () => {
+    const p = versParams({ ...FILTRES_VIDES, animal: "chat", categorie: "litiere" });
+    expect(p.toString()).toBe("animal=chat&cat=litiere");
+    // Aller et retour : ce qui sort de l'adresse est ce qui y était entré.
+    expect(depuisParams(p).animal).toBe("chat");
+    expect(depuisParams(p).categorie).toBe("litiere");
+  });
+
+  it("« Espèce » et « Type de soin » voyagent aussi", () => {
+    const p = versParams({ ...FILTRES_VIDES, especes: ["lapin"], types_soin: ["pelage"] });
+    expect(depuisParams(p).especes).toEqual(["lapin"]);
+    expect(depuisParams(p).types_soin).toEqual(["pelage"]);
+    // Hors vocabulaire : ignoré, jamais recopié.
+    expect(depuisParams(new URLSearchParams("espece=dragon")).especes).toEqual([]);
   });
 });

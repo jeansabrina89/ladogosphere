@@ -41,6 +41,11 @@ export type ArticleVitrine = {
   remise_membre_exclue: boolean;
   /* Les étiquettes des filtres (APP 24-FILTRES). Le vocabulaire est tenu par
      la base ; les libellés vivent dans src/lib/etiquettesArticles.ts. */
+  /* APP 27 : l'animal range l'article dans un onglet du catalogue ; l'espèce et
+     le type de soin sont des filtres, comme les autres étiquettes. */
+  animaux: string[];
+  especes: string[];
+  types_soin: string[];
   ages: string[];
   besoins: string[];
   tailles_chien: string[];
