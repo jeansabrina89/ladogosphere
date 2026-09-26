@@ -1,18 +1,23 @@
 # Check-list de mise en production
 
 Ce fichier n'existait pas avant le 26 septembre 2026. Il est créé pour porter
-une étape qui ne doit pas se perdre — et qui se perdrait, parce qu'elle
-n'appartient à aucun lot : elle se fait **entre** deux lots, juste avant la
+des étapes qui ne doivent pas se perdre — et qui se perdraient, parce qu'elles
+n'appartiennent à aucun lot : elles se font **entre** deux lots, juste avant la
 première écriture réelle.
 
 Une étape cochée porte sa date et le commit qui l'a faite.
+
+**Tous les nombres de ce document sont des comptes réels**, relevés le
+26 septembre 2026 par `count(*)`. Une première version citait `reltuples`, une
+estimation que Postgres ne rafraîchit pas : elle annonçait 97 articles là où il
+y en a 121. Un contrôle qui attend le mauvais nombre est pire qu'absent.
 
 ---
 
 # ☐ 1. Retirer les données de test
 
-**Décidé par Sabrina les 26 septembre 2026.** Tout ce qui est dans
-l'application est du test. La première vraie facture sera `FAC-2027-0001`.
+**Décidé par Sabrina le 26 septembre 2026.** Tout ce qui est dans l'application
+est du test. La première vraie facture sera `FAC-2027-0001`.
 
 ## Pourquoi on ne clôture surtout pas d'abord
 
@@ -31,7 +36,7 @@ lui, 2027 affichait un écart de −7 942.
 
 ---
 
-## Le périmètre — définitif
+## Le périmètre — complet et définitif
 
 ### ON GARDE, et rien d'autre côté clientèle
 
@@ -50,33 +55,34 @@ lui, 2027 affichait un écart de −7 942.
 | **`e756238c-d218-42e3-81d9-8f2bd2e14364`** | Hailey | Bouledogue Américain |
 | **`258cc292-174d-465d-963d-8d1629ff50bb`** | Pixel | Dogue Allemand |
 
-**Et leurs deux ententes « famille uniquement »**, qui sont auto-référencées
-(Pixel→Pixel, Hailey→Hailey) et partent donc avec eux sans rien accrocher
+**Et leurs deux ententes « famille uniquement »**, auto-référencées
+(Pixel→Pixel, Hailey→Hailey) : elles partent avec eux sans rien accrocher
 d'autre.
 
-**Les six autres fiches `clients.interne = true`**, avec leurs comptes de
-connexion — voir la question résiduelle n° 1 ci-dessous, deux d'entre elles ne
-sont pas du personnel.
+**Les quatre fiches internes du personnel**, avec leurs comptes de connexion :
+« Test employé », « Employé Inconnu 1 », « XEmployé Inconnu 2 », « Test Test ».
+Chacune porte un compte de rôle `employe`.
 
 **Le référentiel, dans son entier :**
 
-- les paramètres, le plan comptable (`comptes`), les tarifs, les modèles
-  d'e-mails, les comptes du personnel (`profiles`, `employes_rh`) ;
-- le catalogue de la boutique : `articles`, `article_modeles`, `options_groupes`,
-  `options_valeurs`, `options_dependances`, `modeles_options`, `promotions`,
-  `promotions_articles`, `remise_membre_categories`, et le bucket
-  `boutique-photos` (378 fichiers) ;
-- les fournisseurs (`fournisseurs`) ;
-- le référentiel d'exploitation : `boxes`, `box_indisponibilites`,
+- les paramètres, le plan comptable (`comptes`, 43 lignes), les tarifs (40), les
+  modèles d'e-mails, les comptes du personnel (`profiles` 44, `employes_rh` 5) ;
+- **`modeles_deductions` (6)** — c'est du paramétrage, comme le plan comptable :
+  la liste des types de déductions salariales, pas une donnée de paie ;
+- le catalogue de la boutique : `articles` (121), `article_modeles`,
+  `options_groupes` (40), `options_valeurs` (273), `options_dependances`,
+  `modeles_options` (10), `promotions`, `promotions_articles`,
+  `remise_membre_categories`, et le bucket `boutique-photos` (378 fichiers) ;
+- les fournisseurs (`fournisseurs`, 4) ;
+- le référentiel d'exploitation : `boxes` (14), `box_indisponibilites`,
   `calendrier_essais`, `fermetures_essai`, `fermetures_exceptionnelles`,
-  `jours_feries`, `vacances_scolaires`, `formules`, `formules_lignes`,
-  `prestations`, `services_supplementaires`, `taux_prestation`, `taux_tva`,
+  `jours_feries`, `vacances_scolaires`, `formules` (1), `formules_lignes`,
+  `prestations` (3), `services_supplementaires`, `taux_prestation`, `taux_tva`,
   `parametres_tva`, `entites_juridiques`.
 
 ### ON RETIRE
 
-**La fiche A en entier** — c'est une décision explicite, et elle emporte
-beaucoup :
+**La fiche A en entier** — décision explicite, et elle emporte beaucoup :
 
 | | |
 |---|---|
@@ -100,52 +106,66 @@ Avec eux : ses 9 réservations, ses 13 factures, ses 27 mouvements d'avoir, et
 le Pixel de la fiche B. Le bucket `chiens-photos` finira donc vide, et c'est
 voulu.
 
-**Tous les autres clients et chiens**, hors fiche B et les six fiches internes.
+**Les deux fiches « ZZ Contrôle »** — ce sont des fiches de test, pas du
+personnel : « Recette ZZ Contrôle recette boutique (archive) » et « ZZ Contrôle
+TVA (recette) ». Ni l'une ni l'autre n'a de compte de connexion, et la seconde
+est déjà inactive.
 
-**Toute la comptabilité** : `ecritures`, `ecritures_lignes`, `factures`
-(numérotées et brouillons), `facture_lignes`, `facture_reservations`,
-`paiements_resa`, `avoirs_mouvements`, `depenses`, `pieces`, `decomptes_tva`,
-`exports_comptables`, `exports_comptables_lots`.
+**Tous les autres clients et chiens** : 38 fiches aujourd'hui, **5 après** ;
+22 chiens aujourd'hui, **2 après**.
+
+**Toute la comptabilité** : `ecritures` (293), `ecritures_lignes`, `factures`
+(140, numérotées et brouillons), `facture_lignes`, `facture_reservations`,
+`paiements_resa`, `avoirs_mouvements`, `depenses` (12), `pieces`,
+`decomptes_tva`, `exports_comptables`, `exports_comptables_lots`.
 
 **Les compteurs** `facture_numerotation`.
 
-**Les exercices 2024, 2025, 2026 et 2027** — l'exercice 2026 part aussi, en plus
-des deux vides.
+**Les exercices 2024, 2025, 2026 et 2027** — 2026 part aussi, en plus des deux
+vides.
 
 **Les réservations**, y compris celles des chiens gardés : `reservations`,
 `reservation_chiens`, `reservation_extras`, `occupation_boxes`,
 `checkin_checkout`.
 
 **Les ventes, les commandes en ligne, les abonnements et les adhésions** :
-`ventes`, `ventes_lignes`, `commandes`, `commandes_lignes`, `commandes_choix`,
-`commandes_personnalisees`, `abonnements`, `abonnements_mouvements`,
-`abonnements_prestations`, `cotisations_membres`, `taches_prestations`,
-`alertes_stock`, `liste_attente`.
+`ventes` (75), `ventes_lignes`, `commandes` (15), `commandes_lignes`,
+`commandes_choix`, `commandes_personnalisees`, `abonnements`,
+`abonnements_mouvements`, `abonnements_prestations`, `cotisations_membres`,
+`taches_prestations`, `alertes_stock`, `liste_attente`.
 
-**Tout le RH sauf les fiches des personnes** : `planning_employes` (885),
+**Les mouvements de stock** : `mouvements_stock` (180). **Et `articles.stock_actuel`
+est remis à 0** pour les 121 articles — Sabrina saisira son inventaire
+d'ouverture le jour du lancement.
+
+> `stock_reserve` suit, et sans que ce soit une décision de plus : deux articles
+> en portent aujourd'hui, réservés par des commandes qui partent. Le laisser non
+> nul afficherait une réserve que rien ne justifie plus.
+
+**Tout le RH sauf les personnes et le paramétrage** : `planning_employes` (885),
 `timbrage`, `demandes_vacances`, `fiches_salaire`, `fiche_salaire_deductions`,
-`indisponibilites`. `employes_rh` et `profiles` restent — ce sont les personnes,
-pas leurs données d'essai.
+`indisponibilites`. `employes_rh`, `profiles` et `modeles_deductions` restent.
 
 **Les e-mails envoyés** : `emails_envoyes`, `emails_campagnes`.
 
-**Les PDF du bucket `factures`** (134 fichiers, 123 Mo) et le bucket
-`justificatifs` (9 fichiers, avec les dépenses).
+**Les PDF du bucket `factures`** (134 fichiers, 123 Mo), le bucket
+`justificatifs` (9 fichiers, avec les dépenses), et le bucket `chiens-photos`
+(1 fichier).
 
 ---
 
-## Le journal des événements : la proposition est la bonne
+## Le journal des événements : vidé, une fois, puis refermé
 
-**Question posée : voyez-vous une raison de le garder ? Non, et voici le
+**La question posée était : y a-t-il une raison de le garder ? Non, et voici le
 chiffre qui tranche.**
 
 Le journal porte **756 lignes**, du 7 au 25 septembre 2026. **Deux** concernent
 ce qu'on garde (la fiche B et ses chiens). Tout le reste raconte l'histoire
 d'objets qui n'existeront plus : le vider ne perd rien, et le garder laisserait
-un journal qui parle de fantômes — 754 entrées dont les `entite_id` ne
-désignent plus rien, dans une table faite pour être relue en cas de doute.
+754 entrées dont les `entite_id` ne désignent plus rien, dans une table faite
+pour être relue en cas de doute.
 
-**Deux précisions qui renforcent la proposition :**
+**Deux précisions sur la manière :**
 
 1. **La levée est bornée par construction, pas seulement par discipline.** En
    Postgres, le DDL est transactionnel : si la purge échoue à mi-chemin, le
@@ -155,8 +175,7 @@ désignent plus rien, dans une table faite pour être relue en cas de doute.
 2. **L'ordre compte, et il n'est pas celui qu'on écrirait spontanément.** Les
    deux triggers sont `BEFORE DELETE OR UPDATE` et `BEFORE TRUNCATE` : ils
    **n'empêchent pas l'INSERT**. La ligne « purge des données de test » doit donc
-   s'écrire **après** avoir réactivé les triggers, et non pendant qu'ils sont
-   levés :
+   s'écrire **après** avoir réactivé les triggers :
 
    ```text
    DISABLE  →  DELETE  →  ENABLE  →  INSERT de la ligne de purge
@@ -167,9 +186,9 @@ désignent plus rien, dans une table faite pour être relue en cas de doute.
    lira cette migration.
 
 **À signaler** : parmi les 756 lignes, **14 sont des refus d'accès**
-(`entite = 'acces'`). Ce sont des traces de sécurité. Elles sont de test comme
-le reste, donc elles partent — mais c'est dit ici pour que personne ne le
-découvre après.
+(`entite = 'acces'`) — des traces de sécurité. Elles sont de test comme le
+reste, donc elles partent ; c'est dit ici pour que personne ne le découvre
+après.
 
 ---
 
@@ -209,8 +228,10 @@ L'ordre ci-dessous les respecte. Il va des feuilles vers les racines : à chaque
       facture_numerotation
       exercices                              (2024, 2025, 2026, 2027)
 
- 4. LES VENTES :
+ 4. LES VENTES ET LE STOCK :
       ventes_lignes                      →  ventes
+      mouvements_stock
+      UPDATE articles SET stock_actuel = 0, stock_reserve = 0
 
  5. LES RÉSERVATIONS :
       reservation_chiens, reservation_extras,
@@ -220,14 +241,15 @@ L'ordre ci-dessous les respecte. Il va des feuilles vers les racines : à chaque
       abonnements_prestations, cotisations_membres,
       taches_prestations, alertes_stock, liste_attente
 
- 7. LE RH :
+ 7. LE RH (les personnes et modeles_deductions restent) :
       fiche_salaire_deductions           →  fiches_salaire
       planning_employes, timbrage, demandes_vacances, indisponibilites
 
  8. LES E-MAILS :
       emails_envoyes, emails_campagnes
 
- 9. LES FICHES : tous les clients SAUF 25d00648 et les six fiches internes.
+ 9. LES FICHES : tous les clients SAUF 25d00648 et les quatre fiches
+      internes du personnel — les deux « ZZ Contrôle » partent.
       Les chiens partent en CASCADE avec leur client, et avec eux leurs
       vaccins, chaleurs, photos_chiens, ententes_chiens.
       Puis le compte auth de la fiche A.
@@ -245,8 +267,8 @@ L'ordre ci-dessous les respecte. Il va des feuilles vers les racines : à chaque
 `reservation_chiens` — ainsi que ses `factures`, `reservations`,
 `avoirs_mouvements`, `cotisations_membres`, `abonnements_prestations`,
 `contacts_urgence`, `liste_attente`, `taches_prestations`. Les étapes 3 à 6 ne
-sont donc pas redondantes : elles servent à vider ce qui n'appartient à aucun
-client, et à rendre l'ordre lisible.
+sont donc pas redondantes : elles vident ce qui n'appartient à aucun client, et
+rendent l'ordre lisible.
 
 Trois liens se contentent d'un `SET NULL` : `ventes.client_id`,
 `alertes_stock.client_id`, `boxes.proprietaire_client_id` — ce dernier concerne
@@ -299,13 +321,13 @@ select count(*) from public.ventes v
 where v.ecriture_id is not null
   and not exists (select 1 from public.ecritures e where e.id = v.ecriture_id);
 
--- 6. journal_evenements.entite_id → vidé, donc zéro ligne au total
+-- 6. journal_evenements → vidé puis réamorcé
 select count(*) from public.journal_evenements;
 --    Attendu : 1 — la seule ligne « purge des données de test du JJ.MM.AAAA ».
 ```
 
 Les cinq premières portent sur des tables qui seront **vides** après la purge :
-le contrôle vaut alors surtout pour la sixième et pour l'après — le jour où une
+le contrôle vaut alors surtout pour la sixième, et pour l'après — le jour où une
 de ces tables se remplira pour de vrai, ces requêtes restent le moyen de
 vérifier qu'aucun lien ne s'est cassé en silence.
 
@@ -321,31 +343,52 @@ select
   (select count(*) from public.ententes_chiens
      where chien_id in ('e756238c-d218-42e3-81d9-8f2bd2e14364',
                         '258cc292-174d-465d-963d-8d1629ff50bb'))   as ses_ententes, -- 2
-  (select count(*) from public.clients where interne = true)       as internes;     -- 7 (B + 6)
+  (select count(*) from public.clients where interne = true)       as internes,     -- 5
+  (select count(*) from public.clients)                            as clients,      -- 5
+  (select count(*) from public.chiens)                             as chiens;       -- 2
 
 -- 2. La fiche A a bel et bien disparu, avec ses quatre chiens.
 select count(*) from public.clients
 where id = '7a820aa4-ff87-4261-bf66-072ec2f404c8';                 -- 0
 
--- 3. Les compteurs de numérotation sont VIDES.
+-- 3. Les deux fiches « ZZ Contrôle » sont parties.
+select count(*) from public.clients
+where nom ilike '%ZZ Contr%' or prenom ilike 'ZZ' or prenom ilike 'Recette'; -- 0
+
+-- 4. Les compteurs de numérotation sont VIDES.
 select count(*) from public.facture_numerotation;                  -- 0
 
--- 4. Plus aucune comptabilité.
+-- 5. Plus aucune comptabilité.
 select 'ecritures' as t, count(*) from public.ecritures
 union all select 'factures', count(*) from public.factures
 union all select 'paiements_resa', count(*) from public.paiements_resa
 union all select 'avoirs_mouvements', count(*) from public.avoirs_mouvements
+union all select 'depenses', count(*) from public.depenses
 union all select 'exercices', count(*) from public.exercices;      -- 0 partout
 
--- 5. Le référentiel est intact.
-select 'comptes' as t, count(*) from public.comptes                -- 41
-union all select 'articles', count(*) from public.articles          -- 97
-union all select 'tarifs', count(*) from public.tarifs              -- 40
-union all select 'boxes', count(*) from public.boxes                -- 14
-union all select 'profiles', count(*) from public.profiles          -- 44
-union all select 'employes_rh', count(*) from public.employes_rh;   --  5
+-- 6. LE STOCK : les 121 articles sont là, et tous à zéro.
+select
+  (select count(*) from public.articles)                                  as articles,       -- 121
+  (select count(*) from public.articles
+     where coalesce(stock_actuel,0) <> 0)                                 as stock_non_nul,  -- 0
+  (select count(*) from public.articles
+     where coalesce(stock_reserve,0) <> 0)                                as reserve_non_nul,-- 0
+  (select count(*) from public.mouvements_stock)                          as mouvements;     -- 0
 
--- 6. Le journal ne porte plus qu'une ligne : celle de la purge.
+-- 7. Le référentiel est intact.
+select 'comptes' as t, count(*) from public.comptes                 --  43
+union all select 'tarifs', count(*) from public.tarifs               --  40
+union all select 'boxes', count(*) from public.boxes                 --  14
+union all select 'profiles', count(*) from public.profiles           --  44
+union all select 'employes_rh', count(*) from public.employes_rh     --   5
+union all select 'modeles_deductions', count(*) from public.modeles_deductions --  6
+union all select 'options_groupes', count(*) from public.options_groupes       -- 40
+union all select 'options_valeurs', count(*) from public.options_valeurs       -- 273
+union all select 'fournisseurs', count(*) from public.fournisseurs   --   4
+union all select 'prestations', count(*) from public.prestations     --   3
+union all select 'formules', count(*) from public.formules;          --   1
+
+-- 8. Le journal ne porte plus qu'une ligne : celle de la purge.
 select entite, evenement, created_at::date from public.journal_evenements;
 ```
 
@@ -360,31 +403,6 @@ même : elle est calculée, jamais stockée.
 
 ---
 
-## Trois questions résiduelles, à trancher en écrivant la migration
-
-Elles n'appellent pas de décision aujourd'hui, mais elles se poseront à celui
-qui écrira le SQL, et il vaut mieux qu'il les trouve ici.
-
-**1. Deux des « six fiches internes » ne sont pas du personnel.** Les sept
-fiches `interne = true` sont : Sabrina Jean (la fiche B), « Test employé »,
-« Employé Inconnu 1 », « XEmployé Inconnu 2 », « Test Test », **« Recette ZZ
-Contrôle recette boutique (archive) »** et **« ZZ Contrôle TVA (recette) »**.
-Les deux dernières sont des fiches de contrôle de recette, sans compte de
-connexion, dont une est déjà inactive. Les garder au titre du « personnel »
-serait un contresens ; les retirer sort de la lettre de la décision.
-
-**2. `articles.stock_actuel` est une colonne stockée, pas un calcul.** Retirer
-`mouvements_stock` — qui n'est nommé ni dans « on garde » ni dans « on
-retire » — ne casserait donc rien techniquement, mais laisserait 97 articles
-avec le stock hérité des essais. Deux choses à décider : les mouvements
-partent-ils, et remet-on `stock_actuel` à zéro pour saisir l'inventaire réel ?
-
-**3. `modeles_deductions` est un référentiel, pas une donnée.** Il est rangé
-dans « tout le RH », mais c'est la liste des types de déductions salariales —
-plus proche du plan comptable que d'une fiche de salaire.
-
----
-
 ## Et la règle de la maison s'applique
 
 La migration s'écrit **d'abord** dans un fichier de `supabase/migrations`, et
@@ -394,3 +412,36 @@ pouvoir relire six mois plus tard.
 
 **Une sauvegarde de la base se prend avant.** C'est le seul point de ce
 document qui ne se rattrape pas.
+
+---
+
+# ☐ 2. Après la purge — ce qui revient à Sabrina
+
+Trois gestes que la migration ne peut pas faire à sa place. Aucun n'est
+bloquant pour le lancement, mais le deuxième et le troisième le sont pour le
+premier vrai chiffre.
+
+## ☐ 2a. Remettre la photo de Pixel sur la fiche B
+
+Le bucket `chiens-photos` est vide après la purge : la seule photo qu'il portait
+appartenait au Pixel de la fiche A, et **aucun transfert n'était prévu**.
+
+Fiche client → Pixel (`258cc292-174d-465d-963d-8d1629ff50bb`) → déposer la
+photo. La photo est nettoyée de ses métadonnées au dépôt, coordonnées GPS
+comprises.
+
+## ☐ 2b. Saisir l'inventaire d'ouverture du stock
+
+Les 121 articles sont là, tous à `stock_actuel = 0`. Compter les rayons et
+saisir les quantités réelles, **avant la première vente** : une vente sur un
+stock à zéro est refusée, et une vente sur un stock faux fait une marge fausse.
+
+## ☐ 2c. Vérifier les taux des déductions avant la première vraie paie
+
+`modeles_deductions` a été gardé — c'est du paramétrage. Mais ses 6 lignes
+datent des essais : **les taux n'ont jamais été vérifiés contre les barèmes en
+vigueur** (AVS/AI/APG, AC, LAA, LPP, impôt à la source le cas échéant).
+
+À relire avant d'établir la première fiche de salaire réelle. Une paie fausse se
+corrige, mais elle se corrige devant la personne concernée et devant les
+assurances sociales.
