@@ -83,6 +83,7 @@ export default async function BoutiqueClientPage() {
       ages: a.ages,
       besoins: a.besoins,
       tailles_chien: a.tailles_chien,
+      gouts: a.gouts,
       proteines: a.proteines,
       couleurs: a.couleurs,
       matieres: a.matieres,

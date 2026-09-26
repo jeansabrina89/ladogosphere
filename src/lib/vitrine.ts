@@ -44,6 +44,7 @@ export type ArticleVitrine = {
   ages: string[];
   besoins: string[];
   tailles_chien: string[];
+  gouts: string[];
   proteines: string[];
   sans_cereales: boolean;
   monoproteine: boolean;

@@ -46,6 +46,7 @@ export type ArticleFiltrable = {
   ages?: string[] | null;
   besoins?: string[] | null;
   tailles_chien?: string[] | null;
+  gouts?: string[] | null;
   proteines?: string[] | null;
   couleurs?: string[] | null;
   matieres?: string[] | null;
@@ -90,6 +91,7 @@ export type Filtres = {
   ages: string[];
   besoins: string[];
   tailles_chien: string[];
+  gouts: string[];
   proteines: string[];
   couleurs: string[];
   matieres: string[];
@@ -108,6 +110,7 @@ export const FILTRES_VIDES: Filtres = {
   ages: [],
   besoins: [],
   tailles_chien: [],
+  gouts: [],
   proteines: [],
   couleurs: [],
   matieres: [],
@@ -122,6 +125,7 @@ const LISTES: { filtre: keyof Filtres; groupe: GroupeEtiquette }[] = [
   { filtre: "ages", groupe: "ages" },
   { filtre: "besoins", groupe: "besoins" },
   { filtre: "tailles_chien", groupe: "tailles_chien" },
+  { filtre: "gouts", groupe: "gouts" },
   { filtre: "proteines", groupe: "proteines" },
   { filtre: "couleurs", groupe: "couleurs" },
   { filtre: "matieres", groupe: "matieres" },
@@ -333,6 +337,12 @@ export function filtresAffiches(
   //    la catégorie choisie appelle. Sans catégorie choisie, on s'en tient
   //    aux trois : un panneau qui propose tout ne se lit plus.
   const universelles: GroupeEtiquette[] = ["ages", "besoins", "tailles_chien"];
+  // << Gout >> est le seul filtre SEMI-universel : il vaut pour toute la
+  // nourriture, quel que soit le rayon, et n a aucun sens pour un collier.
+  // Sans rayon choisi, il se montre donc avec les universelles ; avec un rayon
+  // de nourriture, il vient par champsDeCategorie ; avec un rayon
+  // d accessoires, il ne vient pas du tout.
+  if (!f.categorie) universelles.push("gouts");
   const propres = f.categorie
     ? champsDeCategorie(f.categorie).filter((c) => !universelles.includes(c as GroupeEtiquette))
     : [];
@@ -396,6 +406,7 @@ const PARAMS: { param: string; filtre: keyof Filtres }[] = [
   { param: "age", filtre: "ages" },
   { param: "besoin", filtre: "besoins" },
   { param: "taille", filtre: "tailles_chien" },
+  { param: "gout", filtre: "gouts" },
   { param: "proteine", filtre: "proteines" },
   { param: "couleur", filtre: "couleurs" },
   { param: "matiere", filtre: "matieres" },

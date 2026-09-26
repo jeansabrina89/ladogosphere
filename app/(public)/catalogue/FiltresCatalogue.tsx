@@ -7,6 +7,7 @@ import {
   type FiltreAffiche,
   type Filtres,
 } from "@/src/lib/filtresCatalogueLogique";
+import { champsDeCategorie } from "@/src/lib/etiquettesArticles";
 
 /**
  * Le panneau de filtres du catalogue.
@@ -75,10 +76,18 @@ function Groupes({
       // Un seul rayon à la fois : recliquer celui qui est choisi le quitte.
       // Les filtres propres à l'ancien rayon s'en vont avec lui, sans quoi
       // ils continueraient de restreindre en silence.
+      // « Goût » est le seul filtre qui survit parfois au changement de rayon :
+      // il se montre sans rayon ET dans toute la nourriture. On ne le vide donc
+      // que si le rayon d'arrivée ne le montre pas — sinon on effacerait un
+      // choix qui reste sous les yeux. Quitter le rayon le garde aussi : on
+      // revient à la vue sans rayon, où il s'affiche.
+      const gardeGout = actif || champsDeCategorie(valeur).includes("gouts");
       surChangement(actif
         ? { ...filtres, categorie: null, proteines: [], couleurs: [], matieres: [],
             usages_jouet: [], tailles_article: [], sans_cereales: false, monoproteine: false }
-        : { ...FILTRES_VIDES, ...filtres, categorie: valeur, proteines: [], couleurs: [],
+        : { ...FILTRES_VIDES, ...filtres, categorie: valeur,
+            gouts: gardeGout ? filtres.gouts : [],
+            proteines: [], couleurs: [],
             matieres: [], usages_jouet: [], tailles_article: [], sans_cereales: false,
             monoproteine: false });
       return;

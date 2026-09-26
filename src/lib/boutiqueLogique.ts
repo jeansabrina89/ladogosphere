@@ -472,7 +472,7 @@ const COLONNES_COMMUNES = `
   composant, created_at, poids_grammes, expediable, stock_reserve,
   statut_vitrine, date_publication, publier_a_l_entree_stock, date_limite,
   remise_membre_exclue,
-  ages, besoins, tailles_chien, proteines, sans_cereales, monoproteine,
+  ages, besoins, tailles_chien, gouts, proteines, sans_cereales, monoproteine,
   taille_article, couleurs, matieres, usages_jouet
 `;
 

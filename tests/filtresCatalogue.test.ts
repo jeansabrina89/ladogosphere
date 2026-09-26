@@ -35,6 +35,7 @@ const article = (p: Partial<ArticleFiltrable> & { id: string }): ArticleFiltrabl
   ages: [],
   besoins: [],
   tailles_chien: [],
+  gouts: [],
   proteines: [],
   couleurs: [],
   matieres: [],
@@ -309,5 +310,123 @@ describe("l'aller-retour entre l'URL et les filtres", () => {
   it("met les couleurs en minuscules — elles sont stockées ainsi", () => {
     expect(depuisParams(new URLSearchParams("couleur=NOIR,Rouge")).couleurs)
       .toEqual(["noir", "rouge"]);
+  });
+});
+
+describe("« Goût » et « Contient » sont deux questions (APP 25-GOÛT)", () => {
+  /**
+   * Le cas qui a décidé du lot : le « Purely Pâté avec agneau » de Bozita est
+   * annoncé à l'agneau et contient 52 % de poulet. Celle qui cherche de
+   * l'agneau parce que son chien l'aime doit le trouver ; celle qui fuit le
+   * poulet parce qu'il y réagit ne doit pas le voir. Un seul filtre ne peut
+   * pas répondre aux deux, et c'est ce que ces tests vérifient.
+   */
+  const PATE_AGNEAU = article({
+    id: "pate-agneau",
+    categorie: "alimentation_humide",
+    gouts: ["agneau"],
+    proteines: ["poulet", "agneau"],
+  });
+  const CROQUETTES_SAUMON = article({
+    id: "croquettes-saumon",
+    categorie: "alimentation_seche",
+    gouts: ["saumon"],
+    proteines: ["saumon"],
+  });
+  const COLLIER = article({ id: "collier", categorie: "colliers" });
+  const TOUS = [PATE_AGNEAU, CROQUETTES_SAUMON, COLLIER];
+
+  it("le goût seul : on cherche l'agneau, on trouve le pâté", () => {
+    expect(ids(filtrer(TOUS, filtres({ gouts: ["agneau"] })))).toEqual(["pate-agneau"]);
+  });
+
+  it("goût OU goût : les deux remontent", () => {
+    expect(ids(filtrer(TOUS, filtres({ gouts: ["agneau", "saumon"] }))))
+      .toEqual(["pate-agneau", "croquettes-saumon"]);
+  });
+
+  it("le goût ET ce qu'il contient : la question de l'allergie", () => {
+    // « Je veux de l'agneau, mais SANS poulet » ne se pose pas comme ça dans
+    // ce panneau — « Contient » dit ce qu'on veut y trouver, pas ce qu'on
+    // exclut. Ce que le test montre, c'est que les deux filtres se croisent
+    // en ET : demander agneau au goût ET saumon dedans ne donne rien.
+    expect(ids(filtrer(TOUS, filtres({ gouts: ["agneau"], proteines: ["saumon"] })))).toEqual([]);
+    expect(ids(filtrer(TOUS, filtres({ gouts: ["agneau"], proteines: ["poulet"] }))))
+      .toEqual(["pate-agneau"]);
+  });
+
+  it("un pâté annoncé à l'agneau se trouve AUSSI par son poulet caché", () => {
+    // Le cœur du problème : le filtre « Contient » voit le poulet que
+    // l'emballage n'annonce pas. C'est ce qu'une personne allergique cherche.
+    expect(ids(filtrer(TOUS, filtres({ proteines: ["poulet"] })))).toEqual(["pate-agneau"]);
+    // Et le filtre « Goût », lui, ne le voit pas : personne ne cherche un
+    // « pâté au poulet » en lisant cette étiquette-là.
+    expect(ids(filtrer(TOUS, filtres({ gouts: ["poulet"] })))).toEqual([]);
+  });
+});
+
+describe("quand le filtre « Goût » se montre", () => {
+  const NOURRITURE = article({
+    id: "n", categorie: "alimentation_humide",
+    // Une taille de chien, sinon le filtre « Taille du chien » ne s'affiche
+    // pas — un filtre sans valeur n'apparaît jamais — et l'ordre qu'on veut
+    // vérifier n'a plus de repère.
+    tailles_chien: ["moyen"],
+    gouts: ["agneau"], proteines: ["poulet"],
+  });
+  const COLLIER = article({ id: "c", categorie: "colliers", couleurs: ["rouge"] });
+  const TOUS = [NOURRITURE, COLLIER];
+  const noms = (f: Filtres) => filtresAffiches(TOUS, f).map((x) => x.nom);
+
+  it("sans rayon choisi : il est là, juste après « Taille du chien »", () => {
+    const affiches = noms(filtres());
+    expect(affiches).toContain("gouts");
+    expect(
+      affiches.indexOf("gouts"),
+      "« Goût » doit suivre « Taille du chien », pas le précéder",
+    ).toBe(affiches.indexOf("tailles_chien") + 1);
+  });
+
+  it("rayon de nourriture : il est là, et « Contient » avec lui", () => {
+    const affiches = noms(filtres({ categorie: "alimentation_humide" }));
+    expect(affiches).toContain("gouts");
+    expect(affiches).toContain("proteines");
+    expect(
+      affiches.indexOf("gouts") < affiches.indexOf("proteines"),
+      "« Goût » vient avant « Contient »",
+    ).toBe(true);
+  });
+
+  it("rayon d'accessoires : il disparaît", () => {
+    const affiches = noms(filtres({ categorie: "colliers" }));
+    expect(affiches, "un collier n'a pas de goût").not.toContain("gouts");
+    expect(affiches).not.toContain("proteines");
+  });
+
+  it("un filtre sans valeur n'apparaît pas", () => {
+    // Aucun article n'a de goût : le filtre ne se montre pas, plutôt que de
+    // proposer une liste vide. C'est l'état du catalogue tant que les Bozita
+    // n'ont pas été étiquetés.
+    const sansGout = [article({ id: "x", categorie: "alimentation_seche" })];
+    expect(filtresAffiches(sansGout, filtres()).map((x) => x.nom)).not.toContain("gouts");
+  });
+});
+
+describe("le goût dans l'URL", () => {
+  it("s'écrit « gout » et se relit à l'identique", () => {
+    const f = filtres({ gouts: ["agneau", "saumon"] });
+    const params = versParams(f);
+    // Un seul paramètre, les valeurs séparées par une virgule — comme les
+    // autres listes du panneau.
+    expect(params.get("gout")).toBe("agneau,saumon");
+    expect(depuisParams(new URLSearchParams(params.toString()))).toEqual(f);
+  });
+
+  it("ne se confond pas avec « proteine », qui garde son nom", () => {
+    const f = filtres({ gouts: ["agneau"], proteines: ["poulet"] });
+    const params = versParams(f);
+    expect(params.get("gout")).toBe("agneau");
+    expect(params.get("proteine")).toBe("poulet");
+    expect(depuisParams(new URLSearchParams(params.toString()))).toEqual(f);
   });
 });

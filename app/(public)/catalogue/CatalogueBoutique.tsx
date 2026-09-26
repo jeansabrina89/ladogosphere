@@ -58,6 +58,7 @@ export type ArticleVitrine = {
   ages?: string[] | null;
   besoins?: string[] | null;
   tailles_chien?: string[] | null;
+  gouts?: string[] | null;
   proteines?: string[] | null;
   couleurs?: string[] | null;
   matieres?: string[] | null;
