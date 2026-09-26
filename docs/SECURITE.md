@@ -190,3 +190,41 @@ abandonner l'envoi, et le remède serait pire. Il faudrait alors convertir dans
 le navigateur avant l'envoi, ou embarquer un décodeur HEVC — en sachant ce que
 cela engage côté brevets. Rouvrir aussi si une version de sharp rétablit la
 lecture du HEIC dans ses binaires précompilés.
+
+### Le bucket des chiens est passé en privé le 26 septembre 2026 (S-05)
+
+| Bucket | Public | Rôle |
+|---|---|---|
+| `boutique-photos` | **oui**, et c'est voulu | la vitrine est publique |
+| `chiens-photos` | **non, depuis le 26.09.2026** | donnée personnelle, URL signée d'une heure |
+| `justificatifs` | non | pièces comptables |
+| `factures` | non | PDF que nous fabriquons |
+
+La lecture passe désormais par `urlSigneePhotoChien()` — une seule porte, qui
+part de l'identifiant du chien, vérifie le droit dans la session, lit le chemin
+en base et signe pour 3600 s.
+
+#### Une heure de cache CDN survit à la fermeture, et c'est mesuré
+
+Passer un bucket en privé ferme la permission **immédiatement**, mais ne purge
+pas le cache de Cloudflare qui sert Supabase Storage. Mesuré juste après la
+migration, sur l'unique objet du bucket :
+
+| Requête | Réponse |
+|---|---|
+| l'URL publique exacte, déjà demandée avant | **200**, `CF-Cache-Status: HIT`, l'image entière |
+| la même URL avec `?nocache=<horodatage>` | **400** |
+| un chemin inexistant du même bucket | **400** |
+| la même URL en `HEAD` | **400** |
+
+Autrement dit : **la porte est fermée ; ce qui reste, c'est une photocopie
+laissée sur le comptoir.** Elle expire avec le `cache-control: public,
+max-age=3600` que Storage avait posé, soit une heure au plus, et seulement pour
+les URL exactes déjà demandées. Une photo que personne n'avait ouverte est
+inaccessible dès la migration.
+
+Ce n'est donc pas un trou dans la mesure, mais sa borne, et elle se dit : pour
+fermer une photo précise à la seconde, il faut la déplacer (changer son chemin),
+ce qui rend l'URL en cache caduque quoi qu'il arrive. Aucun objet n'a été
+déplacé ici — le seul du bucket est une photo de recette qui partira à la purge
+des données de test.
