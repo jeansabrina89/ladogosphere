@@ -50,3 +50,7 @@ backups/
 
 # sorties completes des executions de tests — gardees pour analyser un echec isole
 traces-tests/
+
+# briefs et notes de travail, hors du logiciel — un « git add -A » les a déjà
+# emportés une fois dans un commit (APP 26, rattrapé avant le push)
+Claude outputs/
