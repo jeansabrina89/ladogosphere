@@ -10,9 +10,9 @@ import { publierCeQuiEstDu } from "@/src/lib/publicationArticle";
  * elles ne peuvent pas fuir par distraction.
  *
  * Le filtrage est dans la REQUÊTE, pas à l'affichage : on nomme les colonnes
- * une par une. `stock_disponible` existe dans la vue pour l'usage interne,
- * mais il n'est jamais demandé ici — un visiteur lit « En stock » ou
- * « Épuisé », pas un compte à rebours.
+ * une par une. Depuis APP 24-FILTRES, `stock_disponible` n'est même plus dans
+ * la vue — un visiteur lit « En stock » ou « Épuisé », pas un compte à
+ * rebours, et ce qui n'existe pas ne fuit pas.
  */
 
 // Les deux listes vivent dans un module PUR : les tests les lisent sans ouvrir
@@ -39,6 +39,18 @@ export type ArticleVitrine = {
   /** Anti-gaspillage : « À écouler avant le 12 octobre ». */
   date_limite: string | null;
   remise_membre_exclue: boolean;
+  /* Les étiquettes des filtres (APP 24-FILTRES). Le vocabulaire est tenu par
+     la base ; les libellés vivent dans src/lib/etiquettesArticles.ts. */
+  ages: string[];
+  besoins: string[];
+  tailles_chien: string[];
+  proteines: string[];
+  sans_cereales: boolean;
+  monoproteine: boolean;
+  taille_article: string | null;
+  couleurs: string[];
+  matieres: string[];
+  usages_jouet: string[];
 };
 
 /** Le catalogue public, rangé par catégorie puis par nom. */

@@ -40,7 +40,7 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
 
 | Constat | État | Lot | Commit | Test |
 |---|---|---|---|---|
-| S-04 — `articles_vitrine` en SECURITY DEFINER, expose `stock_disponible` | OUVERT, deux fois | 21 | — | non |
+| S-04 — `articles_vitrine` en SECURITY DEFINER, expose `stock_disponible` | **À MOITIÉ FERMÉ** — `stock_disponible` SORT de la vue : aucun code ne la lisait, et le stock chiffré d'un client connecté se calcule depuis la TABLE avec la clé de service. `anon` et `authenticated` n'ont plus que SELECT : les droits d'écriture hérités des droits par défaut du schéma public sont révoqués (ils n'ouvraient rien, une vue à colonnes calculées n'étant pas modifiable). **Le SECURITY DEFINER reste, volontairement** : `articles` est en RLS et sa seule politique de lecture vise le personnel — en SECURITY INVOKER, la vitrine publique du site serait vide. C'est donc la LISTE DES COLONNES qui tient lieu de garde, justifiée une par une en tête de la migration | 24-filtres | `app24_vitrine_etiquettes` | oui — 9 cas (`vitrinePublique`) |
 | S-05 — bucket `chiens-photos` PUBLIC | OUVERT — servi par `getPublicUrl`, jamais signé | 21 | — | non |
 | S-06 — exception `is_admin` / `is_personnel` documentée | FERMÉ — AGENTS.md, règle « Une fonction SQL naît fermée » | — | — | oui (`fonctionsSqlFermees`) |
 | S-07 — grants résiduels sur six tables comptables | **FERMÉ** — plus aucun droit `anon` ni `authenticated` ; RLS active et zéro politique, voulu et écrit dans la migration | 23 | `301030a` | oui — 4 cas |
