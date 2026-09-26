@@ -222,25 +222,65 @@ export async function enregistrerMouvement(m: {
     (article as unknown as { stock_reserve?: number | string | null }).stock_reserve
   );
 
-  const { data, error } = await supabaseAdmin
-    .from("mouvements_stock")
-    .insert({
-      article_id: m.article_id,
-      type: m.type,
-      quantite: arrondiQuantite(m.quantite),
-      motif: m.motif?.trim() || null,
-      depense_id: m.depense_id ?? null,
-      date_peremption: m.date_peremption || null,
-      // Le trigger du stock repondère le coût moyen et met à jour le dernier
-      // prix d'achat. Un coût ne se pose que sur une entrée.
-      cout_unitaire: m.type === "entree" && m.cout_unitaire !== null && m.cout_unitaire !== undefined
-        ? m.cout_unitaire : null,
-      user_id: m.user_id ?? null,
-    })
-    .select("id, quantite_apres")
-    .single();
+  /*
+   * UNE ENTRÉE passe par `recevoir_marchandise`, jamais par un insert direct.
+   *
+   * C'est ce qui rend vraie la garantie d'APP 26 : la fonction écrit le
+   * mouvement ET réserve la marchandise pour les commandes qui l'attendent,
+   * dans la MÊME transaction. Entre les deux gestes, il ne doit exister aucun
+   * instant — une caisse ouverte au même moment vendrait au premier venu le sac
+   * qu'une cliente attend depuis trois semaines.
+   *
+   * Un insert direct ici rétablirait cet instant, et rien ne le signalerait :
+   * le stock serait juste, les comptes seraient justes, et une cliente
+   * repartirait les mains vides. Un test lit donc cette ligne.
+   *
+   * Les autres types (perte, retour, ajustement…) n'ont rien à réserver et
+   * gardent le chemin d'avant.
+   */
+  let mouvementId: string;
+  let quantiteApres: number;
+  let reserveApres: number | null = null;
 
-  if (error) return { error: error.message };
+  if (m.type === "entree") {
+    const { data: recu, error: erreurRecu } = await supabaseAdmin.rpc("recevoir_marchandise", {
+      p_article_id: m.article_id,
+      p_quantite: arrondiQuantite(m.quantite),
+      p_cout_unitaire: m.cout_unitaire ?? null,
+      p_motif: m.motif?.trim() || null,
+      p_user_id: m.user_id ?? null,
+      p_depense_id: m.depense_id ?? null,
+      p_date_peremption: m.date_peremption || null,
+    });
+    if (erreurRecu) return { error: erreurRecu.message };
+    const r = recu as {
+      mouvement_id: string; quantite_apres: number | string; stock_reserve_apres: number | string;
+    };
+    mouvementId = r.mouvement_id;
+    quantiteApres = Number(r.quantite_apres);
+    reserveApres = Number(r.stock_reserve_apres);
+  } else {
+    const { data, error } = await supabaseAdmin
+      .from("mouvements_stock")
+      .insert({
+        article_id: m.article_id,
+        type: m.type,
+        quantite: arrondiQuantite(m.quantite),
+        motif: m.motif?.trim() || null,
+        depense_id: m.depense_id ?? null,
+        date_peremption: m.date_peremption || null,
+        // Le trigger du stock repondère le coût moyen et met à jour le dernier
+        // prix d'achat. Un coût ne se pose que sur une entrée.
+        cout_unitaire: null,
+        user_id: m.user_id ?? null,
+      })
+      .select("id, quantite_apres")
+      .single();
+
+    if (error) return { error: error.message };
+    mouvementId = data.id as string;
+    quantiteApres = Number(data.quantite_apres);
+  }
 
   // Le RETOUR EN STOCK se constate ici, et nulle part ailleurs : c'est le seul
   // endroit où le stock d'un article augmente. La condition n'est pas « une
@@ -249,9 +289,14 @@ export async function enregistrerMouvement(m: {
   //
   // L'envoi ne peut jamais faire échouer le mouvement : il est déjà écrit, et
   // `notifierSiRetourEnStock` ne lève pas.
+  //
+  // La réserve d'APRÈS, et non celle d'avant : une réception qui vient de
+  // servir une commande en attente n'a rien rendu disponible. Avec la réserve
+  // d'avant, on annoncerait un « retour en stock » pour une marchandise déjà
+  // promise, et trois personnes viendraient pour un seul sac.
   const disponibleApres = disponibleDe(
-    data.quantite_apres,
-    (article as unknown as { stock_reserve?: number | string | null }).stock_reserve
+    quantiteApres,
+    reserveApres ?? (article as unknown as { stock_reserve?: number | string | null }).stock_reserve
   );
   const { notifierSiRetourEnStock } = await import("@/src/lib/alertesStock");
   await notifierSiRetourEnStock({
@@ -272,7 +317,7 @@ export async function enregistrerMouvement(m: {
     userId: m.user_id ?? null,
   });
 
-  return { id: data.id as string, stock: Number(data.quantite_apres) };
+  return { id: mouvementId, stock: quantiteApres };
 }
 
 export type LigneEntreeStock = {
