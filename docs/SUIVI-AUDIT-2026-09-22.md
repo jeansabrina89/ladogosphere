@@ -284,3 +284,37 @@ un défaut **antérieur à ce lot**, qui rendait creuse toute réservation. Ferm
 lot APP 26 (`stockDisponible`), sur trois couches, chacune testée sous mutation.
 La conséquence assumée : la caisse refuse désormais de vendre ce qu'une commande
 en ligne a réservé, et c'est exactement ce qu'on lui demande.
+
+### Réserve écrite, APP 26 : la vitrine publie un délai inutile
+
+Constatée à l'essai du 26.09.2026, **non corrigée**, et c'est une décision à
+prendre, pas un oubli.
+
+`articles_vitrine` expose `delai_commande_min_jours` et `delai_commande_max_jours`
+pour **tous** les articles, y compris ceux dont `sur_commande` vaut faux. Un
+article non coché chez un fournisseur qui a un délai sort donc avec
+`sur_commande = false` et un délai renseigné.
+
+**Ce que ça ne fait pas** : aucun écran ne l'affiche — le délai n'est lu que
+lorsque la pastille dit « Sur commande ». Le nom du fournisseur, lui, ne sort
+toujours pas.
+
+**Ce que ça fait quand même** : la vue publique porte une donnée qui ne sert à
+rien, lisible avec la clé anon. La garde S-04 dit qu'une colonne publique se
+décide ; celle-ci est publiée par ricochet, et deux articles du même fournisseur
+laissent deviner qu'ils partagent une source.
+
+**Pourquoi je ne l'ai pas corrigé** : il aurait fallu une quatrième migration sur
+la même vue dans le même lot, pour un risque qui n'est pas une fuite. À trancher
+à froid : un `case when` dans la vue suffit, et c'est deux lignes.
+
+### Un mot de vocabulaire, relevé à l'essai
+
+Le brief du lot parlait du « délai de Bozita ». **Bozita est une marque**, pas un
+fournisseur : les pâtées Bozita viennent d'**Eric Schweizer**, et le délai se
+règle sur lui — donc sur TOUS ses articles, Bozita ou non. L'essai a été fait
+avec Eric Schweizer, et remis à vide à la fin.
+
+Si le délai doit pouvoir différer d'une marque à l'autre chez un même
+fournisseur, l'exception par article y répond déjà ; s'il faut le régler par
+marque, c'est un sujet en soi.
