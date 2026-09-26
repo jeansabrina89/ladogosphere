@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { oublierPhotoChien } from "@/src/lib/photoChien";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
@@ -379,6 +380,19 @@ export async function supprimerClient(formData: FormData) {
 
   // Et le même compte de lignes : un DELETE filtré par RLS ne se plaint pas,
   // il supprime zéro ligne. L'écran annonçait la suppression quand même.
+  /*
+   * Les photos des chiens de ce client sont relevées AVANT le DELETE (APP 28).
+   *
+   * La suppression de la fiche emporte les chiens en cascade : après coup, il
+   * n'existe plus aucun moyen de savoir quels objets du bucket leur
+   * appartenaient. Ils y resteraient indéfiniment — des photos de chiens dont
+   * le propriétaire a demandé l'effacement.
+   */
+  const { data: chiensDuClient } = await supabaseAdmin
+    .from("chiens")
+    .select("id, photo_principale")
+    .eq("client_id", id);
+
   const { data: supprimees, error } = await supabase
     .from("clients")
     .delete()
@@ -388,6 +402,15 @@ export async function supprimerClient(formData: FormData) {
   if (error) throw new Error(error.message);
   if (!supprimees || supprimees.length === 0) {
     throw new Error("Cette fiche client n'a pas pu être supprimée : elle est introuvable.");
+  }
+
+  // Après le DELETE seulement : si la suppression échoue, les chiens sont
+  // toujours là, et leurs photos avec eux.
+  for (const c of chiensDuClient ?? []) {
+    await oublierPhotoChien((c as { photo_principale?: string | null }).photo_principale, {
+      chienId: (c as { id?: string }).id ?? null,
+      motif: "suppression du client",
+    });
   }
 
   redirect("/clients");

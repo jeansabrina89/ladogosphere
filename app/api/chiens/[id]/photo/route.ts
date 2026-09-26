@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { deposerImage } from "@/src/lib/depotImage";
 import { FORMAT_CHIEN } from "@/src/lib/imageBoutique";
-import { BUCKET_CHIENS } from "@/src/lib/photoChien";
+import { BUCKET_CHIENS, oublierPhotoChien } from "@/src/lib/photoChien";
 
 export async function POST(
   req: NextRequest,
@@ -20,10 +20,13 @@ export async function POST(
   // Ownership : lecture RLS (session) — si le chien remonte, le client y a droit
   const { data: chien } = await supabase
     .from("chiens")
-    .select("id")
+    // Le chemin ACTUEL est lu ici, avant tout dépôt : c'est lui qu'on oubliera
+    // à la fin, et après l'enregistrement il aura disparu de la fiche.
+    .select("id, photo_principale")
     .eq("id", id)
     .maybeSingle();
   if (!chien) return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
+  const ancienChemin = (chien as { photo_principale?: string | null }).photo_principale ?? null;
 
   const lecture = await lireCorpsFormulaire(req);
   if (!lecture.ok) return lecture.reponse;
@@ -54,10 +57,31 @@ export async function POST(
     .eq("id", id);
   if (updErr) return NextResponse.json({ error: "Échec de l'enregistrement." }, { status: 500 });
 
+  /*
+   * L'ANCIENNE PHOTO PART MAINTENANT, et pas plus tôt (APP 28).
+   *
+   * L'ordre est tout : la nouvelle est déposée, puis enregistrée, et c'est
+   * seulement alors que l'ancienne devient inutile. Supprimer d'abord aurait
+   * laissé le chien sans photo à la moindre panne entre les deux — et la photo
+   * perdue pour de bon, alors qu'elle était la seule.
+   *
+   * Le chemin porte un horodatage : le remplaçant ne peut pas écraser son
+   * prédécesseur, donc sans ce ménage chaque changement de photo laisserait un
+   * objet derrière lui. Une photo de chien est une donnée personnelle ; « plus
+   * référencée » n'est pas « effacée ».
+   *
+   * Un échec ici ne fait PAS échouer la requête : la photo est enregistrée, le
+   * geste de la cliente a réussi. L'échec est journalisé, l'objet reste à
+   * nettoyer.
+   */
+  if (ancienChemin && ancienChemin !== depot.chemin) {
+    await oublierPhotoChien(ancienChemin, { chienId: id, motif: "remplacement" });
+  }
+
   // Le client comme le personnel peuvent changer la photo : l'auteur est le compte connecté.
   await tracerEvenement({
     entite: "chien", entiteId: id, evenement: "photo",
-    apres: { photo_principale: depot.chemin },
+    apres: { photo_principale: depot.chemin, ancienne_oubliee: ancienChemin },
     userId: user.id,
   });
 

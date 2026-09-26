@@ -110,3 +110,57 @@ export async function urlsSigneesPhotosChiens(
   );
   return resultat;
 }
+
+/**
+ * Oublier un objet du bucket — et ne JAMAIS faire échouer le geste pour autant.
+ *
+ * Une photo de chien est une donnée personnelle : quand elle est remplacée ou
+ * que la fiche disparaît, l'objet ne doit pas rester dans le bucket. Il n'est
+ * plus référencé par rien, donc plus signable, donc invisible — mais il est
+ * toujours là, et « invisible » n'est pas « effacé ».
+ *
+ * ── POURQUOI CETTE FONCTION NE LÈVE PAS ───────────────────────────────────
+ *
+ * Le geste de l'utilisateur a déjà réussi quand on arrive ici : la nouvelle
+ * photo est enregistrée, ou la fiche est supprimée. Faire échouer la requête
+ * parce que le ménage a raté afficherait une erreur pour une opération qui, du
+ * point de vue de la cliente, s'est parfaitement passée — et l'inviterait à
+ * recommencer un geste déjà fait.
+ *
+ * L'échec est donc journalisé, et l'objet reste à nettoyer. C'est un choix
+ * assumé : un octet oublié dans un bucket coûte moins qu'une suppression de
+ * fiche qui semble avoir échoué alors qu'elle a eu lieu.
+ *
+ * ── L'ORDRE, QUI EST TOUT ─────────────────────────────────────────────────
+ *
+ * Cette fonction s'appelle APRÈS que le remplaçant est déposé ET enregistré,
+ * jamais avant. Une panne entre les deux laisserait sinon un chien sans photo,
+ * et la photo perdue pour de bon.
+ */
+export async function oublierPhotoChien(
+  chemin: string | null | undefined,
+  contexte: { chienId?: string | null; motif: string },
+): Promise<{ supprime: boolean }> {
+  const c = String(chemin ?? "").trim();
+  // Rien à faire, et ce n'est pas une anomalie : un chien peut n'avoir jamais
+  // eu de photo.
+  if (!c) return { supprime: false };
+
+  try {
+    const { error } = await supabaseAdmin.storage.from(BUCKET_CHIENS).remove([c]);
+    if (error) {
+      // Journalisé, pas relancé. L'objet reste à nettoyer, et on sait lequel.
+      Sentry.captureMessage(
+        `Photo de chien non supprimée du bucket (${contexte.motif}) : ${c} — ${error.message}`,
+        "warning",
+      );
+      console.error("oublierPhotoChien:", contexte.motif, c, error.message);
+      return { supprime: false };
+    }
+    return { supprime: true };
+  } catch (err) {
+    Sentry.captureException(err);
+    console.error("oublierPhotoChien:", contexte.motif, c, err);
+    return { supprime: false };
+  }
+}

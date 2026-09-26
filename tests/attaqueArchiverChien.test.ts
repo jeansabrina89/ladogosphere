@@ -45,6 +45,29 @@ vi.mock("@/src/lib/journalEvenements", () => ({
 }));
 vi.mock("@/src/lib/permissions", () => ({ idUtilisateurCourant: async () => "u-admin" }));
 
+/*
+ * La clé de service, pour le seul bucket des photos (APP 28).
+ *
+ * Depuis APP 28, supprimer un chien retire aussi sa photo du bucket : les
+ * actions importent donc `oublierPhotoChien`, qui tient la clé de service. Sans
+ * ce simulacre, le module réel tente de se construire et la suite échoue sur
+ * « supabaseUrl is required » — un échec de décor, qui ne dit rien de la garde.
+ *
+ * Ce simulacre n'affaiblit RIEN de ce que ce fichier garde : la garde et le
+ * compte de lignes passent par le client de SESSION, simulé plus bas. Le
+ * stockage, lui, ne décide de rien — il ne fait que nettoyer après coup.
+ */
+vi.mock("@/src/lib/supabase-admin", () => ({
+  supabaseAdmin: {
+    storage: { from: () => ({ remove: async () => ({ data: [], error: null }) }) },
+    from: () => ({
+      select: () => ({
+        eq: () => ({ maybeSingle: async () => ({ data: null }), single: async () => ({ data: null }) }),
+      }),
+    }),
+  },
+}));
+
 /** Le client de SESSION : seule `admin_all_chiens` permet UPDATE et DELETE. */
 vi.mock("@/src/utils/supabase/server", () => ({
   createClient: async () => ({

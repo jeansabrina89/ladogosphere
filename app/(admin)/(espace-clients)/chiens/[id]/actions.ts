@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { oublierPhotoChien } from "@/src/lib/photoChien";
 import { createClient } from "@/src/utils/supabase/server";
 import { exigerAdmin } from "@/src/lib/garde";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
@@ -55,15 +56,32 @@ export async function supprimerChien(formData: FormData) {
 
   // Et le même compte de lignes : un DELETE filtré par RLS ne se plaint pas,
   // il supprime zéro ligne. L'écran annonçait la suppression quand même.
+  /*
+   * Le chemin de la photo est lu AVANT le DELETE : après, la ligne n'existe
+   * plus et l'objet serait introuvable — donc gardé pour toujours (APP 28).
+   */
   const { data: supprimees, error } = await supabase
     .from("chiens")
     .delete()
     .eq("id", id)
-    .select("id");
+    .select("id, photo_principale");
 
   if (error) throw new Error(error.message);
   if (!supprimees || supprimees.length === 0) {
     throw new Error("Cette fiche chien n'a pas pu être supprimée : elle est introuvable.");
+  }
+
+  /*
+   * La photo suit la fiche. Une donnée personnelle qui survit à la suppression
+   * de son propriétaire n'est pas supprimée, elle est seulement cachée.
+   *
+   * Après le DELETE, jamais avant : si la suppression échoue, la photo doit
+   * rester — le chien est toujours là.
+   */
+  for (const c of supprimees) {
+    await oublierPhotoChien((c as { photo_principale?: string | null }).photo_principale, {
+      chienId: id, motif: "suppression du chien",
+    });
   }
 
   redirect("/chiens");
