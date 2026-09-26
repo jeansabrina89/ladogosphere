@@ -29,7 +29,16 @@ export function fonctionsSansRevocation(sql: string): string[] {
   const manquantes = new Set<string>();
   for (const nom of new Set(creees)) {
     // La révocation nommée, ou une boucle qui ferme tout le schéma public.
-    const nommee = new RegExp(`revoke\\s+execute\\s+on\\s+function\\s+(?:public\\.)?${nom}\\b`, "i").test(sql);
+    //
+    // `revoke all` compte autant que `revoke execute` : EXECUTE est le SEUL
+    // privilège d'une fonction, donc « tout » et « l'exécution » retirent
+    // exactement la même chose. Le dépôt emploie les deux formes, et un
+    // détecteur qui n'en reconnaît qu'une accuse une fonction bel et bien
+    // fermée — on finit alors par ne plus écouter ce qu'il dit.
+    const nommee = new RegExp(
+      `revoke\\s+(?:execute|all(?:\\s+privileges)?)\\s+on\\s+function\\s+(?:public\\.)?${nom}\\b`,
+      "i",
+    ).test(sql);
     const enBloc = /revoke\s+execute\s+on\s+(?:all\s+functions\s+in\s+schema\s+public|function\s+%s)/i.test(sql);
     // Une exception se motive PAR ÉCRIT dans le fichier, au-dessus de la fonction.
     const justifiee = new RegExp(`--[^\\n]*privilèges[^\\n]*${nom}\\b`, "i").test(sql);
@@ -45,6 +54,13 @@ describe("une fonction SQL naît fermée", () => {
     expect(fonctionsSansRevocation(`${sansRevoke}
       revoke execute on function public.zz_test(uuid) from public, anon, authenticated;
       grant execute on function public.zz_test(uuid) to service_role;`)).toEqual([]);
+    // `revoke all` ferme aussi : EXECUTE est le seul privilège d'une fonction.
+    expect(fonctionsSansRevocation(`${sansRevoke}
+      revoke all on function public.zz_test(uuid) from public, anon, authenticated;
+      grant execute on function public.zz_test(uuid) to service_role;`)).toEqual([]);
+    // Mais un GRANT seul ne ferme rien, et ne doit pas être pris pour un REVOKE.
+    expect(fonctionsSansRevocation(`${sansRevoke}
+      grant execute on function public.zz_test(uuid) to service_role;`)).toEqual(["zz_test"]);
     // Une exception écrite passe, à condition de nommer la fonction.
     expect(fonctionsSansRevocation(`-- privilèges : zz_test reste ouverte à authenticated, citée par une politique RLS.
       ${sansRevoke}`)).toEqual([]);

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import {
   MODES_CAISSE,
@@ -314,5 +316,73 @@ describe("arrondi d'un retour", () => {
   it("choisit le compte d'écart selon le signe", () => {
     expect(compteArrondiPour(0.02)).toBe("3800");
     expect(compteArrondiPour(-0.02)).toBe("6940");
+  });
+});
+
+describe("le stock réservé n'est pas vendable au comptoir", () => {
+  /**
+   * APP 26. Le champ s'appelait « disponible » et ne l'était pas : il recopiait
+   * `stock_actuel`, sans retirer ce que les commandes en ligne confirmées
+   * avaient déjà réservé. La caisse pouvait donc vendre, au premier venu, le
+   * sac qu'un client attendait depuis trois semaines.
+   *
+   * C'est ce que corrige ce lot, et c'est ce qui rend vraie la garantie de
+   * `recevoir_marchandise` : réserver la marchandise reçue ne protège personne
+   * si la caisse ne lit pas la réservation.
+   */
+
+  const reserve = (stock_actuel: number, stock_reserve: number): ArticleVendable => ({
+    ...croquettes,
+    stock_actuel,
+    stock_reserve,
+  });
+
+  it("« disponible » retire ce qui est réservé", () => {
+    expect(ligneDepuisArticle(reserve(5, 2), 1).stock_disponible).toBe(3);
+  });
+
+  it("trois sacs reçus pour une commande en attente de trois : rien à vendre", () => {
+    // Le test demandé par Sabrina le 26.09.2026, côté caisse. En base,
+    // `recevoir_marchandise` monte les deux ensemble dans la même
+    // transaction ; ici, on prouve que la caisse en tire bien zéro.
+    const ligne = ligneDepuisArticle(reserve(3, 3), 1);
+    expect(ligne.stock_disponible).toBe(0);
+    expect(refusPanier([ligne])).toMatch(/Stock insuffisant/);
+  });
+
+  it("un article sans réservation se vend comme avant", () => {
+    // La colonne peut manquer d'une lecture ancienne : absente vaut zéro,
+    // jamais NaN — un NaN ferait échouer toute comparaison et laisserait
+    // passer la vente en silence.
+    expect(ligneDepuisArticle(croquettes, 1).stock_disponible).toBe(5);
+  });
+
+  it("une réservation supérieure au stock ne descend pas sous zéro", () => {
+    // Ne devrait pas exister, mais un « disponible » négatif afficherait
+    // « il en reste -2 » à la cliente.
+    expect(ligneDepuisArticle(reserve(1, 4), 1).stock_disponible).toBe(0);
+  });
+
+  it("la caisse DEMANDE la colonne à la base, aux deux endroits", () => {
+    // Sans cette lecture, tout ce qui précède reste vrai et ne sert à rien :
+    // `stock_reserve` serait toujours absent, donc toujours zéro.
+    const source = readFileSync(join(__dirname, "..", "src/lib/caisse.ts"), "utf8");
+    const selects = source.match(/\.select\("id, nom, reference[^"]*"\)/g) ?? [];
+    expect(selects.length, "le catalogue et la finalisation").toBe(2);
+    for (const s of selects) expect(s).toContain("stock_reserve");
+  });
+
+  it("l'écran de caisse annonce le MÊME reste que le refus du panier", () => {
+    // Une troisième couche, et la seule que la vendeuse voie : si la liste
+    // annonce « reste 3 » pendant que le panier refuse, on promet à la cliente
+    // un sac qu'on lui reprendra à l'encaissement.
+    const ecran = readFileSync(
+      join(__dirname, "..", "app/(admin)/boutique/caisse/Caisse.tsx"),
+      "utf8",
+    );
+    expect(ecran).toContain("const stock = stockDisponible(a);");
+    expect(ecran, "plus aucune lecture du stock brut").not.toMatch(
+      /Number\(\s*a\.stock_actuel\s*\)/,
+    );
   });
 });

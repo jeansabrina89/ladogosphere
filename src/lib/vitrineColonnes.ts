@@ -56,6 +56,20 @@ export const COLONNES_PUBLIQUES_VITRINE = [
    * colonne au milieu d'une vue remplacée. L'ordre ne veut rien dire ici.
    */
   "gouts",
+  /**
+   * Ce qui s'achète même à stock zéro, et sous quel délai (APP 26).
+   *
+   * `sur_commande` est le booléen UTILE, pas la case cochée : il vaut vrai
+   * seulement si un délai est connu. On ne promet pas un délai qu'on ignore —
+   * l'article coché sans délai reste « Épuisé » aux yeux du visiteur.
+   *
+   * Le NOM du fournisseur, lui, ne sort pas : savoir chez quel grossiste la
+   * pension se fournit est une donnée commerciale. Cette liste est la garde qui
+   * l'empêche de partir, et `COLONNES_INTERDITES_AU_PUBLIC` la double.
+   */
+  "sur_commande",
+  "delai_commande_min_jours",
+  "delai_commande_max_jours",
 ] as const;
 
 /** Les colonnes servies au public, telles qu'on les demande à PostgREST. */

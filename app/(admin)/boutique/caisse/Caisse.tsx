@@ -7,6 +7,7 @@ import { encaisserVente, chercherClients, type ClientCaisse } from "./actions";
 import {
   MODES_CAISSE,
   estPersonnalisable,
+  stockDisponible,
   ligneDepuisArticle,
   changerQuantite,
   totalPanier,
@@ -267,7 +268,10 @@ export default function Caisse({
           <p style={{ color: SOUS, fontSize: 15, margin: 0 }}>Aucun article ne correspond.</p>
         )}
         {resultats.map((a) => {
-          const stock = Number(a.stock_actuel);
+          // Ce qui reste VENDABLE : le stock moins ce que les commandes en
+          // ligne ont réservé. L'écran doit dire la même chose que le refus du
+          // panier, sinon on propose un sac qu'on refusera au moment d'encaisser.
+          const stock = stockDisponible(a);
           const dansPanier = panier.find((l) => l.article_id === a.id)?.quantite ?? 0;
           const surMesure = estPersonnalisable(a);
           const epuise = !surMesure && stock - dansPanier <= 0;

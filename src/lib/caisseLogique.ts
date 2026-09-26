@@ -61,6 +61,11 @@ export type ArticleVendable = {
   /** Secteur de dette fiscale nette de l'article : il voyage avec la ligne. */
   secteur_tdfn?: string | null;
   stock_actuel: number | string;
+  /**
+   * Ce qu'une commande en ligne confirmée a déjà mis de côté. La caisse doit
+   * le retirer : ce stock-là est promis à quelqu'un (APP 26).
+   */
+  stock_reserve?: number | string | null;
   unite: string;
   photo_path?: string | null;
   /** 'personnalisable' : pas de stock de produit fini, il se configure. */
@@ -120,6 +125,26 @@ export type LignePanier = {
 };
 
 /**
+ * Ce qui est réellement vendable au comptoir : le stock présent MOINS ce que
+ * les commandes en ligne confirmées ont réservé.
+ *
+ * Jusqu'à APP 26, la caisse appelait « disponible » le stock brut. Le nom
+ * mentait : elle pouvait vendre au premier venu le sac qu'une cliente attendait
+ * de son fournisseur depuis trois semaines. C'est aussi ce qui rend vraie la
+ * garantie de `recevoir_marchandise` en base — réserver la marchandise reçue ne
+ * protège personne si la caisse ne lit pas la réservation.
+ *
+ * Jamais négatif : un « il en reste -2 » à l'écran ne veut rien dire pour la
+ * personne qui tient le comptoir.
+ */
+export function stockDisponible(article: ArticleVendable): number {
+  const present = Number(article.stock_actuel);
+  const reserve = Number(article.stock_reserve ?? 0);
+  if (!Number.isFinite(present)) return 0;
+  return Math.max(0, arrondiQuantiteVente(present - (Number.isFinite(reserve) ? reserve : 0)));
+}
+
+/**
  * Ligne figée à partir d'une fiche article : libellé, prix et taux sont copiés.
  *
  * `remise` vient de `prixApplicable` — la fonction unique — et jamais d'un
@@ -145,7 +170,7 @@ export function ligneDepuisArticle(
     secteur_tdfn: article.secteur_tdfn === "pension" ? "pension" : "commerce",
     montant: r2(prix * q),
     unite: article.unite,
-    stock_disponible: Number(article.stock_actuel),
+    stock_disponible: stockDisponible(article),
     sans_stock: estPersonnalisable(article),
     prix_base: remise ? remise.prix_base : null,
     remise_pourcentage: remise ? remise.remise_pourcentage : null,
