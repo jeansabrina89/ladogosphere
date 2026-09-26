@@ -299,7 +299,12 @@ describe("la composition corrigée", () => {
   it("et la Boutique ne garde que la vente", () => {
     expect(labels("boutique", ADMIN)).toEqual([
       "🏠 Boutique", "💳 Caisse", "🧾 Ventes", "🌐 En ligne",
-      "🛒 Articles", "🏷️ Actions", "📦 Inventaire", "🔔 Attentes", "📊 Statistiques", "🏢 Fournisseurs",
+      "🛒 Articles", "🏷️ Actions", "📦 Inventaire", "🔔 Attentes",
+      // APP 26. Voisin d'« Attentes », et distinct de lui : « Attentes » liste
+      // qui veut être prévenu d'un retour, « À commander » liste ce qui est
+      // DÉJÀ PAYÉ et attend le fournisseur — une dette, pas une intention.
+      "📥 À commander",
+      "📊 Statistiques", "🏢 Fournisseurs",
     ]);
   });
 

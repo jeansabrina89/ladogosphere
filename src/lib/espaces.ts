@@ -182,6 +182,11 @@ export const ESPACES: Espace[] = [
       { href: "/boutique/actions", label: "🏷️ Actions", exigence: perm("perm_boutique_gestion") },
       { href: "/boutique/inventaire", label: "📦 Inventaire", exigence: perm("perm_boutique_gestion") },
       { href: "/boutique/attentes", label: "🔔 Attentes", exigence: perm("perm_boutique_gestion") },
+      // APP 26. Voisin d'« Attentes », et à ne pas confondre avec lui :
+      // « Attentes » liste qui veut être PRÉVENU d'un retour en stock,
+      // « À commander » liste ce qui est DÉJÀ PAYÉ et attend le fournisseur.
+      // Le second est une dette envers une cliente, le premier une intention.
+      { href: "/boutique/a-commander", label: "📥 À commander", exigence: perm("perm_boutique_gestion") },
       { href: "/boutique/statistiques", label: "📊 Statistiques", exigence: perm("perm_boutique_gestion") },
       // Un seul écran, deux chemins d'accès : la fiche fournisseur sert aussi
       // bien aux dépenses qu'à la boutique. Sa garde est « Dépenses » — la

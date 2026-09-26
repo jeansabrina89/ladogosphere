@@ -253,6 +253,11 @@ const LIBELLES: Record<string, string> = {
   ecriture_manuelle: "Écriture saisie à la main",
   publication_auto_date: "Publié automatiquement à la date prévue",
   publication_auto_stock: "Publié automatiquement à l'entrée de stock",
+  // APP 26. Sans ces deux lignes, le journal afficherait les noms techniques —
+  // et c'est justement ce journal qu'on relira dans trois semaines pour dire à
+  // une cliente où en est sa commande.
+  commande_au_fournisseur: "Commandé chez le fournisseur",
+  reception_marchandise: "Marchandise reçue et réservée pour les commandes en attente",
   promotion_creee: "Rubrique créée",
   promotion_modifiee: "Rubrique modifiée",
   promotion_desactivee: "Rubrique désactivée",
