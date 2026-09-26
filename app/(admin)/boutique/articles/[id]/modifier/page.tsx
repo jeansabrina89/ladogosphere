@@ -24,7 +24,7 @@ export default async function ModifierArticlePage({
 
   const [article, { data: fournisseurs }, tauxLegaux] = await Promise.all([
     lireArticle(id),
-    supabaseAdmin.from("fournisseurs").select("id, nom").eq("actif", true).order("nom"),
+    supabaseAdmin.from("fournisseurs").select("id, nom, delai_commande_min_jours, delai_commande_max_jours").eq("actif", true).order("nom"),
     tauxLegauxEnVigueur(),
   ]);
   if (!article) notFound();

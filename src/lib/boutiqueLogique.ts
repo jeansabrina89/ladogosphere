@@ -427,6 +427,23 @@ export function lireNombre(brut: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Un délai en JOURS, lu d'un champ texte : entier, jamais négatif, vide = NULL.
+ *
+ * Le vide compte autant que le chiffre (APP 26) : NULL dit « on prend celui du
+ * fournisseur », et zéro promettrait une livraison le jour même. Les confondre
+ * afficherait « Livré sous 0 jour ouvrable » à une cliente qui attend trois
+ * semaines.
+ *
+ * Une saisie qui n'est pas un nombre rend NULL plutôt que de lever : le champ
+ * est facultatif, et l'article coché sans délai est déjà signalé sur sa fiche.
+ */
+export function joursOuNull(brut: unknown): number | null {
+  const n = lireNombre(brut);
+  if (n === null || n < 0) return null;
+  return Math.round(n);
+}
+
 // ── Photo de l'article ──────────────────────────────────────────────────────
 
 /**
@@ -472,6 +489,7 @@ const COLONNES_COMMUNES = `
   composant, created_at, poids_grammes, expediable, stock_reserve,
   statut_vitrine, date_publication, publier_a_l_entree_stock, date_limite,
   remise_membre_exclue,
+  disponible_sur_commande, delai_commande_min_jours, delai_commande_max_jours,
   ages, besoins, tailles_chien, gouts, proteines, sans_cereales, monoproteine,
   taille_article, couleurs, matieres, usages_jouet
 `;

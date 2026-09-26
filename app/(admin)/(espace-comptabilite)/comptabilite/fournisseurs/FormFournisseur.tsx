@@ -49,6 +49,8 @@ export type FournisseurExistant = {
   iban: string | null;
   compte_charge_defaut: string | null;
   notes: string | null;
+  delai_commande_min_jours: number | null;
+  delai_commande_max_jours: number | null;
   actif: boolean;
 };
 
@@ -111,6 +113,55 @@ export default function FormFournisseur({ fournisseur }: { fournisseur?: Fournis
       <div>
         <label htmlFor="iban" style={etiquette}>IBAN</label>
         <input id="iban" name="iban" defaultValue={fournisseur?.iban ?? ""} style={champ} placeholder="CH.." />
+      </div>
+
+      {/*
+        * Le délai de commande, pour TOUS les articles de ce fournisseur.
+        *
+        * Réglé ici plutôt que sur chaque article : un même fournisseur livre à
+        * peu près au même rythme, et saisir le délai cinquante fois serait
+        * aussi le corriger cinquante fois le jour où il change. Un article qui
+        * fait exception porte son propre délai, sur sa fiche.
+        */}
+      <div style={{ borderTop: "1px solid rgba(27,43,94,0.12)", paddingTop: 14 }}>
+        <p style={{ ...etiquette, marginBottom: 2 }}>Délai de commande (jours ouvrables)</p>
+        <p style={{ fontSize: 13, color: "rgba(27,43,94,0.6)", margin: "0 0 8px" }}>
+          Ce que ce fournisseur met à livrer. Laissé vide, ses articles ne se
+          commandent pas quand ils sont en rupture — on ne promet pas un délai
+          qu&apos;on ignore.
+        </p>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <span>
+            <label htmlFor="delai_commande_min_jours" style={{ ...etiquette, fontWeight: 500 }}>
+              Au plus tôt
+            </label>
+            <input
+              id="delai_commande_min_jours"
+              name="delai_commande_min_jours"
+              type="text"
+              inputMode="numeric"
+              defaultValue={fournisseur?.delai_commande_min_jours ?? ""}
+              style={{ ...champ, maxWidth: 120 }}
+            />
+          </span>
+          <span>
+            <label htmlFor="delai_commande_max_jours" style={{ ...etiquette, fontWeight: 500 }}>
+              Au plus tard
+            </label>
+            <input
+              id="delai_commande_max_jours"
+              name="delai_commande_max_jours"
+              type="text"
+              inputMode="numeric"
+              defaultValue={fournisseur?.delai_commande_max_jours ?? ""}
+              style={{ ...champ, maxWidth: 120 }}
+            />
+          </span>
+        </div>
+        <p style={{ fontSize: 13, color: "rgba(27,43,94,0.6)", margin: "8px 0 0" }}>
+          C&apos;est le plus tard qui est annoncé à la cliente : mieux vaut
+          qu&apos;elle soit servie plus vite que promis.
+        </p>
       </div>
 
       <div>

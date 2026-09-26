@@ -52,6 +52,9 @@ export type ArticleFormulaire = {
   publier_a_l_entree_stock?: boolean | null;
   date_limite?: string | null;
   remise_membre_exclue?: boolean | null;
+  disponible_sur_commande?: boolean | null;
+  delai_commande_min_jours?: number | null;
+  delai_commande_max_jours?: number | null;
   /** Envoi postal : le poids en grammes (null : inconnu) et la case. */
   poids_grammes?: number | null;
   expediable?: boolean | null;
@@ -102,7 +105,13 @@ export default function FormArticle({
   perimetre = "boutique",
 }: {
   article?: ArticleFormulaire;
-  fournisseurs: { id: string; nom: string }[];
+  fournisseurs: {
+    id: string;
+    nom: string;
+    /* APP 26 : son délai de commande, pour dire à Sabrina ce qui s'appliquera. */
+    delai_commande_min_jours?: number | null;
+    delai_commande_max_jours?: number | null;
+  }[];
   /** Les taux EN VIGUEUR, lus de la table : la liste ne se code pas ici. */
   tauxLegaux: number[];
   /**
@@ -123,6 +132,25 @@ export default function FormArticle({
     valeurChamp(v, nom, defaut === null || defaut === undefined ? "" : String(defaut));
 
   const [categorie, setCategorie] = useState(texte("categorie", article?.categorie));
+  /* APP 26 : le fournisseur choisi et la case, tenus en état — le bloc plus bas
+     doit pouvoir dire MAINTENANT ce qui s'appliquera, sans attendre un
+     enregistrement pour découvrir que rien ne s'applique. */
+  const [fournisseurId, setFournisseurId] = useState(texte("fournisseur_id", article?.fournisseur_id));
+  const [surCommande, setSurCommande] = useState(
+    caseCochee(v, "disponible_sur_commande", article?.disponible_sur_commande ?? false)
+  );
+  const [delaiArticleMax, setDelaiArticleMax] = useState(
+    texte("delai_commande_max_jours", article?.delai_commande_max_jours)
+  );
+  const fournisseurChoisi = fournisseurs.find((f) => f.id === fournisseurId);
+  /* Le délai du fournisseur, tel qu'il est écrit sur SA fiche. On ne recalcule
+     PAS ici le délai annoncé à la cliente : cette règle a une seule définition,
+     et elle est en base (delai_commande_effectif). On se contente de savoir s'il
+     en existe un — une condition d'existence, pas un délai affiché. */
+  const delaiFournisseurMax = fournisseurChoisi?.delai_commande_max_jours ?? null;
+  const delaiFournisseurMin = fournisseurChoisi?.delai_commande_min_jours ?? null;
+  const aUnDelai =
+    (delaiArticleMax ?? "").toString().trim() !== "" || delaiFournisseurMax !== null;
   const [taux, setTaux] = useState(
     texte("taux_tva", article?.taux_tva ?? tauxPropose(article?.categorie))
   );
@@ -323,7 +351,8 @@ export default function FormArticle({
           <label htmlFor="fournisseur_id" style={etiquette}>Fournisseur</label>
           <select
             {...marqueChamp(etat, "fournisseur_id", champ)}
-            defaultValue={texte("fournisseur_id", article?.fournisseur_id)}
+            value={fournisseurId ?? ""}
+            onChange={(e) => setFournisseurId(e.target.value)}
           >
             <option value="">— Aucun —</option>
             {fournisseurs.map((f) => (
@@ -592,6 +621,85 @@ export default function FormArticle({
                 est dans une rubrique Anti-gaspillage.
               </p>
             </div>
+
+            {/*
+              * APP 26 : commander un article que la pension n'a pas en stock.
+              *
+              * Deux conditions, et les DEUX sont nécessaires : la case cochée,
+              * et un délai connu. Une case cochée sans délai ne rend rien
+              * commandable — on ne promet pas un délai qu'on ignore. C'est la
+              * base qui tranche, et l'avertissement ci-dessous existe pour que
+              * Sabrina l'apprenne ICI, et non en constatant trois semaines plus
+              * tard que personne n'a commandé.
+              */}
+            <label htmlFor="disponible_sur_commande"
+              style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 15, color: MARINE }}>
+              <input
+                type="checkbox" name="disponible_sur_commande" id="disponible_sur_commande"
+                checked={surCommande}
+                onChange={(e) => setSurCommande(e.target.checked)}
+                style={{ width: 20, height: 20, marginTop: 2, flexShrink: 0 }}
+              />
+              <span>
+                Disponible sur commande
+                <span style={{ display: "block", fontSize: 12, color: SOUS }}>
+                  La cliente peut l&apos;acheter même à stock zéro : le délai lui est
+                  annoncé avant qu&apos;elle paie. Décoché, l&apos;article reste « Épuisé ».
+                </span>
+              </span>
+            </label>
+
+            {surCommande && (
+              <div style={{ paddingLeft: 30, display: "grid", gap: 8 }}>
+                <p style={{ fontSize: 13, color: SOUS, margin: 0 }}>
+                  {delaiFournisseurMax === null
+                    ? "Ce fournisseur n'a pas de délai de commande sur sa fiche."
+                    : `Délai du fournisseur : ${delaiFournisseurMin !== null && delaiFournisseurMin < delaiFournisseurMax ? `${delaiFournisseurMin} à ` : ""}${delaiFournisseurMax} jours ouvrables.`}
+                  {" "}Le délai saisi ici, s&apos;il y en a un, l&apos;emporte pour cet article seul.
+                </p>
+
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <span>
+                    <label htmlFor="delai_commande_min_jours" style={{ ...etiquette, fontWeight: 500 }}>
+                      Exception — au plus tôt
+                    </label>
+                    <input
+                      id="delai_commande_min_jours"
+                      name="delai_commande_min_jours"
+                      type="text"
+                      inputMode="numeric"
+                      defaultValue={texte("delai_commande_min_jours", article?.delai_commande_min_jours)}
+                      style={{ ...champ, maxWidth: 140 }}
+                    />
+                  </span>
+                  <span>
+                    <label htmlFor="delai_commande_max_jours" style={{ ...etiquette, fontWeight: 500 }}>
+                      Exception — au plus tard
+                    </label>
+                    <input
+                      id="delai_commande_max_jours"
+                      name="delai_commande_max_jours"
+                      type="text"
+                      inputMode="numeric"
+                      value={delaiArticleMax ?? ""}
+                      onChange={(e) => setDelaiArticleMax(e.target.value)}
+                      style={{ ...champ, maxWidth: 140 }}
+                    />
+                  </span>
+                </div>
+
+                {!aUnDelai && (
+                  <p role="alert" style={{
+                    fontSize: 13.5, fontWeight: 600, color: "#6E5410", backgroundColor: "#F4EAC9",
+                    borderRadius: 10, padding: "8px 10px", margin: 0,
+                  }}>
+                    ⚠️ Coché, mais aucun délai connu : cet article restera « Épuisé »
+                    pour la cliente. Renseignez le délai de commande du
+                    fournisseur, ou une exception ci-dessus.
+                  </p>
+                )}
+              </div>
+            )}
 
             <label htmlFor="remise_membre_exclue"
               style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 15, color: MARINE }}>

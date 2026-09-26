@@ -26,6 +26,7 @@ import {
   quantiteSignee,
   ecartInventaire,
   lireNombre,
+  joursOuNull,
   tauxPropose,
   lirePoidsGrammes,
   type TypeMouvement,
@@ -206,6 +207,18 @@ export async function enregistrerArticle(
     publier_a_l_entree_stock: formData.get("publier_a_l_entree_stock") === "on",
     date_limite: String(formData.get("date_limite") ?? "").trim() || null,
     remise_membre_exclue: formData.get("remise_membre_exclue") === "on",
+    /*
+     * APP 26. La case seule ne rend rien commandable : il faut AUSSI un délai
+     * connu, et c'est la base qui en juge (delai_commande_effectif). On écrit
+     * donc ce que Sabrina a coché, sans rien corriger ici — et la fiche l'a
+     * avertie si la case reste sans effet.
+     *
+     * Le délai vide vaut NULL, jamais zéro : zéro promettrait une livraison le
+     * jour même, et NULL dit « on prend celui du fournisseur ».
+     */
+    disponible_sur_commande: formData.get("disponible_sur_commande") === "on",
+    delai_commande_min_jours: joursOuNull(formData.get("delai_commande_min_jours")),
+    delai_commande_max_jours: joursOuNull(formData.get("delai_commande_max_jours")),
     ...envoiPostal,
     ...etiquettes,
   };

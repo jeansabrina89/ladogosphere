@@ -30,7 +30,7 @@ export default async function NouvelArticlePage({
   await exigerAccesAdmin("perm_boutique_gestion");
 
   const [{ data: fournisseurs }, tauxLegaux] = await Promise.all([
-    supabaseAdmin.from("fournisseurs").select("id, nom").eq("actif", true).order("nom"),
+    supabaseAdmin.from("fournisseurs").select("id, nom, delai_commande_min_jours, delai_commande_max_jours").eq("actif", true).order("nom"),
     tauxLegauxEnVigueur(),
   ]);
 

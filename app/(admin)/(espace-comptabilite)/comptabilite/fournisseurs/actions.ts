@@ -22,6 +22,22 @@ function champs(formData: FormData) {
     return v === "" ? null : v;
   };
   const compte = texte("compte_charge_defaut");
+  /*
+   * Un délai en jours : entier, jamais négatif, vide = INCONNU.
+   *
+   * Le vide compte, et c'est la moitié de la règle : un fournisseur sans délai
+   * connu ne rend ses articles commandables en rupture, même cochés. On ne
+   * promet pas un délai qu'on ignore. Écrire 0 par défaut aurait promis une
+   * livraison le jour même.
+   */
+  const jours = (cle: string) => {
+    const brut = texte(cle);
+    if (brut === null) return null;
+    const n = Number(brut.replace(",", "."));
+    return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+  };
+  const min = jours("delai_commande_min_jours");
+  const max = jours("delai_commande_max_jours");
   return {
     nom: String(formData.get("nom") ?? "").trim(),
     adresse: texte("adresse"),
@@ -32,6 +48,11 @@ function champs(formData: FormData) {
     iban: texte("iban")?.replace(/\s+/g, "") ?? null,
     compte_charge_defaut: compte && COMPTES_DEPENSE.includes(compte) ? compte : null,
     notes: texte("notes"),
+    delai_commande_min_jours: min,
+    // Une borne basse au-dessus de la haute serait refusée par la base : on
+    // remet les deux dans l'ordre plutôt que d'afficher une erreur pour une
+    // saisie dont l'intention est claire.
+    delai_commande_max_jours: min !== null && max !== null && max < min ? min : max,
   };
 }
 

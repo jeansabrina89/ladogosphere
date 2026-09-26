@@ -28,7 +28,7 @@ export default async function FicheFournisseurPage({
 
   const { data: fournisseur } = await supabaseAdmin
     .from("fournisseurs")
-    .select("id, nom, adresse, npa, localite, email, telephone, iban, compte_charge_defaut, notes, actif")
+    .select("id, nom, adresse, npa, localite, email, telephone, iban, compte_charge_defaut, notes, actif, delai_commande_min_jours, delai_commande_max_jours")
     .eq("id", id)
     .maybeSingle();
   if (!fournisseur) notFound();
