@@ -211,9 +211,14 @@ export function libelleTailleArticle(valeur: string | null | undefined): string 
   return TAILLES_ARTICLE.find((t) => t.valeur === v)?.libelle ?? v;
 }
 
-/** Une couleur libre : minuscules, espaces resserrés, rien d'autre. */
+/**
+ * Une couleur libre : minuscules, espaces resserrés, rien d'autre.
+ *
+ * La virgule tombe : c'est elle qui sépare les valeurs dans le champ caché du
+ * formulaire, et une couleur « bleu, vert » y deviendrait deux couleurs.
+ */
 export function normaliserCouleur(brut: string): string {
-  return brut.trim().toLowerCase().replace(/\s+/g, " ");
+  return brut.replace(/,/g, " ").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 /**
@@ -262,6 +267,71 @@ export function sansEtiquettes(article: EtiquettesArticle): boolean {
     if ((article[champ] ?? []).length > 0) return false;
   }
   return true;
+}
+
+/**
+ * Le formulaire porte chaque liste dans UN champ caché, valeurs séparées par
+ * une virgule — `valeursFormulaire` ne garde qu'une occurrence par nom, et
+ * dix champs répétés se seraient perdus au premier refus de l'action.
+ */
+export function valeursVersChamp(valeurs: string[]): string {
+  return valeurs.join(",");
+}
+
+export function champVersValeurs(brut: string | null | undefined): string[] {
+  return String(brut ?? "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0);
+}
+
+/**
+ * Le marqueur que pose la section du formulaire.
+ *
+ * Absent — fiche d'atelier, appel forgé — les colonnes d'étiquettes ne sont
+ * pas touchées du tout. Même règle que l'envoi postal : un formulaire qui n'a
+ * pas MONTRÉ un champ n'a pas à l'écraser.
+ */
+export const MARQUEUR_ETIQUETTES = "etiquettes";
+
+export type ChampsEtiquettes = {
+  ages: string[];
+  besoins: string[];
+  tailles_chien: string[];
+  proteines: string[];
+  couleurs: string[];
+  matieres: string[];
+  usages_jouet: string[];
+  sans_cereales: boolean;
+  monoproteine: boolean;
+  taille_article: string | null;
+};
+
+/**
+ * Ce que le formulaire a envoyé, prêt pour la base — nettoyé.
+ *
+ * Rien n'est cru sur parole : une valeur hors vocabulaire tombe ici, et la
+ * contrainte CHECK la refuserait de toute façon. Les deux gardes, parce
+ * qu'une seule finit toujours par être contournée.
+ */
+export function etiquettesDepuisChamps(
+  champs: Record<string, string | null | undefined>
+): ChampsEtiquettes {
+  const liste = (groupe: GroupeEtiquette) =>
+    nettoyerValeurs(groupe, champVersValeurs(champs[groupe]));
+
+  return {
+    ages: liste("ages"),
+    besoins: liste("besoins"),
+    tailles_chien: liste("tailles_chien"),
+    proteines: liste("proteines"),
+    couleurs: liste("couleurs"),
+    matieres: liste("matieres"),
+    usages_jouet: liste("usages_jouet"),
+    sans_cereales: champs.sans_cereales === "on",
+    monoproteine: champs.monoproteine === "on",
+    taille_article: nettoyerTailleArticle(champs.taille_article),
+  };
 }
 
 /** Les étiquettes remplies, en libellés — pour la fiche en lecture. */

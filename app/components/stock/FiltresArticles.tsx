@@ -54,8 +54,12 @@ export default function FiltresArticles({
   const [inactifs, setInactifs] = useState(params.get("inactifs") === "1");
   const [statut, setStatut] = useState(params.get("statut") ?? "");
   const [sansPoids, setSansPoids] = useState(params.get("sanspoids") === "1");
+  const [sansEtiquettes, setSansEtiquettes] = useState(params.get("sansetiquettes") === "1");
 
-  function appliquer(sur?: { seuil?: boolean; inactifs?: boolean; statut?: string; sansPoids?: boolean }) {
+  function appliquer(sur?: {
+    seuil?: boolean; inactifs?: boolean; statut?: string;
+    sansPoids?: boolean; sansEtiquettes?: boolean;
+  }) {
     const p = new URLSearchParams();
     if (q.trim()) p.set("q", q.trim());
     if (categorie) p.set("categorie", categorie);
@@ -63,6 +67,7 @@ export default function FiltresArticles({
     if (sur?.seuil ?? seuil) p.set("seuil", "1");
     if (sur?.inactifs ?? inactifs) p.set("inactifs", "1");
     if (filtrePoids && (sur?.sansPoids ?? sansPoids)) p.set("sanspoids", "1");
+    if (filtrePoids && (sur?.sansEtiquettes ?? sansEtiquettes)) p.set("sansetiquettes", "1");
     const s = sur?.statut ?? statut;
     if (s) p.set("statut", s);
     const qs = p.toString();
@@ -139,6 +144,17 @@ export default function FiltresArticles({
             ⚖️ Sans poids
           </button>
         )}
+        {filtrePoids && (
+          /* « Sans étiquettes » : ceux qu'aucun filtre du catalogue ne
+             ramènera tant que personne ne les aura complétés. */
+          <button
+            type="button"
+            style={sBascule(sansEtiquettes)}
+            onClick={() => { setSansEtiquettes(!sansEtiquettes); appliquer({ sansEtiquettes: !sansEtiquettes }); }}
+          >
+            🏷️ Sans étiquettes
+          </button>
+        )}
         <button
           type="button"
           style={sBascule(inactifs)}
@@ -152,7 +168,7 @@ export default function FiltresArticles({
           style={{ ...sChamp, cursor: "pointer" }}
           onClick={() => {
             setQ(""); setCategorie(""); setFournisseur(""); setSeuil(false); setInactifs(false); setStatut("");
-            setSansPoids(false);
+            setSansPoids(false); setSansEtiquettes(false);
             router.push(pathname);
           }}
         >

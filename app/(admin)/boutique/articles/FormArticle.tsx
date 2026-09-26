@@ -15,6 +15,7 @@ import {
   expediableParDefaut,
   AIDE_POIDS,
 } from "@/src/lib/boutiqueLogique";
+import EtiquettesArticle, { type EtiquettesSaisies } from "@/app/components/stock/EtiquettesArticle";
 import { COMPTE_MATIERES_FABRICATION, type PerimetreStock } from "@/src/lib/perimetreStock";
 import { SECTEURS, libelleTaux } from "@/src/lib/tvaLogique";
 import {
@@ -54,7 +55,7 @@ export type ArticleFormulaire = {
   /** Envoi postal : le poids en grammes (null : inconnu) et la case. */
   poids_grammes?: number | null;
   expediable?: boolean | null;
-};
+} & EtiquettesSaisies;
 
 /** « 2026-10-12T08:00 », ce qu'attend un champ datetime-local. */
 function pourChampInstant(valeur: string | null | undefined): string {
@@ -371,6 +372,14 @@ export default function FormArticle({
           defaultValue={texte("description", article?.description)}
         />
       </div>
+
+      {/* ── Étiquettes pour les filtres ──────────────────────────────────── */}
+      {/* Une fourniture d'atelier ne se vend pas seule : elle n'a rien à
+          faire dans les filtres du catalogue, et ses colonnes ne sont même
+          pas touchées à l'enregistrement — le marqueur ne part pas. */}
+      {!atelier && (
+        <EtiquettesArticle categorie={categorie} article={article} valeurs={v} />
+      )}
 
       {atelier && (
         <p style={{

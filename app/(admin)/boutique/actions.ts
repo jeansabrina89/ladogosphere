@@ -35,6 +35,10 @@ import {
   type EtatFormulaire,
 } from "@/src/lib/etatFormulaire";
 import { statutVitrine } from "@/src/lib/statutVitrineLogique";
+import {
+  MARQUEUR_ETIQUETTES,
+  etiquettesDepuisChamps,
+} from "@/src/lib/etiquettesArticles";
 import { lireCoutSaisi } from "@/src/lib/coutMoyen";
 
 /**
@@ -152,6 +156,14 @@ export async function enregistrerArticle(
   });
   if (refus) return { erreur: refus.message, champ: refus.champ, valeurs };
 
+  // Les étiquettes ne s'écrivent que si la section les a MONTRÉES — même
+  // règle que l'envoi postal. Une fiche d'atelier, ou un appel forgé sans le
+  // marqueur, laisse les dix colonnes telles quelles.
+  const etiquettes: Record<string, unknown> =
+    formData.get(MARQUEUR_ETIQUETTES) === "1"
+      ? { ...etiquettesDepuisChamps(valeurs) }
+      : {};
+
   // L'envoi postal ne s'écrit que si le formulaire l'a MONTRÉ : un article sur
   // mesure ou une fourniture d'atelier gardent leurs valeurs telles quelles.
   const envoiPostal: Record<string, unknown> = {};
@@ -195,6 +207,7 @@ export async function enregistrerArticle(
     date_limite: String(formData.get("date_limite") ?? "").trim() || null,
     remise_membre_exclue: formData.get("remise_membre_exclue") === "on",
     ...envoiPostal,
+    ...etiquettes,
   };
 
   // Référence laissée vide : la base l'attribue elle-même, sous la forme ART-0001.

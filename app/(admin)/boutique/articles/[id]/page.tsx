@@ -19,6 +19,7 @@ import {
 import EnTete from "@/app/components/ui/EnTete";
 import { libelleStatutVitrine, mentionPublicationProgrammee } from "@/src/lib/statutVitrineLogique";
 import { mentionDateLimite } from "@/src/lib/prixLogique";
+import { etiquettesRemplies, sansEtiquettes } from "@/src/lib/etiquettesArticles";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import ActionsMouvement from "./ActionsMouvement";
@@ -256,6 +257,17 @@ export default async function ArticlePage({
             <Ligne cle="Remise membre" valeur="Exclu — aucune mention n'en est faite au client" />
           )}
           {article.description && <BlocTexte cle="Description" valeur={article.description} />}
+          {/* Les étiquettes REMPLIES, en libellés. Celles que la catégorie ne
+              concerne pas restent en base sans se montrer ici. */}
+          {etiquettesRemplies(article).map((ligne) => (
+            <Ligne key={ligne.libelle} cle={ligne.libelle} valeur={ligne.valeurs.join(" · ")} />
+          ))}
+          {sansEtiquettes(article) && (
+            <p style={{ color: sousTexte, fontSize: 14, margin: "10px 0 0" }}>
+              Aucune étiquette : cet article ne remontera dans aucun filtre du
+              catalogue.
+            </p>
+          )}
         </Carte>
 
         <Carte>

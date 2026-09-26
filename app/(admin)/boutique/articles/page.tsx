@@ -2,6 +2,7 @@ import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { listerArticlesSelonNiveau, type Article } from "@/src/lib/boutique";
 import { manquePoids, sousLeSeuil } from "@/src/lib/boutiqueLogique";
+import { sansEtiquettes } from "@/src/lib/etiquettesArticles";
 import { statutVitrine } from "@/src/lib/statutVitrineLogique";
 import Bouton from "@/app/components/ui/Bouton";
 import CatalogueStock from "@/app/components/stock/CatalogueStock";
@@ -20,7 +21,7 @@ export default async function ArticlesPage({
 }: {
   searchParams: Promise<{
     q?: string; categorie?: string; fournisseur?: string; seuil?: string; inactifs?: string;
-    statut?: string; sanspoids?: string;
+    statut?: string; sanspoids?: string; sansetiquettes?: string;
   }>;
 }) {
   const acces = await exigerAccesAdmin("perm_boutique_vente");
@@ -38,6 +39,8 @@ export default async function ArticlesPage({
   const statut = (params.statut ?? "").trim();
   // « Sans poids » : ceux qu'il faut compléter pour qu'ils partent par la poste.
   const seulementSansPoids = params.sanspoids === "1";
+  // « Sans étiquettes » : ceux qu'aucun filtre du catalogue ne ramènera.
+  const seulementSansEtiquettes = params.sansetiquettes === "1";
 
   // Sans la gestion, ni prix d'achat ni fournisseur ne quittent la base :
   // le filtrage est dans le SELECT, pas à l'affichage.
@@ -56,6 +59,7 @@ export default async function ArticlesPage({
     if (seulementSousSeuil && !sousLeSeuil(a)) return false;
     if (statut && statutVitrine(a.statut_vitrine) !== statut) return false;
     if (seulementSansPoids && !manquePoids(a)) return false;
+    if (seulementSansEtiquettes && !sansEtiquettes(a)) return false;
     if (!recherche) return true;
     const cible = `${a.nom} ${a.reference} ${a.marque ?? ""} ${a.code_barres ?? ""}`.toLowerCase();
     return cible.includes(recherche);

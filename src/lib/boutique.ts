@@ -56,6 +56,18 @@ export type Article = {
   /** Envoi postal : poids en grammes (null : inconnu) et expédiabilité. */
   poids_grammes: number | null;
   expediable: boolean;
+  /* Les étiquettes des filtres (APP 24-FILTRES). Vocabulaire fermé tenu par
+     la base ; les libellés sont dans src/lib/etiquettesArticles.ts. */
+  ages: string[];
+  besoins: string[];
+  tailles_chien: string[];
+  proteines: string[];
+  sans_cereales: boolean;
+  monoproteine: boolean;
+  taille_article: string | null;
+  couleurs: string[];
+  matieres: string[];
+  usages_jouet: string[];
 };
 
 export type MouvementStock = {
