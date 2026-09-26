@@ -38,10 +38,33 @@ describe("ce que la catégorie montre", () => {
   it("l'alimentation demande la composition, jamais la couleur", () => {
     render(<EtiquettesArticle categorie="alimentation_seche" />);
     expect(screen.getByRole("button", { name: "Chiot" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Saumon" })).toBeTruthy();
+    // « Saumon » apparaît DEUX fois depuis APP 25-GOÛT : une fois sous
+    // « Goût », une fois sous « Contient ». C'est tout l'objet du lot — un pâté
+    // « au saumon » peut contenir du poulet — donc on compte, au lieu de
+    // chercher un bouton unique qui n'existe plus.
+    expect(screen.getAllByRole("button", { name: "Saumon" })).toHaveLength(2);
     expect(screen.getByLabelText("Sans céréales")).toBeTruthy();
     expect(screen.queryByLabelText("Ajouter une couleur")).toBeNull();
     expect(screen.queryByRole("button", { name: "Cuir" })).toBeNull();
+  });
+
+  it("montre « Goût » AVANT « Contient », et l'aide qui les distingue", () => {
+    render(<EtiquettesArticle categorie="alimentation_humide" />);
+
+    const titres = screen.getAllByText(/^(Goût|Contient)$/).map((n) => n.textContent);
+    expect(titres, "l'ordre dit ce qu'on cherche puis ce qu'on évite").toEqual(["Goût", "Contient"]);
+
+    expect(
+      screen.getByText("Tout ce que contient la recette — utile pour les allergies"),
+      "sans cette phrase, on croit que « Contient » est la saveur",
+    ).toBeTruthy();
+  });
+
+  it("un collier ne demande ni goût ni composition", () => {
+    render(<EtiquettesArticle categorie="colliers" />);
+    expect(screen.queryByText("Goût")).toBeNull();
+    expect(screen.queryByText("Contient")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Saumon" })).toBeNull();
   });
 
   it("un collier demande la taille, la couleur et la matière, jamais la protéine", () => {

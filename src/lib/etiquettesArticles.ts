@@ -21,6 +21,7 @@ export type GroupeEtiquette =
   | "ages"
   | "besoins"
   | "tailles_chien"
+  | "gouts"
   | "proteines"
   | "couleurs"
   | "matieres"
@@ -31,9 +32,42 @@ export type Valeur = { valeur: string; libelle: string };
 type Groupe = {
   /** En-tête de la section, à la fiche comme au panneau de filtres. */
   libelle: string;
+  /**
+   * Une phrase sous l'en-tête, quand le libellé seul se comprendrait de
+   * travers. « Contient » en a une : sans elle, on croit qu'on y met la saveur.
+   */
+  aide?: string;
   /** L'ordre d'affichage EST celui de ce tableau. Vide : valeurs libres. */
   valeurs: Valeur[];
 };
+
+/**
+ * Le vocabulaire des viandes, POISSONS et protéines végétales.
+ *
+ * Partagé, et non recopié, par « Goût » et « Contient » (APP 25-GOÛT) : les
+ * deux filtres doivent parler la même langue, sans quoi un article au goût
+ * d'agneau ne se retrouverait plus parmi ceux qui en contiennent. La contrainte
+ * `articles_gouts_check` porte la même liste en base, et un test compare les
+ * deux.
+ */
+const VALEURS_PROTEINES: Valeur[] = [
+  { valeur: "poulet", libelle: "Poulet" },
+  { valeur: "dinde", libelle: "Dinde" },
+  { valeur: "canard", libelle: "Canard" },
+  { valeur: "boeuf", libelle: "Bœuf" },
+  { valeur: "veau", libelle: "Veau" },
+  { valeur: "porc", libelle: "Porc" },
+  { valeur: "agneau", libelle: "Agneau" },
+  { valeur: "gibier", libelle: "Gibier" },
+  { valeur: "renne", libelle: "Renne" },
+  { valeur: "elan", libelle: "Élan" },
+  { valeur: "cerf", libelle: "Cerf" },
+  { valeur: "sanglier", libelle: "Sanglier" },
+  { valeur: "saumon", libelle: "Saumon" },
+  { valeur: "poisson", libelle: "Poisson" },
+  { valeur: "insecte", libelle: "Insecte" },
+  { valeur: "vegetal", libelle: "Végétal" },
+];
 
 /**
  * Le vocabulaire, et l'ordre dans lequel il se montre.
@@ -68,26 +102,28 @@ export const GROUPES: Record<GroupeEtiquette, Groupe> = {
       { valeur: "geant", libelle: "Géant" },
     ],
   },
+  /**
+   * Ce que l'emballage annonce, et qui donne envie : « avec agneau ».
+   *
+   * Vient AVANT « Contient » partout où les deux se montrent : on cherche
+   * d'abord ce qu'on veut, on écarte ensuite ce qu'on évite.
+   */
+  gouts: {
+    libelle: "Goût",
+    valeurs: VALEURS_PROTEINES,
+  },
+  /**
+   * Tout ce que la recette contient, l'annoncé comme le reste.
+   *
+   * Le « Purely Pâté avec agneau » de Bozita contient 52 % de poulet : c'est
+   * précisément ce que cette liste sert à dire, et c'est pourquoi elle ne peut
+   * pas servir de filtre « Goût ». La colonne s'appelle toujours `proteines` en
+   * base — seul son nom à l'écran change (APP 25-GOÛT).
+   */
   proteines: {
-    libelle: "Protéines",
-    valeurs: [
-      { valeur: "poulet", libelle: "Poulet" },
-      { valeur: "dinde", libelle: "Dinde" },
-      { valeur: "canard", libelle: "Canard" },
-      { valeur: "boeuf", libelle: "Bœuf" },
-      { valeur: "veau", libelle: "Veau" },
-      { valeur: "porc", libelle: "Porc" },
-      { valeur: "agneau", libelle: "Agneau" },
-      { valeur: "gibier", libelle: "Gibier" },
-      { valeur: "renne", libelle: "Renne" },
-      { valeur: "elan", libelle: "Élan" },
-      { valeur: "cerf", libelle: "Cerf" },
-      { valeur: "sanglier", libelle: "Sanglier" },
-      { valeur: "saumon", libelle: "Saumon" },
-      { valeur: "poisson", libelle: "Poisson" },
-      { valeur: "insecte", libelle: "Insecte" },
-      { valeur: "vegetal", libelle: "Végétal" },
-    ],
+    libelle: "Contient",
+    aide: "Tout ce que contient la recette — utile pour les allergies",
+    valeurs: VALEURS_PROTEINES,
   },
   // Les couleurs ne se ferment pas : un fournisseur sortira toujours un
   // « bordeaux » auquel personne n'avait pensé. Elles se rangent en
@@ -149,6 +185,7 @@ export type EtiquettesArticle = {
   ages?: string[] | null;
   besoins?: string[] | null;
   tailles_chien?: string[] | null;
+  gouts?: string[] | null;
   proteines?: string[] | null;
   couleurs?: string[] | null;
   matieres?: string[] | null;
@@ -167,10 +204,10 @@ export type EtiquettesArticle = {
  * puis reclassé retrouve ses étiquettes.
  */
 const PAR_CATEGORIE: Record<string, (GroupeEtiquette | "taille_article" | ChampCase)[]> = {
-  alimentation_seche: ["ages", "besoins", "tailles_chien", "proteines", "sans_cereales", "monoproteine"],
-  alimentation_humide: ["ages", "besoins", "tailles_chien", "proteines", "sans_cereales", "monoproteine"],
-  friandises: ["ages", "besoins", "tailles_chien", "proteines", "sans_cereales", "monoproteine"],
-  mastication: ["ages", "besoins", "tailles_chien", "proteines", "sans_cereales", "monoproteine"],
+  alimentation_seche: ["ages", "besoins", "tailles_chien", "gouts", "proteines", "sans_cereales", "monoproteine"],
+  alimentation_humide: ["ages", "besoins", "tailles_chien", "gouts", "proteines", "sans_cereales", "monoproteine"],
+  friandises: ["ages", "besoins", "tailles_chien", "gouts", "proteines", "sans_cereales", "monoproteine"],
+  mastication: ["ages", "besoins", "tailles_chien", "gouts", "proteines", "sans_cereales", "monoproteine"],
   colliers: ["tailles_chien", "taille_article", "couleurs", "matieres"],
   laisses: ["tailles_chien", "taille_article", "couleurs", "matieres"],
   harnais: ["tailles_chien", "taille_article", "couleurs", "matieres"],
@@ -298,6 +335,7 @@ export type ChampsEtiquettes = {
   ages: string[];
   besoins: string[];
   tailles_chien: string[];
+  gouts: string[];
   proteines: string[];
   couleurs: string[];
   matieres: string[];
@@ -324,6 +362,7 @@ export function etiquettesDepuisChamps(
     ages: liste("ages"),
     besoins: liste("besoins"),
     tailles_chien: liste("tailles_chien"),
+    gouts: liste("gouts"),
     proteines: liste("proteines"),
     couleurs: liste("couleurs"),
     matieres: liste("matieres"),

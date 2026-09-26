@@ -137,7 +137,9 @@ describe("ce que la catégorie demande", () => {
   it("l'alimentation parle composition, jamais couleur", () => {
     for (const categorie of ["alimentation_seche", "alimentation_humide", "friandises", "mastication"]) {
       expect(champsDeCategorie(categorie)).toEqual([
-        "ages", "besoins", "tailles_chien", "proteines", "sans_cereales", "monoproteine",
+        // << gouts >> avant << proteines >> : ce que l emballage annonce,
+        // puis tout ce que la recette contient (APP 25-GOUT).
+        "ages", "besoins", "tailles_chien", "gouts", "proteines", "sans_cereales", "monoproteine",
       ]);
       expect(concerne(categorie, "couleurs")).toBe(false);
     }
@@ -221,7 +223,9 @@ describe("la fiche en lecture", () => {
       })
     ).toEqual([
       { libelle: "Âge", valeurs: ["Senior"] },
-      { libelle: "Protéines", valeurs: ["Saumon", "Poulet"] },
+      // << Proteines >> est devenu << Contient >> au lot APP 25-GOUT : la
+      // colonne n a pas bouge, seul son nom a l ecran.
+      { libelle: "Contient", valeurs: ["Saumon", "Poulet"] },
       { libelle: "Sans céréales", valeurs: ["Oui"] },
     ]);
   });

@@ -56,6 +56,7 @@ export type EtiquettesSaisies = {
   ages?: string[] | null;
   besoins?: string[] | null;
   tailles_chien?: string[] | null;
+  gouts?: string[] | null;
   proteines?: string[] | null;
   couleurs?: string[] | null;
   matieres?: string[] | null;
@@ -66,7 +67,9 @@ export type EtiquettesSaisies = {
 };
 
 const LISTES: GroupeEtiquette[] = [
-  "ages", "besoins", "tailles_chien", "proteines", "couleurs", "matieres", "usages_jouet",
+  // "gouts" avant "proteines" : on dit d abord ce que l emballage annonce,
+  // puis tout ce que la recette contient (APP 25-GOUT).
+  "ages", "besoins", "tailles_chien", "gouts", "proteines", "couleurs", "matieres", "usages_jouet",
 ];
 
 export default function EtiquettesArticle({
@@ -94,6 +97,7 @@ export default function EtiquettesArticle({
     ages: depart("ages"),
     besoins: depart("besoins"),
     tailles_chien: depart("tailles_chien"),
+    gouts: depart("gouts"),
     proteines: depart("proteines"),
     couleurs: depart("couleurs"),
     matieres: depart("matieres"),
@@ -153,6 +157,16 @@ export default function EtiquettesArticle({
       {LISTES.filter((g) => montres.includes(g)).map((groupe) => (
         <div key={groupe}>
           <span style={sTitre}>{GROUPES[groupe].libelle}</span>
+          {/*
+            « Contient » porte une phrase d'aide : sans elle, on croit qu'on y
+            met la saveur, et c'est exactement la confusion que le lot APP 25
+            sépare.
+          */}
+          {GROUPES[groupe].aide && (
+            <span style={{ display: "block", fontSize: 12, color: "rgba(27,43,94,0.55)", marginTop: 2 }}>
+              {GROUPES[groupe].aide}
+            </span>
+          )}
           <div style={sLigne}>
             {groupe === "couleurs"
               ? listes.couleurs.map((c) => (
