@@ -209,3 +209,41 @@ describe("ce qui rend le défilement possible sur téléphone", () => {
     expect(src).not.toMatch(/animaux\s*\)\s*\.\s*length\s*>\s*0/);
   });
 });
+
+describe("D.5 : les textes de la boutique et l'animal", () => {
+  const src = (c: string) => readFileSync(join(__dirname, "..", c), "utf8");
+
+  it("le sous-titre n'annonce plus « Croquettes » seules", () => {
+    // La boutique sert six animaux : « Croquettes » ne dit plus ce qu'elle vend.
+    const page = src("app/(public)/catalogue/page.tsx");
+    expect(page).toContain("Alimentation, accessoires et pièces faites sur mesure");
+    expect(page).not.toContain('sousTitre="Croquettes');
+  });
+
+  it("le sous-titre ne NOMME aucun animal : les onglets s'en chargent", () => {
+    /**
+     * Un sous-titre qui annoncerait « et petits animaux » le ferait aussi le jour
+     * où il n'y en a aucun — la règle de Sabrina veut qu'on ne promette rien de
+     * vide. Les onglets, eux, savent lesquels ont des articles.
+     */
+    const page = src("app/(public)/catalogue/page.tsx");
+    const soustitre = page.match(/sousTitre="([^"]*)"/)?.[1] ?? "";
+    for (const animal of ["chats", "rongeurs", "furets", "reptiles", "oiseaux"]) {
+      expect(soustitre.toLowerCase(), animal).not.toContain(animal);
+    }
+  });
+
+  it("« au départ de votre chien » RESTE, et c'est le mode de remise", async () => {
+    /**
+     * Ce n'est PAS une supposition sur l'animal de l'article : c'est la façon de
+     * retirer sa commande — en venant chercher son chien à la pension. Le texte
+     * est exact quel que soit l'article : une cliente qui a un chien en séjour et
+     * un lapin à la maison retire bien la litière du lapin au départ du chien.
+     *
+     * Le remplacer par « votre animal » aurait rendu la phrase FAUSSE : la
+     * pension ne garde que des chiens, et aucun lapin n'a de date de départ.
+     */
+    const { libelleModeRemise } = await import("@/src/lib/venteEnLigneLogique");
+    expect(libelleModeRemise("depart_chien")).toBe("Remise au départ de votre chien");
+  });
+});

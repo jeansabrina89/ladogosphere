@@ -148,7 +148,19 @@ export default async function BoutiqueClientPage() {
       <div className="max-w-5xl mx-auto">
         <EnTete
           titre="🛍️ Boutique"
-          sousTitre="Croquettes, accessoires et sur-mesure. Retrait à la pension, au départ de votre chien, ou par la poste."
+          /*
+           * APP 27 : « Croquettes » ne dit plus ce que la boutique vend — elle
+           * sert six animaux. Le sous-titre reste NEUTRE plutôt que de les
+           * nommer : les onglets le font déjà, et eux savent lesquels ont des
+           * articles. Un sous-titre qui annoncerait « et petits animaux » le
+           * ferait aussi le jour où il n'y en a aucun.
+           *
+           * « au départ de votre chien » RESTE, et c'est juste : c'est le mode
+           * de remise — on retire sa commande en venant chercher son chien à la
+           * pension. Une cliente qui a un chien en séjour et un lapin à la
+           * maison retire bien la litière du lapin au départ du chien.
+           */
+          sousTitre="Alimentation, accessoires et pièces faites sur mesure. Retrait à la pension, au départ de votre chien, ou par la poste."
         />
 
         {/* Connecté : le panier du navigateur rejoint le compte, et on le dit. */}
