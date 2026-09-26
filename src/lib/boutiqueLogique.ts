@@ -444,6 +444,28 @@ export function joursOuNull(brut: unknown): number | null {
   return Math.round(n);
 }
 
+/**
+ * Un article coché « sur commande » mais qu'AUCUN délai ne rend commandable.
+ *
+ * C'est le piège d'APP 26 : la case seule ne suffit pas, et sans ce signal,
+ * Sabrina croirait l'article commandable. Il resterait « Épuisé » pour la
+ * cliente, en silence, jusqu'à ce que quelqu'un s'étonne que personne ne
+ * l'achète.
+ *
+ * On ne calcule PAS ici le délai annoncé — cette règle a une seule définition,
+ * en base (`delai_commande_effectif`). On répond à une autre question, qui est
+ * binaire : en existe-t-il un ?
+ */
+export function surCommandeSansDelai(
+  article: { disponible_sur_commande?: boolean | null; delai_commande_max_jours?: number | null },
+  delaiMaxFournisseur: number | null | undefined
+): boolean {
+  if (article.disponible_sur_commande !== true) return false;
+  const propre = article.delai_commande_max_jours;
+  return (propre === null || propre === undefined)
+    && (delaiMaxFournisseur === null || delaiMaxFournisseur === undefined);
+}
+
 // ── Photo de l'article ──────────────────────────────────────────────────────
 
 /**

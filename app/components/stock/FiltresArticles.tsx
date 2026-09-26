@@ -55,10 +55,14 @@ export default function FiltresArticles({
   const [statut, setStatut] = useState(params.get("statut") ?? "");
   const [sansPoids, setSansPoids] = useState(params.get("sanspoids") === "1");
   const [sansEtiquettes, setSansEtiquettes] = useState(params.get("sansetiquettes") === "1");
+  /* APP 26 : les articles qui se commandent en rupture. Sabrina les cherche
+     pour deux raisons opposées — vérifier ce qu'elle a coché, et retrouver
+     ceux qu'elle a cochés SANS délai, qui ne se commandent donc pas. */
+  const [surCommande, setSurCommande] = useState(params.get("surcommande") === "1");
 
   function appliquer(sur?: {
     seuil?: boolean; inactifs?: boolean; statut?: string;
-    sansPoids?: boolean; sansEtiquettes?: boolean;
+    sansPoids?: boolean; sansEtiquettes?: boolean; surCommande?: boolean;
   }) {
     const p = new URLSearchParams();
     if (q.trim()) p.set("q", q.trim());
@@ -68,6 +72,7 @@ export default function FiltresArticles({
     if (sur?.inactifs ?? inactifs) p.set("inactifs", "1");
     if (filtrePoids && (sur?.sansPoids ?? sansPoids)) p.set("sanspoids", "1");
     if (filtrePoids && (sur?.sansEtiquettes ?? sansEtiquettes)) p.set("sansetiquettes", "1");
+    if (filtrePoids && (sur?.surCommande ?? surCommande)) p.set("surcommande", "1");
     const s = sur?.statut ?? statut;
     if (s) p.set("statut", s);
     const qs = p.toString();
@@ -145,6 +150,18 @@ export default function FiltresArticles({
           </button>
         )}
         {filtrePoids && (
+          /* « Sur commande » : ce qui s'achète même à stock zéro. La liste
+             signale à part ceux qui sont cochés sans délai connu — ils ne se
+             commandent pas, et rien d'autre ne le dirait. */
+          <button
+            type="button"
+            style={sBascule(surCommande)}
+            onClick={() => { setSurCommande(!surCommande); appliquer({ surCommande: !surCommande }); }}
+          >
+            📥 Sur commande
+          </button>
+        )}
+        {filtrePoids && (
           /* « Sans étiquettes » : ceux qu'aucun filtre du catalogue ne
              ramènera tant que personne ne les aura complétés. */
           <button
@@ -168,7 +185,7 @@ export default function FiltresArticles({
           style={{ ...sChamp, cursor: "pointer" }}
           onClick={() => {
             setQ(""); setCategorie(""); setFournisseur(""); setSeuil(false); setInactifs(false); setStatut("");
-            setSansPoids(false); setSansEtiquettes(false);
+            setSansPoids(false); setSansEtiquettes(false); setSurCommande(false);
             router.push(pathname);
           }}
         >

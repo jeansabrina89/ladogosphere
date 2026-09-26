@@ -154,3 +154,48 @@ describe("la lecture et l'écriture, relues dans le code", () => {
     expect(l).toContain('evenement: "commande_au_fournisseur"');
   });
 });
+
+describe("la liste des articles : le filtre et le signal", () => {
+  const src = (c: string) => readFileSync(join(__dirname, "..", c), "utf8");
+
+  it("« coché sans délai » se décide en un seul endroit", async () => {
+    const { surCommandeSansDelai } = await import("@/src/lib/boutiqueLogique");
+    // Pas coché : rien à signaler, quel que soit le délai.
+    expect(surCommandeSansDelai({ disponible_sur_commande: false }, null)).toBe(false);
+    expect(surCommandeSansDelai({}, null)).toBe(false);
+    // Coché, aucun délai d'aucune source : c'est le cas à signaler.
+    expect(surCommandeSansDelai({ disponible_sur_commande: true }, null)).toBe(true);
+    expect(surCommandeSansDelai({ disponible_sur_commande: true }, undefined)).toBe(true);
+    // Le délai du fournisseur suffit.
+    expect(surCommandeSansDelai({ disponible_sur_commande: true }, 8)).toBe(false);
+    // Celui de l'article aussi, même sans fournisseur.
+    expect(surCommandeSansDelai(
+      { disponible_sur_commande: true, delai_commande_max_jours: 12 }, null)).toBe(false);
+    // Zéro est un délai : « livré le jour même ». Pas une absence.
+    expect(surCommandeSansDelai({ disponible_sur_commande: true }, 0)).toBe(false);
+  });
+
+  it("le filtre voyage dans l'adresse, et la remise à zéro l'efface", () => {
+    const f = src("app/components/stock/FiltresArticles.tsx");
+    expect(f).toContain(`p.set("surcommande", "1")`);
+    expect(f).toContain("📥 Sur commande");
+    // Sans cette ligne, « Tout » laisserait un filtre actif dans l'état local
+    // pendant que l'adresse, elle, serait propre.
+    expect(f).toContain("setSurCommande(false)");
+  });
+
+  it("la page filtre vraiment, et demande le délai du fournisseur", () => {
+    const p = src("app/(admin)/boutique/articles/page.tsx");
+    expect(p).toContain(`const seulementSurCommande = params.surcommande === "1";`);
+    expect(p).toContain("if (seulementSurCommande && a.disponible_sur_commande !== true) return false;");
+    // Sans le délai, le signal ne pourrait pas distinguer les deux cas.
+    expect(p).toContain("delai_commande_max_jours");
+  });
+
+  it("la ligne distingue « sur commande » de « coché en vain »", () => {
+    const c = src("app/components/stock/CatalogueStock.tsx");
+    expect(c).toContain("surCommandeSansDelai");
+    expect(c).toMatch(/Sur commande, mais sans délai/);
+    expect(c).toMatch(/reste « Épuisé »/);
+  });
+});

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Article } from "@/src/lib/boutique";
-import {
+import { surCommandeSansDelai,
   libelleCategorieArticle,
   formatQuantite,
   valeurStock,
@@ -133,7 +133,12 @@ export default function CatalogueStock({
   articles: Article[];
   /** Tout le périmètre, pour les tuiles de tête. */
   tous: Article[];
-  fournisseurs: { id: string; nom: string }[];
+  fournisseurs: {
+    id: string;
+    nom: string;
+    /* APP 26 : son délai, pour savoir si un article coché est commandable. */
+    delai_commande_max_jours?: number | null;
+  }[];
   /** Le prix d'achat et la valeur du stock ne s'affichent qu'en gestion. */
   gestion: boolean;
   /** Les boutons de l'en-tête, décidés par la page. */
@@ -142,6 +147,12 @@ export default function CatalogueStock({
   const config = configPerimetre(perimetre);
 
   const nomFournisseur = new Map(fournisseurs.map((f) => [f.id, f.nom]));
+  /* Le délai du fournisseur, pour dire si un article coché « sur commande »
+     l'est VRAIMENT. Sans ce signal, un article coché sans délai resterait
+     « Épuisé » pour la cliente sans que rien ne le dise. */
+  const delaiFournisseur = new Map(
+    fournisseurs.map((f) => [f.id, f.delai_commande_max_jours ?? null])
+  );
 
   const actifs = tous.filter((a) => a.actif);
   const nbSousSeuil = actifs.filter(sousLeSeuil).length;
@@ -251,6 +262,21 @@ export default function CatalogueStock({
                             {a.fournisseur_id ? (nomFournisseur.get(a.fournisseur_id) ?? "") : ""}
                             {!a.actif && config.mentionRetire}
                           </span>
+                          {a.disponible_sur_commande === true && (
+                            surCommandeSansDelai(a, a.fournisseur_id ? delaiFournisseur.get(a.fournisseur_id) : null)
+                              ? (
+                                <span style={{
+                                  display: "block", fontSize: 12, fontWeight: 700, color: "#6E5410",
+                                }}>
+                                  ⚠️ Sur commande, mais sans délai : reste « Épuisé »
+                                </span>
+                              )
+                              : (
+                                <span style={{ display: "block", fontSize: 12, color: "#1F6E5B" }}>
+                                  📥 Sur commande
+                                </span>
+                              )
+                          )}
                           {mentionPublicationProgrammee(a) && (
                             <span style={{ display: "block", fontSize: 12, color: "#6E5410" }}>
                               {mentionPublicationProgrammee(a)}

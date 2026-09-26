@@ -21,7 +21,7 @@ export default async function ArticlesPage({
 }: {
   searchParams: Promise<{
     q?: string; categorie?: string; fournisseur?: string; seuil?: string; inactifs?: string;
-    statut?: string; sanspoids?: string; sansetiquettes?: string;
+    statut?: string; sanspoids?: string; sansetiquettes?: string; surcommande?: string;
   }>;
 }) {
   const acces = await exigerAccesAdmin("perm_boutique_vente");
@@ -41,13 +41,21 @@ export default async function ArticlesPage({
   const seulementSansPoids = params.sanspoids === "1";
   // « Sans étiquettes » : ceux qu'aucun filtre du catalogue ne ramènera.
   const seulementSansEtiquettes = params.sansetiquettes === "1";
+  // « Sur commande » : ce qui s'achète même à stock zéro (APP 26).
+  const seulementSurCommande = params.surcommande === "1";
 
   // Sans la gestion, ni prix d'achat ni fournisseur ne quittent la base :
   // le filtrage est dans le SELECT, pas à l'affichage.
   const [tousBruts, { data: fournisseurs }] = await Promise.all([
     listerArticlesSelonNiveau(gestion ? "gestion" : "vente", { perimetre: "boutique" }),
     gestion
-      ? supabaseAdmin.from("fournisseurs").select("id, nom").eq("actif", true).order("nom")
+      // Les délais viennent avec : c'est eux qui disent si un article coché
+      // est réellement commandable, et la liste doit le signaler.
+      ? supabaseAdmin
+          .from("fournisseurs")
+          .select("id, nom, delai_commande_max_jours")
+          .eq("actif", true)
+          .order("nom")
       : Promise.resolve({ data: [] as { id: string; nom: string }[] }),
   ]);
   const tous = tousBruts as Article[];
@@ -60,6 +68,7 @@ export default async function ArticlesPage({
     if (statut && statutVitrine(a.statut_vitrine) !== statut) return false;
     if (seulementSansPoids && !manquePoids(a)) return false;
     if (seulementSansEtiquettes && !sansEtiquettes(a)) return false;
+    if (seulementSurCommande && a.disponible_sur_commande !== true) return false;
     if (!recherche) return true;
     const cible = `${a.nom} ${a.reference} ${a.marque ?? ""} ${a.code_barres ?? ""}`.toLowerCase();
     return cible.includes(recherche);
