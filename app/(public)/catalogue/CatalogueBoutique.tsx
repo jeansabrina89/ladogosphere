@@ -14,7 +14,11 @@ import {
   type Filtres,
 } from "@/src/lib/filtresCatalogueLogique";
 import FiltresCatalogue from "./FiltresCatalogue";
-import { disponibilite, disponibiliteVitrine } from "@/src/lib/venteEnLigneLogique";
+import {
+  disponibilite,
+  disponibiliteVitrine,
+  phraseDelaiCommande,
+} from "@/src/lib/venteEnLigneLogique";
 import { ajouterAuPanier } from "./actions";
 import { ajouter as ajouterLocalement } from "./panierNavigateur";
 
@@ -43,6 +47,11 @@ export type ArticleVitrine = {
   stock_disponible?: number | null;
   /** La disponibilité en deux mots, pour un visiteur sans compte. */
   en_stock?: boolean;
+  /* APP 26 : ce qui s'achète même à stock zéro, et sous quel délai. La vue
+     a déjà tranché : `sur_commande` vaut coché ET délai connu. */
+  sur_commande?: boolean | null;
+  delai_commande_min_jours?: number | null;
+  delai_commande_max_jours?: number | null;
   /**
    * Ce qu'il paie vraiment, calculé au serveur par la fonction unique. Le prix
    * BARRÉ est `prix_vente`, le prix de base réel de l'article — jamais un
@@ -166,11 +175,17 @@ export default function CatalogueBoutique({
     const url = urlPhotoArticle(a.photo_path);
     // Connecté : le compte exact. Visiteur : deux mots, pas un chiffre.
     const dispo = connecte
-      ? disponibilite(a.stock_disponible, a.type_article)
-      : disponibiliteVitrine(a.en_stock, a.type_article);
+      ? disponibilite(a.stock_disponible, a.type_article, a)
+      : disponibiliteVitrine(a.en_stock, a.type_article, a);
+    // Le délai ne s'affiche QUE s'il change quelque chose : un article en rayon
+    // part aujourd'hui, et lui coller « livré sous 8 jours » ferait hésiter
+    // pour rien.
+    const delai = dispo.etat === "sur_commande" ? phraseDelaiCommande(a) : null;
     const surMesure = a.type_article === "personnalisable";
     const couleurDispo =
-      dispo.etat === "epuise" ? SOUS : dispo.etat === "dernier" ? "#8A5A1F" : VERT;
+      dispo.etat === "epuise" ? SOUS
+      : dispo.etat === "dernier" || dispo.etat === "sur_commande" ? "#8A5A1F"
+      : VERT;
     // Le prix barré est le prix de base RÉEL, celui pratiqué hors action.
     const remise = !surMesure && a.prix_final < Number(a.prix_vente);
 
@@ -236,6 +251,12 @@ export default function CatalogueBoutique({
         <p style={{ color: couleurDispo, fontSize: 14, fontWeight: 600, margin: 0 }}>
           {dispo.libelle}
         </p>
+
+        {/* La condition posée par Sabrina : le délai se lit AVANT d'acheter,
+            sur la carte, pas au moment de payer. */}
+        {delai && (
+          <p style={{ color: SOUS, fontSize: 13.5, margin: 0 }}>{delai}</p>
+        )}
 
         {surMesure ? (
           <Link

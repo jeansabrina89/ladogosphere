@@ -205,3 +205,41 @@ describe("le vocabulaire de gouts (APP 25-GOÛT)", () => {
     ]);
   });
 });
+
+describe("APP 26 : les deux chemins disent la MÊME chose", () => {
+  const source = (chemin: string) => readFileSync(join(__dirname, "..", chemin), "utf8");
+  const TROIS = ["sur_commande", "delai_commande_min_jours", "delai_commande_max_jours"] as const;
+
+  it("le visiteur les reçoit par la vue", () => {
+    for (const c of TROIS) expect(COLONNES_PUBLIQUES_VITRINE).toContain(c);
+  });
+
+  it("le client connecté les relit dans la MÊME vue, jamais recalculés", () => {
+    // `venteEnLigne` lit la table `articles`, où vivent la case et l'exception
+    // d'article — mais PAS le délai effectif, qui dépend du fournisseur.
+    // Recopier `coalesce(article, fournisseur)` en TypeScript serait s'exposer
+    // au jour où les deux versions divergeraient : le client lirait un délai
+    // sur la fiche, et sa commande en figerait un autre.
+    const src = source("src/lib/venteEnLigne.ts");
+    expect(src).toContain('.from("articles_vitrine")');
+    expect(src, "le délai effectif ne se recalcule pas ici")
+      .not.toMatch(/delai_commande_\w+\s*\?\?\s*\w+\.delai_commande/);
+  });
+
+  it("la page du catalogue transmet les trois, aux deux publics", () => {
+    // Sans cette recopie, la même page dirait « Épuisé » au client connecté et
+    // « Sur commande » au visiteur, pour le même article.
+    const page = source("app/(public)/catalogue/page.tsx");
+    for (const c of TROIS) expect(page).toContain(`${c}:`);
+  });
+
+  it("la fiche et le panier lisent le délai par la fonction unique", () => {
+    for (const f of [
+      "app/(public)/catalogue/CatalogueBoutique.tsx",
+      "app/(public)/catalogue/[id]/page.tsx",
+      "app/(public)/catalogue/PanierVisiteur.tsx",
+    ]) {
+      expect(source(f), `${f} doit annoncer le délai`).toContain("phraseDelaiCommande");
+    }
+  });
+});

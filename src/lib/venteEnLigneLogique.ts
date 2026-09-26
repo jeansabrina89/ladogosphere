@@ -22,6 +22,48 @@ const nb = (v: unknown): number | null => {
 
 // ── Disponibilité affichée ─────────────────────────────────────────────────
 
+
+// ── APP 26 : ce qui s'achète même à stock zéro ──────────────────────────────
+
+/**
+ * Les trois colonnes que la vitrine publie pour un article commandable.
+ *
+ * `sur_commande` vient de la vue, et vaut déjà vrai ET délai connu : la base
+ * tranche, l'écran n'a pas à refaire le raisonnement.
+ */
+export type ArticleSurCommande = {
+  sur_commande?: boolean | null;
+  delai_commande_min_jours?: number | null;
+  delai_commande_max_jours?: number | null;
+};
+
+/**
+ * Le délai annoncé au client, en une phrase, ou null si l'on n'en promet aucun.
+ *
+ * C'est LA condition posée par Sabrina : le client connaît l'attente AVANT de
+ * payer. Sans délai connu, pas de phrase — et sans phrase, l'article n'est pas
+ * commandable (`disponibilite` le laisse « Épuisé »). On ne promet jamais un
+ * délai qu'on ignore.
+ *
+ * « ouvrables » est dit, parce que la différence compte : huit jours ouvrables
+ * commandés un jeudi font deux semaines au calendrier, et une cliente qui
+ * comptait sur mardi serait déçue par une phrase exacte mais trompeuse.
+ */
+export function phraseDelaiCommande(a: ArticleSurCommande | null | undefined): string | null {
+  if (!a) return null;
+  const max = nb(a.delai_commande_max_jours);
+  if (max === null || max < 0) return null;
+  const min = nb(a.delai_commande_min_jours);
+  const jours = (n: number) => `${n} jour${n === 1 ? "" : "s"} ouvrable${n === 1 ? "" : "s"}`;
+  if (min === null || min >= max) return `Livré sous ${jours(max)}`;
+  return `Livré sous ${min} à ${jours(max)}`;
+}
+
+/** Cet article s'achète-t-il alors qu'il n'est pas en rayon ? */
+export function commandableSurCommande(a: ArticleSurCommande | null | undefined): boolean {
+  return a?.sur_commande === true && phraseDelaiCommande(a) !== null;
+}
+
 /**
  * Ce que le client a le droit de savoir.
  *
@@ -32,17 +74,26 @@ const nb = (v: unknown): number | null => {
 export type Disponibilite =
   | { etat: "en_stock"; libelle: string }
   | { etat: "dernier"; libelle: string }
+  /** Pas en rayon, mais commandable chez le fournisseur (APP 26). */
+  | { etat: "sur_commande"; libelle: string }
   | { etat: "epuise"; libelle: string };
 
 export function disponibilite(
   stockDisponible: number | string | null | undefined,
-  typeArticle?: string | null
+  typeArticle?: string | null,
+  surCommande?: ArticleSurCommande | null
 ): Disponibilite {
   // Un article personnalisable se fabrique : il n'a pas de stock à épuiser.
   if (typeArticle === "personnalisable") {
     return { etat: "en_stock", libelle: "Sur commande" };
   }
   const n = Math.max(Math.floor(nb(stockDisponible) ?? 0), 0);
+  // Rien en rayon, mais le fournisseur le livre sous un délai CONNU : la
+  // pastille reste en deux mots, et c'est la phrase de délai qui dit combien
+  // de temps. Le chiffre n'a rien à faire dans une pastille qu'on lit de loin.
+  if (n <= 0 && commandableSurCommande(surCommande)) {
+    return { etat: "sur_commande", libelle: "Sur commande" };
+  }
   if (n <= 0) return { etat: "epuise", libelle: "Épuisé" };
   if (n <= 3) return { etat: "dernier", libelle: n === 1 ? "Dernier exemplaire" : `Plus que ${n}` };
   return { etat: "en_stock", libelle: "En stock" };
@@ -50,9 +101,10 @@ export function disponibilite(
 
 export function estCommandable(
   stockDisponible: number | string | null | undefined,
-  typeArticle?: string | null
+  typeArticle?: string | null,
+  surCommande?: ArticleSurCommande | null
 ): boolean {
-  return disponibilite(stockDisponible, typeArticle).etat !== "epuise";
+  return disponibilite(stockDisponible, typeArticle, surCommande).etat !== "epuise";
 }
 
 // ── Le panier ──────────────────────────────────────────────────────────────
@@ -693,14 +745,19 @@ export function formatAdresse(a: Partial<Adresse> | null | undefined): string {
  */
 export function disponibiliteVitrine(
   enStock: boolean | null | undefined,
-  typeArticle?: string | null
+  typeArticle?: string | null,
+  surCommande?: ArticleSurCommande | null
 ): Disponibilite {
   if (typeArticle === "personnalisable") {
     return { etat: "en_stock", libelle: "Sur commande" };
   }
-  return enStock === true
-    ? { etat: "en_stock", libelle: "En stock" }
-    : { etat: "epuise", libelle: "Épuisé" };
+  if (enStock === true) return { etat: "en_stock", libelle: "En stock" };
+  // Pas en rayon, mais commandable : la pastille reste en MOTS, comme les
+  // autres — le délai se lit dans la phrase qui l'accompagne, pas ici.
+  if (commandableSurCommande(surCommande)) {
+    return { etat: "sur_commande", libelle: "Sur commande" };
+  }
+  return { etat: "epuise", libelle: "Épuisé" };
 }
 
 /**

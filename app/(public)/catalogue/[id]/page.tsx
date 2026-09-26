@@ -3,7 +3,13 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { articleEnLigne, nombreArticlesPanier } from "@/src/lib/venteEnLigne";
 import { lireCatalogueOptions } from "@/src/lib/personnalisation";
 import { urlPhotoArticle, libelleCategorieArticle } from "@/src/lib/boutiqueLogique";
-import { disponibilite, disponibiliteVitrine, mentionRemiseMembre } from "@/src/lib/venteEnLigneLogique";
+import {
+  disponibilite,
+  disponibiliteVitrine,
+  mentionRemiseMembre,
+  phraseDelaiCommande,
+  type ArticleSurCommande,
+} from "@/src/lib/venteEnLigneLogique";
 import { articleVitrine } from "@/src/lib/vitrine";
 import { lireParametresEnLigne } from "@/src/lib/venteEnLigne";
 import FusionPanier from "../FusionPanier";
@@ -67,9 +73,14 @@ export default async function ArticlePage({
     clientId ? nombreArticlesPanier(clientId) : Promise.resolve(0),
   ]);
 
+  const surCommande = article as ArticleSurCommande;
   const dispo = clientId
-    ? disponibilite((article as { stock_disponible: number }).stock_disponible, article.type_article)
-    : disponibiliteVitrine((article as { en_stock: boolean }).en_stock, article.type_article);
+    ? disponibilite((article as { stock_disponible: number }).stock_disponible, article.type_article, surCommande)
+    : disponibiliteVitrine((article as { en_stock: boolean }).en_stock, article.type_article, surCommande);
+  // Le délai ne se dit que si l'article n'est pas en rayon : c'est la
+  // condition posée par Sabrina — le client connaît l'attente AVANT de payer,
+  // sur la fiche, et non au moment de valider son panier.
+  const delaiCommande = dispo.etat === "sur_commande" ? phraseDelaiCommande(surCommande) : null;
   const url = urlPhotoArticle(article.photo_path);
   const params2 = await lireParametresEnLigne();
 
@@ -194,10 +205,17 @@ export default async function ArticlePage({
                   </p>
                 )}
                 <p style={{
-                  color: dispo.etat === "epuise" ? SOUS : dispo.etat === "dernier" ? "#8A5A1F" : "#1F6E5B",
+                  color: dispo.etat === "epuise" ? SOUS
+                    : dispo.etat === "dernier" || dispo.etat === "sur_commande" ? "#8A5A1F"
+                    : "#1F6E5B",
                   fontSize: 16, fontWeight: 600, margin: 0,
                 }}>
                   {dispo.libelle}
+                  {delaiCommande && (
+                    <span style={{ display: "block", color: SOUS, fontSize: 14, fontWeight: 500 }}>
+                      {delaiCommande}
+                    </span>
+                  )}
                 </p>
                 {article.expediable === false && (
                   <p style={{ color: SOUS, fontSize: 14, margin: 0 }}>

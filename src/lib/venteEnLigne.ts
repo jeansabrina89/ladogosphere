@@ -147,6 +147,10 @@ export type ArticleEnLigne = {
   couleurs: string[];
   matieres: string[];
   usages_jouet: string[];
+  /* APP 26 : relus dans la VUE, jamais recalculés ici (voir delaisSurCommande). */
+  sur_commande?: boolean | null;
+  delai_commande_min_jours?: number | null;
+  delai_commande_max_jours?: number | null;
 };
 
 const COLONNES_ARTICLE = `
@@ -156,6 +160,38 @@ const COLONNES_ARTICLE = `
   ages, besoins, tailles_chien, proteines, sans_cereales, monoproteine,
   taille_article, couleurs, matieres, usages_jouet
 `;
+
+/**
+ * Le « sur commande » et son délai, relus dans la vue pour les articles donnés.
+ *
+ * Pourquoi une requête de plus plutôt qu'un calcul ici : le délai effectif
+ * (celui de l'article, sinon celui de son fournisseur) a UNE seule définition,
+ * et elle est en base — `delai_commande_effectif`. La recopier en TypeScript
+ * serait s'exposer au jour où les deux divergeraient : le client verrait un
+ * délai sur la fiche, et sa commande en figerait un autre. La migration
+ * d'APP 26 le dit noir sur blanc ; on s'y tient.
+ *
+ * Même vue, mêmes filtres, donc mêmes articles : ce qui n'y est pas n'est pas
+ * commandable, et repart simplement sans les trois colonnes.
+ */
+async function delaisSurCommande(
+  ids: readonly string[]
+): Promise<Map<string, Pick<ArticleEnLigne, "sur_commande" | "delai_commande_min_jours" | "delai_commande_max_jours">>> {
+  const carte = new Map<string, Pick<ArticleEnLigne, "sur_commande" | "delai_commande_min_jours" | "delai_commande_max_jours">>();
+  if (ids.length === 0) return carte;
+  const { data } = await supabaseAdmin
+    .from("articles_vitrine")
+    .select("id, sur_commande, delai_commande_min_jours, delai_commande_max_jours")
+    .in("id", ids as string[]);
+  for (const l of (data ?? []) as unknown as Record<string, unknown>[]) {
+    carte.set(String(l.id), {
+      sur_commande: l.sur_commande === true,
+      delai_commande_min_jours: l.delai_commande_min_jours as number | null,
+      delai_commande_max_jours: l.delai_commande_max_jours as number | null,
+    });
+  }
+  return carte;
+}
 
 function avecDisponible(a: Record<string, unknown>): ArticleEnLigne {
   const dispo = Number(a.stock_actuel ?? 0) - Number(a.stock_reserve ?? 0);
@@ -185,7 +221,9 @@ export async function catalogueEnLigne(): Promise<ArticleEnLigne[]> {
     .eq("statut_vitrine", "publie")
     .or(FILTRE_PUBLICATION())
     .order("nom");
-  return ((data ?? []) as unknown as Record<string, unknown>[]).map(avecDisponible);
+  const articles = ((data ?? []) as unknown as Record<string, unknown>[]).map(avecDisponible);
+  const delais = await delaisSurCommande(articles.map((a) => a.id));
+  return articles.map((a) => ({ ...a, ...(delais.get(a.id) ?? {}) }));
 }
 
 export async function articleEnLigne(id: string): Promise<ArticleEnLigne | null> {
@@ -200,7 +238,9 @@ export async function articleEnLigne(id: string): Promise<ArticleEnLigne | null>
     .eq("statut_vitrine", "publie")
     .or(FILTRE_PUBLICATION())
     .maybeSingle();
-  return data ? avecDisponible(data as unknown as Record<string, unknown>) : null;
+  if (!data) return null;
+  const article = avecDisponible(data as unknown as Record<string, unknown>);
+  return { ...article, ...((await delaisSurCommande([article.id])).get(article.id) ?? {}) };
 }
 
 // ── Le panier ──────────────────────────────────────────────────────────────

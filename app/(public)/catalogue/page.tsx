@@ -91,6 +91,15 @@ export default async function BoutiqueClientPage() {
       sans_cereales: a.sans_cereales,
       monoproteine: a.monoproteine,
       taille_article: a.taille_article,
+      // APP 26 : ce qui s'achète même à stock zéro, et sous quel délai. Les
+      // deux chemins — visiteur par la vue, client par `delaisSurCommande` —
+      // donnent les mêmes trois champs, sans quoi la même page dirait
+      // « Épuisé » à l'un et « Sur commande » à l'autre.
+      sur_commande: (a as { sur_commande?: boolean | null }).sur_commande ?? false,
+      delai_commande_min_jours:
+        (a as { delai_commande_min_jours?: number | null }).delai_commande_min_jours ?? null,
+      delai_commande_max_jours:
+        (a as { delai_commande_max_jours?: number | null }).delai_commande_max_jours ?? null,
       // L'un ou l'autre, jamais les deux : le chiffre n'est calculé que pour
       // qui y a droit.
       ...(clientId

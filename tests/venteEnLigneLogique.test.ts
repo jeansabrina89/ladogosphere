@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   disponibilite,
   estCommandable,
+  phraseDelaiCommande,
+  commandableSurCommande,
+  disponibiliteVitrine,
   sousTotal,
   nombreArticles,
   sousTotalBase,
@@ -380,5 +383,89 @@ describe("adresse de livraison", () => {
     expect(formatAdresse({ nom: "Sabrina Jean", rue: "Rue du Test 1", npa: "1950", localite: "Sion" }))
       .toBe("Sabrina Jean\nRue du Test 1\n1950 Sion");
     expect(formatAdresse(null)).toBe("—");
+  });
+});
+
+describe("APP 26 : ce qui s'achète alors qu'il n'est pas en rayon", () => {
+  const commandable = { sur_commande: true, delai_commande_min_jours: 5, delai_commande_max_jours: 8 };
+
+  describe("la phrase de délai", () => {
+    it("dit les deux bornes quand elles diffèrent", () => {
+      expect(phraseDelaiCommande(commandable)).toBe("Livré sous 5 à 8 jours ouvrables");
+    });
+
+    it("n'en dit qu'une quand elles se valent", () => {
+      expect(phraseDelaiCommande({ delai_commande_min_jours: 8, delai_commande_max_jours: 8 }))
+        .toBe("Livré sous 8 jours ouvrables");
+      expect(phraseDelaiCommande({ delai_commande_max_jours: 8 }))
+        .toBe("Livré sous 8 jours ouvrables");
+    });
+
+    it("accorde le singulier", () => {
+      expect(phraseDelaiCommande({ delai_commande_max_jours: 1 })).toBe("Livré sous 1 jour ouvrable");
+    });
+
+    it("dit « ouvrables », parce que la différence compte", () => {
+      // Huit jours ouvrables commandés un jeudi font deux semaines au
+      // calendrier. Une phrase exacte mais tue serait trompeuse.
+      expect(phraseDelaiCommande(commandable)).toContain("ouvrables");
+    });
+
+    it("ne promet RIEN sans délai connu", () => {
+      expect(phraseDelaiCommande({ sur_commande: true })).toBeNull();
+      expect(phraseDelaiCommande({ delai_commande_min_jours: 5 })).toBeNull();
+      expect(phraseDelaiCommande(null)).toBeNull();
+      expect(phraseDelaiCommande(undefined)).toBeNull();
+    });
+  });
+
+  describe("coché sans délai = pas commandable", () => {
+    it("la case seule ne suffit pas", () => {
+      // La règle nº 2 du lot. On ne promet pas un délai qu'on ignore : la
+      // cliente lirait « Sur commande » sans savoir si c'est trois jours ou
+      // trois mois, et déciderait à l'aveugle.
+      expect(commandableSurCommande({ sur_commande: true })).toBe(false);
+      expect(disponibiliteVitrine(false, "standard", { sur_commande: true }).etat).toBe("epuise");
+      expect(disponibilite(0, "standard", { sur_commande: true }).etat).toBe("epuise");
+    });
+
+    it("le délai seul ne suffit pas non plus", () => {
+      const pasCoche = { sur_commande: false, delai_commande_max_jours: 8 };
+      expect(commandableSurCommande(pasCoche)).toBe(false);
+      expect(disponibiliteVitrine(false, "standard", pasCoche).etat).toBe("epuise");
+    });
+
+    it("les deux ensemble, et seulement les deux", () => {
+      expect(commandableSurCommande(commandable)).toBe(true);
+      expect(disponibiliteVitrine(false, "standard", commandable))
+        .toEqual({ etat: "sur_commande", libelle: "Sur commande" });
+      expect(disponibilite(0, "standard", commandable))
+        .toEqual({ etat: "sur_commande", libelle: "Sur commande" });
+    });
+  });
+
+  describe("ce que cela change ailleurs", () => {
+    it("l'article se met au panier au lieu d'être refusé", () => {
+      expect(estCommandable(0, "standard")).toBe(false);
+      expect(estCommandable(0, "standard", commandable)).toBe(true);
+    });
+
+    it("le stock en rayon passe AVANT : on ne fait pas attendre pour rien", () => {
+      expect(disponibilite(4, "standard", commandable).libelle).toBe("En stock");
+      expect(disponibilite(1, "standard", commandable).libelle).toBe("Dernier exemplaire");
+      expect(disponibiliteVitrine(true, "standard", commandable).libelle).toBe("En stock");
+    });
+
+    it("la pastille du visiteur reste en MOTS, délai compris", () => {
+      // Le nombre de sacs en stock ne sort pas de la base pour un visiteur
+      // anonyme : cette règle vaut toujours, et le délai ne l'enfreint pas —
+      // il vit dans la phrase, pas dans la pastille.
+      expect(disponibiliteVitrine(false, "standard", commandable).libelle).not.toMatch(/\d/);
+    });
+
+    it("un article sur mesure garde son libellé d'avant", () => {
+      expect(disponibiliteVitrine(false, "personnalisable", commandable).libelle).toBe("Sur commande");
+      expect(disponibiliteVitrine(false, "personnalisable", commandable).etat).toBe("en_stock");
+    });
   });
 });

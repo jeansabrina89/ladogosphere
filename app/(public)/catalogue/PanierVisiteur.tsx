@@ -7,6 +7,7 @@ import { urlPhotoArticle } from "@/src/lib/boutiqueLogique";
 import { brutAuServeur, changerQuantite, ecouter, lireBrut, retirer } from "./panierNavigateur";
 import { lirePanierLocal } from "@/src/lib/panierLocalLogique";
 import { libellesConfiguration } from "@/src/lib/personnalisationLogique";
+import { phraseDelaiCommande } from "@/src/lib/venteEnLigneLogique";
 import OptionsChoisies from "@/app/components/OptionsChoisies";
 
 /**
@@ -32,6 +33,10 @@ export type ArticlePanier = {
   photo_path: string | null;
   type_article: string;
   en_stock: boolean;
+  /* APP 26 : la vue a déjà tranché — sur_commande vaut coché ET délai connu. */
+  sur_commande?: boolean | null;
+  delai_commande_min_jours?: number | null;
+  delai_commande_max_jours?: number | null;
 };
 
 const chf = (n: number) => `${n.toFixed(2)} CHF`;
@@ -121,8 +126,17 @@ export default function PanierVisiteur({ articles }: { articles: ArticlePanier[]
                 {surMesure && <OptionsChoisies options={libellesConfiguration(apercu)} />}
                 <span style={{ display: "block", color: SOUS, fontSize: 14 }}>
                   {chf(Number(a.prix_vente))}
-                  {!a.en_stock && a.type_article !== "personnalisable" && " · épuisé pour l'instant"}
+                  {!a.en_stock && a.type_article !== "personnalisable" && !phraseDelaiCommande(a)
+                    && " · épuisé pour l'instant"}
                 </span>
+                {/* Sur commande : on ne dit pas « épuisé », on dit QUAND. Le
+                    délai se relit ICI, au moment de valider, et pas seulement
+                    sur la fiche parcourue dix minutes plus tôt. */}
+                {!a.en_stock && a.type_article !== "personnalisable" && phraseDelaiCommande(a) && (
+                  <span style={{ display: "block", color: "#8A5A1F", fontSize: 14, fontWeight: 600 }}>
+                    {phraseDelaiCommande(a)}
+                  </span>
+                )}
               </span>
 
               {surMesure ? (
