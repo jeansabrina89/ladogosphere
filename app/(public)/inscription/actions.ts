@@ -10,6 +10,7 @@ import {
   type IdentiteInscription,
 } from "@/src/lib/inscriptionClient";
 import { refusRattachementFiche } from "@/src/lib/ficheDeRecette";
+import { compteAuthParEmail } from "@/src/lib/compteAuth";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 
 export type ResultatFicheClient = { ok: true; client_id: string } | { ok: false; error: string };
@@ -210,4 +211,72 @@ export async function creerOuLierFicheClient(input: {
   }
 
   return { ok: true, client_id: clientId };
+}
+
+/**
+ * L'inscription sur une adresse qui a DÉJÀ un compte (C-05, APP 28).
+ *
+ * ── CE QU'ELLE REND, ET POURQUOI C'EST TOUJOURS LA MÊME CHOSE ─────────────
+ *
+ * Rien. Littéralement : `void`. Pas de booléen, pas de code, pas de durée
+ * mesurable qui distingue les cas — et c'est le point. Une action qui rendrait
+ * « oui, ce compte existe » remettrait dans la réponse ce que le lot en retire.
+ *
+ * L'appelant ne peut donc RIEN en apprendre, et n'a rien à en faire : il affiche
+ * le message neutre dans tous les cas, avant même de savoir si l'envoi a eu lieu.
+ *
+ * ── CE QU'ELLE FAIT ───────────────────────────────────────────────────────
+ *
+ * Elle regarde, avec la clé de service, si un compte porte cette adresse. Si oui,
+ * un e-mail part À CETTE ADRESSE — donc à la personne qui relève la boîte, et à
+ * elle seule. Si non, rien.
+ *
+ * Aucun second compte n'est créé, et ce n'est pas cette fonction qui l'empêche :
+ * Supabase refuse déjà un second compte sur la même adresse (contrainte d'unicité
+ * côté Auth). Ce que cette fonction ajoute, c'est que la personne l'apprenne par
+ * un canal qui lui appartient, au lieu de l'apprendre à l'écran — où n'importe
+ * qui aurait pu le lire.
+ *
+ * ── CE QU'ELLE NE PEUT PAS FAIRE ──────────────────────────────────────────
+ *
+ * Elle ne referme pas l'énumération au niveau de l'API Supabase elle-même :
+ * `/auth/v1/signup` est joignable directement avec la clé publique du site, et
+ * sa réponse dépend du réglage « Confirm email » du projet. Notre écran ne dit
+ * plus rien ; l'API de Supabase, elle, n'est pas de notre ressort. C'est écrit
+ * dans le suivi, et c'est un des deux réglages à vérifier côté Supabase.
+ */
+export async function signalerInscriptionSiCompteExiste(email: string): Promise<void> {
+  const cible = normaliserEmail(email);
+  if (!cible) return;
+
+  try {
+    /*
+     * `compteAuthParEmail`, et JAMAIS `listUsers` — le dépôt l'interdit, et un
+     * test relit tous les fichiers pour s'en assurer.
+     *
+     * La raison est mesurable : `listUsers` ne rend que sa première page, soit
+     * cinquante comptes. Il y en a exactement cinquante en base aujourd'hui.
+     * Un compte au-delà n'aurait pas été trouvé, aucun e-mail ne serait parti,
+     * et rien ne l'aurait dit — la titulaire de l'adresse n'aurait jamais su
+     * qu'on s'était inscrit sous son nom.
+     *
+     * `ok` est vérifié, et c'est la seconde moitié de la règle : sur une panne
+     * de l'API, la recherche rend `ok: false` et non « rien trouvé ». Confondre
+     * les deux ferait taire l'e-mail au moment où il compte le plus.
+     */
+    const recherche = await compteAuthParEmail(cible);
+    if (!recherche.ok || !recherche.id) return;
+
+    const { envoyerEmailCompteExisteDeja } = await import("@/src/lib/email");
+    await envoyerEmailCompteExisteDeja({ email: cible });
+  } catch {
+    /*
+     * Silence volontaire, et c'est une décision de sécurité, pas de la paresse.
+     *
+     * Une exception qui remonterait ici ferait échouer la requête — donc
+     * répondrait autrement que pour une adresse inconnue. L'écran redeviendrait
+     * bavard, non par ses mots mais par son comportement. Le journal de l'envoi
+     * est tenu par `envoyerEmailCompteExisteDeja`, qui ne lève pas non plus.
+     */
+  }
 }

@@ -229,6 +229,21 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
     intro: "Voici votre facture <strong>{numero}</strong> du {date}, d'un montant de <strong>CHF {montant}</strong>, payable jusqu'au <strong>{echeance}</strong>.",
     message_final: "Le PDF est joint à ce message ; il est aussi disponible dans votre espace client. Merci de votre confiance ! 🐾",
   },
+  /*
+   * APP 28 (C-05) : quelqu'un s'est inscrit avec une adresse qui a déjà un compte.
+   *
+   * L'écran d'inscription, lui, ne dit RIEN — il affiche le même message dans
+   * tous les cas. C'est cet e-mail qui porte l'information, et il ne peut aller
+   * qu'à une personne : celle qui relève cette boîte. Si c'est un tiers qui a
+   * tenté l'inscription, le titulaire apprend qu'on a essayé sous son adresse,
+   * ce qui est utile ; le tiers, lui, n'apprend rien.
+   */
+  compte_existe_deja: {
+    sujet: "Vous avez déjà un compte — La Dogosphère",
+    titre: "Bonjour,",
+    intro: "Vous avez déjà un compte chez La Dogosphère. Si vous avez oublié votre mot de passe, utilisez « Mot de passe oublié » sur la page de connexion.",
+    message_final: "Si ce n'est pas vous qui venez de tenter une inscription, vous pouvez ignorer ce message : aucun second compte n'a été créé. 🐾",
+  },
   commande_prete: {
     sujet: "Votre commande sur mesure est prête",
     titre: "Bonjour {prenom} ! 🎉",
@@ -275,6 +290,10 @@ export const MODELES_META: { type: string; label: string; variables: string[] }[
   { type: "facture_emise", label: "Facture émise", variables: ["prenom", "numero", "date", "echeance", "montant"] },
   { type: "rappel_cotisation", label: "Rappel adhésion", variables: ["prenom", "nom", "date_fin", "montant"] },
   { type: "commande_prete", label: "Commande sur mesure prête", variables: ["prenom", "numero", "article", "recapitulatif"] },
+  /* Aucune variable : cet e-mail ne dit rien de la personne, pas même son
+     prénom. Le connaître supposerait de lire la fiche, et l'écrire le
+     confirmerait à qui aurait détourné la boîte. */
+  { type: "compte_existe_deja", label: "Inscription sur un compte existant", variables: [] },
   { ...META_RETOUR_EN_STOCK, variables: [...META_RETOUR_EN_STOCK.variables] },
   { type: "relance_paiement", label: "Relance paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
   { type: "rappel_paiement_1", label: "1er rappel paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
@@ -1546,4 +1565,38 @@ export async function envoyerEmailRetourEnStock(p: {
       </table>
     `),
   });
+}
+
+/**
+ * « Vous avez déjà un compte » — l'e-mail de C-05 (APP 28).
+ *
+ * Il part quand une inscription est tentée sur une adresse qui a déjà un compte.
+ * L'ÉCRAN, lui, affiche exactement le même message que pour une adresse inconnue :
+ * c'est tout l'objet du lot. L'information ne circule que par la boîte, donc
+ * seulement vers la personne qui la relève.
+ *
+ * Aucune variable, pas même le prénom : l'écrire supposerait de lire la fiche, et
+ * le confirmerait à quiconque aurait mis la main sur la boîte.
+ *
+ * Il ne lève JAMAIS. Un envoi qui échoue ne doit pas faire échouer la requête —
+ * sinon l'inscription répondrait différemment selon que l'adresse est connue ou
+ * non, et l'écran redeviendrait bavard par sa lenteur ou son erreur.
+ */
+export async function envoyerEmailCompteExisteDeja(p: { email: string }): Promise<void> {
+  try {
+    const m = await modeleEmail("compte_existe_deja", {});
+    await envoyerEmail({
+      destinataire: p.email,
+      type: "compte_existe_deja",
+      sujet: m.sujet,
+      html: await emailTemplate(`
+        <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
+        <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
+        <p style="color:#6B7280; margin:0;">${m.message_final}</p>
+      `),
+    });
+  } catch (err) {
+    Sentry.captureException(err);
+    console.error("envoyerEmailCompteExisteDeja:", err);
+  }
 }

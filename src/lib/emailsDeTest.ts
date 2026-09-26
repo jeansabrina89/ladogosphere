@@ -68,6 +68,10 @@ export const TYPES_EMAIL_TEST: readonly TypeEmailTest[] = [
   { cle: "commande_prete", libelle: "Commande prête", fonction: "envoyerEmailCommandePrete", typeJournal: "commande_prete" },
   { cle: "commande_expediee", libelle: "Commande expédiée", fonction: "envoyerEmailCommandeExpediee", typeJournal: "commande_expediee" },
   { cle: "retour_en_stock", libelle: "Retour en stock", fonction: "envoyerEmailRetourEnStock", typeJournal: "retour_en_stock" },
+  /* APP 28 (C-05) : parti quand une inscription est tentee sur une adresse qui a
+     deja un compte. L'ecran, lui, ne dit rien -- c'est cet e-mail qui porte
+     l'information, donc seulement vers la personne qui releve la boite. */
+  { cle: "compte_existe_deja", libelle: "Inscription sur un compte existant", fonction: "envoyerEmailCompteExisteDeja", typeJournal: "compte_existe_deja" },
 ];
 
 export function typeEmailTest(cle: string): TypeEmailTest | null {

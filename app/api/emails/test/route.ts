@@ -132,6 +132,7 @@ const ENVOIS: FonctionsEnvoi = {
   envoyerEmailCommandePrete: email.envoyerEmailCommandePrete,
   envoyerEmailCommandeConfirmee: email.envoyerEmailCommandeConfirmee,
   envoyerEmailCommandeExpediee: email.envoyerEmailCommandeExpediee,
+  envoyerEmailCompteExisteDeja: email.envoyerEmailCompteExisteDeja,
   envoyerEmailRetourEnStock: email.envoyerEmailRetourEnStock,
 };
 

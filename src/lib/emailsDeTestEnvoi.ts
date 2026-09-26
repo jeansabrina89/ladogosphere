@@ -68,6 +68,8 @@ export type FonctionsEnvoi = {
   envoyerEmailFactureEmise: (p: { email: string; prenom: string; numero: string; date: string; echeance: string; montant: number; pdf?: Buffer | null }) => Promise<unknown>;
   envoyerEmailTicketBoutique: (p: { email: string; prenom: string; numero: string; date: string; montant: number; pdf: Buffer }) => Promise<unknown>;
   envoyerEmailCommandePrete: (p: { email: string; prenom: string; numero: string; article: string; recapitulatif: string[] }) => Promise<unknown>;
+  /* APP 28 (C-05) : rien que l'adresse. Cet e-mail ne dit rien de la personne. */
+  envoyerEmailCompteExisteDeja: (p: { email: string }) => Promise<unknown>;
   envoyerEmailCommandeConfirmee: (
     commandeId: string,
     options?: { destinataire?: string | null; facture?: { numero: string; pdf: Buffer | null } | null },
@@ -277,6 +279,18 @@ function etapes(c: ContexteEnvoiTest, e: FonctionsEnvoi): Etape[] {
       executer: async () => {
         if (!c.commandeId) return MESSAGE_SANS_COMMANDE;
         await e.envoyerEmailCommandeExpediee(c.commandeId, c.destinataire);
+        return null;
+      },
+    },
+    {
+      /*
+       * APP 28 (C-05). Aucune donnée à préparer : cet e-mail ne dit rien de la
+       * personne, pas même son prénom — le connaître supposerait de lire sa
+       * fiche, et l'écrire le confirmerait à qui aurait détourné la boîte.
+       */
+      cle: "compte_existe_deja",
+      executer: async () => {
+        await e.envoyerEmailCompteExisteDeja({ email: c.destinataire });
         return null;
       },
     },
