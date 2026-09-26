@@ -28,15 +28,35 @@ import {
  */
 
 const MIGRATIONS = join(__dirname, "..", "supabase", "migrations");
+
+/* La migration d'APP 24 elle-même : son existence, ses commentaires et ses
+ * index sont éprouvés en tant que tels. Le VOCABULAIRE, lui, se cherche dans la
+ * migration la plus récente qui le pose — voir vocabulaireDeLaMigration. */
 const FICHIER = "20260926100404_app24_etiquettes_articles.sql";
 const sql = () => readFileSync(join(MIGRATIONS, FICHIER), "utf8");
 
-/** Les valeurs d'un `check (colonne <@ array[...]::text[])`. */
+/**
+ * Les valeurs d'un `check (colonne <@ array[...]::text[])`, prises dans la
+ * migration LA PLUS RÉCENTE qui pose cette contrainte.
+ *
+ * Le nom du fichier était figé ici jusqu'à APP 27, et c'était le piège qu'APP 25
+ * avait déjà rencontré sur la vue : le test comparait le module à une définition
+ * périmée. Il a rougi quand « chaton » est entré — donc il a fait son travail —
+ * mais il aurait pu tout aussi bien rester vert en comparant deux choses fausses
+ * l'une comme l'autre. On cherche donc la définition qui FAIT FOI, celle que la
+ * base porte réellement.
+ */
 function vocabulaireDeLaMigration(colonne: string): string[] {
-  const bloc = new RegExp(
-    `check\\s*\\(\\s*${colonne}\\s*<@\\s*array\\[([\\s\\S]*?)\\]::text\\[\\]\\s*\\)`,
+  const motif = new RegExp(
+    `check\\s*\\(\\s*${colonne}\\s*<@\\s*array\\[([\\s\\S]*?)\\]::text\\[\\]`,
     "i"
-  ).exec(sql());
+  );
+  const trouve = readdirSync(MIGRATIONS)
+    .filter((x) => x.endsWith(".sql")).sort()
+    .map((x) => readFileSync(join(MIGRATIONS, x), "utf8"))
+    .filter((texte) => motif.test(texte))
+    .at(-1);
+  const bloc = trouve ? motif.exec(trouve) : null;
   if (!bloc) return [];
   return [...bloc[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
 }
@@ -161,8 +181,36 @@ describe("ce que la catégorie demande", () => {
   });
 
   it("le reste ne demande que la taille du chien — y compris sans catégorie", () => {
-    for (const categorie of ["litiere", "soins", "medaillons_accessoires", "divers", "", null, undefined]) {
+    // APP 27 a sorti « litiere » et « soins » du défaut : voir plus bas.
+    for (const categorie of ["medaillons_accessoires", "divers", "", null, undefined]) {
       expect(champsDeCategorie(categorie)).toEqual(["tailles_chien"]);
+    }
+  });
+
+  it("APP 27 : une litière ne se choisit QUE par l'animal", () => {
+    // Elle recevait « Taille du chien » par le défaut, ce qui ne servait
+    // personne : on ne choisit pas une litière à la taille du chien.
+    expect(champsDeCategorie("litiere")).toEqual([]);
+  });
+
+  it("APP 27 : « Type de soin » n'apparaît QUE dans le rayon des soins", () => {
+    expect(champsDeCategorie("soins")).toEqual(["types_soin", "ages"]);
+    const ailleurs = ["alimentation_seche", "alimentation_complete", "colliers",
+                      "jouets", "griffoirs", "cages_enclos", "litiere", "divers"];
+    for (const categorie of ailleurs) {
+      expect(champsDeCategorie(categorie), categorie).not.toContain("types_soin");
+    }
+  });
+
+  it("APP 27 : les trois rayons neufs demandent ce qu'il faut", () => {
+    // L'alimentation complète est un aliment : mêmes étiquettes. Le croisement
+    // avec l'animal retirera la taille du chien pour un foin de lapin.
+    expect(champsDeCategorie("alimentation_complete"))
+      .toEqual(champsDeCategorie("alimentation_seche"));
+    // Un griffoir, une cage : un objet. Pas d'usage de jouet — on ne lance
+    // pas une cage — et pas de taille de chien.
+    for (const categorie of ["griffoirs", "cages_enclos"]) {
+      expect(champsDeCategorie(categorie)).toEqual(["taille_article", "couleurs", "matieres"]);
     }
   });
 });

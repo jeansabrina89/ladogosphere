@@ -41,17 +41,34 @@ function afficher(article?: Record<string, unknown>) {
     <FormArticle
       fournisseurs={[BOZITA, SANS_DELAI]}
       tauxLegaux={[{ categorie: "alimentation_seche", taux: 2.6 }]}
-      article={article as never}
+      /*
+       * `animaux` est posé d'office : depuis APP 27, une fiche sans animal
+       * porte SA propre alerte, et la migration a mis les 125 articles
+       * existants à {chien}. Un article de test sans animal serait donc un
+       * article qui n'existe pas.
+       */
+      article={(article ? { animaux: ["chien"], ...article } : undefined) as never}
     />
   );
 }
+
+/**
+ * L'avertissement du DÉLAI, et lui seul.
+ *
+ * La fiche porte maintenant deux alertes possibles — celle de l'animal manquant
+ * (APP 27) et celle du délai (APP 26). Un test qui demande « la » alerte
+ * passerait pour la mauvaise raison, ou échouerait sans rien dire d'utile. On
+ * vise donc par le texte.
+ */
+const alerteDelai = () =>
+  screen.queryAllByRole("alert").find((n) => /aucun délai connu/i.test(n.textContent ?? "")) ?? null;
 
 const caseSurCommande = () => screen.getByLabelText(/Disponible sur commande/);
 
 describe("la case « Disponible sur commande »", () => {
   it("ne montre ni délai ni avertissement tant qu'elle n'est pas cochée", () => {
     afficher();
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(alerteDelai()).toBeNull();
     expect(screen.queryByLabelText(/Exception — au plus tard/)).toBeNull();
   });
 
@@ -59,16 +76,17 @@ describe("la case « Disponible sur commande »", () => {
     // Le cas qui coûte cher. Sans ce bandeau, la case paraît suffire.
     afficher();
     fireEvent.click(caseSurCommande());
-    const alerte = screen.getByRole("alert");
-    expect(alerte.textContent).toMatch(/aucun délai connu/i);
-    expect(alerte.textContent, "elle doit savoir ce que la cliente verra")
+    const alerte = alerteDelai();
+    expect(alerte, "l'avertissement du délai doit être là").toBeTruthy();
+    expect(alerte?.textContent).toMatch(/aucun délai connu/i);
+    expect(alerte?.textContent, "elle doit savoir ce que la cliente verra")
       .toMatch(/Épuisé/);
   });
 
   it("le délai du fournisseur fait taire l'avertissement, et s'annonce", () => {
     afficher({ fournisseur_id: "f-1" });
     fireEvent.click(caseSurCommande());
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(alerteDelai()).toBeNull();
     expect(screen.getByText(/Délai du fournisseur : 5 à 8 jours ouvrables/)).toBeTruthy();
   });
 
@@ -76,7 +94,7 @@ describe("la case « Disponible sur commande »", () => {
     afficher({ fournisseur_id: "f-2" });
     fireEvent.click(caseSurCommande());
     expect(screen.getByText(/n'a pas de délai de commande sur sa fiche/)).toBeTruthy();
-    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(alerteDelai()).toBeTruthy();
   });
 
   it("changer de fournisseur remet l'avertissement à jour sur-le-champ", () => {
@@ -85,13 +103,13 @@ describe("la case « Disponible sur commande »", () => {
     // le nouveau fournisseur n'a pas de délai.
     afficher({ fournisseur_id: "f-1" });
     fireEvent.click(caseSurCommande());
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(alerteDelai()).toBeNull();
 
     fireEvent.change(screen.getByLabelText("Fournisseur"), { target: { value: "f-2" } });
-    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(alerteDelai()).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText("Fournisseur"), { target: { value: "f-1" } });
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(alerteDelai()).toBeNull();
   });
 
   it("une exception saisie sur l'article suffit, même sans fournisseur", () => {
@@ -99,17 +117,17 @@ describe("la case « Disponible sur commande »", () => {
     // se saisit ici, et il compte.
     afficher();
     fireEvent.click(caseSurCommande());
-    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(alerteDelai()).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText(/Exception — au plus tard/), { target: { value: "12" } });
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(alerteDelai()).toBeNull();
   });
 
   it("une exception effacée fait revenir l'avertissement", () => {
     afficher({ disponible_sur_commande: true, delai_commande_max_jours: 12 });
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(alerteDelai()).toBeNull();
     fireEvent.change(screen.getByLabelText(/Exception — au plus tard/), { target: { value: "" } });
-    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(alerteDelai()).toBeTruthy();
   });
 
   it("une fiche déjà cochée s'ouvre sur sa section, sans qu'on la rouvre", () => {

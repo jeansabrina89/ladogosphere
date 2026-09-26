@@ -1,3 +1,5 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import {
   MENTION_SANS_EFFET_RETROACTIF,
@@ -32,8 +34,33 @@ describe("le régime en vigueur", () => {
     expect(POURCENTAGE_PAR_DEFAUT).toBe(10);
   });
 
-  it("couvre les seize catégories du magasin", () => {
-    expect(CATEGORIES_ARTICLE).toHaveLength(16);
+  it("couvre les dix-neuf catégories du magasin", () => {
+    expect(CATEGORIES_ARTICLE).toHaveLength(19);
+  });
+
+  it("APP 27 : aucun rayon n'est oublié par la remise, écran ET prix", () => {
+    /**
+     * Le défaut trouvé par le compte de ce test, et qui valait mieux qu'un
+     * chiffre à changer : les deux côtés ne traitaient pas de la même façon un
+     * rayon SANS ligne en base.
+     *
+     * L'écran de gestion propose 10 % pour un rayon sans ligne ; le calcul du
+     * prix, lui, ne lit que les lignes existantes et rend zéro. Sabrina aurait
+     * lu « 10 % » sur les cages, et une membre aurait payé le plein tarif — sans
+     * le savoir, donc sans se plaindre.
+     *
+     * Les trois lignes manquantes sont posées par la migration
+     * app27_remise_membre_rayons_neufs. Ce test garde la règle : une catégorie
+     * du magasin a sa ligne, ou la remise lui échappe en silence.
+     */
+    const sql = readdirSync(join(__dirname, "..", "supabase", "migrations"))
+      .filter((f) => f.endsWith(".sql")).sort()
+      .map((f) => readFileSync(join(__dirname, "..", "supabase", "migrations", f), "utf8"))
+      .filter((t) => /insert into public.remise_membre_categories/i.test(t))
+      .join(String.fromCharCode(10));
+    for (const c of ["alimentation_complete", "griffoirs", "cages_enclos"]) {
+      expect(sql, `${c} doit avoir sa ligne de remise`).toContain(c);
+    }
   });
 });
 
@@ -122,7 +149,7 @@ describe("ce qui ne bouge pas", () => {
 describe("le résumé de l’écran", () => {
   it("dit un taux unique quand il n’y en a qu’un", () => {
     const lignes = CATEGORIES_ARTICLE.map((c) => ligne({ categorie: c.valeur }));
-    expect(resumeRemises(lignes)).toBe("Remise membre : 10 % sur 16 catégories.");
+    expect(resumeRemises(lignes)).toBe("Remise membre : 10 % sur 19 catégories.");
   });
 
   it("dit la fourchette quand les taux diffèrent, et compte les exclues", () => {

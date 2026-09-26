@@ -76,6 +76,19 @@ export function etiquetteLigneTva(taux: number): string {
 export const CATEGORIES_TAUX_REDUIT = [
   "alimentation_seche",
   "alimentation_humide",
+  /*
+   * APP 27 : granulés, graines et foin des NAC. Un ALIMENT, donc 2,6 %.
+   *
+   * Cette liste avait été oubliée en ajoutant le rayon, et le sac de foin
+   * serait parti à 8,1 %. Personne ne s'en serait plaint : la cliente ne
+   * vérifie pas le taux, et le trop-perçu se serait vu au décompte TVA, des
+   * mois plus tard, avec un rattrapage à faire à la main.
+   *
+   * Un test compare désormais cette liste à `CATEGORIES_ARTICLE`, qui porte le
+   * même taux de son côté. Deux listes qui disent la même chose finissent par
+   * ne plus la dire.
+   */
+  "alimentation_complete",
   "friandises",
   "mastication",
   "litiere",

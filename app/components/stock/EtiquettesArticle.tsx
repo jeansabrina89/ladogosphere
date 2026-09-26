@@ -8,7 +8,8 @@ import {
   MARQUEUR_ETIQUETTES,
   TAILLES_ARTICLE,
   champVersValeurs,
-  champsDeCategorie,
+  champsDeCategorieEtAnimaux,
+  valeursPourAnimaux,
   libelleValeur,
   normaliserCouleur,
   valeursVersChamp,
@@ -53,6 +54,9 @@ const sTitre: CSSProperties = {
 };
 
 export type EtiquettesSaisies = {
+  animaux?: string[] | null;
+  especes?: string[] | null;
+  types_soin?: string[] | null;
   ages?: string[] | null;
   besoins?: string[] | null;
   tailles_chien?: string[] | null;
@@ -66,10 +70,22 @@ export type EtiquettesSaisies = {
   taille_article?: string | null;
 };
 
+/*
+ * Les groupes du corps de la section, dans l'ordre d'affichage.
+ *
+ * « animaux » n'y est PAS : il se montre à part, en tête, parce que c'est lui
+ * qui commande ce que les autres montrent. Le mettre dans la liste l'aurait
+ * noyé au milieu de ce qui dépend de lui.
+ *
+ * « especes » suit l'animal de près — c'est son rang inférieur. « types_soin »
+ * se place avec les autres filtres de rayon.
+ */
 const LISTES: GroupeEtiquette[] = [
+  "especes",
   // "gouts" avant "proteines" : on dit d abord ce que l emballage annonce,
   // puis tout ce que la recette contient (APP 25-GOUT).
-  "ages", "besoins", "tailles_chien", "gouts", "proteines", "couleurs", "matieres", "usages_jouet",
+  "ages", "besoins", "tailles_chien", "gouts", "proteines", "types_soin",
+  "couleurs", "matieres", "usages_jouet",
 ];
 
 export default function EtiquettesArticle({
@@ -94,6 +110,15 @@ export default function EtiquettesArticle({
   };
 
   const [listes, setListes] = useState<Record<GroupeEtiquette, string[]>>({
+    /*
+     * À la CRÉATION, « Chiens » est coché : c'est le cas de neuf articles sur
+     * dix, et la base l'impose de toute façon (au moins un animal). Sur une
+     * fiche existante, on reprend ce qui y est — jamais un défaut qui écraserait
+     * un choix fait il y a six mois.
+     */
+    animaux: article || valeurs ? depart("animaux") : ["chien"],
+    especes: depart("especes"),
+    types_soin: depart("types_soin"),
     ages: depart("ages"),
     besoins: depart("besoins"),
     tailles_chien: depart("tailles_chien"),
@@ -135,7 +160,19 @@ export default function EtiquettesArticle({
     setCouleurSaisie("");
   }
 
-  const montres = champsDeCategorie(categorie);
+  /*
+   * Le croisement des DEUX règles : ce que la catégorie appelle, et ce que
+   * l'animal coché autorise. Les deux sont nécessaires — un aliment appelle
+   * « Taille du chien », mais un foin de lapin ne doit pas la montrer.
+   *
+   * Recalculé à chaque rendu, donc à chaque clic sur un animal : cocher
+   * « Rongeurs » fait apparaître « Espèce » sur-le-champ, et décocher
+   * « Chiens » retire « Taille du chien ». Sabrina voit ce qui s'appliquera,
+   * au lieu de le découvrir après enregistrement.
+   */
+  const montres = champsDeCategorieEtAnimaux(categorie, listes.animaux);
+  /* Aucun animal coché : la base refusera. On le dit ICI, pas après. */
+  const sansAnimal = listes.animaux.length === 0;
 
   return (
     <div style={{ display: "grid", gap: 14, borderTop: BORDURE, paddingTop: 16 }}>
@@ -152,6 +189,43 @@ export default function EtiquettesArticle({
           pour la catégorie choisie sont proposées — les autres sont gardées
           telles quelles, jamais effacées.
         </p>
+      </div>
+
+      {/*
+        * L'ANIMAL, EN TÊTE ET OBLIGATOIRE (APP 27).
+        *
+        * Il se place avant tout le reste parce qu'il commande tout le reste :
+        * ce sont ses cases qui font apparaître « Espèce », et disparaître
+        * « Taille du chien ». Un article sans animal n'apparaîtrait dans aucun
+        * onglet du catalogue — ni « Épuisé », ni « masqué » : introuvable.
+        */}
+      <div>
+        <span style={sTitre}>{GROUPES.animaux.libelle}</span>
+        <span style={{ display: "block", fontSize: 12, color: "rgba(27,43,94,0.55)", marginTop: 2 }}>
+          {GROUPES.animaux.aide}
+        </span>
+        <div style={sLigne}>
+          {GROUPES.animaux.valeurs.map((v) => (
+            <button
+              key={v.valeur}
+              type="button"
+              aria-pressed={listes.animaux.includes(v.valeur)}
+              onClick={() => basculer("animaux", v.valeur)}
+              style={sPastille(listes.animaux.includes(v.valeur))}
+            >
+              {v.libelle}
+            </button>
+          ))}
+        </div>
+        <input type="hidden" name="animaux" value={listes.animaux.join(",")} />
+        {sansAnimal && (
+          <p role="alert" style={{
+            fontSize: 13.5, fontWeight: 600, color: "#8A1F1F", margin: "8px 0 0",
+          }}>
+            Choisissez au moins un animal : sans cela, l&apos;article n&apos;apparaîtra
+            dans aucun onglet de la boutique.
+          </p>
+        )}
       </div>
 
       {LISTES.filter((g) => montres.includes(g)).map((groupe) => (
@@ -180,7 +254,7 @@ export default function EtiquettesArticle({
                     {libelleValeur("couleurs", c)} ✕
                   </button>
                 ))
-              : GROUPES[groupe].valeurs.map((v) => {
+              : valeursPourAnimaux(groupe, listes.animaux).map((v) => {
                   const actif = listes[groupe].includes(v.valeur);
                   return (
                     <button

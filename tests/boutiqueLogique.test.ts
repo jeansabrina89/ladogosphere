@@ -36,9 +36,17 @@ describe("taux de TVA proposé par la catégorie", () => {
     expect(TAUX_REDUIT).toBe(2.6);
   });
 
+  it("2,6 % aussi pour l'alimentation complète : le foin est un aliment", () => {
+    // Granulés, graines, foin des NAC (APP 27). Les classer à 8,1 % aurait fait
+    // payer trop de TVA à chaque sac, et le rattrapage se fait à la main.
+    expect(tauxPropose("alimentation_complete")).toBe(2.6);
+  });
+
   it("8,1 % pour tout le reste", () => {
     for (const c of ["colliers", "laisses", "harnais", "muselieres", "longes", "jouets",
-                     "peluches", "couchages", "soins", "medaillons_accessoires", "divers"]) {
+                     "peluches", "couchages", "soins", "medaillons_accessoires", "divers",
+                     // APP 27 : des objets, pas des aliments.
+                     "griffoirs", "cages_enclos"]) {
       expect(tauxPropose(c)).toBe(8.1);
     }
     expect(TAUX_NORMAL).toBe(8.1);
@@ -49,8 +57,15 @@ describe("taux de TVA proposé par la catégorie", () => {
     expect(tauxPropose(null)).toBe(8.1);
   });
 
-  it("les seize catégories du modèle sont là, en français accentué", () => {
-    expect(CATEGORIES_ARTICLE).toHaveLength(16);
+  it("les dix-neuf catégories du modèle sont là, en français accentué", () => {
+    expect(CATEGORIES_ARTICLE).toHaveLength(19);
+    // APP 27 : les trois rayons neufs, et les trois libellés élargis.
+    expect(libelleCategorieArticle("alimentation_complete")).toBe("Alimentation complète");
+    expect(libelleCategorieArticle("griffoirs")).toBe("Griffoirs");
+    expect(libelleCategorieArticle("cages_enclos")).toBe("Cages et enclos");
+    expect(libelleCategorieArticle("friandises")).toBe("Friandises et snacks");
+    expect(libelleCategorieArticle("couchages")).toBe("Couchages, coussins et paniers");
+    expect(libelleCategorieArticle("soins")).toBe("Soins et hygiène");
     expect(libelleCategorieArticle("litiere")).toBe("Litière");
     expect(libelleCategorieArticle("colliers")).toBe("Colliers");
     expect(libelleCategorieArticle("laisses")).toBe("Laisses");
@@ -64,10 +79,25 @@ describe("taux de TVA proposé par la catégorie", () => {
   });
 
   it("suit l'ordre du magasin, pas l'alphabet", () => {
+    /*
+     * Dix-neuf rayons depuis APP 27. L'ordre est celui du magasin : ce qui se
+     * mange d'abord, puis les consommables, puis l'équipement, puis les soins.
+     * Les trois neufs s'y insèrent par voisinage de sens — l'alimentation
+     * complète avec les aliments, les griffoirs près des jouets, les cages près
+     * des couchages.
+     *
+     * Le MÊME ordre est écrit dans la vue « articles_vitrine », qui en tire
+     * « ordre_categorie » pour le site. Un test dédié compare les deux listes
+     * terme à terme (tests/animauxContraintes.test.ts) : une divergence se
+     * verrait au pire endroit, chez le visiteur.
+     */
     expect(CATEGORIES_ARTICLE.map((c) => c.valeur)).toEqual([
-      "alimentation_seche", "alimentation_humide", "friandises", "mastication", "litiere",
+      "alimentation_seche", "alimentation_humide", "alimentation_complete",
+      "friandises", "mastication", "litiere",
       "colliers", "laisses", "harnais", "muselieres", "longes",
-      "jouets", "peluches", "couchages", "soins", "medaillons_accessoires", "divers",
+      "jouets", "peluches", "griffoirs",
+      "couchages", "cages_enclos",
+      "soins", "medaillons_accessoires", "divers",
     ]);
     // Un rang par catégorie, et le dernier rang pour une valeur inconnue.
     expect(ordreCategorie("alimentation_seche")).toBe(0);

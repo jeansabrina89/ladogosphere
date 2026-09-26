@@ -163,3 +163,93 @@ describe("les rayons : trois neufs, aucun doublon", () => {
     expect(lire(vue)).toEqual(lire(contrainte));
   });
 });
+
+describe("l'ordre des rayons : trois listes qui doivent rester jumelles", () => {
+  it("la contrainte, la vue ET le module TypeScript disent le MÊME ordre", async () => {
+    /**
+     * Trois endroits portent la liste des rayons, et c'est irréductible :
+     *
+     *   - la contrainte `articles_categorie_check`, qui dit ce qui est permis ;
+     *   - le tableau `array_position` de la vue, qui donne `ordre_categorie` au
+     *     site vitrine — une valeur absente y rend NULL ;
+     *   - `CATEGORIES_ARTICLE`, qui porte les libellés et l'ordre des écrans.
+     *
+     * Le commentaire de `boutiqueLogique` le dit depuis APP 13 (« toute valeur
+     * ajoutée ici doit l'être là aussi ») ; rien ne le VÉRIFIAIT. Un rayon
+     * ajouté d'un seul côté se serait vu au pire endroit : le site, où il aurait
+     * atterri en fin de liste ou pas du tout.
+     */
+    const { CATEGORIES_ARTICLE } = await import("@/src/lib/boutiqueLogique");
+    const sql = migrationDe("articles_categorie_check");
+    const lire = (t: string) => (t.match(/'([^']+)'/g) ?? []).map((v) => v.replace(/'/g, ""));
+
+    const contrainte = lire(
+      sql.match(/articles_categorie_check check \(\s*categorie = any \(array\[([\s\S]*?)\]::text\[\]\)/)?.[1] ?? "");
+    const vue = lire(sql.match(/array_position\(\s*array\[([\s\S]*?)\]::text\[\],/)?.[1] ?? "");
+    const cotesTypeScript = CATEGORIES_ARTICLE.map((c) => c.valeur);
+
+    expect(contrainte, "la contrainte doit lister 19 rayons").toHaveLength(19);
+    expect(vue, "vue vs contrainte").toEqual(contrainte);
+    expect(cotesTypeScript, "module vs contrainte — même ordre, pas seulement mêmes valeurs")
+      .toEqual(contrainte);
+  });
+
+  it("les libellés élargis, et le taux de chaque rayon neuf", async () => {
+    const { libelleCategorieArticle, CATEGORIES_ARTICLE, TAUX_REDUIT, TAUX_NORMAL } =
+      await import("@/src/lib/boutiqueLogique");
+
+    expect(libelleCategorieArticle("friandises")).toBe("Friandises et snacks");
+    expect(libelleCategorieArticle("couchages")).toBe("Couchages, coussins et paniers");
+    expect(libelleCategorieArticle("soins")).toBe("Soins et hygiène");
+    expect(libelleCategorieArticle("alimentation_complete")).toBe("Alimentation complète");
+    expect(libelleCategorieArticle("griffoirs")).toBe("Griffoirs");
+    expect(libelleCategorieArticle("cages_enclos")).toBe("Cages et enclos");
+
+    const de = (v: string) => CATEGORIES_ARTICLE.find((c) => c.valeur === v)!;
+    // Le foin et les granulés sont des ALIMENTS : taux réduit, et périssables.
+    expect(de("alimentation_complete").taux).toBe(TAUX_REDUIT);
+    expect(de("alimentation_complete").perissable).toBe(true);
+    // Un griffoir, une cage : des objets. Taux normal, rien ne se périme.
+    for (const v of ["griffoirs", "cages_enclos"]) {
+      expect(de(v).taux, v).toBe(TAUX_NORMAL);
+      expect(de(v).perissable, v).toBe(false);
+    }
+  });
+});
+
+describe("le taux de TVA : deux listes qui doivent rester d'accord", () => {
+  it("CATEGORIES_ARTICLE et CATEGORIES_TAUX_REDUIT disent le même taux", async () => {
+    /**
+     * Deux endroits portent le taux d'un rayon, et APP 27 les a désaccordés :
+     *
+     *   - `CATEGORIES_ARTICLE` (boutiqueLogique), qui donne le taux proposé à la
+     *     création d'un article ;
+     *   - `CATEGORIES_TAUX_REDUIT` (tvaLogique), que `tauxPropose` interroge
+     *     réellement.
+     *
+     * J'ai ajouté « alimentation_complete » à la première et oublié la seconde.
+     * Le sac de foin serait parti à 8,1 % au lieu de 2,6 %. Personne ne s'en
+     * plaint : la cliente ne vérifie pas le taux, et le trop-perçu ne se voit
+     * qu'au décompte TVA, des mois plus tard, avec un rattrapage à la main.
+     *
+     * C'est un test du compte de catégories qui l'a fait apparaître. Celui-ci
+     * vise la cause, pas le symptôme.
+     */
+    const { CATEGORIES_ARTICLE, tauxPropose } = await import("@/src/lib/boutiqueLogique");
+    for (const c of CATEGORIES_ARTICLE) {
+      expect(tauxPropose(c.valeur), `le taux de « ${c.libelle} »`).toBe(c.taux);
+    }
+  });
+
+  it("les aliments sont au taux réduit, les objets au taux normal", async () => {
+    const { tauxPropose, TAUX_REDUIT, TAUX_NORMAL } = await import("@/src/lib/boutiqueLogique");
+    // Ce qui se mange, litière comprise (choix du dépôt, antérieur à APP 27).
+    for (const c of ["alimentation_seche", "alimentation_humide", "alimentation_complete",
+                     "friandises", "mastication", "litiere"]) {
+      expect(tauxPropose(c), c).toBe(TAUX_REDUIT);
+    }
+    for (const c of ["griffoirs", "cages_enclos", "soins", "jouets", "couchages"]) {
+      expect(tauxPropose(c), c).toBe(TAUX_NORMAL);
+    }
+  });
+});

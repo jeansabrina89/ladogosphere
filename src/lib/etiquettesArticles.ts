@@ -18,14 +18,30 @@
 
 /** Les tableaux à vocabulaire fermé, plus les couleurs, libres. */
 export type GroupeEtiquette =
+  | "animaux"
   | "ages"
   | "besoins"
   | "tailles_chien"
   | "gouts"
   | "proteines"
+  | "especes"
+  | "types_soin"
   | "couleurs"
   | "matieres"
   | "usages_jouet";
+
+/**
+ * Les six animaux servis par la boutique (APP 27).
+ *
+ * Au PLURIEL, parce que c'est ainsi qu'on lit un rayon : « Chiens », comme on
+ * dirait « Croquettes ». Le même libellé sert à l'onglet du catalogue et à la
+ * pastille de la fiche — une seule forme, un seul endroit à corriger.
+ */
+export type Animal = "chien" | "chat" | "rongeur" | "furet" | "reptile" | "oiseau";
+
+export const ANIMAUX: readonly Animal[] = [
+  "chien", "chat", "rongeur", "furet", "reptile", "oiseau",
+] as const;
 
 export type Valeur = { valeur: string; libelle: string };
 
@@ -76,13 +92,59 @@ const VALEURS_PROTEINES: Valeur[] = [
  * plus grand : une liste triée par hasard se relit à chaque fois.
  */
 export const GROUPES: Record<GroupeEtiquette, Groupe> = {
+  animaux: {
+    libelle: "Animal",
+    aide: "Pour qui cet article est fait. Au moins un — sinon il n'apparaît nulle part.",
+    valeurs: [
+      { valeur: "chien", libelle: "Chiens" },
+      { valeur: "chat", libelle: "Chats" },
+      { valeur: "rongeur", libelle: "Rongeurs" },
+      { valeur: "furet", libelle: "Furets" },
+      { valeur: "reptile", libelle: "Reptiles" },
+      { valeur: "oiseau", libelle: "Oiseaux" },
+    ],
+  },
   ages: {
     libelle: "Âge",
+    /* Le vocabulaire ENTIER. Quel âge se propose pour quel animal est une
+       règle d'affichage, tenue par AGES_PAR_ANIMAL : un chat n'a pas de
+       « chiot », un lapin n'a ni l'un ni l'autre. */
     valeurs: [
       { valeur: "chiot", libelle: "Chiot" },
+      { valeur: "chaton", libelle: "Chaton" },
       { valeur: "junior", libelle: "Junior" },
       { valeur: "adulte", libelle: "Adulte" },
       { valeur: "senior", libelle: "Senior" },
+    ],
+  },
+  especes: {
+    libelle: "Espèce",
+    aide: "« Rongeurs » est trop large pour choisir un foin : un lapin ne mange pas ce qu'un hamster mange.",
+    valeurs: [
+      { valeur: "cochon_inde", libelle: "Cochon d'Inde" },
+      { valeur: "lapin", libelle: "Lapin" },
+      { valeur: "hamster", libelle: "Hamster" },
+      { valeur: "rat", libelle: "Rat" },
+      { valeur: "souris", libelle: "Souris" },
+      { valeur: "chinchilla", libelle: "Chinchilla" },
+      { valeur: "degu", libelle: "Octodon" },
+      { valeur: "gerbille", libelle: "Gerbille" },
+    ],
+  },
+  types_soin: {
+    libelle: "Type de soin",
+    valeurs: [
+      { valeur: "pattes", libelle: "Pattes" },
+      { valeur: "truffe", libelle: "Truffe" },
+      { valeur: "pelage", libelle: "Pelage" },
+      { valeur: "shampooing", libelle: "Shampooing" },
+      { valeur: "demelant", libelle: "Démêlant" },
+      { valeur: "apres_shampooing", libelle: "Après-shampooing" },
+      { valeur: "antiparasitaire", libelle: "Antiparasitaire" },
+      { valeur: "yeux", libelle: "Yeux" },
+      { valeur: "oreilles", libelle: "Oreilles" },
+      { valeur: "dents", libelle: "Dents" },
+      { valeur: "griffes", libelle: "Griffes" },
     ],
   },
   besoins: {
@@ -182,6 +244,9 @@ export type ChampCase = (typeof CASES)[number]["champ"];
  */
 export type EtiquettesArticle = {
   categorie?: string | null;
+  animaux?: string[] | null;
+  especes?: string[] | null;
+  types_soin?: string[] | null;
   ages?: string[] | null;
   besoins?: string[] | null;
   tailles_chien?: string[] | null;
@@ -195,6 +260,102 @@ export type EtiquettesArticle = {
   taille_article?: string | null;
 };
 
+
+// ── La table unique : quel filtre vaut pour quel animal (APP 27) ───────────
+
+/**
+ * Quels GROUPES d'étiquettes valent pour quel animal.
+ *
+ * C'est la table de Sabrina, écrite une fois. Aucune de ces règles ne doit
+ * apparaître en dur ailleurs : un écran qui déciderait de son côté que
+ * « Espèce » se montre finirait par le montrer aux reptiles, et on ne saurait
+ * plus lequel des deux endroits dit vrai.
+ *
+ * « tous » plutôt que la liste des six : ce qui vaut pour tout le monde doit le
+ * dire, sinon l'ajout d'un septième animal demanderait de relire chaque ligne
+ * pour savoir si l'omission est voulue.
+ */
+const GROUPES_PAR_ANIMAL: Record<GroupeEtiquette, readonly Animal[] | "tous"> = {
+  // L'animal lui-même se choisit toujours : c'est lui qui commande le reste.
+  animaux: "tous",
+  // L'âge vaut pour tous, mais PAS avec les mêmes valeurs — voir AGES_PAR_ANIMAL.
+  ages: "tous",
+  // La taille du CHIEN, et de lui seul. Un lapin n'est pas « grand ».
+  tailles_chien: ["chien"],
+  // « Sensible », « Light », « Actif » : du vocabulaire d'aliment carnivore.
+  besoins: ["chien", "chat"],
+  // Le goût et la composition n'ont de sens que là où l'on choisit une viande.
+  gouts: ["chien", "chat", "furet"],
+  proteines: ["chien", "chat", "furet"],
+  // L'espèce précise l'animal là où il est trop large. Aujourd'hui : rongeurs.
+  especes: ["rongeur"],
+  // Un shampooing, des griffes à couper : tout animal a un corps à soigner.
+  types_soin: "tous",
+  couleurs: "tous",
+  matieres: "tous",
+  usages_jouet: "tous",
+};
+
+/**
+ * Quelles VALEURS d'âge se proposent pour quel animal.
+ *
+ * Le vocabulaire de la base est entier — « chiot » et « chaton » y coexistent.
+ * Ici on dit qui a droit à quoi : proposer « chiot » sous l'onglet Chats ne
+ * serait pas seulement inutile, ce serait une faute que la cliente remarquerait.
+ *
+ * Le chat n'a pas de « junior » : décision de Sabrina, qui range le chaton puis
+ * l'adulte. On ne comble pas le trou de notre propre autorité.
+ */
+const AGES_PAR_ANIMAL: Record<Animal, readonly string[]> = {
+  chien: ["chiot", "junior", "adulte", "senior"],
+  chat: ["chaton", "adulte", "senior"],
+  rongeur: ["junior", "adulte", "senior"],
+  furet: ["junior", "adulte", "senior"],
+  reptile: ["junior", "adulte", "senior"],
+  oiseau: ["junior", "adulte", "senior"],
+};
+
+/** Ce groupe vaut-il pour au moins un de ces animaux ? */
+export function groupeVautPourAnimaux(
+  groupe: GroupeEtiquette,
+  animaux: readonly string[] | null | undefined
+): boolean {
+  const regle = GROUPES_PAR_ANIMAL[groupe];
+  if (regle === "tous") return true;
+  // Aucun animal connu : on ne masque pas par excès de zèle — une fiche dont
+  // l'animal n'est pas encore coché doit rester remplissable.
+  const liste = (animaux ?? []).filter((a): a is Animal => (ANIMAUX as readonly string[]).includes(a));
+  if (liste.length === 0) return true;
+  return liste.some((a) => regle.includes(a));
+}
+
+/**
+ * Les valeurs d'un groupe proposées pour ces animaux.
+ *
+ * Pour un article qui vaut pour plusieurs animaux, c'est l'UNION : un aliment
+ * chien et chat propose chiot, chaton, junior, adulte et senior, et c'est à
+ * Sabrina de cocher ce qui convient. L'intersection aurait effacé le chiot d'un
+ * paquet « chiots et chatons ».
+ *
+ * L'ordre rendu est celui du vocabulaire, jamais celui des animaux : deux
+ * articles se relisent pareil.
+ */
+export function valeursPourAnimaux(
+  groupe: GroupeEtiquette,
+  animaux: readonly string[] | null | undefined
+): Valeur[] {
+  const toutes = GROUPES[groupe].valeurs;
+  if (groupe !== "ages") return toutes;
+
+  const liste = (animaux ?? []).filter((a): a is Animal => (ANIMAUX as readonly string[]).includes(a));
+  // Aucun animal coché : le vocabulaire entier, pour ne rien bloquer.
+  if (liste.length === 0) return toutes;
+
+  const permises = new Set(liste.flatMap((a) => AGES_PAR_ANIMAL[a]));
+  return toutes.filter((v) => permises.has(v.valeur));
+}
+
+
 /**
  * Ce qui a du sens selon la catégorie.
  *
@@ -203,22 +364,49 @@ export type EtiquettesArticle = {
  * effacées pour autant : on masque, on n'efface pas — un article mal classé
  * puis reclassé retrouve ses étiquettes.
  */
+const ALIMENT: (GroupeEtiquette | "taille_article" | ChampCase)[] =
+  ["ages", "besoins", "tailles_chien", "gouts", "proteines", "sans_cereales", "monoproteine"];
+
+const EQUIPEMENT: (GroupeEtiquette | "taille_article" | ChampCase)[] =
+  ["tailles_chien", "taille_article", "couleurs", "matieres"];
+
 const PAR_CATEGORIE: Record<string, (GroupeEtiquette | "taille_article" | ChampCase)[]> = {
-  alimentation_seche: ["ages", "besoins", "tailles_chien", "gouts", "proteines", "sans_cereales", "monoproteine"],
-  alimentation_humide: ["ages", "besoins", "tailles_chien", "gouts", "proteines", "sans_cereales", "monoproteine"],
-  friandises: ["ages", "besoins", "tailles_chien", "gouts", "proteines", "sans_cereales", "monoproteine"],
-  mastication: ["ages", "besoins", "tailles_chien", "gouts", "proteines", "sans_cereales", "monoproteine"],
-  colliers: ["tailles_chien", "taille_article", "couleurs", "matieres"],
-  laisses: ["tailles_chien", "taille_article", "couleurs", "matieres"],
-  harnais: ["tailles_chien", "taille_article", "couleurs", "matieres"],
-  muselieres: ["tailles_chien", "taille_article", "couleurs", "matieres"],
-  longes: ["tailles_chien", "taille_article", "couleurs", "matieres"],
-  couchages: ["tailles_chien", "taille_article", "couleurs", "matieres"],
+  alimentation_seche: ALIMENT,
+  alimentation_humide: ALIMENT,
+  /* APP 27 : granulés, graines, foin des NAC. Mêmes étiquettes que les autres
+     aliments — le croisement avec l'animal retire de lui-même la taille du
+     chien, le besoin et le goût pour un foin de lapin. */
+  alimentation_complete: ALIMENT,
+  friandises: ALIMENT,
+  mastication: ALIMENT,
+  colliers: EQUIPEMENT,
+  laisses: EQUIPEMENT,
+  harnais: EQUIPEMENT,
+  muselieres: EQUIPEMENT,
+  longes: EQUIPEMENT,
+  couchages: EQUIPEMENT,
   jouets: ["tailles_chien", "matieres", "usages_jouet"],
   peluches: ["tailles_chien", "matieres", "usages_jouet"],
+  /* APP 27. Un griffoir, une cage : un objet qui a une taille, une couleur et
+     une matière. Pas d'usage de jouet — on ne lance pas une cage. */
+  griffoirs: ["taille_article", "couleurs", "matieres"],
+  cages_enclos: ["taille_article", "couleurs", "matieres"],
+  /* APP 27 : AUCUNE étiquette hors l'animal. Une litière se choisit par
+     l'animal et rien d'autre — lui coller une taille de chien, comme le faisait
+     le défaut jusqu'ici, ne servait personne. */
+  litiere: [],
+  /* APP 27 : le SEUL rayon où « Type de soin » apparaît. L'âge suit la table
+     des animaux — un shampooing pour chiot n'est pas celui d'un senior. */
+  soins: ["types_soin", "ages"],
 };
 
-/** Tout le reste — litière, soins, médaillons, divers. */
+/**
+ * Tout le reste — médaillons, divers.
+ *
+ * `tailles_chien` y reste : un médaillon se choisit à la taille de l'animal qui
+ * le porte. Le croisement avec l'animal le retire dès que l'article n'est pas
+ * pour chiens.
+ */
 const PAR_DEFAUT: (GroupeEtiquette | "taille_article" | ChampCase)[] = ["tailles_chien"];
 
 export type ChampEtiquette = GroupeEtiquette | "taille_article" | ChampCase;
@@ -226,6 +414,32 @@ export type ChampEtiquette = GroupeEtiquette | "taille_article" | ChampCase;
 /** Les champs d'étiquettes à montrer pour cette catégorie, dans l'ordre. */
 export function champsDeCategorie(categorie: string | null | undefined): ChampEtiquette[] {
   return PAR_CATEGORIE[String(categorie ?? "")] ?? PAR_DEFAUT;
+}
+
+/**
+ * Le CROISEMENT des deux règles : ce que la catégorie appelle, ET ce que
+ * l'animal autorise (APP 27).
+ *
+ * Les deux conditions sont nécessaires, et aucune ne suffit. Un aliment appelle
+ * « Taille du chien », mais un foin de lapin ne doit pas la montrer ; un rayon
+ * de soins appelle « Type de soin » pour tout animal, mais un collier ne la
+ * montre pour aucun.
+ *
+ * `animaux` n'est jamais dans la liste rendue : la section de l'animal se place
+ * EN TÊTE de la fiche, avant tout le reste, parce que c'est elle qui commande ce
+ * que les autres montrent. Elle ne dépend d'aucune catégorie.
+ */
+export function champsDeCategorieEtAnimaux(
+  categorie: string | null | undefined,
+  animaux: readonly string[] | null | undefined
+): ChampEtiquette[] {
+  return champsDeCategorie(categorie).filter((champ) => {
+    // Les cases et la taille de l'article ne dépendent pas de l'animal.
+    if (champ === "taille_article" || champ === "sans_cereales" || champ === "monoproteine") {
+      return true;
+    }
+    return groupeVautPourAnimaux(champ, animaux);
+  });
 }
 
 export function concerne(
@@ -332,6 +546,9 @@ export function champVersValeurs(brut: string | null | undefined): string[] {
 export const MARQUEUR_ETIQUETTES = "etiquettes";
 
 export type ChampsEtiquettes = {
+  animaux: string[];
+  especes: string[];
+  types_soin: string[];
   ages: string[];
   besoins: string[];
   tailles_chien: string[];
@@ -359,6 +576,9 @@ export function etiquettesDepuisChamps(
     nettoyerValeurs(groupe, champVersValeurs(champs[groupe]));
 
   return {
+    animaux: liste("animaux"),
+    especes: liste("especes"),
+    types_soin: liste("types_soin"),
     ages: liste("ages"),
     besoins: liste("besoins"),
     tailles_chien: liste("tailles_chien"),

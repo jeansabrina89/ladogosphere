@@ -17,6 +17,7 @@ import { TAUX_LEGAUX, TAUX_NORMAL, TAUX_REDUIT, refusTauxLegal, tauxParDefautCat
 export type CategorieArticle =
   | "alimentation_seche"
   | "alimentation_humide"
+  | "alimentation_complete"
   | "friandises"
   | "mastication"
   | "litiere"
@@ -27,7 +28,9 @@ export type CategorieArticle =
   | "longes"
   | "jouets"
   | "peluches"
+  | "griffoirs"
   | "couchages"
+  | "cages_enclos"
   | "soins"
   | "medaillons_accessoires"
   | "divers";
@@ -50,7 +53,12 @@ export const CATEGORIES_ARTICLE: {
 }[] = [
   { valeur: "alimentation_seche",  libelle: "Alimentation sèche",  taux: TAUX_REDUIT, perissable: true },
   { valeur: "alimentation_humide", libelle: "Alimentation humide", taux: TAUX_REDUIT, perissable: true },
-  { valeur: "friandises",   libelle: "Friandises",   taux: TAUX_REDUIT, perissable: true },
+  // APP 27 : granulés, graines et foin des NAC. Un aliment, donc 2,6 % — et
+  // périssable, le foin autant que les croquettes.
+  { valeur: "alimentation_complete", libelle: "Alimentation complète", taux: TAUX_REDUIT, perissable: true },
+  // « et snacks » depuis APP 27 : le même rayon sert les friandises du chien et
+  // les snacks du rongeur. Un rayon de plus les aurait séparés sans raison.
+  { valeur: "friandises",   libelle: "Friandises et snacks",   taux: TAUX_REDUIT, perissable: true },
   { valeur: "mastication",  libelle: "Mastication",  taux: TAUX_REDUIT, perissable: true },
   { valeur: "litiere",      libelle: "Litière",      taux: TAUX_REDUIT, perissable: false },
   { valeur: "colliers",     libelle: "Colliers",     taux: TAUX_NORMAL, perissable: false },
@@ -60,8 +68,21 @@ export const CATEGORIES_ARTICLE: {
   { valeur: "longes",       libelle: "Longes",       taux: TAUX_NORMAL, perissable: false },
   { valeur: "jouets",       libelle: "Jouets",       taux: TAUX_NORMAL, perissable: false },
   { valeur: "peluches",     libelle: "Peluches",     taux: TAUX_NORMAL, perissable: false },
-  { valeur: "couchages",    libelle: "Couchages",    taux: TAUX_NORMAL, perissable: false },
-  { valeur: "soins",        libelle: "Soins",        taux: TAUX_NORMAL, perissable: false },
+  // APP 27 : près des jouets, parce que c'est là qu'on le cherche.
+  { valeur: "griffoirs",    libelle: "Griffoirs",    taux: TAUX_NORMAL, perissable: false },
+  // « coussins et paniers » depuis APP 27 : un panier de chat est un couchage.
+  { valeur: "couchages",    libelle: "Couchages, coussins et paniers", taux: TAUX_NORMAL, perissable: false },
+  // APP 27 : l'habitat, donc juste après le couchage.
+  { valeur: "cages_enclos", libelle: "Cages et enclos", taux: TAUX_NORMAL, perissable: false },
+  /*
+   * « et hygiène » depuis APP 27, et le rayon N'A PAS été dédoublé.
+   *
+   * Le brief demandait un rayon « soins_hygiene » sauf s'il existait déjà :
+   * « soins » existait. En créer un second aurait donné deux rayons pour la
+   * même chose, et des articles répartis entre les deux au hasard de la date de
+   * saisie. C'est le seul rayon qui porte « Type de soin ».
+   */
+  { valeur: "soins",        libelle: "Soins et hygiène", taux: TAUX_NORMAL, perissable: false },
   { valeur: "medaillons_accessoires", libelle: "Médaillons et accessoires", taux: TAUX_NORMAL, perissable: false },
   { valeur: "divers",       libelle: "Divers",       taux: TAUX_NORMAL, perissable: false },
 ];

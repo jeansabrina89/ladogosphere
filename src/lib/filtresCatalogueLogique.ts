@@ -1,4 +1,7 @@
 import {
+  type ChampEtiquette,
+  valeursPourAnimaux,
+  groupeVautPourAnimaux,
   GROUPES,
   TAILLES_ARTICLE,
   champsDeCategorie,
@@ -43,6 +46,11 @@ export type ArticleFiltrable = {
   en_stock?: boolean;
   stock_disponible?: number | null;
   expediable?: boolean | null;
+  /* APP 27 : pour QUI l'article est fait. Ce n'est pas un filtre du panneau,
+     c'est l'ONGLET du catalogue — il se choisit avant tout le reste. */
+  animaux?: string[] | null;
+  especes?: string[] | null;
+  types_soin?: string[] | null;
   ages?: string[] | null;
   besoins?: string[] | null;
   tailles_chien?: string[] | null;
@@ -88,7 +96,21 @@ export type Filtres = {
   /** Bascules : vrai = on restreint, faux = on ne demande rien. */
   en_stock: boolean;
   expediable: boolean;
+  /**
+   * L'ONGLET d'animal choisi (APP 27), ou null pour « Tous ».
+   *
+   * Un choix unique, et non une liste comme les autres filtres : on ne fait pas
+   * ses courses pour le chien et le lapin dans le même geste. C'est d'ailleurs ce
+   * qui le distingue d'un filtre — il change ce que le panneau PROPOSE, pas
+   * seulement ce que la grille montre.
+   */
+  animal: string | null;
   ages: string[];
+  /* APP 27. « animaux » n'est PAS ici : il vit dans l'onglet, pas dans le
+     panneau — un onglet n'est pas une case qu'on coche parmi d'autres. En
+     revanche « especes » et « types_soin » sont des filtres ordinaires. */
+  especes: string[];
+  types_soin: string[];
   besoins: string[];
   tailles_chien: string[];
   gouts: string[];
@@ -107,7 +129,10 @@ export const FILTRES_VIDES: Filtres = {
   prix: [],
   en_stock: false,
   expediable: false,
+  animal: null,
   ages: [],
+  especes: [],
+  types_soin: [],
   besoins: [],
   tailles_chien: [],
   gouts: [],
@@ -123,6 +148,8 @@ export const FILTRES_VIDES: Filtres = {
 /** Les listes d'étiquettes, du nom du filtre au nom de la colonne. */
 const LISTES: { filtre: keyof Filtres; groupe: GroupeEtiquette }[] = [
   { filtre: "ages", groupe: "ages" },
+  { filtre: "especes", groupe: "especes" },
+  { filtre: "types_soin", groupe: "types_soin" },
   { filtre: "besoins", groupe: "besoins" },
   { filtre: "tailles_chien", groupe: "tailles_chien" },
   { filtre: "gouts", groupe: "gouts" },
@@ -144,6 +171,14 @@ type Sauf = keyof Filtres | null;
 
 function correspond(a: ArticleFiltrable, f: Filtres, sauf: Sauf = null): boolean {
   const ignore = (nom: keyof Filtres) => sauf === nom;
+
+  /*
+   * L'onglet passe AVANT tout : un article pour chats n'a rien à faire sous
+   * « Chiens », quels que soient les autres filtres. Un article pour plusieurs
+   * animaux apparaît dans chacun de leurs onglets — c'est le même article, pas
+   * une copie.
+   */
+  if (!ignore("animal") && f.animal && !(a.animaux ?? []).includes(f.animal)) return false;
 
   if (!ignore("categorie") && f.categorie && a.categorie !== f.categorie) return false;
 
@@ -343,16 +378,45 @@ export function filtresAffiches(
   // de nourriture, il vient par champsDeCategorie ; avec un rayon
   // d accessoires, il ne vient pas du tout.
   if (!f.categorie) universelles.push("gouts");
+
+  /*
+   * APP 27 : dans un onglet, seuls les filtres de CET animal se proposent.
+   *
+   * « Taille du chien » sous l'onglet Chats serait une faute que la cliente
+   * remarquerait ; « Espèce » ailleurs que chez les rongeurs ne voudrait rien
+   * dire. La règle vient de la table unique (« etiquettesArticles »), jamais
+   * d'une condition écrite ici.
+   *
+   * Sans onglet (« Tous »), tout se propose : on ne sait pas encore pour qui la
+   * cliente cherche, et lui cacher un filtre l'empêcherait de trouver.
+   */
+  const pourCetAnimal = (c: ChampEtiquette) =>
+    c === "taille_article" || c === "sans_cereales" || c === "monoproteine"
+      ? true
+      : groupeVautPourAnimaux(c, f.animal ? [f.animal] : null);
+
+  const universellesVues = universelles.filter(pourCetAnimal);
+
   const propres = f.categorie
-    ? champsDeCategorie(f.categorie).filter((c) => !universelles.includes(c as GroupeEtiquette))
+    ? champsDeCategorie(f.categorie)
+        .filter((c) => !universelles.includes(c as GroupeEtiquette))
+        .filter(pourCetAnimal)
+        // « animaux » n'est pas un filtre de panneau : c'est l'onglet. Il ne
+        // peut pas y arriver aujourd'hui, et cette ligne fait qu'il ne le
+        // pourra pas demain par une ligne ajoutée à PAR_CATEGORIE.
+        .filter((c) => c !== "animaux")
     : [];
 
-  for (const groupe of universelles) {
+  for (const groupe of universellesVues) {
+    if (groupe === "animaux") continue;
     ajouter(
       groupe,
       GROUPES[groupe].libelle,
       (a) => a[groupe] ?? [],
-      (v) => GROUPES[groupe].valeurs.map((x) => x.valeur).filter((x) => v.includes(x)),
+      // Les VALEURS suivent l'animal aussi : l'onglet Rongeurs ne propose en
+      // âge que junior, adulte et senior — jamais chiot ni chaton.
+      (v) => valeursPourAnimaux(groupe, f.animal ? [f.animal] : null)
+        .map((x) => x.valeur).filter((x) => v.includes(x)),
       (v) => libelleValeur(groupe, v)
     );
   }
@@ -378,7 +442,12 @@ export function filtresAffiches(
       });
       continue;
     }
-    const groupe = champ as GroupeEtiquette;
+    /*
+     * « animaux » est écarté plus haut : c'est l'onglet, pas un filtre. Le type
+     * le dit ici — un groupe de panneau n'est jamais l'animal, et le
+     * compilateur refusera la ligne qui tenterait de l'y remettre.
+     */
+    const groupe = champ as Exclude<GroupeEtiquette, "animaux">;
     ajouter(
       groupe,
       GROUPES[groupe].libelle,
@@ -386,7 +455,9 @@ export function filtresAffiches(
       (v) =>
         groupe === "couleurs"
           ? v.sort((x, y) => x.localeCompare(y, "fr"))
-          : GROUPES[groupe].valeurs.map((x) => x.valeur).filter((x) => v.includes(x)),
+          // Les valeurs suivent l'animal de l'onglet, comme les universelles.
+          : valeursPourAnimaux(groupe, f.animal ? [f.animal] : null)
+              .map((x) => x.valeur).filter((x) => v.includes(x)),
       (v) => libelleValeur(groupe, v)
     );
   }
