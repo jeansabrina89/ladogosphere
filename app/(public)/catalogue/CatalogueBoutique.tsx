@@ -1,9 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { urlPhotoArticle, libelleCategorieArticle, ordreCategorie } from "@/src/lib/boutiqueLogique";
+import {
+  depuisParams,
+  filtrer,
+  filtresAffiches,
+  nombreFiltresActifs,
+  versParams,
+  type ArticleFiltrable,
+  type Filtres,
+} from "@/src/lib/filtresCatalogueLogique";
+import FiltresCatalogue from "./FiltresCatalogue";
 import { disponibilite, disponibiliteVitrine } from "@/src/lib/venteEnLigneLogique";
 import { ajouterAuPanier } from "./actions";
 import { ajouter as ajouterLocalement } from "./panierNavigateur";
@@ -42,6 +52,19 @@ export type ArticleVitrine = {
   remise_libelle: string | null;
   /** « À écouler avant le 12 octobre », quand la rubrique le justifie. */
   mention_date_limite?: string | null;
+  /* Les étiquettes (APP 24-FILTRES) : ce sont les filtres eux-mêmes. Toutes
+     publiques — ce sont les colonnes de la vue `articles_vitrine`. */
+  expediable?: boolean | null;
+  ages?: string[] | null;
+  besoins?: string[] | null;
+  tailles_chien?: string[] | null;
+  proteines?: string[] | null;
+  couleurs?: string[] | null;
+  matieres?: string[] | null;
+  usages_jouet?: string[] | null;
+  sans_cereales?: boolean | null;
+  monoproteine?: boolean | null;
+  taille_article?: string | null;
 };
 
 export type RubriqueAffichee = {
@@ -84,19 +107,40 @@ export default function CatalogueBoutique({
 }) {
   const router = useRouter();
   const [recherche, setRecherche] = useState("");
-  const [categorie, setCategorie] = useState("");
   const [enCours, setEnCours] = useState<string | null>(null);
   const [avis, setAvis] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
 
-  const categories = [...new Set(articles.map((a) => a.categorie))]
-    .sort((a, b) => ordreCategorie(a) - ordreCategorie(b));
+  /**
+   * Les filtres vivent dans l'ADRESSE : un lien filtré se partage, le retour
+   * arrière refait le chemin en sens inverse, et un rechargement ne perd
+   * rien. `pushState` met l'adresse à jour sans repasser par le serveur —
+   * Next le reconnaît et `useSearchParams` suit.
+   */
+  const params = useSearchParams();
+  const filtres = useMemo(() => depuisParams(params), [params]);
+
+  function appliquer(suivants: Filtres) {
+    const qs = versParams(suivants).toString();
+    window.history.pushState(null, "", qs ? `?${qs}` : window.location.pathname);
+  }
+
+  // Le filtrage se fait sur la liste DÉJÀ chargée : elle tient en une page,
+  // tout y est déjà affiché, et les comptes par valeur ont de toute façon
+  // besoin de l'ensemble. Aucune donnée de plus ne descend au navigateur.
+  const filtrables = articles as unknown as ArticleFiltrable[];
+  const retenus = filtrer(filtrables, filtres) as unknown as ArticleVitrine[];
+  const affiches = filtresAffiches(filtrables, filtres);
 
   const q = recherche.trim().toLowerCase();
-  const visibles = articles
-    .filter((a) => !categorie || a.categorie === categorie)
+  const visibles = retenus
     .filter((a) => !q || `${a.nom} ${a.marque ?? ""} ${a.description ?? ""}`.toLowerCase().includes(q))
     .sort((a, b) => ordreCategorie(a.categorie) - ordreCategorie(b.categorie) || a.nom.localeCompare(b.nom));
+
+  // Les rubriques sont une VITRINE : elles ne répondent pas aux filtres. Dès
+  // qu'on filtre ou qu'on cherche, elles s'effacent — une rubrique qui
+  // montrerait des articles écartés par le filtre ferait douter du filtre.
+  const rubriquesVisibles = nombreFiltresActifs(filtres) === 0 && q === "" ? rubriques : [];
 
   async function ajouter(a: ArticleVitrine) {
     // Sans compte, le panier vit dans le navigateur : rien ne part en base,
@@ -234,7 +278,7 @@ export default function CatalogueBoutique({
 
       {/* Les rubriques d'abord : c'est ce qu'on met en vitrine. Elles ne
           filtrent rien — la grille complète reste dessous. */}
-      {rubriques.map((r) => (
+      {rubriquesVisibles.map((r) => (
         <section key={r.id} style={{ display: "grid", gap: 10 }}>
           <div>
             <h2 style={{ color: MARINE, fontSize: 20, fontWeight: 700, margin: 0 }}>{r.nom}</h2>
@@ -248,37 +292,35 @@ export default function CatalogueBoutique({
         </section>
       ))}
 
-      <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
-        <input
-          type="search"
-          value={recherche}
-          onChange={(e) => setRecherche(e.target.value)}
-          placeholder="Chercher un article…"
-          aria-label="Chercher un article"
-          style={champ}
-        />
-        <select
-          value={categorie}
-          onChange={(e) => setCategorie(e.target.value)}
-          aria-label="Filtrer par catégorie"
-          style={champ}
-        >
-          <option value="">Toutes les catégories</option>
-          {categories.map((c) => (
-            <option key={c} value={c}>{libelleCategorieArticle(c)}</option>
-          ))}
-        </select>
-      </div>
+      <input
+        type="search"
+        value={recherche}
+        onChange={(e) => setRecherche(e.target.value)}
+        placeholder="Chercher un article…"
+        aria-label="Chercher un article"
+        style={champ}
+      />
 
-      {visibles.length === 0 ? (
-        <p style={{ color: SOUS, fontSize: 15, margin: 0 }}>
-          Aucun article ne correspond à votre recherche.
-        </p>
-      ) : (
-        <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
-          {visibles.map((a) => <Carte key={a.id} a={a} />)}
-        </div>
-      )}
+      {/* Le panneau à gauche sur écran large, un bouton plein écran sur
+          téléphone — c'est le composant qui s'en charge. */}
+      <div className="grid gap-6 md:grid-cols-[260px_1fr] md:items-start">
+        <FiltresCatalogue
+          filtres={filtres}
+          affiches={affiches}
+          nombreResultats={visibles.length}
+          surChangement={appliquer}
+        />
+
+        {visibles.length === 0 ? (
+          <p style={{ color: SOUS, fontSize: 15, margin: 0 }}>
+            Aucun article ne correspond à votre recherche.
+          </p>
+        ) : (
+          <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
+            {visibles.map((a) => <Carte key={a.id} a={a} />)}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

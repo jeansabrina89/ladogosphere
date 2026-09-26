@@ -77,6 +77,19 @@ export default async function BoutiqueClientPage() {
       // ailleurs, elle ne regarde pas le client.
       mention_date_limite:
         prix.origine === "anti_gaspillage" ? mentionDateLimite(a.date_limite) : null,
+      // Les étiquettes : ce sont les filtres. Toutes publiques — ce sont les
+      // colonnes de la vue `articles_vitrine`, et rien de plus ne descend.
+      expediable: a.expediable,
+      ages: a.ages,
+      besoins: a.besoins,
+      tailles_chien: a.tailles_chien,
+      proteines: a.proteines,
+      couleurs: a.couleurs,
+      matieres: a.matieres,
+      usages_jouet: a.usages_jouet,
+      sans_cereales: a.sans_cereales,
+      monoproteine: a.monoproteine,
+      taille_article: a.taille_article,
       // L'un ou l'autre, jamais les deux : le chiffre n'est calculé que pour
       // qui y a droit.
       ...(clientId

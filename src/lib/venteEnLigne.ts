@@ -133,12 +133,27 @@ export type ArticleEnLigne = {
   /** Anti-gaspillage : « À écouler avant le 12 octobre ». */
   date_limite: string | null;
   remise_membre_exclue: boolean;
+  /* Les étiquettes des filtres (APP 24-FILTRES) : un client connecté filtre
+     avec les mêmes qu'un visiteur. Elles sont publiques par nature — ce sont
+     des colonnes de la vue `articles_vitrine`. */
+  ages: string[];
+  besoins: string[];
+  tailles_chien: string[];
+  proteines: string[];
+  sans_cereales: boolean;
+  monoproteine: boolean;
+  taille_article: string | null;
+  couleurs: string[];
+  matieres: string[];
+  usages_jouet: string[];
 };
 
 const COLONNES_ARTICLE = `
   id, reference, nom, description, categorie, marque, prix_vente, taux_tva, secteur_tdfn, unite,
   photo_path, type_article, delai_fabrication_jours, poids_grammes, expediable,
-  stock_actuel, stock_reserve, date_limite, remise_membre_exclue
+  stock_actuel, stock_reserve, date_limite, remise_membre_exclue,
+  ages, besoins, tailles_chien, proteines, sans_cereales, monoproteine,
+  taille_article, couleurs, matieres, usages_jouet
 `;
 
 function avecDisponible(a: Record<string, unknown>): ArticleEnLigne {
