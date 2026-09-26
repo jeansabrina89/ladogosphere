@@ -163,7 +163,10 @@ describe("ce qu’un visiteur reçoit", () => {
   it("dit la disponibilité en MOTS, jamais en chiffres", () => {
     expect(disponibiliteVitrine(true, "standard").libelle).toBe("En stock");
     expect(disponibiliteVitrine(false, "standard").libelle).toBe("Épuisé");
-    expect(disponibiliteVitrine(false, "personnalisable").libelle).toBe("Sur commande");
+    // APP 27 : « Fait sur mesure », et non plus « Sur commande » — ce dernier est
+    // réservé à ce qu'on commande au FOURNISSEUR. Les deux attentes ne se
+    // ressemblent pas : l'une se fabrique ici, l'autre se livre.
+    expect(disponibiliteVitrine(false, "personnalisable").libelle).toBe("Fait sur mesure");
     for (const etat of [true, false]) {
       expect(disponibiliteVitrine(etat, "standard").libelle).not.toMatch(/\d/);
     }

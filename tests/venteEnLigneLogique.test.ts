@@ -83,7 +83,8 @@ describe("disponibilité affichée au client", () => {
 
   it("laisse commander un article personnalisable, qui n'a pas de stock", () => {
     expect(disponibilite(0, "personnalisable")).toEqual({
-      etat: "en_stock", libelle: "Sur commande",
+      // APP 27 : « Fait sur mesure » depuis la séparation des deux libellés.
+      etat: "en_stock", libelle: "Fait sur mesure",
     });
     expect(estCommandable(0, "personnalisable")).toBe(true);
   });
@@ -463,8 +464,12 @@ describe("APP 26 : ce qui s'achète alors qu'il n'est pas en rayon", () => {
       expect(disponibiliteVitrine(false, "standard", commandable).libelle).not.toMatch(/\d/);
     });
 
-    it("un article sur mesure garde son libellé d'avant", () => {
-      expect(disponibiliteVitrine(false, "personnalisable", commandable).libelle).toBe("Sur commande");
+    it("un article sur mesure garde son ÉTAT, quel que soit son libellé", () => {
+      // Son libellé a changé à APP 27 (« Fait sur mesure »), mais ce que ce test
+      // garde n'a pas changé : un article de l'atelier ne devient pas « sur
+      // commande » parce qu'un fournisseur a un délai. Son état reste « en_stock ».
+      expect(disponibiliteVitrine(false, "personnalisable", commandable).libelle)
+        .toBe("Fait sur mesure");
       expect(disponibiliteVitrine(false, "personnalisable", commandable).etat).toBe("en_stock");
     });
   });

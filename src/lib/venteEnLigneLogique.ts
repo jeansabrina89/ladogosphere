@@ -71,6 +71,24 @@ export function commandableSurCommande(a: ArticleSurCommande | null | undefined)
  * concurrent et ne l'aide en rien. En dessous, elle le presse utilement —
  * « Plus que 2 » est une information, « 47 en stock » est une indiscrétion.
  */
+/**
+ * LES DEUX LIBELLÉS QUI NE DOIVENT PAS SE CONFONDRE (décision de Sabrina, APP 27).
+ *
+ * Jusqu'ici, les deux disaient « Sur commande », et c'était une collision : un
+ * article de l'atelier — fabriqué ici, à la main, selon les mesures du chien —
+ * portait le même mot qu'un sac de croquettes commandé chez un grossiste. Les
+ * deux attentes n'ont rien à voir : l'une se fabrique, l'autre se livre ; l'une
+ * n'a pas de stock par nature, l'autre en manque aujourd'hui.
+ *
+ * Une cliente qui lit « Sur commande » sur un collier sur mesure et sur une
+ * pâtée croit à la même chose, et se trompe sur l'une des deux.
+ *
+ * Ces deux constantes sont le SEUL endroit où ces mots sont écrits. Tout ce qui
+ * les affiche passe par ici.
+ */
+export const LIBELLE_SUR_MESURE = "Fait sur mesure";
+export const LIBELLE_SUR_COMMANDE = "Sur commande";
+
 export type Disponibilite =
   | { etat: "en_stock"; libelle: string }
   | { etat: "dernier"; libelle: string }
@@ -83,16 +101,21 @@ export function disponibilite(
   typeArticle?: string | null,
   surCommande?: ArticleSurCommande | null
 ): Disponibilite {
-  // Un article personnalisable se fabrique : il n'a pas de stock à épuiser.
+  /*
+   * Un article personnalisable se fabrique : il n'a pas de stock à épuiser.
+   * « Fait sur mesure » et non « Sur commande » (APP 27) : le second est réservé
+   * à ce qu'on commande au FOURNISSEUR, et les deux attentes ne se ressemblent
+   * pas.
+   */
   if (typeArticle === "personnalisable") {
-    return { etat: "en_stock", libelle: "Sur commande" };
+    return { etat: "en_stock", libelle: LIBELLE_SUR_MESURE };
   }
   const n = Math.max(Math.floor(nb(stockDisponible) ?? 0), 0);
   // Rien en rayon, mais le fournisseur le livre sous un délai CONNU : la
   // pastille reste en deux mots, et c'est la phrase de délai qui dit combien
   // de temps. Le chiffre n'a rien à faire dans une pastille qu'on lit de loin.
   if (n <= 0 && commandableSurCommande(surCommande)) {
-    return { etat: "sur_commande", libelle: "Sur commande" };
+    return { etat: "sur_commande", libelle: LIBELLE_SUR_COMMANDE };
   }
   if (n <= 0) return { etat: "epuise", libelle: "Épuisé" };
   if (n <= 3) return { etat: "dernier", libelle: n === 1 ? "Dernier exemplaire" : `Plus que ${n}` };
@@ -749,13 +772,13 @@ export function disponibiliteVitrine(
   surCommande?: ArticleSurCommande | null
 ): Disponibilite {
   if (typeArticle === "personnalisable") {
-    return { etat: "en_stock", libelle: "Sur commande" };
+    return { etat: "en_stock", libelle: LIBELLE_SUR_MESURE };
   }
   if (enStock === true) return { etat: "en_stock", libelle: "En stock" };
   // Pas en rayon, mais commandable : la pastille reste en MOTS, comme les
   // autres — le délai se lit dans la phrase qui l'accompagne, pas ici.
   if (commandableSurCommande(surCommande)) {
-    return { etat: "sur_commande", libelle: "Sur commande" };
+    return { etat: "sur_commande", libelle: LIBELLE_SUR_COMMANDE };
   }
   return { etat: "epuise", libelle: "Épuisé" };
 }

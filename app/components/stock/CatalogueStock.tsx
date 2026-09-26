@@ -20,6 +20,7 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import EtatVide from "@/app/components/ui/EtatVide";
 import FiltresArticles from "./FiltresArticles";
+import { LIBELLE_SUR_MESURE } from "@/src/lib/venteEnLigneLogique";
 
 /**
  * Le catalogue d'un périmètre de stock : les articles du magasin, ou les
@@ -99,7 +100,11 @@ function Poste({ article }: { article: Article }) {
       {texte}
     </span>
   );
-  if (article.type_article === "personnalisable") return pastille("Sur mesure", "#EDE8DF", sousTexte);
+  // Le MÊME libellé qu'au catalogue client, pris au même endroit : deux mots
+  // écrits deux fois finissent par ne plus être les mêmes (APP 27).
+  if (article.type_article === "personnalisable") {
+    return pastille(LIBELLE_SUR_MESURE, "#EDE8DF", sousTexte);
+  }
   if (!article.expediable) return pastille("Non", "#EDE8DF", sousTexte);
   if (manquePoids(article)) return pastille("⚖️ Sans poids", "#F4EAC9", "#6E5410");
   return pastille(`✓ ${formatPoids(Number(article.poids_grammes))}`, "#DBEFEA", "#1F6E5B");

@@ -7,7 +7,7 @@ import { urlPhotoArticle } from "@/src/lib/boutiqueLogique";
 import { brutAuServeur, changerQuantite, ecouter, lireBrut, retirer } from "./panierNavigateur";
 import { lirePanierLocal } from "@/src/lib/panierLocalLogique";
 import { libellesConfiguration } from "@/src/lib/personnalisationLogique";
-import { phraseDelaiCommande } from "@/src/lib/venteEnLigneLogique";
+import { LIBELLE_SUR_MESURE, phraseDelaiCommande } from "@/src/lib/venteEnLigneLogique";
 import OptionsChoisies from "@/app/components/OptionsChoisies";
 
 /**
@@ -121,7 +121,7 @@ export default function PanierVisiteur({ articles }: { articles: ArticlePanier[]
                 <Link href={`/catalogue/${a.id}`} style={{
                   color: MARINE, fontWeight: 700, textDecoration: "none", overflowWrap: "anywhere",
                 }}>
-                  {a.nom}{surMesure ? " — sur mesure" : ""}
+                  {a.nom}{surMesure ? ` — ${LIBELLE_SUR_MESURE.toLowerCase()}` : ""}
                 </Link>
                 {surMesure && <OptionsChoisies options={libellesConfiguration(apercu)} />}
                 <span style={{ display: "block", color: SOUS, fontSize: 14 }}>

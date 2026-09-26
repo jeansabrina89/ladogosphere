@@ -386,3 +386,65 @@ describe("un lien vers un onglet devenu vide", () => {
     expect(depuisParams(new URLSearchParams("espece=dragon")).especes).toEqual([]);
   });
 });
+
+describe("APP 27 : « Sur commande » et « Fait sur mesure » ne se confondent pas", () => {
+  const src = (c: string) => readFileSync(join(__dirname, "..", c), "utf8");
+
+  it("les deux libellés sont DIFFÉRENTS, et nommés une seule fois", async () => {
+    /**
+     * La collision d'avant : les deux disaient « Sur commande ». Un collier
+     * fabriqué ici à la main portait le même mot qu'un sac de croquettes commandé
+     * chez un grossiste. Les deux attentes n'ont rien à voir — l'une se fabrique,
+     * l'autre se livre — et une cliente qui lit le même mot croit à la même chose.
+     */
+    const { LIBELLE_SUR_MESURE, LIBELLE_SUR_COMMANDE } =
+      await import("@/src/lib/venteEnLigneLogique");
+    expect(LIBELLE_SUR_MESURE).toBe("Fait sur mesure");
+    expect(LIBELLE_SUR_COMMANDE).toBe("Sur commande");
+    expect(LIBELLE_SUR_MESURE).not.toBe(LIBELLE_SUR_COMMANDE);
+  });
+
+  it("un article de l'atelier dit « Fait sur mesure », aux DEUX publics", async () => {
+    const { disponibilite, disponibiliteVitrine, LIBELLE_SUR_MESURE } =
+      await import("@/src/lib/venteEnLigneLogique");
+    // Client connecté et visiteur : le même mot, sinon la même page en dirait deux.
+    expect(disponibilite(0, "personnalisable").libelle).toBe(LIBELLE_SUR_MESURE);
+    expect(disponibiliteVitrine(false, "personnalisable").libelle).toBe(LIBELLE_SUR_MESURE);
+  });
+
+  it("un article commandé au fournisseur dit « Sur commande »", async () => {
+    const { disponibilite, disponibiliteVitrine, LIBELLE_SUR_COMMANDE } =
+      await import("@/src/lib/venteEnLigneLogique");
+    const commandable = { sur_commande: true, delai_commande_max_jours: 8 };
+    expect(disponibilite(0, "standard", commandable).libelle).toBe(LIBELLE_SUR_COMMANDE);
+    expect(disponibiliteVitrine(false, "standard", commandable).libelle).toBe(LIBELLE_SUR_COMMANDE);
+  });
+
+  it("aucun écran n'écrit ces deux libellés en dur", () => {
+    /**
+     * Ce que ce test empêche : qu'un écran réécrive « Sur mesure » de son côté.
+     * Le jour où Sabrina voudra changer un des deux mots, elle doit avoir UN
+     * endroit à changer — sinon la moitié des écrans gardera l'ancien.
+     */
+    for (const chemin of [
+      "app/components/stock/CatalogueStock.tsx",
+      "app/(public)/catalogue/PanierVisiteur.tsx",
+      "app/(public)/catalogue/CatalogueBoutique.tsx",
+    ]) {
+      const s = src(chemin);
+      expect(s, `${chemin} écrit « Sur mesure » en dur`)
+        .not.toMatch(/pastille\("Sur mesure"|"Sur mesure"\s*[,)]/);
+      expect(s, `${chemin} écrit « Sur commande » en dur`)
+        .not.toMatch(/libelle:\s*"Sur commande"/);
+    }
+  });
+
+  it("le module de la disponibilité ne garde plus aucun libellé en dur", () => {
+    const s = src("src/lib/venteEnLigneLogique.ts");
+    // Les deux constantes sont déclarées ; plus aucune affectation littérale.
+    expect(s).toContain('export const LIBELLE_SUR_MESURE = "Fait sur mesure";');
+    expect(s).toContain('export const LIBELLE_SUR_COMMANDE = "Sur commande";');
+    expect(s).not.toMatch(/libelle:\s*"Sur commande"/);
+    expect(s).not.toMatch(/libelle:\s*"Fait sur mesure"/);
+  });
+});
