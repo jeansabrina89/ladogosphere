@@ -68,8 +68,34 @@ export const COLONNES_PUBLIQUES_VITRINE = [
    * l'empêche de partir, et `COLONNES_INTERDITES_AU_PUBLIC` la double.
    */
   "sur_commande",
+  /**
+   * Depuis APP 27, ces deux colonnes ne sortent QUE si l'article est
+   * réellement commandable — la vue les met à NULL sinon, par la même
+   * condition que `sur_commande`.
+   *
+   * Avant, un article NON coché chez un fournisseur qui a un délai publiait
+   * ce délai. Aucun écran ne l'affichait, mais une vue publique ne porte pas
+   * une donnée qui ne sert à rien : deux articles du même fournisseur
+   * laissaient deviner qu'ils partagent une source.
+   */
   "delai_commande_min_jours",
   "delai_commande_max_jours",
+  /**
+   * POUR QUI l'article est fait (APP 27) — et non ce qu'il EST, qui reste la
+   * catégorie. C'est cette colonne qui range l'article dans un onglet du
+   * catalogue : sans elle, il n'y a pas d'onglets.
+   *
+   * `especes` précise l'animal là où « rongeur » est trop large (un lapin ne
+   * mange pas ce qu'un hamster mange), et `types_soin` dit ce que le produit
+   * soigne. Les trois sont des étiquettes de FILTRE, comme `ages` ou `gouts` :
+   * ce que la cliente coche pour trouver. Rien de commercial n'y passe.
+   *
+   * En fin de liste parce que la vue les y a mises — Postgres refuse d'insérer
+   * une colonne au milieu d'une vue remplacée. L'ordre ne veut rien dire ici.
+   */
+  "animaux",
+  "especes",
+  "types_soin",
 ] as const;
 
 /** Les colonnes servies au public, telles qu'on les demande à PostgREST. */

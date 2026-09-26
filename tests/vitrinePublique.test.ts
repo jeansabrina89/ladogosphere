@@ -243,3 +243,59 @@ describe("APP 26 : les deux chemins disent la MÊME chose", () => {
     }
   });
 });
+
+describe("APP 27 : le délai ne sort que s'il est promis", () => {
+  const sqlVue = () => {
+    const fichiers = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
+    const dernier = fichiers
+      .filter((f) => /create\s+(or\s+replace\s+)?view\s+public\.articles_vitrine/i
+        .test(readFileSync(join(MIGRATIONS, f), "utf8")))
+      .at(-1);
+    if (!dernier) throw new Error("aucune migration ne définit la vue");
+    return readFileSync(join(MIGRATIONS, dernier), "utf8");
+  };
+
+  it("les deux colonnes de délai passent par la MÊME condition que `sur_commande`", () => {
+    /**
+     * Le reliquat d'APP 26, constaté à l'essai du 26.09.2026 : la vue publiait
+     * le délai du fournisseur pour des articles NON commandables. Aucun écran ne
+     * l'affichait, mais une vue publique ne porte pas de donnée inutile — et
+     * deux articles du même fournisseur laissaient deviner leur source commune.
+     *
+     * Ce que ce test empêche : qu'on revienne à `d.min_jours` tout nu. La
+     * condition doit être celle de `sur_commande`, mot pour mot — une condition
+     * voisine mais différente rouvrirait la fuite en silence.
+     */
+    const sql = sqlVue();
+    const condition = "a.disponible_sur_commande and d.max_jours is not null";
+
+    // `sur_commande` la porte, et les deux délais aussi.
+    expect(sql).toContain(`${condition} as sur_commande`);
+    for (const colonne of ["delai_commande_min_jours", "delai_commande_max_jours"]) {
+      const champ = colonne.replace("delai_commande_", "").replace("_jours", "");
+      expect(sql, `${colonne} doit être conditionnée`).toContain(
+        `case when ${condition}\n       then d.${champ}_jours end as ${colonne}`,
+      );
+    }
+
+    // Et surtout : plus aucune publication nue du délai.
+    expect(sql, "un délai nu rouvrirait la fuite")
+      .not.toMatch(/d\.(min|max)_jours as delai_commande_(min|max)_jours/);
+  });
+
+  it("les trois colonnes d'APP 27 sont dans la vue ET dans la liste publique", () => {
+    const sql = sqlVue();
+    for (const colonne of ["animaux", "especes", "types_soin"]) {
+      expect(sql).toContain(`a.${colonne}`);
+      expect(COLONNES_PUBLIQUES_VITRINE).toContain(colonne);
+    }
+  });
+
+  it("le fournisseur ne sort toujours pas, sous aucune forme", () => {
+    // La donnée commerciale reste dedans : le délai sort, sa source jamais.
+    const rendues = colonnesDeLaVue();
+    for (const interdite of ["fournisseur_id", "fournisseur", "prix_achat", "cout_moyen"]) {
+      expect(rendues).not.toContain(interdite);
+    }
+  });
+});
