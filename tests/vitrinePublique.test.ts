@@ -19,19 +19,33 @@ import {
  */
 
 const MIGRATIONS = join(__dirname, "..", "supabase", "migrations");
-const FICHIER = "20260926100738_app24_vitrine_etiquettes.sql";
+/**
+ * La DERNIÈRE migration qui redéfinit la vue — c'est elle qui fait foi.
+ *
+ * Elle était nommée en dur, et pointait encore sur APP 24-filtres après que
+ * APP 25-GOÛT eut ajouté une colonne : le test comparait la liste TS à une
+ * définition périmée. On la cherche donc, au lieu de la nommer.
+ */
+const FICHIER = readdirSync(MIGRATIONS)
+  .filter((f) => f.endsWith(".sql"))
+  .filter((f) => /create\s+(or\s+replace\s+)?view\s+public\.articles_vitrine/i
+    .test(readFileSync(join(MIGRATIONS, f), "utf8")))
+  .sort()
+  .at(-1)!;
 const sql = () => readFileSync(join(MIGRATIONS, FICHIER), "utf8");
 
 /** Les colonnes RENDUES par la vue, lues dans son `create view`. */
 function colonnesDeLaVue(): string[] {
   const texte = sql();
-  const debut = texte.indexOf("create view public.articles_vitrine as");
+  const entete = /create\s+(?:or\s+replace\s+)?view\s+public\.articles_vitrine[\s\S]*?\bas\s*select/i
+    .exec(texte);
+  expect(entete, `aucun create view dans ${FICHIER}`).not.toBeNull();
+  const debut = entete!.index;
   const fin = texte.indexOf("from public.articles a", debut);
-  expect(debut).toBeGreaterThan(-1);
   expect(fin).toBeGreaterThan(debut);
   const corps = texte
     .slice(debut, fin)
-    .replace(/create view public\.articles_vitrine as\s*select/, "")
+    .replace(entete![0], "")
     // Les commentaires du SQL ne sont pas des colonnes.
     .replace(/--[^\n]*/g, "");
 
@@ -73,6 +87,9 @@ describe("la vue de la vitrine", () => {
     for (const colonne of [
       "ages", "besoins", "tailles_chien", "proteines", "sans_cereales",
       "monoproteine", "taille_article", "couleurs", "matieres", "usages_jouet",
+      // Le goût annoncé, ajouté au lot APP 25-GOÛT. Distinct de `proteines` :
+      // un pâté « avec agneau » peut contenir plus de poulet que d'agneau.
+      "gouts",
       // Demandées par le lot, déjà présentes avant lui.
       "marque", "expediable", "en_stock",
     ]) {
@@ -92,12 +109,33 @@ describe("la vue de la vitrine", () => {
   });
 
   it("dit pourquoi chaque colonne publique l'est", () => {
-    const entete = sql().slice(0, sql().indexOf("drop view"));
+    /**
+     * La justification vit dans la migration QUI AJOUTE la colonne, et il y en
+     * a maintenant plusieurs : APP 24-filtres a posé la vue et justifié ses
+     * colonnes, APP 25-GOÛT en a ajouté une et justifié celle-là. On cherche
+     * donc dans l'ensemble des migrations qui touchent à la vue.
+     *
+     * Ce que le test garde reste le même : une colonne publique se décide et
+     * s'explique, elle ne s'ajoute pas au passage. Une colonne nouvelle sans un
+     * mot dans sa migration fait rougir.
+     */
+    const justifications = readdirSync(MIGRATIONS)
+      .filter((f) => f.endsWith(".sql"))
+      .map((f) => readFileSync(join(MIGRATIONS, f), "utf8"))
+      .filter((t) => /create\s+(or\s+replace\s+)?view\s+public\.articles_vitrine/i.test(t))
+      .map((t) => {
+        // L'en-tête : tout ce qui précède le premier ordre SQL exécutable.
+        const i = t.search(/^\s*(drop|create|alter)\b/im);
+        return i > 0 ? t.slice(0, i) : t;
+      })
+      .join("\n");
+
     for (const colonne of COLONNES_PUBLIQUES_VITRINE) {
-      expect(entete).toContain(colonne);
+      expect(justifications, `la colonne « ${colonne} » n'est expliquée nulle part`)
+        .toContain(colonne);
     }
-    expect(entete).toContain("CETTE VUE EST PUBLIQUE");
-    expect(entete).toContain("S-04");
+    expect(justifications).toContain("CETTE VUE EST PUBLIQUE");
+    expect(justifications).toContain("S-04");
   });
 
   it("ne garde que la lecture pour anon et authenticated", () => {
@@ -120,5 +158,50 @@ describe("la vue de la vitrine", () => {
   it("demande à PostgREST des colonnes nommées, jamais une étoile", () => {
     expect(COLONNES_VITRINE).not.toContain("*");
     expect(COLONNES_VITRINE.split(", ")).toEqual([...COLONNES_PUBLIQUES_VITRINE]);
+  });
+});
+
+describe("le vocabulaire de gouts (APP 25-GOÛT)", () => {
+  /**
+   * « Goût » et « Contient » doivent parler la même langue.
+   *
+   * Si les deux vocabulaires divergeaient — un « agneau » ici, un « Agneau »
+   * là, ou une valeur de plus d'un côté — les deux filtres deviendraient
+   * incomparables, et un article étiqueté au goût d'agneau ne se retrouverait
+   * plus parmi ceux qui en contiennent. Le test relit les deux contraintes dans
+   * le dépôt et les compare, plutôt que de faire confiance à une relecture.
+   */
+  const valeursDeLaContrainte = (colonne: string): string[] => {
+    const fichiers = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
+    let derniere: string[] | null = null;
+    for (const f of fichiers) {
+      const t = readFileSync(join(MIGRATIONS, f), "utf8");
+      const m = new RegExp(
+        String.raw`check\s*\(\s*${colonne}\s*<@\s*array\s*\[([^\]]*)\]`, "i",
+      ).exec(t);
+      if (m) {
+        derniere = [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]).sort();
+      }
+    }
+    return derniere ?? [];
+  };
+
+  it("est exactement celui de proteines", () => {
+    const gouts = valeursDeLaContrainte("gouts");
+    const proteines = valeursDeLaContrainte("proteines");
+
+    expect(gouts.length, "la contrainte sur gouts est introuvable").toBeGreaterThan(0);
+    expect(proteines.length, "la contrainte sur proteines est introuvable").toBeGreaterThan(0);
+    expect(
+      gouts,
+      "les deux vocabulaires ont divergé : un goût ne retrouvera plus ce qu'il contient",
+    ).toEqual(proteines);
+  });
+
+  it("compte les seize valeurs relevées en base", () => {
+    expect(valeursDeLaContrainte("gouts")).toEqual([
+      "agneau", "boeuf", "canard", "cerf", "dinde", "elan", "gibier", "insecte",
+      "poisson", "porc", "poulet", "renne", "sanglier", "saumon", "veau", "vegetal",
+    ]);
   });
 });

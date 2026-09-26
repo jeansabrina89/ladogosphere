@@ -45,6 +45,17 @@ export const COLONNES_PUBLIQUES_VITRINE = [
   "couleurs",
   "matieres",
   "usages_jouet",
+  /**
+   * La saveur annoncée sur l'emballage (APP 25-GOÛT).
+   *
+   * Publique par nature : elle est imprimée en grand sur la face avant du
+   * paquet, et c'est elle que le visiteur cherche quand il filtre. À distinguer
+   * de `proteines`, qui dit tout ce que contient la recette.
+   *
+   * En fin de liste parce que la vue l'y a mise : Postgres refuse d'insérer une
+   * colonne au milieu d'une vue remplacée. L'ordre ne veut rien dire ici.
+   */
+  "gouts",
 ] as const;
 
 /** Les colonnes servies au public, telles qu'on les demande à PostgREST. */
