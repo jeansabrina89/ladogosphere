@@ -41,7 +41,7 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
 | Constat | État | Lot | Commit | Test |
 |---|---|---|---|---|
 | S-04 — `articles_vitrine` en SECURITY DEFINER, expose `stock_disponible` | **À MOITIÉ FERMÉ** — `stock_disponible` SORT de la vue : aucun code ne la lisait, et le stock chiffré d'un client connecté se calcule depuis la TABLE avec la clé de service. `anon` et `authenticated` n'ont plus que SELECT : les droits d'écriture hérités des droits par défaut du schéma public sont révoqués (ils n'ouvraient rien, une vue à colonnes calculées n'étant pas modifiable). **Le SECURITY DEFINER reste, volontairement** : `articles` est en RLS et sa seule politique de lecture vise le personnel — en SECURITY INVOKER, la vitrine publique du site serait vide. C'est donc la LISTE DES COLONNES qui tient lieu de garde, justifiée une par une en tête de la migration | 24-filtres | `app24_vitrine_etiquettes` | oui — 9 cas (`vitrinePublique`) |
-| S-05 — bucket `chiens-photos` PUBLIC | OUVERT — servi par `getPublicUrl`, jamais signé | 21 | — | non |
+| S-05 — bucket `chiens-photos` PUBLIC | **FERMÉ** — bucket privé, une seule porte (`urlSigneePhotoChien`) qui part d'un identifiant, vérifie le droit dans la session et signe pour 1 h. `photo_principale` range un CHEMIN (1 ligne convertie). Aucune politique posée : c'est le cœur de la mesure. **Réserve mesurée, sans conséquence durable : le cache du CDN a servi l'URL exacte déjà demandée pendant au plus 1 h après la fermeture** (`max-age=3600`) — voir `docs/SECURITE.md` | 24 | `f7221fa`, `6d1a6e8`, `d756d4a` | oui — 18 cas, 3 couches mutées |
 | S-06 — exception `is_admin` / `is_personnel` documentée | FERMÉ — AGENTS.md, règle « Une fonction SQL naît fermée » | — | — | oui (`fonctionsSqlFermees`) |
 | S-07 — grants résiduels sur six tables comptables | **FERMÉ** — plus aucun droit `anon` ni `authenticated` ; RLS active et zéro politique, voulu et écrit dans la migration | 23 | `301030a` | oui — 4 cas |
 | S-08 — `trim_zero` sans `search_path` | **FERMÉ** — `search_path=public` ; l'advisor ne la signale plus | 23 | `301030a` | oui (même test) |
@@ -53,9 +53,11 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
 2. ~~`annulerPaiement`~~ — fermé au lot 22.
 3. ~~C-10~~ — fermé au lot 22.
 3bis. ~~prestations / chien~~ — fermé au lot 22-ter (`c496fdf`).
-4. **S-05, `chiens-photos` public.** Trois lots ont retiré les coordonnées GPS
-   des photos ; le bucket reste ouvert à qui devine un chemin. Le nettoyage
-   protège le contenu, pas l'accès.
+4. ~~S-05, `chiens-photos` public~~ — fermé au lot 24 (`f7221fa`). Le nettoyage
+   des métadonnées protégeait le contenu, jamais l'accès ; c'est l'accès qui est
+   fermé. Ce qui reste à savoir, et qui est écrit dans `docs/SECURITE.md` :
+   fermer un bucket ne purge pas le cache du CDN, qui a continué de servir
+   l'URL exacte déjà demandée pendant au plus une heure.
 5. ~~C-07b~~ — fermé au lot 22.
 6. ~~C-09, les en-têtes simples~~ — fermé au lot 23 (`6f13b28`). **La CSP
    reste à faire**, et toujours pour la même raison : posée à l'aveugle, elle
