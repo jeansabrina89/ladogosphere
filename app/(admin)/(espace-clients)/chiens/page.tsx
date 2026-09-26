@@ -8,6 +8,7 @@ import Carte from "@/app/components/ui/Carte";
 import EtatVide from "@/app/components/ui/EtatVide";
 import BadgePhotos from "@/app/components/BadgePhotos";
 import { statutEssaiDe } from "@/src/lib/journeeEssai";
+import { urlsSigneesPhotosChiens } from "@/src/lib/photoChien";
 
 export default async function ChiensPage() {
   await exigerAccesAdmin();
@@ -18,6 +19,10 @@ export default async function ChiensPage() {
     .from("chiens")
     .select(`*, clients (prenom, nom, photos_ok)`)
     .order("nom");
+
+  // Le bucket est privé (S-05) : chaque photo se sert par une URL signée
+  // d’une heure, fabriquée ici, après que la fonction a vérifié le droit.
+  const photos = await urlsSigneesPhotosChiens((chiens ?? []).map((c) => c.id as string));
 
   const muted: React.CSSProperties = { color: "rgba(27,43,94,0.6)", fontSize: 14, margin: 0 };
   const pill = (bg: string, color: string): React.CSSProperties => ({
@@ -58,8 +63,8 @@ export default async function ChiensPage() {
 
                       <div style={{ display: "flex", gap: 16, minWidth: 0 }}>
                         <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#DBEFEA", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, overflow: "hidden", flexShrink: 0 }}>
-                          {chien.photo_principale ? (
-                            <img src={chien.photo_principale} alt={chien.nom} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          {photos.get(chien.id as string) ? (
+                            <img src={photos.get(chien.id as string)} alt={chien.nom} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                           ) : (
                             "🐕"
                           )}

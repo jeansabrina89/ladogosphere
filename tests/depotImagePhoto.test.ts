@@ -5,8 +5,12 @@ import sharp from "sharp";
  * Le dépôt d'image : ce qui arrive dans le bucket, et ce qui n'y arrive pas.
  *
  * Une photo de chien est souvent prise au domicile du client. Si ses
- * coordonnées survivent au dépôt, le bucket `chiens-photos` étant PUBLIC,
- * l'adresse de ce client devient téléchargeable par n'importe qui.
+ * coordonnées survivent au dépôt, l'adresse de ce client part avec l'image.
+ *
+ * Le bucket a été fermé au lot 24 (S-05) : il ne se lit plus que par une URL
+ * signée d'une heure. Le nettoyage garde tout son sens pour autant — une photo
+ * qu'on télécharge légitimement, puis qui circule, emporterait encore ses
+ * coordonnées. Fermer la porte ne nettoie pas ce qui sort par la porte.
  */
 
 const H = vi.hoisted(() => ({

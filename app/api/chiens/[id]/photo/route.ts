@@ -5,8 +5,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { deposerImage } from "@/src/lib/depotImage";
 import { FORMAT_CHIEN } from "@/src/lib/imageBoutique";
-
-const BUCKET_CHIENS = "chiens-photos";
+import { BUCKET_CHIENS } from "@/src/lib/photoChien";
 
 export async function POST(
   req: NextRequest,
@@ -43,20 +42,27 @@ export async function POST(
   });
   if (!depot.ok) return NextResponse.json({ error: depot.error }, { status: depot.statut });
 
-  const { data: pub } = supabaseAdmin.storage.from(BUCKET_CHIENS).getPublicUrl(depot.chemin);
-
+  // On range le CHEMIN, plus l'URL publique (S-05, lot 24).
+  //
+  // Le bucket est privé : `getPublicUrl` ne rendrait qu'une adresse morte, et
+  // l'enregistrer serait une promesse fausse — celle que l'objet est lisible par
+  // tous. Le chemin, lui, reste valable quelle que soit la façon de servir le
+  // fichier, et c'est `urlSigneePhotoChien()` qui le signe à la lecture.
   const { error: updErr } = await supabaseAdmin
     .from("chiens")
-    .update({ photo_principale: pub.publicUrl })
+    .update({ photo_principale: depot.chemin })
     .eq("id", id);
   if (updErr) return NextResponse.json({ error: "Échec de l'enregistrement." }, { status: 500 });
 
   // Le client comme le personnel peuvent changer la photo : l'auteur est le compte connecté.
   await tracerEvenement({
     entite: "chien", entiteId: id, evenement: "photo",
-    apres: { photo_principale: pub.publicUrl },
+    apres: { photo_principale: depot.chemin },
     userId: user.id,
   });
 
-  return NextResponse.json({ ok: true, url: pub.publicUrl });
+  // L'appelant n'a pas besoin de l'URL : `UploadPhoto` rafraîchit la page, et
+  // c'est le serveur qui signera. Renvoyer une URL ici obligerait à la signer
+  // deux fois, et donnerait au navigateur une adresse qu'il n'a pas demandée.
+  return NextResponse.json({ ok: true });
 }

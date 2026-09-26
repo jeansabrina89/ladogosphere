@@ -5,6 +5,7 @@ import UploadPhoto from "./UploadPhoto";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
+import { urlSigneePhotoChien } from "@/src/lib/photoChien";
 
 export default async function FicheChienClientPage({
   params,
@@ -22,6 +23,10 @@ export default async function FicheChienClientPage({
     .select("*")
     .eq("id", id)
     .maybeSingle();
+
+  // Le bucket est prive (S-05) : l URL se signe pour une heure, et la
+  // fonction verifie d abord le droit de voir CE chien.
+  const urlPhoto = chien ? (await urlSigneePhotoChien(id)).url : null;
 
   if (!chien) {
     return (
@@ -75,13 +80,13 @@ export default async function FicheChienClientPage({
           <Carte>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 10 }}>
               <div style={{ width: 110, height: 110, borderRadius: "50%", background: "#DBEFEA", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 52, overflow: "hidden" }}>
-                {chien.photo_principale ? (
-                  <img src={chien.photo_principale} alt={chien.nom} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                {urlPhoto ? (
+                  <img src={urlPhoto} alt={chien.nom} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (
                   "🐶"
                 )}
               </div>
-              <UploadPhoto chienId={chien.id} photoActuelle={chien.photo_principale ?? null} />
+              <UploadPhoto chienId={chien.id} photoActuelle={urlPhoto} />
               <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: "#1B2B5E", fontSize: 26, fontWeight: 700, margin: 0 }}>
                 {chien.sexe === "F" ? "♀️" : "♂️"} {chien.nom}
               </h1>

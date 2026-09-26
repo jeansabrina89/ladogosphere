@@ -57,7 +57,7 @@ describe("le dépôt d'image est un passage obligé", () => {
     expect(
       fautifs,
       `Ces fichiers envoient au stockage sans passer par src/lib/depotImage.ts. ` +
-        `Une image déposée telle quelle garde ses métadonnées — et le bucket des photos de chiens est public. ` +
+        `Une image déposée telle quelle garde ses métadonnées, et une photo qui circule les emporte. ` +
         `Passez par deposerImage(), ou inscrivez ici la raison écrite de ne pas le faire : ${fautifs.join(", ")}`,
     ).toEqual([]);
   });

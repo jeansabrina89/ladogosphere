@@ -13,6 +13,7 @@ import EtatVide from "@/app/components/ui/EtatVide";
 import ContactTelephone from "@/app/components/ContactTelephone";
 import BadgePhotos from "@/app/components/BadgePhotos";
 import { statutEssaiDe, type StatutEssai } from "@/src/lib/journeeEssai";
+import { urlSigneePhotoChien } from "@/src/lib/photoChien";
 import ResultatEssaiSaisi from "@/app/components/ResultatEssaiSaisi";
 import { lireAuteurs } from "@/src/lib/auteursDb";
 import { auteurAffiche } from "@/src/lib/auteur";
@@ -32,6 +33,10 @@ export default async function ChienPage({
     .select(`*, clients (id, prenom, nom, photos_ok, photos_ok_modifie_le)`)
     .eq("id", id)
     .single();
+
+  // Le bucket est prive (S-05) : l URL se signe pour une heure, et la
+  // fonction verifie d abord le droit de voir CE chien.
+  const urlPhoto = (await urlSigneePhotoChien(id)).url;
 
   const { data: tousChiens } = await supabase
     .from("chiens")
@@ -144,8 +149,8 @@ export default async function ChienPage({
           <Carte>
             <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-start" }}>
               <div style={{ width: 96, height: 96, borderRadius: "50%", background: "#DBEFEA", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40, overflow: "hidden", flexShrink: 0, border: "3px solid #DBEFEA" }}>
-                {chien.photo_principale ? (
-                  <img src={chien.photo_principale} alt={chien.nom} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                {urlPhoto ? (
+                  <img src={urlPhoto} alt={chien.nom} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (
                   "🐕"
                 )}

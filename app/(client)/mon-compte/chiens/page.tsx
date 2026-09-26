@@ -7,6 +7,7 @@ import Carte from "@/app/components/ui/Carte";
 import EtatVide from "@/app/components/ui/EtatVide";
 import { etatClientChien, statutEssaiDe } from "@/src/lib/journeeEssai";
 import { datesEssaiParChien } from "@/src/lib/essaiReservation";
+import { urlsSigneesPhotosChiens } from "@/src/lib/photoChien";
 
 export default async function MesChiensPage() {
   const supabase = await createClient();
@@ -23,6 +24,10 @@ export default async function MesChiensPage() {
   if (!client) return <div style={{ padding: 24 }}>Profil introuvable</div>;
 
   const chiens = (client.chiens ?? []) as any[];
+
+  // Le bucket est prive (S-05) : une URL signee par chien, et la fonction
+  // verifie chaque fois que le chien est bien celui de la session.
+  const photos = await urlsSigneesPhotosChiens(chiens.map((c) => c.id as string));
 
   // Date de la prochaine journée d'essai validée, par chien (pour les 'programme').
   const datesEssai = await datesEssaiParChien(chiens.map((c) => c.id));
@@ -83,8 +88,8 @@ export default async function MesChiensPage() {
                   <Carte>
                     <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                       <div style={{ flex: "0 0 auto", width: 52, height: 52, borderRadius: "50%", background: "#DBEFEA", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, overflow: "hidden" }}>
-                        {chien.photo_principale ? (
-                          <img src={chien.photo_principale} alt={chien.nom} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+                        {photos.get(chien.id as string) ? (
+                          <img src={photos.get(chien.id as string)} alt={chien.nom} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
                         ) : (
                           "🐕"
                         )}
