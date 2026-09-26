@@ -28,7 +28,7 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
 | C-10 — `/auth/confirm?next=` redirection ouverte | **FERMÉ** | 22 | `de2205b` | oui |
 | C-11 — `.or()` PostgREST assemblé avec la saisie (caisse) | OUVERT — personnel seulement | 21 | — | non |
 | C-13 — limitation de tentatives | OUVERT — Supabase Auth limite connexion, inscription, réinitialisation ; rien de notre côté | 21 | — | non |
-| C-05 — l'inscription révèle qu'une adresse est connue | OUVERT — le refus du doublon, lui, fonctionne | 21 | — | non |
+| C-05 — l'inscription révèle qu'une adresse est connue | **FERMÉ côté application au lot 28** — les trois cas rendent le même écran, le même message et le même code ; le cas « adresse déjà rattachée » part par e-mail. **Réserve écrite** : `/auth/v1/signup` de Supabase reste joignable avec la clé publique, et sa réponse dépend du réglage « Confirm email » | 28 | `bde6195` | oui — 12 cas, mutation sur le message révélateur |
 | C-01 à C-04, C-08, C-12 | Traités avant le lot 21 (18b à 18d) ; non réexaminés ici | 18b–18d | — | partiel |
 | Prestations — le chien n'était pas rattaché au client (FORGEABLE du recensement 22-bis, hors numérotation d'audit) | **FERMÉ** | 22-ter | `c496fdf` | oui — 4 cas |
 | Espace client — modifier un chien s'en remettait à RLS, que le personnel traverse | **FERMÉ** | 23-bis | `70b030f` | oui — 7 cas |
@@ -63,7 +63,10 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
    reste à faire**, et toujours pour la même raison : posée à l'aveugle, elle
    casse des écrans. Elle se pose en report-only, on lit ce qu'elle aurait
    cassé, puis on l'arme.
-7. **C-05**, l'énumération à l'inscription.
+7. ~~C-05~~ — **fermé côté application au lot 28** (`bde6195`). Deux réserves,
+   toutes deux hors de notre code : l'API `/auth/v1/signup` de Supabase répond
+   selon le réglage « Confirm email », et c'est elle qu'un attaquant interrogerait
+   plutôt que notre écran. **À vérifier par Sabrina dans le tableau de bord.**
 8. ~~C-07c~~ — fermé au lot 22-ter. ~~C-07a~~ — classé SANS OBJET, accepté.
 9. ~~S-07, S-08~~ — fermés au lot 23 (`301030a`).
 10. ~~`archiverClient` / `supprimerClient`~~ — fermés au 23-bis (`4549026`).
@@ -318,3 +321,43 @@ avec Eric Schweizer, et remis à vide à la fin.
 Si le délai doit pouvoir différer d'une marque à l'autre chez un même
 fournisseur, l'exception par article y répond déjà ; s'il faut le régler par
 marque, c'est un sujet en soi.
+
+## ARRÊT DEMANDÉ AU LOT 28 : le rattachement précède la confirmation
+
+**Constaté le 27.09.2026, NON corrigé**, parce que le brief demandait de
+m'arrêter et de le dire avant de toucher quoi que ce soit.
+
+`lier_client_auth` est un trigger **`AFTER INSERT ON auth.users`**, et son corps
+est :
+
+```sql
+update public.clients set auth_user_id = new.id
+ where lower(email) = lower(new.email) and auth_user_id is null;
+```
+
+Le rattachement d'une fiche cliente à un compte se fait donc **à l'instant où le
+compte est créé**, avant toute confirmation de l'adresse.
+
+**Ce que cela permet, et qui dépasse C-05.** Quelqu'un qui connaît l'adresse
+d'une cliente sans compte peut s'inscrire avec cette adresse et **prendre
+possession de sa fiche** — ses chiens, son historique, ses réservations — sans
+jamais prouver qu'il contrôle la boîte. C-05 était un défaut de confidentialité ;
+celui-ci est une prise de contrôle.
+
+**Ce qui le referme, et qui n'est pas dans le code** : le réglage « Confirm
+email » du projet Supabase. Activé, le compte reste non confirmé et la session
+n'est pas posée ; le trigger a pourtant déjà rattaché la fiche — le détournement
+demeure, mais l'attaquant ne peut pas s'en servir sans relever la boîte.
+
+**Mesuré le 27.09.2026** : 50 comptes, 49 confirmés, 1 non confirmé. Le
+commentaire de `app/(public)/inscription/actions.ts` affirme que « l'e-mail est
+auto-confirmé sur ce projet » — donc que le réglage serait DÉSACTIVÉ. Si c'est le
+cas, l'attaquant obtient une session immédiatement, et le détournement est
+complet.
+
+**La correction, quand Sabrina aura tranché** : déplacer le rattachement d'un
+trigger sur `INSERT` vers un geste qui n'a lieu qu'après confirmation — soit un
+trigger `AFTER UPDATE OF email_confirmed_at`, soit un appel explicite depuis
+l'application au premier accès confirmé. Le second se teste ; le premier se
+déclenche même si l'application n'est pas au courant. Le choix dépend aussi de la
+question de savoir si un rattachement automatique est souhaitable du tout.
