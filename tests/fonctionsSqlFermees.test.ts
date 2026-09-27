@@ -84,12 +84,47 @@ describe("une fonction SQL naît fermée", () => {
   });
 
   it("aucune fonction créée depuis ce chantier n'est laissée ouverte", () => {
+    /**
+     * Ce qui compte est l'ÉTAT FINAL, pas le fichier.
+     *
+     * Jusqu'à APP 28-BIS, ce test cherchait la révocation dans le fichier qui
+     * crée la fonction, et là seulement. Une fonction créée dans une migration
+     * puis révoquée dans la suivante était donc signalée à tort — alors qu'elle
+     * est bel et bien fermée en base, ce qui est la seule chose qui protège.
+     *
+     * C'est arrivé aux deux fonctions de trigger d'APP 28-BIS : la migration de
+     * création était déjà appliquée quand le manque a été relevé, et la corriger
+     * aurait fait diverger le fichier et la base — ce que la règle du dépôt
+     * interdit plus fermement encore.
+     *
+     * Le contrôle reste strict : une fonction que PERSONNE ne révoque, dans
+     * aucune migration, rougit toujours. Seul le lieu de la révocation est
+     * devenu libre.
+     */
     const apres = fichiersMigration().filter((f) => f > FERMETURE);
+    const toutLeSql = apres
+      .map((f) => readFileSync(join(MIGRATIONS, f), "utf8"))
+      .join("\n");
+
     const fautes = apres.flatMap((f) => {
       const sql = readFileSync(join(MIGRATIONS, f), "utf8");
-      return fonctionsSansRevocation(sql).map((nom) => `${f} : ${nom}`);
+      // Créées dans ce fichier, et révoquées nulle part depuis la fermeture.
+      return fonctionsSansRevocation(sql)
+        .filter((nom) => fonctionsSansRevocation(toutLeSql).includes(nom))
+        .map((nom) => `${f} : ${nom}`);
     });
     expect(fautes).toEqual([]);
+  });
+
+  it("une révocation posée par une migration ULTÉRIEURE compte", () => {
+    // Le cas d'APP 28-BIS, éprouvé en clair : deux fichiers, l'un crée,
+    // l'autre ferme. La base, elle, ne voit que le résultat.
+    const creation =
+      "create or replace function public.zz_deux(p uuid) returns int language sql as $$ select 1 $$;";
+    const fermeture =
+      "revoke all on function public.zz_deux(uuid) from public, anon, authenticated;";
+    expect(fonctionsSansRevocation(creation)).toEqual(["zz_deux"]);
+    expect(fonctionsSansRevocation(`${creation}\n${fermeture}`)).toEqual([]);
   });
 });
 

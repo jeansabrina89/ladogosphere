@@ -33,10 +33,16 @@ const DELAI_INSCRIPTION_MS = 15 * 60 * 1000;
 async function resoudreUtilisateur(
   userIdRecu: string | null | undefined,
   email: string
-): Promise<{ id: string; email: string } | { erreur: string }> {
+): Promise<{ id: string; email: string; confirme: boolean } | { erreur: string }> {
   const supabase = await createSupabaseServerClient();
   const { data: { user: session } } = await supabase.auth.getUser();
-  if (session) return { id: session.id, email: normaliserEmail(session.email) };
+  if (session) {
+    return {
+      id: session.id,
+      email: normaliserEmail(session.email),
+      confirme: !!session.email_confirmed_at,
+    };
+  }
 
   if (!userIdRecu) return { erreur: "Session introuvable, veuillez vous reconnecter." };
 
@@ -54,7 +60,9 @@ async function resoudreUtilisateur(
   if (!creeLe || Date.now() - creeLe > DELAI_INSCRIPTION_MS) {
     return { erreur: "Veuillez vous connecter pour compléter votre profil." };
   }
-  return { id: compte.id, email: normaliserEmail(compte.email) };
+  // On n'arrive ici que pour un compte NON confirmé de moins de 15 minutes :
+  // les deux refus au-dessus ont écarté les autres.
+  return { id: compte.id, email: normaliserEmail(compte.email), confirme: false };
 }
 
 /**
@@ -136,6 +144,35 @@ export async function creerOuLierFicheClient(input: {
   const photosOk = input.photos_ok !== false;
   const maintenant = new Date().toISOString();
   let clientId: string;
+
+  /*
+   * ── UNE FICHE EXISTANTE NE SE RATTACHE QU'À UNE ADRESSE CONFIRMÉE ───────
+   *
+   * APP 28-BIS. Le trigger de base a été déplacé sur la confirmation, mais cela
+   * n'aurait rien réglé seul : CETTE action rattache elle aussi, et elle est
+   * appelée juste après `signUp`, donc avec un compte qui vient de naître et
+   * que personne n'a encore confirmé.
+   *
+   * Sans cette garde, quelqu'un qui connaît l'adresse d'une cliente sans compte
+   * s'inscrit sous cette adresse et récupère sa fiche — ses chiens, son
+   * historique — par le chemin applicatif, pendant que le trigger, lui, attend
+   * sagement. Fermer l'un sans l'autre aurait été cosmétique.
+   *
+   * La fiche n'est pas perdue : le trigger `on_auth_user_confirmed` la rattachera
+   * dès que la personne aura cliqué sur le lien de son e-mail.
+   *
+   * CE REFUS NE DOIT JAMAIS ÊTRE AFFICHÉ SUR L'ÉCRAN PUBLIC : il ne paraît que
+   * s'il existe une fiche à rattacher, donc il révélerait ce que C-05 cache.
+   * L'écran d'inscription ignore le résultat de cette action depuis APP 28 —
+   * c'est ce qui rend ce message sans danger, et c'est pour cela qu'un test le
+   * garde.
+   */
+  if (decision.action === "lier" && !utilisateur.confirme) {
+    return {
+      ok: false,
+      error: "Confirmez d'abord votre adresse : votre fiche sera rattachée à ce moment-là.",
+    };
+  }
 
   if (decision.action === "lier") {
     // Liste blanche : rattachement + champs d'identité encore vides + accord photos.
