@@ -97,6 +97,20 @@ Il est séparé de `npm run lint`, qui reste rapide : on le lance avant une mise
 en ligne, et dans tout lot qui touche à une garde asynchrone ou à une porte de
 sécurité.
 
+# Ne jamais nommer une variable `module`
+
+Dans un test comme ailleurs, `const module = …` est refusé par le lint de Next
+(`@next/next/no-assign-module-variable`) : le nom est réservé par le système de
+modules, et le remplacer casse le chargement du fichier.
+
+Cela a coûté trois allers-retours en trois lots — APP 27, APP 29 deux fois — parce
+que le nom vient naturellement quand on lit le contenu d'un module pour le
+vérifier. `source`, `partage`, `contenu` disent la même chose sans piéger.
+
+Ce n'est pas `npm run lint` qui l'attrape, c'est `npm run lint:types`. Et comme on
+le lance en fin de lot, on découvre la faute après avoir écrit le reste.
+
+
 # Un échec isolé se garde
 
 Si un test échoue une fois puis passe au vert, la sortie complète se garde

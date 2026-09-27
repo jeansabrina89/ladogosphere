@@ -69,10 +69,28 @@ describe("les en-têtes de sécurité sont servis sur toutes les routes", () => 
     }
   });
 
-  it("aucune Content-Security-Policy n'est posée dans ce lot", async () => {
+  it("la CSP est en OBSERVATION, et rien ne bloque encore", async () => {
+    /**
+     * Ce test disait, au lot 23 : « aucune Content-Security-Policy n'est posée
+     * dans ce lot ». C'était juste alors — une CSP posée à l'aveugle casse des
+     * écrans, et le lot 23 n'avait pas de quoi l'éprouver.
+     *
+     * APP 29 en pose une, en `Report-Only` : même calcul, un rapport à chaque
+     * violation, et rien de bloqué. La garde ne disparaît donc pas, elle change
+     * d'objet — ce qu'elle interdit maintenant, c'est la version BLOQUANTE, qui
+     * relève d'un lot à part après deux semaines d'observation
+     * (voir docs/SECURITE.md).
+     */
     const { ENTETES_SECURITE } = await import("../next.config");
     const cles = ENTETES_SECURITE.map((h) => h.key.toLowerCase());
-    expect(cles).not.toContain("content-security-policy");
-    expect(cles).not.toContain("content-security-policy-report-only");
+
+    expect(cles, "l'observation doit être en place").toContain(
+      "content-security-policy-report-only",
+    );
+    expect(
+      cles,
+      "une CSP bloquante ne se pose pas au passage : elle casse des écrans en " +
+      "silence, et son arrivée est une décision, pas un effet de bord",
+    ).not.toContain("content-security-policy");
   });
 });

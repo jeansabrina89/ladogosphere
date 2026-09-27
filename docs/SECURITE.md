@@ -228,3 +228,63 @@ fermer une photo précise à la seconde, il faut la déplacer (changer son chemi
 ce qui rend l'URL en cache caduque quoi qu'il arrive. Aucun objet n'a été
 déplacé ici — le seul du bucket est une photo de recette qui partira à la purge
 des données de test.
+
+## La CSP en observation — commencée le 27.09.2026 (C-09, APP 29)
+
+`Content-Security-Policy-Report-Only` est servie sur toutes les routes depuis ce
+jour. Elle fait exactement le même calcul qu'une CSP bloquante, envoie un rapport
+à chaque violation, et **ne bloque rien**.
+
+### Pourquoi en deux temps
+
+Une CSP posée bloquante d'emblée casse des écrans **en silence** : le navigateur
+refuse une ressource, la page s'affiche à moitié, aucune erreur ne paraît. On ne
+l'apprend que par une cliente qui téléphone. Deux semaines d'observation
+remplacent cette découverte par une liste.
+
+### Les sources autorisées, et ce qui les justifie
+
+| Directive | Valeur | Pourquoi |
+|---|---|---|
+| `default-src` | `'self'` | Le socle : une directive oubliée retombe ici, donc du bon côté. |
+| `script-src` | `'self' 'unsafe-inline'` | **Une dette.** Next injecte des scripts inline pour l'hydratation ; s'en passer demande des nonces, donc un chantier à part. C'est la moitié de ce qu'une CSP protège, et le premier point à reprendre. |
+| `style-src` | `'self' 'unsafe-inline'` | Un fait du dépôt : les écrans sont habillés par des centaines de `style={{ … }}` inline. Les retirer serait un autre projet. |
+| `img-src` | `'self' data: blob:` + Supabase | `data:` pour les QR de facture ; `blob:` pour l'aperçu d'une photo avant téléversement ; Supabase pour le bucket public de la boutique **et** les URL signées du bucket privé des chiens (lot 24). |
+| `font-src` | `'self'` | `next/font/google` télécharge la police **au build** et la sert depuis notre domaine. Rien ne part vers Google à l'affichage — l'autoriser serait ouvrir une origine inutile. |
+| `connect-src` | `'self'` + Supabase (https **et** wss) + Sentry | REST, Auth, Storage ; le WebSocket du temps réel, autorisé d'avance parce que le découvrir en panne coûterait une soirée ; Sentry, sans quoi on perdrait la remontée d'erreurs au moment où la CSP bloque. |
+| `frame-src`, `object-src`, `frame-ancestors` | `'none'` | Vérifié au lot 23 : aucun `<iframe>`, `<embed>` ni `<object>`. Les PDF sont servis par redirection, jamais encadrés. |
+| `base-uri` | `'self'` | Une balise `<base>` injectée réécrirait la cible de toutes les URL relatives. |
+| `form-action` | `'self'` | Empêche un script injecté de renvoyer un mot de passe ailleurs. |
+| `upgrade-insecure-requests` | — | HSTS le fait pour notre domaine ; ceci couvre le reste. |
+
+`unsafe-eval` n'y est **pas**, délibérément : Next n'en a pas besoin en
+production. Si un rapport le réclame, c'est précisément ce qu'on cherche à
+apprendre.
+
+### Comment lire les rapports
+
+Les violations partent vers Sentry, à l'endpoint déduit du DSN
+(`/api/<projet>/security/`). Dans Sentry, elles arrivent comme des « CSP
+Reports » : filtrer sur `csp` dans la recherche des problèmes, ou ouvrir
+**Issues → filtre `event.type:csp`**. Chaque rapport nomme la directive violée et
+l'URL refusée — c'est cette URL qui dit s'il faut l'autoriser ou corriger le code.
+
+Sans DSN (développement local), la politique est servie sans `report-uri` : les
+violations paraissent dans la console du navigateur, et rien n'est collecté.
+
+### Le passage en bloquante
+
+**Au plus tôt le 11 octobre 2026**, dans un lot à part, et seulement si :
+
+1. les rapports de la dernière semaine ne contiennent plus de violation qu'on
+   n'ait pas décidé d'autoriser ;
+2. les trois écrans les plus chargés ont été parcourus à la main sous CSP —
+   connexion, catalogue, caisse ;
+3. la décision sur `script-src 'unsafe-inline'` est prise : ou bien on la garde
+   en connaissance de cause, ou bien on pose des nonces. La garder sans le dire
+   serait se croire protégés.
+
+Le lot renommera l'en-tête (`Content-Security-Policy`) et gardera
+`Report-Only` **en plus** pendant une semaine, avec une politique plus stricte
+que celle qui bloque : on continue d'observer le cran suivant pendant que le
+premier protège.

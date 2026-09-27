@@ -1,4 +1,5 @@
 import { withSentryConfig } from "@sentry/nextjs";
+import { politiqueCsp } from "./src/lib/csp";
 
 /** Le déploiement de production, et lui seul. Absent en local et en preview. */
 const EN_PRODUCTION = process.env.VERCEL_ENV === "production";
@@ -6,9 +7,13 @@ const EN_PRODUCTION = process.env.VERCEL_ENV === "production";
 /**
  * Les en-têtes de sécurité, servis sur TOUTES les routes (C-09).
  *
- * Pas de Content-Security-Policy ici : posée à l'aveugle, elle casse des
- * écrans en production. Elle demande d'être éprouvée en report-only d'abord,
- * et c'est un lot à elle seule.
+ * La Content-Security-Policy est là depuis APP 29, mais en OBSERVATION :
+ * `Content-Security-Policy-Report-Only` fait le même calcul, envoie un rapport
+ * à chaque violation, et NE BLOQUE RIEN. Deux semaines pour apprendre ce qu'elle
+ * casserait, puis on l'arme dans un lot à part — le plan est dans
+ * `docs/SECURITE.md`. Posée bloquante d'emblée, elle aurait cassé des écrans en
+ * silence : le navigateur refuse une ressource, la page s'affiche à moitié, et
+ * on ne l'apprend que par une cliente qui téléphone.
  *
  * Les valeurs ont été choisies après avoir cherché ce que l'application fait
  * réellement, pas d'après une liste toute faite :
@@ -31,6 +36,23 @@ const EN_PRODUCTION = process.env.VERCEL_ENV === "production";
  * sous-domaines. `includeSubDomains` suffit ici.
  */
 export const ENTETES_SECURITE = [
+  /*
+   * En OBSERVATION : ce nom d'en-tête est ce qui fait la différence entre
+   * « apprendre » et « casser ». `Content-Security-Policy` bloquerait ;
+   * `-Report-Only` se contente de rapporter.
+   *
+   * La politique est construite AU BUILD depuis l'environnement : l'origine
+   * Supabase et le DSN Sentry sont des variables `NEXT_PUBLIC_*`, connues à ce
+   * moment-là. Les écrire en dur serait les faire diverger le jour où le projet
+   * change.
+   */
+  {
+    key: "Content-Security-Policy-Report-Only",
+    value: politiqueCsp({
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      sentryDsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    }),
+  },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
