@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { filtreRecherchePersonne } from "@/src/lib/rechercheTexte";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermissionBoutique } from "@/src/lib/permissions";
 // L'encaissement sur facture reste sa propre permission : porter un achat sur
@@ -166,14 +167,24 @@ export async function chercherClientCommande(q: string): Promise<ClientTrouve[]>
   const verif = await verifierPermissionBoutique("vente");
   if (verif.error) return [];
 
-  const recherche = q.trim();
-  if (recherche.length < 2) return [];
+  /*
+   * C-11 : la saisie ne s'assemble plus telle quelle dans le filtre.
+   *
+   * Une virgule y séparait les conditions du `.or()` : taper « a,nom.eq.Dupont »
+   * ajoutait une condition que personne n'avait demandée. Une seule fonction
+   * neutralise désormais, pour les trois recherches de l'application.
+   *
+   * `null` = rien de cherchable : on n'interroge pas la base. Un motif vide
+   * donnerait « %% », donc tout le fichier clients dans une liste faite pour
+   * huit lignes.
+   */
+  const filtre = filtreRecherchePersonne(q);
+  if (!filtre) return [];
 
-  const motif = `%${recherche}%`;
   const { data } = await supabaseAdmin
     .from("clients")
     .select("id, prenom, nom, email")
-    .or(`prenom.ilike.${motif},nom.ilike.${motif},email.ilike.${motif}`)
+    .or(filtre)
     .eq("actif", true)
     .order("nom")
     .limit(8);

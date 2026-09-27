@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { filtreRecherchePersonne } from "@/src/lib/rechercheTexte";
 import {
   fenetreGlissante,
   planRegeneration,
@@ -319,13 +320,18 @@ export async function clientPourLocation(clientId: string) {
 
 /** Recherche de clients pour en faire des locataires : le nom, l'adresse, et s'ils le sont déjà. */
 export async function chercherClientsLocation(q: string) {
-  const recherche = q.trim().replace(/[%,()]/g, " ").trim();
-  if (recherche.length < 2) return [];
-  const motif = `%${recherche}%`;
+  /*
+   * C-11. Cette recherche-ci neutralisait déjà « % , ( ) » — mais de son côté, et
+   * sans les guillemets doubles ni l'antislash. Trois recherches, trois
+   * neutralisations différentes : c'est ainsi qu'une règle finit par ne plus
+   * être la même selon l'écran.
+   */
+  const filtre = filtreRecherchePersonne(q);
+  if (!filtre) return [];
   const { data } = await supabaseAdmin
     .from("clients")
     .select("id, prenom, nom, email, locataire_box, box_loue")
-    .or(`prenom.ilike.${motif},nom.ilike.${motif},email.ilike.${motif}`)
+    .or(filtre)
     .eq("actif", true)
     .order("nom")
     .limit(8);
