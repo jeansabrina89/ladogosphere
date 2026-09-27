@@ -55,6 +55,37 @@ telle fonction ne lit que les données de l'appelant, et la migration dit
 pourquoi. Un test relit `supabase/migrations` et refuse toute nouvelle
 fonction sans révocation explicite.
 
+# La vitrine se lit avec le rôle anon
+
+Toute modification de `articles_vitrine` se vérifie en lisant la vue avec le
+rôle **anon**, pas seulement avec la clé de service.
+
+```sql
+begin; set local role anon; select count(*) from public.articles_vitrine; rollback;
+```
+
+La vue est `security_invoker = false`, donc SECURITY DEFINER : elle lit
+`articles` avec les droits de son propriétaire, et c'est pour cela qu'un visiteur
+peut la consulter sans aucun droit sur la table. **Mais ce report de droits ne
+vaut que pour les TABLES.** Le privilège EXECUTE d'une fonction est vérifié avec
+le rôle courant. Une vue SECURITY DEFINER qui appelle une fonction fermée est
+donc fermée elle aussi.
+
+C'est arrivé le 26 septembre 2026. APP 26 a fait appeler
+`delai_commande_effectif` par la vue ; la fonction était bien fermée à `anon`,
+comme le veut la règle. Le site vitrine a affiché « La boutique est momentanément
+indisponible » pendant un jour, et la suite de tests est restée verte du début à
+la fin — elle lisait la vue avec la clé de service.
+
+Le calcul d'une colonne publique s'écrit donc DANS la vue, jamais par un appel de
+fonction. Ouvrir la fonction serait la mauvaise correction : appelable par
+`/rest/v1/rpc` avec la clé publique du site, elle rendrait ce que la vue refuse
+justement de publier.
+
+Un test relit le dépôt et refuse toute fonction révoquée appelée par la vue
+(`tests/vitrineLisibleParAnon.test.ts`). Il ne remplace pas la lecture avec
+`anon` : il ne connaît que ce que les migrations disent, pas ce que la base fait.
+
 # Une promesse oubliée ne se voit pas
 
 `npm run lint:types` lance le lint AVEC le typage : il attrape les promesses
