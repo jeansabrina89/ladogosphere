@@ -24,10 +24,10 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
 | C-07b — statut « annulée » sans la permission ni la logique | **FERMÉ** | 22 | `f7a4dac` | oui |
 | C-07c — valider son propre timbrage / ses propres vacances | **FERMÉ** — l'administratrice peut valider ses propres heures et vacances, par décision de Sabrina du 24.09.2026 ; aucun autre employé ne le peut | 22-ter | `90a3799` | oui — 14 cas, 4 couches mutées |
 | C-07d — garde unique `exiger()`, lecture de `profiles.actif` | FERMÉ | 18b | — | oui |
-| C-09 — en-têtes de sécurité | **FERMÉ pour les cinq en-têtes** (HSTS, nosniff, DENY, Referrer-Policy, Permissions-Policy) — la **CSP reste OUVERTE**, report-only à éprouver | 23 | `6f13b28` | oui — 4 cas |
+| C-09 — en-têtes de sécurité | **FERMÉ pour les cinq en-têtes** (lot 23). La **CSP est en OBSERVATION depuis le 27.09.2026** (`Content-Security-Policy-Report-Only`, vérifiée servie en production) : rien ne bloque encore, les violations partent vers Sentry. Passage en bloquante au plus tôt le 11.10.2026, dans un lot à part, aux trois conditions écrites dans `docs/SECURITE.md` | 23, 29 | `6f13b28`, `317cbfb` | oui — 16 cas |
 | C-10 — `/auth/confirm?next=` redirection ouverte | **FERMÉ** | 22 | `de2205b` | oui |
-| C-11 — `.or()` PostgREST assemblé avec la saisie (caisse) | OUVERT — personnel seulement | 21 | — | non |
-| C-13 — limitation de tentatives | OUVERT — Supabase Auth limite connexion, inscription, réinitialisation ; rien de notre côté | 21 | — | non |
+| C-11 — `.or()` PostgREST assemblé avec la saisie (caisse) | **FERMÉ au lot 29** — TROIS recherches étaient concernées, pas une ; une seule fonction (`filtreRecherchePersonne`) neutralise désormais virgules, parenthèses, jokers, guillemets et antislash. Le point et l'apostrophe restent, délibérément | 29 | `f054cc4` | oui — 14 cas, 2 mutations |
+| C-13 — limitation de tentatives | **FERMÉ au lot 29 pour ce qui nous revient.** L'inventaire a montré que deux des trois chemins visés étaient DÉJÀ couverts (e-mails de test : 30/10 min, global ; relances : `perm_factures`). Restait l'e-mail « Vous avez déjà un compte » — le seul joignable sans être connecté : 1/h par adresse, 5/h par IP, en base. **Les limites de Supabase Auth restent à vérifier par Sabrina** (Authentication → Rate Limits) | 29 | `7fcfe79` | oui — 21 cas, 9 contrôles en base |
 | C-05 — l'inscription révèle qu'une adresse est connue | **FERMÉ côté application au lot 28** — les trois cas rendent le même écran, le même message et le même code ; le cas « adresse déjà rattachée » part par e-mail. **Réserve écrite** : `/auth/v1/signup` de Supabase reste joignable avec la clé publique, et sa réponse dépend du réglage « Confirm email » | 28 | `bde6195` | oui — 12 cas, mutation sur le message révélateur |
 | C-01 à C-04, C-08, C-12 | Traités avant le lot 21 (18b à 18d) ; non réexaminés ici | 18b–18d | — | partiel |
 | Prestations — le chien n'était pas rattaché au client (FORGEABLE du recensement 22-bis, hors numérotation d'audit) | **FERMÉ** | 22-ter | `c496fdf` | oui — 4 cas |
@@ -59,7 +59,11 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
    fermer un bucket ne purge pas le cache du CDN, qui a continué de servir
    l'URL exacte déjà demandée pendant au plus une heure.
 5. ~~C-07b~~ — fermé au lot 22.
-6. ~~C-09, les en-têtes simples~~ — fermé au lot 23 (`6f13b28`). **La CSP
+6. ~~C-09~~ — les cinq en-têtes fermés au lot 23 ; la **CSP est en observation**
+   depuis le 27.09.2026 (lot 29). Ce qui reste à décider n'est pas de la poser mais
+   de l'armer, et surtout de trancher `script-src 'unsafe-inline'` : la garder sans
+   le dire serait se croire protégés. Ancien texte, conservé pour mémoire :
+   **La CSP
    reste à faire**, et toujours pour la même raison : posée à l'aveugle, elle
    casse des écrans. Elle se pose en report-only, on lit ce qu'elle aurait
    cassé, puis on l'arme.
@@ -80,7 +84,7 @@ correction), puis mis à jour par le **lot 22** (cinq portes).
     et à ses lignes, avec un motif obligatoire ; `perm_avoirs` couvre le crédit
     manuel, qui ne l'est pas. Ce n'est donc pas un contournement mais une autre
     porte, plus étroite, et documentée.
-13. Le reste — C-11, C-13, S-04 — soit inerte, soit atteignable seulement par
+13. ~~C-11~~ et ~~C-13~~ — fermés au lot 29. Reste S-04 — soit inerte, soit atteignable seulement par
     un compte déjà autorisé.
 
 ## Motif appartenance — recensement du 22-bis
