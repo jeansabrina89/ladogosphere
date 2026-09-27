@@ -8,6 +8,8 @@ import {
   disponibiliteVitrine,
   mentionRemiseMembre,
   phraseDelaiCommande,
+  formatPrixClient,
+  TEXTE_NON_EXPEDIABLE,
   type ArticleSurCommande,
 } from "@/src/lib/venteEnLigneLogique";
 import { articleVitrine } from "@/src/lib/vitrine";
@@ -188,11 +190,10 @@ export default async function ArticlePage({
                       color: SOUS, fontSize: 19, fontWeight: 500,
                       textDecoration: "line-through", marginRight: 10,
                     }}>
-                      {prix.prixBase.toFixed(2)}
+                      {formatPrixClient(prix.prixBase)}
                     </span>
                   )}
-                  {prix.prixFinal.toFixed(2)} CHF
-                  <span style={{ color: SOUS, fontSize: 15, fontWeight: 400 }}> TTC</span>
+                  {formatPrixClient(prix.prixFinal)}
                 </p>
                 {prix.libelle && (
                   <p style={{ color: "#1F6E5B", fontSize: 16, fontWeight: 700, margin: 0 }}>
@@ -219,7 +220,7 @@ export default async function ArticlePage({
                 </p>
                 {article.expediable === false && (
                   <p style={{ color: SOUS, fontSize: 14, margin: 0 }}>
-                    📦 Trop lourd pour un colis : à retirer à la pension ou au départ de votre chien.
+                    📦 {TEXTE_NON_EXPEDIABLE}
                   </p>
                 )}
 

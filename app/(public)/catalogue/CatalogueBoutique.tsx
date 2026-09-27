@@ -20,6 +20,7 @@ import {
   disponibilite,
   disponibiliteVitrine,
   phraseDelaiCommande,
+  formatPrixClient,
 } from "@/src/lib/venteEnLigneLogique";
 import { ajouterAuPanier } from "./actions";
 import { ajouter as ajouterLocalement } from "./panierNavigateur";
@@ -265,11 +266,10 @@ export default function CatalogueBoutique({
         <p style={{ color: MARINE, fontSize: 18, fontWeight: 700, margin: 0 }}>
           {remise && (
             <span style={{ color: SOUS, fontSize: 15, fontWeight: 500, textDecoration: "line-through", marginRight: 8 }}>
-              {Number(a.prix_vente).toFixed(2)}
+              {formatPrixClient(Number(a.prix_vente))}
             </span>
           )}
-          {surMesure ? "dès " : ""}{(surMesure ? Number(a.prix_vente) : a.prix_final).toFixed(2)} CHF
-          <span style={{ color: SOUS, fontSize: 13, fontWeight: 400 }}> TTC</span>
+          {surMesure ? "dès " : ""}{formatPrixClient(surMesure ? Number(a.prix_vente) : a.prix_final)}
         </p>
 
         {a.remise_libelle && (

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   optionsRemise,
   infoLivraisonOfferte,
-  libelleSeuil,
+  formatPrixClient,
   totalCommande,
   refusConfirmation,
   remisesParOrigine,
@@ -57,7 +57,6 @@ const rond: React.CSSProperties = {
   fontFamily: "inherit", cursor: "pointer", lineHeight: 1,
 };
 
-const chf = (n: number) => `${n.toFixed(2)} CHF`;
 
 /**
  * Le panier, et tout ce qui mène à la commande.
@@ -170,10 +169,10 @@ export default function Panier({
                       pratiqué hors action — jamais un « prix habituel » gonflé. */}
                   {prixBaseLigne(l) > Number(l.prix_unitaire) && (
                     <span style={{ textDecoration: "line-through", marginRight: 6 }}>
-                      {chf(prixBaseLigne(l))}
+                      {formatPrixClient(prixBaseLigne(l))}
                     </span>
                   )}
-                  {`${chf(Number(l.prix_unitaire))} l’unité`}
+                  {`${formatPrixClient(Number(l.prix_unitaire))} l’unité`}
                   {l.expediable === false ? " · non expédiable" : ""}
                 </span>
                 {l.remise_libelle && (
@@ -207,7 +206,7 @@ export default function Panier({
                 <span style={{
                   minWidth: 86, textAlign: "right", color: MARINE, fontSize: 16, fontWeight: 700,
                 }}>
-                  {chf(Number(l.quantite) * Number(l.prix_unitaire))}
+                  {formatPrixClient(Number(l.quantite) * Number(l.prix_unitaire))}
                 </span>
                 <button type="button" disabled={enCours}
                   aria-label={`Retirer ${l.libelle} du panier`}
@@ -251,7 +250,7 @@ export default function Panier({
                   ? "—"
                   : o.valeur === "postal" && o.frais === 0 && franco?.atteint
                     ? "Offerts"
-                    : o.frais === 0 ? "Gratuit" : chf(o.frais)}
+                    : o.frais === 0 ? "Gratuit" : formatPrixClient(o.frais)}
               </span>
             </button>
             {o.raison && (
@@ -343,7 +342,7 @@ export default function Panier({
         display: "grid", gap: 6,
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", color: SOUS, fontSize: 15 }}>
-          <span>Articles</span><span>{chf(total.sousTotal)}</span>
+          <span>Articles</span><span>{formatPrixClient(total.sousTotal)}</span>
         </div>
         {/* Chaque remise est nommée par son ORIGINE : « Action du mois −20 % »
             n'est pas « Remise membre −10 % », et le client doit savoir laquelle
@@ -352,14 +351,14 @@ export default function Panier({
           <div key={r.libelle}
             style={{ display: "flex", justifyContent: "space-between", color: VERT, fontSize: 15, fontWeight: 600 }}>
             <span>{r.libelle}</span>
-            <span>−{chf(r.montant)}</span>
+            <span>{formatPrixClient(-r.montant)}</span>
           </div>
         ))}
         {(total.port > 0 || portOffert) && (
           <div style={{ display: "flex", justifyContent: "space-between", color: SOUS, fontSize: 15 }}>
             <span>Frais de port</span>
             <span style={portOffert ? { color: VERT, fontWeight: 600 } : undefined}>
-              {portOffert ? "Offerts" : chf(total.port)}
+              {portOffert ? "Offerts" : formatPrixClient(total.port)}
             </span>
           </div>
         )}
@@ -368,15 +367,18 @@ export default function Panier({
             possible et que le seuil n'est pas atteint. */}
         {franco && !franco.atteint && (
           <p style={{ color: SOUS, fontSize: 13.5, margin: 0 }}>
-            Livraison offerte dès {libelleSeuil(franco.seuil)} d&apos;articles
+            Livraison offerte dès {formatPrixClient(franco.seuil)} d&apos;articles
           </p>
         )}
         <div style={{
           display: "flex", justifyContent: "space-between", marginTop: 6, paddingTop: 10,
           borderTop: BORDURE, color: MARINE, fontSize: 20, fontWeight: 700,
         }}>
-          <span>Prix TTC</span><span>{chf(total.aPayer)}</span>
+          <span>Total</span><span>{formatPrixClient(total.aPayer)}</span>
         </div>
+        <p style={{ color: SOUS, fontSize: 13, margin: 0, textAlign: "right" }}>
+          Prix TTC
+        </p>
       </section>
 
       {/* ── Le total et la validation, collés en bas ── */}
@@ -387,9 +389,9 @@ export default function Panier({
         display: "flex", gap: 12, alignItems: "center", zIndex: 30,
       }}>
         <span style={{ flex: "0 0 auto" }}>
-          <span style={{ display: "block", color: SOUS, fontSize: 12 }}>Prix TTC</span>
+          <span style={{ display: "block", color: SOUS, fontSize: 12 }}>Total</span>
           <span style={{ display: "block", color: MARINE, fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>
-            {chf(total.aPayer)}
+            {formatPrixClient(total.aPayer)}
           </span>
         </span>
         <div style={{ flex: 1 }}>

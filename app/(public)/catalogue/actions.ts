@@ -18,6 +18,7 @@ import {
 } from "@/src/lib/venteEnLigne";
 import {
   adresseComplete,
+  formatPrixClient,
   optionRemise,
   refusConfirmation,
   totalCommande,
@@ -469,7 +470,7 @@ async function revaliderAvantValidation(
 
     if (bouge) {
       prixChanges.push(
-        `« ${l.libelle} » : ${Number(l.prix_unitaire).toFixed(2)} → ${res.prix_unitaire.toFixed(2)} CHF`,
+        `« ${l.libelle} » : ${formatPrixClient(Number(l.prix_unitaire))} → ${formatPrixClient(res.prix_unitaire)}`,
       );
     }
   }

@@ -70,6 +70,7 @@ export default function ConfigurateurClient({
         groupes={groupes}
         dependances={dependances}
         affichage="grille"
+        pourClient
         onValider={(choix) => void valider(choix)}
         libelleValidation="🛒 Ajouter au panier"
         enCours={enCours}

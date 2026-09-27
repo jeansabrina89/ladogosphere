@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 import ApercuPersonnalisation from "@/app/components/ApercuPersonnalisation";
 import { urlPhotoArticle } from "@/src/lib/boutiqueLogique";
+import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
 import {
   determinerTaille,
   recalculerTailles,
@@ -84,11 +85,34 @@ export type ArticleConfigurable = {
 
 const chf = (n: number) => `${n.toFixed(2)} CHF`;
 
+/**
+ * QUI LIT CET ÉCRAN, et donc comment un montant s'y écrit.
+ *
+ * Le configurateur est le MÊME au comptoir et sur la fiche article : les mêmes
+ * coloris, les mêmes suppléments, le même total. Mais la caisse est une pièce
+ * de travail, qui garde ses deux décimales, et la fiche est une vitrine, qui
+ * écrit « 35.– » comme le reste de la boutique.
+ *
+ * UN CONTEXTE PLUTÔT QU'UNE PROPRIÉTÉ PASSÉE DE MAIN EN MAIN : les dix montants
+ * du configurateur sont répartis dans six sous-composants, dont certains à
+ * trois niveaux de profondeur. Faire descendre un formateur par les propriétés
+ * demanderait de toucher chaque signature intermédiaire, et le jour où l'on
+ * ajoute un septième sous-composant, on oublierait de le brancher — il
+ * afficherait alors le format du comptoir à une cliente, sans que rien ne le
+ * signale.
+ *
+ * La valeur par défaut est celle du COMPTOIR : un appelant qui ne dit rien
+ * garde exactement ce qu'il affichait avant ce lot.
+ */
+const FormatPrix = createContext<(n: number) => string>(chf);
+const usePrix = () => useContext(FormatPrix);
+
 export default function Configurateur({
   article,
   groupes,
   dependances = [],
   affichage = "grille",
+  pourClient = false,
   onValider,
   libelleValidation = "Valider la configuration",
   noteFin,
@@ -99,6 +123,17 @@ export default function Configurateur({
   dependances?: Dependance[];
   /** « liste » au comptoir, « grille » côté client. Le poste peut en changer. */
   affichage?: Affichage;
+  /**
+   * Vrai sur la fiche article : les prix s'écrivent à la suisse et la mention
+   * « TTC » disparaît, le panier la portant une seule fois pour tout le
+   * parcours. Faux au comptoir, et c'est le défaut : une pièce de travail ne
+   * change pas de format parce qu'un écran voisin a changé.
+   *
+   * `affichage` ne pouvait pas servir à cela : c'est une préférence de POSTE,
+   * que Sabrina bascule d'un bouton et que le navigateur retient. Le comptoir
+   * mis en « grille » aurait alors affiché des prix de vitrine.
+   */
+  pourClient?: boolean;
   /** Absent : le configurateur se contente de montrer le prix et le délai. */
   onValider?: (choix: ChoixParGroupe, resume: { prix: number; delai: number }) => void;
   libelleValidation?: string;
@@ -179,360 +214,366 @@ export default function Configurateur({
     poser(groupe.id, { valeur_id: requise.id });
   }
 
+  // Le formateur choisi ici descend par le contexte, jusqu'aux suppléments
+  // affichés au fond des sous-composants.
+  const format = pourClient ? formatPrixClient : chf;
+
   return (
-    <div style={{ paddingBottom: onValider ? 96 : 16 }}>
-      {messages.length > 0 && (
-        <p role="alert" style={{
-          backgroundColor: "#FDECEC", color: GRENAT, border: "1px solid #F0C2C2",
-          borderRadius: 12, padding: "10px 12px", fontSize: 15, fontWeight: 600,
-          margin: "0 0 16px", whiteSpace: "pre-line",
-        }}>
-          ⚠️ {messages.join("\n")}
-        </p>
-      )}
+    <FormatPrix.Provider value={format}>
+      <div style={{ paddingBottom: onValider ? 96 : 16 }}>
+        {messages.length > 0 && (
+          <p role="alert" style={{
+            backgroundColor: "#FDECEC", color: GRENAT, border: "1px solid #F0C2C2",
+            borderRadius: 12, padding: "10px 12px", fontSize: 15, fontWeight: 600,
+            margin: "0 0 16px", whiteSpace: "pre-line",
+          }}>
+            ⚠️ {messages.join("\n")}
+          </p>
+        )}
 
-      <div className="grid gap-4 md:grid-cols-[1fr_320px]" style={{ alignItems: "start" }}>
-        {/* Aperçu : au-dessus du récapitulatif sur mobile, à droite sur grand écran */}
-        <div className="md:order-2">
-          <ApercuPersonnalisation
-            nom={article.nom}
-            photoPath={article.photo_path}
-            groupes={ordonnes}
-            choix={choix}
-          />
-        </div>
+        <div className="grid gap-4 md:grid-cols-[1fr_320px]" style={{ alignItems: "start" }}>
+          {/* Aperçu : au-dessus du récapitulatif sur mobile, à droite sur grand écran */}
+          <div className="md:order-2">
+            <ApercuPersonnalisation
+              nom={article.nom}
+              photoPath={article.photo_path}
+              groupes={ordonnes}
+              choix={choix}
+            />
+          </div>
 
-        <div className="md:order-1" style={{ display: "grid", gap: 20 }}>
-          {/* Le choix liste/grille n'a de sens que s'il y a des vignettes à
-              disposer : un article qui ne demande que des mesures n'affiche rien. */}
-          {etats.some((e) => e.groupe.type === "couleur" || e.groupe.type === "liste") && (
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
-              <BoutonMode actuel={mode} valeur="liste" libelle="☰ Liste" onChoisir={changerMode} />
-              <BoutonMode actuel={mode} valeur="grille" libelle="▦ Grille" onChoisir={changerMode} />
-            </div>
-          )}
+          <div className="md:order-1" style={{ display: "grid", gap: 20 }}>
+            {/* Le choix liste/grille n'a de sens que s'il y a des vignettes à
+                disposer : un article qui ne demande que des mesures n'affiche rien. */}
+            {etats.some((e) => e.groupe.type === "couleur" || e.groupe.type === "liste") && (
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
+                <BoutonMode actuel={mode} valeur="liste" libelle="☰ Liste" onChoisir={changerMode} />
+                <BoutonMode actuel={mode} valeur="grille" libelle="▦ Grille" onChoisir={changerMode} />
+              </div>
+            )}
 
-          {etats.map((etat) => {
-            const g = etat.groupe;
-            const recherche = recherches[g.id] ?? "";
-            const visibles = filtrer(etat, recherche);
+            {etats.map((etat) => {
+              const g = etat.groupe;
+              const recherche = recherches[g.id] ?? "";
+              const visibles = filtrer(etat, recherche);
 
-            return (
-              <fieldset
-                key={g.id}
-                disabled={!etat.actif}
-                style={{ border: "none", padding: 0, margin: 0, opacity: etat.actif ? 1 : 0.55 }}
-              >
-                {/* L'illustration se tient À CÔTÉ du titre, avant les choix :
-                    on comprend de quelle partie on parle avant de choisir, pas
-                    après. Sans image, la rangée n'a qu'un enfant et le titre
-                    s'affiche exactement comme avant — aucun cadre vide. */}
-                <legend style={{ padding: 0, marginBottom: 6, width: "100%" }}>
-                  <span
-                    className="flex flex-col sm:flex-row sm:items-center"
-                    style={{ gap: 12, width: "100%" }}
-                  >
-                    <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
-                      <span style={{ color: MARINE, fontSize: 17, fontWeight: 700 }}>{g.nom}</span>
-                      {!g.obligatoire && (
-                        <span style={{ color: SOUS, fontSize: 14, fontWeight: 400 }}> — facultatif</span>
-                      )}
+              return (
+                <fieldset
+                  key={g.id}
+                  disabled={!etat.actif}
+                  style={{ border: "none", padding: 0, margin: 0, opacity: etat.actif ? 1 : 0.55 }}
+                >
+                  {/* L'illustration se tient À CÔTÉ du titre, avant les choix :
+                      on comprend de quelle partie on parle avant de choisir, pas
+                      après. Sans image, la rangée n'a qu'un enfant et le titre
+                      s'affiche exactement comme avant — aucun cadre vide. */}
+                  <legend style={{ padding: 0, marginBottom: 6, width: "100%" }}>
+                    <span
+                      className="flex flex-col sm:flex-row sm:items-center"
+                      style={{ gap: 12, width: "100%" }}
+                    >
+                      <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>
+                        <span style={{ color: MARINE, fontSize: 17, fontWeight: 700 }}>{g.nom}</span>
+                        {!g.obligatoire && (
+                          <span style={{ color: SOUS, fontSize: 14, fontWeight: 400 }}> — facultatif</span>
+                        )}
+                      </span>
+                      <VignetteIllustration
+                        groupe={g}
+                        dense={mode === "liste"}
+                        onAgrandir={setAgrandie}
+                      />
                     </span>
-                    <VignetteIllustration
+                  </legend>
+
+                  {/* Le groupe reste visible : on dit seulement ce qui l'ouvre. */}
+                  {!etat.actif && (
+                    <p style={{
+                      color: "#6E5410", backgroundColor: "#F4EAC9", border: "1px solid #C9A84C",
+                      borderRadius: 10, padding: "8px 10px", fontSize: 14, fontWeight: 600,
+                      margin: "0 0 10px",
+                    }}>
+                      {etat.raisonInactif}
+                    </p>
+                  )}
+
+                  {g.aide && etat.actif && (
+                    <p style={{ color: SOUS, fontSize: 14, margin: "0 0 10px" }}>{g.aide}</p>
+                  )}
+
+                  {(g.type === "couleur" || g.type === "liste") &&
+                    etat.valeurs.length > SEUIL_RECHERCHE && (
+                      <input
+                        type="search"
+                        value={recherche}
+                        onChange={(e) => setRecherches({ ...recherches, [g.id]: e.target.value })}
+                        placeholder={`Chercher parmi ${etat.valeurs.length} options…`}
+                        aria-label={`Chercher dans ${g.nom}`}
+                        style={{
+                          width: "100%", minHeight: CIBLE, padding: "10px 12px", border: BORDURE,
+                          borderRadius: 12, fontSize: 16, color: MARINE, backgroundColor: "#FFFFFF",
+                          fontFamily: "inherit", boxSizing: "border-box", marginBottom: 10,
+                        }}
+                      />
+                    )}
+
+                  {(g.type === "couleur" || g.type === "liste") && visibles.length === 0 && (
+                    <p style={{ color: SOUS, fontSize: 14, margin: 0 }}>
+                      Aucune option ne correspond à « {recherche} ».
+                    </p>
+                  )}
+
+                  {g.type === "couleur" && (
+                    mode === "liste" ? (
+                      <ListeValeurs
+                        valeurs={visibles}
+                        choisie={valeurRetenue(g, choix)}
+                        onChoisir={(v) => poser(g.id, { valeur_id: v.id })}
+                        onAgrandir={agrandirValeur}
+                        onBasculer={basculerVers}
+                        avecVignette
+                      />
+                    ) : (
+                      <GrilleCouleurs
+                        valeurs={visibles}
+                        choisie={valeurRetenue(g, choix)}
+                        onChoisir={(v) => poser(g.id, { valeur_id: v.id })}
+                        onAgrandir={agrandirValeur}
+                        onBasculer={basculerVers}
+                      />
+                    )
+                  )}
+
+                  {g.type === "liste" && (
+                    mode === "liste" ? (
+                      <ListeValeurs
+                        valeurs={visibles}
+                        choisie={valeurRetenue(g, choix)}
+                        onChoisir={(v) => poser(g.id, { valeur_id: v.id })}
+                        onBasculer={basculerVers}
+                      />
+                    ) : (
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        {visibles.map((e) => {
+                          const retenue = valeurRetenue(g, choix)?.id === e.valeur.id;
+                          return (
+                            <span key={e.valeur.id} style={{ display: "grid", gap: 2 }}>
+                              <button
+                                type="button"
+                                onClick={() => e.disponible && poser(g.id, { valeur_id: e.valeur.id })}
+                                aria-pressed={retenue}
+                                aria-disabled={!e.disponible}
+                                style={{
+                                  minHeight: CIBLE + 6, padding: "0 16px", borderRadius: 12,
+                                  border: retenue ? `2px solid ${VERT}` : BORDURE,
+                                  backgroundColor: retenue ? "#F1F8F6" : e.disponible ? "#FFFFFF" : "#F2F0EC",
+                                  color: e.disponible ? MARINE : SOUS,
+                                  fontSize: 16, fontWeight: retenue ? 700 : 500,
+                                  fontFamily: "inherit",
+                                  cursor: e.disponible ? "pointer" : "not-allowed",
+                                }}
+                              >
+                                {retenue && "✓ "}{e.valeur.libelle}
+                                {Number(e.valeur.supplement_prix) > 0 && (
+                                  <span style={{ color: SOUS, fontWeight: 400 }}>
+                                    {" "}+{format(Number(e.valeur.supplement_prix))}
+                                  </span>
+                                )}
+                              </button>
+                              {!e.disponible && (
+                                <Raison etat={e} onBasculer={basculerVers} />
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )
+                  )}
+
+                  {g.type === "texte" && (
+                    <ChampTexte
                       groupe={g}
-                      dense={mode === "liste"}
-                      onAgrandir={setAgrandie}
-                    />
-                  </span>
-                </legend>
-
-                {/* Le groupe reste visible : on dit seulement ce qui l'ouvre. */}
-                {!etat.actif && (
-                  <p style={{
-                    color: "#6E5410", backgroundColor: "#F4EAC9", border: "1px solid #C9A84C",
-                    borderRadius: 10, padding: "8px 10px", fontSize: 14, fontWeight: 600,
-                    margin: "0 0 10px",
-                  }}>
-                    {etat.raisonInactif}
-                  </p>
-                )}
-
-                {g.aide && etat.actif && (
-                  <p style={{ color: SOUS, fontSize: 14, margin: "0 0 10px" }}>{g.aide}</p>
-                )}
-
-                {(g.type === "couleur" || g.type === "liste") &&
-                  etat.valeurs.length > SEUIL_RECHERCHE && (
-                    <input
-                      type="search"
-                      value={recherche}
-                      onChange={(e) => setRecherches({ ...recherches, [g.id]: e.target.value })}
-                      placeholder={`Chercher parmi ${etat.valeurs.length} options…`}
-                      aria-label={`Chercher dans ${g.nom}`}
-                      style={{
-                        width: "100%", minHeight: CIBLE, padding: "10px 12px", border: BORDURE,
-                        borderRadius: 12, fontSize: 16, color: MARINE, backgroundColor: "#FFFFFF",
-                        fontFamily: "inherit", boxSizing: "border-box", marginBottom: 10,
-                      }}
+                      valeur={choix[g.id]?.texte ?? ""}
+                      onSaisir={(texte) => poser(g.id, { texte })}
                     />
                   )}
 
-                {(g.type === "couleur" || g.type === "liste") && visibles.length === 0 && (
-                  <p style={{ color: SOUS, fontSize: 14, margin: 0 }}>
-                    Aucune option ne correspond à « {recherche} ».
-                  </p>
-                )}
-
-                {g.type === "couleur" && (
-                  mode === "liste" ? (
-                    <ListeValeurs
-                      valeurs={visibles}
-                      choisie={valeurRetenue(g, choix)}
-                      onChoisir={(v) => poser(g.id, { valeur_id: v.id })}
-                      onAgrandir={agrandirValeur}
-                      onBasculer={basculerVers}
-                      avecVignette
+                  {g.type === "booleen" && (
+                    <Interrupteur
+                      groupe={g}
+                      actif={choix[g.id]?.booleen === true}
+                      onBasculer={(v) => poser(g.id, { booleen: v })}
                     />
-                  ) : (
-                    <GrilleCouleurs
-                      valeurs={visibles}
-                      choisie={valeurRetenue(g, choix)}
-                      onChoisir={(v) => poser(g.id, { valeur_id: v.id })}
-                      onAgrandir={agrandirValeur}
-                      onBasculer={basculerVers}
+                  )}
+
+                  {g.type === "taille" && (
+                    <ChoixDeTaille
+                      groupe={g as GroupeTaille}
+                      mesureGroupe={ordonnes.find((x) => x.id === (g as GroupeTaille).mesure_groupe_id) ?? null}
+                      mesure={
+                        (g as GroupeTaille).mesure_groupe_id
+                          ? choix[(g as GroupeTaille).mesure_groupe_id!]?.nombre ?? null
+                          : null
+                      }
+                      retenue={valeurRetenue(g, choix) as Taille | null}
+                      choisieDirectement={choix[g.id]?.taille_choisie_directement === true}
+                      dense={mode === "liste"}
+                      onChoisir={(t, directement) =>
+                        poser(g.id, { valeur_id: t?.id ?? null, taille_choisie_directement: directement })
+                      }
                     />
-                  )
-                )}
+                  )}
 
-                {g.type === "liste" && (
-                  mode === "liste" ? (
-                    <ListeValeurs
-                      valeurs={visibles}
-                      choisie={valeurRetenue(g, choix)}
-                      onChoisir={(v) => poser(g.id, { valeur_id: v.id })}
-                      onBasculer={basculerVers}
+                  {g.type === "mesure" && (
+                    <ChampMesure
+                      groupe={g}
+                      nombre={choix[g.id]?.nombre ?? null}
+                      acceptee={choix[g.id]?.alerte_acceptee === true}
+                      onSaisir={(nombre, alerte_acceptee) =>
+                        poser(g.id, { nombre, alerte_acceptee })
+                      }
                     />
-                  ) : (
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                      {visibles.map((e) => {
-                        const retenue = valeurRetenue(g, choix)?.id === e.valeur.id;
-                        return (
-                          <span key={e.valeur.id} style={{ display: "grid", gap: 2 }}>
-                            <button
-                              type="button"
-                              onClick={() => e.disponible && poser(g.id, { valeur_id: e.valeur.id })}
-                              aria-pressed={retenue}
-                              aria-disabled={!e.disponible}
-                              style={{
-                                minHeight: CIBLE + 6, padding: "0 16px", borderRadius: 12,
-                                border: retenue ? `2px solid ${VERT}` : BORDURE,
-                                backgroundColor: retenue ? "#F1F8F6" : e.disponible ? "#FFFFFF" : "#F2F0EC",
-                                color: e.disponible ? MARINE : SOUS,
-                                fontSize: 16, fontWeight: retenue ? 700 : 500,
-                                fontFamily: "inherit",
-                                cursor: e.disponible ? "pointer" : "not-allowed",
-                              }}
-                            >
-                              {retenue && "✓ "}{e.valeur.libelle}
-                              {Number(e.valeur.supplement_prix) > 0 && (
-                                <span style={{ color: SOUS, fontWeight: 400 }}>
-                                  {" "}+{Number(e.valeur.supplement_prix).toFixed(2)}
-                                </span>
-                              )}
-                            </button>
-                            {!e.disponible && (
-                              <Raison etat={e} onBasculer={basculerVers} />
-                            )}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )
-                )}
+                  )}
+                </fieldset>
+              );
+            })}
 
-                {g.type === "texte" && (
-                  <ChampTexte
-                    groupe={g}
-                    valeur={choix[g.id]?.texte ?? ""}
-                    onSaisir={(texte) => poser(g.id, { texte })}
-                  />
-                )}
+            {/* Récapitulatif, en permanence sous les choix */}
+            <div style={{ border: BORDURE, borderRadius: 16, backgroundColor: "#FFFFFF", padding: 14 }}>
+              <h3 style={{ color: MARINE, fontSize: 16, fontWeight: 700, margin: "0 0 10px" }}>
+                Récapitulatif
+              </h3>
 
-                {g.type === "booleen" && (
-                  <Interrupteur
-                    groupe={g}
-                    actif={choix[g.id]?.booleen === true}
-                    onBasculer={(v) => poser(g.id, { booleen: v })}
-                  />
-                )}
+              <div style={{ display: "grid", gap: 8 }}>
+                {etats.map(({ groupe: g, actif }) => {
+                  const v = valeurRetenue(g, choix);
+                  const texte = g.type === "texte" ? String(choix[g.id]?.texte ?? "").trim() : "";
+                  const manque = manquants.includes(g.nom);
 
-                {g.type === "taille" && (
-                  <ChoixDeTaille
-                    groupe={g as GroupeTaille}
-                    mesureGroupe={ordonnes.find((x) => x.id === (g as GroupeTaille).mesure_groupe_id) ?? null}
-                    mesure={
-                      (g as GroupeTaille).mesure_groupe_id
-                        ? choix[(g as GroupeTaille).mesure_groupe_id!]?.nombre ?? null
-                        : null
-                    }
-                    retenue={valeurRetenue(g, choix) as Taille | null}
-                    choisieDirectement={choix[g.id]?.taille_choisie_directement === true}
-                    dense={mode === "liste"}
-                    onChoisir={(t, directement) =>
-                      poser(g.id, { valeur_id: t?.id ?? null, taille_choisie_directement: directement })
-                    }
-                  />
-                )}
-
-                {g.type === "mesure" && (
-                  <ChampMesure
-                    groupe={g}
-                    nombre={choix[g.id]?.nombre ?? null}
-                    acceptee={choix[g.id]?.alerte_acceptee === true}
-                    onSaisir={(nombre, alerte_acceptee) =>
-                      poser(g.id, { nombre, alerte_acceptee })
-                    }
-                  />
-                )}
-              </fieldset>
-            );
-          })}
-
-          {/* Récapitulatif, en permanence sous les choix */}
-          <div style={{ border: BORDURE, borderRadius: 16, backgroundColor: "#FFFFFF", padding: 14 }}>
-            <h3 style={{ color: MARINE, fontSize: 16, fontWeight: 700, margin: "0 0 10px" }}>
-              Récapitulatif
-            </h3>
-
-            <div style={{ display: "grid", gap: 8 }}>
-              {etats.map(({ groupe: g, actif }) => {
-                const v = valeurRetenue(g, choix);
-                const texte = g.type === "texte" ? String(choix[g.id]?.texte ?? "").trim() : "";
-                const manque = manquants.includes(g.nom);
-
-                return (
-                  <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    {v && <Pastille valeur={v} />}
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ display: "block", color: SOUS, fontSize: 12 }}>{g.nom}</span>
-                      <span style={{
-                        display: "block", fontSize: 15, fontWeight: 600,
-                        color: manque ? "#A8453A" : MARINE,
-                        whiteSpace: g.type === "texte" ? "pre-line" : "normal",
-                        overflowWrap: "anywhere",
-                      }}>
-                        {!actif
-                          ? "En attente"
-                          : g.type === "mesure"
-                            ? (choix[g.id]?.nombre === null || choix[g.id]?.nombre === undefined
-                                ? (manque ? "À indiquer" : "—")
-                                : formatMesure(choix[g.id]?.nombre, uniteMesure(g)))
-                            : g.type === "taille"
-                              ? (v?.libelle ?? (manque ? "À déterminer" : "—"))
-                            : g.type === "texte"
-                              ? (texte || (manque ? "À choisir" : "—"))
-                              : g.type === "booleen"
-                                ? (v ? v.libelle : "Non")
-                                : (v?.libelle ?? (manque ? "À choisir" : "—"))}
-                      </span>
-                    </span>
-                    {(() => {
-                      // Le montant montré est celui qui s'applique VRAIMENT :
-                      // celui de la combinaison quand il y en a un.
-                      const montant =
-                        g.type === "mesure"
-                          ? supplementMesure(g, choix[g.id]?.nombre ?? null)
-                          : v
-                            ? supplementApplique(v, ordonnes, choix, dependances)
-                            : 0;
-                      return montant > 0 ? (
-                        <span style={{ color: SOUS, fontSize: 14, whiteSpace: "nowrap" }}>
-                          +{montant.toFixed(2)}
+                  return (
+                    <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      {v && <Pastille valeur={v} />}
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: "block", color: SOUS, fontSize: 12 }}>{g.nom}</span>
+                        <span style={{
+                          display: "block", fontSize: 15, fontWeight: 600,
+                          color: manque ? "#A8453A" : MARINE,
+                          whiteSpace: g.type === "texte" ? "pre-line" : "normal",
+                          overflowWrap: "anywhere",
+                        }}>
+                          {!actif
+                            ? "En attente"
+                            : g.type === "mesure"
+                              ? (choix[g.id]?.nombre === null || choix[g.id]?.nombre === undefined
+                                  ? (manque ? "À indiquer" : "—")
+                                  : formatMesure(choix[g.id]?.nombre, uniteMesure(g)))
+                              : g.type === "taille"
+                                ? (v?.libelle ?? (manque ? "À déterminer" : "—"))
+                              : g.type === "texte"
+                                ? (texte || (manque ? "À choisir" : "—"))
+                                : g.type === "booleen"
+                                  ? (v ? v.libelle : "Non")
+                                  : (v?.libelle ?? (manque ? "À choisir" : "—"))}
                         </span>
-                      ) : null;
-                    })()}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div style={{ marginTop: 14, paddingTop: 12, borderTop: BORDURE, display: "grid", gap: 4 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: SOUS }}>
-                <span>Prix de base</span>
-                <span>{chf(Number(article.prix_vente ?? 0))}</span>
+                      </span>
+                      {(() => {
+                        // Le montant montré est celui qui s'applique VRAIMENT :
+                        // celui de la combinaison quand il y en a un.
+                        const montant =
+                          g.type === "mesure"
+                            ? supplementMesure(g, choix[g.id]?.nombre ?? null)
+                            : v
+                              ? supplementApplique(v, ordonnes, choix, dependances)
+                              : 0;
+                        return montant > 0 ? (
+                          <span style={{ color: SOUS, fontSize: 14, whiteSpace: "nowrap" }}>
+                            +{format(montant)}
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
+                  );
+                })}
               </div>
-              {detail.map((d, i) => (
-                <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: SOUS }}>
-                  <span>
-                    {d.groupe} — {d.libelle}
-                    {d.contexte ? ` (${d.contexte})` : ""}
-                  </span>
-                  <span>+{d.supplement.toFixed(2)}</span>
+
+              <div style={{ marginTop: 14, paddingTop: 12, borderTop: BORDURE, display: "grid", gap: 4 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: SOUS }}>
+                  <span>Prix de base</span>
+                  <span>{format(Number(article.prix_vente ?? 0))}</span>
                 </div>
-              ))}
-              <div style={{
-                display: "flex", justifyContent: "space-between", marginTop: 6,
-                color: MARINE, fontSize: 20, fontWeight: 700,
-              }}>
-                <span>Prix TTC</span>
-                <span>{chf(prix)}</span>
+                {detail.map((d, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: SOUS }}>
+                    <span>
+                      {d.groupe} — {d.libelle}
+                      {d.contexte ? ` (${d.contexte})` : ""}
+                    </span>
+                    <span>+{format(d.supplement)}</span>
+                  </div>
+                ))}
+                <div style={{
+                  display: "flex", justifyContent: "space-between", marginTop: 6,
+                  color: MARINE, fontSize: 20, fontWeight: 700,
+                }}>
+                  <span>{pourClient ? "Prix" : "Prix TTC"}</span>
+                  <span>{format(prix)}</span>
+                </div>
+                <p style={{ color: SOUS, fontSize: 14, margin: "6px 0 0" }}>
+                  🛠️ {libelleDelai(delai)}
+                </p>
               </div>
-              <p style={{ color: SOUS, fontSize: 14, margin: "6px 0 0" }}>
-                🛠️ {libelleDelai(delai)}
-              </p>
+            </div>
+
+            {noteFin && <p style={{ color: SOUS, fontSize: 14, margin: 0 }}>{noteFin}</p>}
+          </div>
+        </div>
+
+        {/* Barre de total collée en bas : le récapitulatif reste atteignable */}
+        {onValider && (
+          <div
+            style={{
+              position: "fixed", left: 0, right: 0, bottom: 0,
+              padding: "12px 16px calc(12px + env(safe-area-inset-bottom))",
+              backgroundColor: "rgba(245,240,232,0.97)", borderTop: BORDURE,
+              display: "flex", gap: 12, alignItems: "center", zIndex: 30,
+            }}
+            className="md:pl-[264px]"
+          >
+            <span style={{ flex: "0 0 auto" }}>
+              <span style={{ display: "block", color: SOUS, fontSize: 12 }}>{pourClient ? "Prix" : "Prix TTC"}</span>
+              <span style={{ display: "block", color: MARINE, fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>
+                {format(prix)}
+              </span>
+            </span>
+            <div style={{ flex: 1 }}>
+              <button
+                type="button"
+                disabled={!complet || enCours}
+                onClick={() => onValider(choix, { prix, delai })}
+                style={{
+                  width: "100%", minHeight: CIBLE + 8, borderRadius: 14, border: "none",
+                  backgroundColor: complet && !enCours ? VERT : "#B9CFC9", color: "#FFFFFF",
+                  fontSize: 17, fontWeight: 700, fontFamily: "inherit",
+                  cursor: complet && !enCours ? "pointer" : "not-allowed",
+                }}
+              >
+                {enCours ? "Enregistrement…" : libelleValidation}
+              </button>
+              {!complet && (
+                <p style={{ color: GRENAT, fontSize: 13, margin: "6px 0 0", textAlign: "center" }}>
+                  {refusMesures
+                    ? refusMesures
+                    : aConfirmer.length > 0
+                      ? `Confirmez la mesure : ${enumererFr(aConfirmer)}.`
+                      : messageManquants(manquants)}
+                </p>
+              )}
             </div>
           </div>
+        )}
 
-          {noteFin && <p style={{ color: SOUS, fontSize: 14, margin: 0 }}>{noteFin}</p>}
-        </div>
+        {agrandie && <Loupe image={agrandie} onFermer={() => setAgrandie(null)} />}
       </div>
-
-      {/* Barre de total collée en bas : le récapitulatif reste atteignable */}
-      {onValider && (
-        <div
-          style={{
-            position: "fixed", left: 0, right: 0, bottom: 0,
-            padding: "12px 16px calc(12px + env(safe-area-inset-bottom))",
-            backgroundColor: "rgba(245,240,232,0.97)", borderTop: BORDURE,
-            display: "flex", gap: 12, alignItems: "center", zIndex: 30,
-          }}
-          className="md:pl-[264px]"
-        >
-          <span style={{ flex: "0 0 auto" }}>
-            <span style={{ display: "block", color: SOUS, fontSize: 12 }}>Prix TTC</span>
-            <span style={{ display: "block", color: MARINE, fontSize: 22, fontWeight: 700, lineHeight: 1.1 }}>
-              {chf(prix)}
-            </span>
-          </span>
-          <div style={{ flex: 1 }}>
-            <button
-              type="button"
-              disabled={!complet || enCours}
-              onClick={() => onValider(choix, { prix, delai })}
-              style={{
-                width: "100%", minHeight: CIBLE + 8, borderRadius: 14, border: "none",
-                backgroundColor: complet && !enCours ? VERT : "#B9CFC9", color: "#FFFFFF",
-                fontSize: 17, fontWeight: 700, fontFamily: "inherit",
-                cursor: complet && !enCours ? "pointer" : "not-allowed",
-              }}
-            >
-              {enCours ? "Enregistrement…" : libelleValidation}
-            </button>
-            {!complet && (
-              <p style={{ color: GRENAT, fontSize: 13, margin: "6px 0 0", textAlign: "center" }}>
-                {refusMesures
-                  ? refusMesures
-                  : aConfirmer.length > 0
-                    ? `Confirmez la mesure : ${enumererFr(aConfirmer)}.`
-                    : messageManquants(manquants)}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {agrandie && <Loupe image={agrandie} onFermer={() => setAgrandie(null)} />}
-    </div>
+    </FormatPrix.Provider>
   );
 }
 
@@ -615,6 +656,7 @@ function ListeValeurs({
   onBasculer: (v: OptionValeur) => void;
   avecVignette?: boolean;
 }) {
+  const prix = usePrix();
   return (
     <div style={{ display: "grid", gap: 6 }}>
       {valeurs.map((e) => {
@@ -665,7 +707,7 @@ function ListeValeurs({
 
               {Number(e.valeur.supplement_prix) > 0 && (
                 <span style={{ color: SOUS, fontSize: 14, whiteSpace: "nowrap" }}>
-                  +{Number(e.valeur.supplement_prix).toFixed(2)}
+                  +{prix(Number(e.valeur.supplement_prix))}
                 </span>
               )}
 
@@ -720,6 +762,7 @@ function GrilleCouleurs({
   onAgrandir: (v: OptionValeur) => void;
   onBasculer: (v: OptionValeur) => void;
 }) {
+  const prix = usePrix();
   return (
     <div
       style={{
@@ -781,7 +824,7 @@ function GrilleCouleurs({
               fontWeight: retenue ? 700 : 500, overflowWrap: "anywhere",
             }}>
               {v.libelle}
-              {Number(v.supplement_prix) > 0 && ` +${Number(v.supplement_prix).toFixed(2)}`}
+              {Number(v.supplement_prix) > 0 && ` +${prix(Number(v.supplement_prix))}`}
             </span>
 
             {!e.disponible && <Raison etat={e} onBasculer={onBasculer} />}
@@ -967,6 +1010,7 @@ function ChampMesure({
   acceptee: boolean;
   onSaisir: (nombre: number | null, alerteAcceptee: boolean) => void;
 }) {
+  const prix = usePrix();
   const [brut, setBrut] = useState(nombre === null || nombre === undefined ? "" : String(nombre));
   const unite = uniteMesure(groupe);
   const guide = urlPhotoArticle(groupe.guide_image_path ?? null);
@@ -1065,7 +1109,7 @@ function ChampMesure({
       {supplement > 0 && !refus && (
         <p style={{ color: SOUS, fontSize: 14, margin: 0 }}>
           Au-delà de {formatMesure(groupe.seuil_supplement, unite)}, un supplément de{" "}
-          {supplement.toFixed(2)} CHF s&apos;applique.
+          {prix(supplement)} s&apos;applique.
         </p>
       )}
     </div>
@@ -1104,6 +1148,7 @@ function ChoixDeTaille({
   dense?: boolean;
   onChoisir: (taille: Taille | null, directement: boolean) => void;
 }) {
+  const prix = usePrix();
   const determination = determinerTaille(groupe, mesure);
   const tailles = taillesTriees(groupe);
   const deduction = libelleDeduction(groupe, mesureGroupe, mesure, retenue);
@@ -1137,9 +1182,14 @@ function ChoixDeTaille({
                 fontFamily: "inherit", cursor: "pointer", whiteSpace: "nowrap",
               }}>
               {t.libelle}
+              {/* Cette puce passait `toFixed(0)` : c'était le SEUL montant de
+                  l'application sans décimales. Elle n'était pas « interne » pour
+                  autant — `dense` suit la préférence d'affichage du navigateur,
+                  qu'une cliente bascule comme Sabrina. Elle rejoint donc le
+                  format de son écran, qui au comptoir reste celui d'avant. */}
               {Number(t.supplement_prix) > 0 && (
                 <span style={{ color: SOUS, fontWeight: 400 }}>
-                  {" "}+{Number(t.supplement_prix).toFixed(0)}
+                  {" "}+{prix(Number(t.supplement_prix))}
                 </span>
               )}
             </button>
@@ -1206,7 +1256,7 @@ function ChoixDeTaille({
                   )}
                   {Number(prop.taille.supplement_prix) > 0 && (
                     <span style={{ color: SOUS, fontSize: 14 }}>
-                      +{Number(prop.taille.supplement_prix).toFixed(2)}
+                      +{prix(Number(prop.taille.supplement_prix))}
                     </span>
                   )}
                 </span>
@@ -1258,7 +1308,7 @@ function ChoixDeTaille({
                 {active && "✓ "}{t.libelle}
                 {Number(t.supplement_prix) > 0 && (
                   <span style={{ color: SOUS, fontWeight: 400 }}>
-                    {" "}+{Number(t.supplement_prix).toFixed(2)}
+                    {" "}+{prix(Number(t.supplement_prix))}
                   </span>
                 )}
               </button>
@@ -1292,6 +1342,7 @@ function Interrupteur({
   actif: boolean;
   onBasculer: (v: boolean) => void;
 }) {
+  const prix = usePrix();
   const valeur = valeursActives(groupe)[0];
   return (
     <button
@@ -1326,7 +1377,7 @@ function Interrupteur({
         </span>
         {valeur && Number(valeur.supplement_prix) > 0 && (
           <span style={{ display: "block", color: SOUS, fontSize: 13 }}>
-            +{Number(valeur.supplement_prix).toFixed(2)} CHF
+            +{prix(Number(valeur.supplement_prix))}
             {Number(valeur.supplement_delai_jours) > 0 && ` · +${valeur.supplement_delai_jours} jours`}
           </span>
         )}

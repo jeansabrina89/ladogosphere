@@ -7,7 +7,11 @@ import { urlPhotoArticle } from "@/src/lib/boutiqueLogique";
 import { brutAuServeur, changerQuantite, ecouter, lireBrut, retirer } from "./panierNavigateur";
 import { lirePanierLocal } from "@/src/lib/panierLocalLogique";
 import { libellesConfiguration } from "@/src/lib/personnalisationLogique";
-import { LIBELLE_SUR_MESURE, phraseDelaiCommande } from "@/src/lib/venteEnLigneLogique";
+import {
+  LIBELLE_SUR_MESURE,
+  phraseDelaiCommande,
+  formatPrixClient,
+} from "@/src/lib/venteEnLigneLogique";
 import OptionsChoisies from "@/app/components/OptionsChoisies";
 
 /**
@@ -39,7 +43,6 @@ export type ArticlePanier = {
   delai_commande_max_jours?: number | null;
 };
 
-const chf = (n: number) => `${n.toFixed(2)} CHF`;
 
 export default function PanierVisiteur({ articles }: { articles: ArticlePanier[] }) {
   // Le navigateur est la source : on s'y abonne plutôt que de le recopier dans
@@ -125,7 +128,7 @@ export default function PanierVisiteur({ articles }: { articles: ArticlePanier[]
                 </Link>
                 {surMesure && <OptionsChoisies options={libellesConfiguration(apercu)} />}
                 <span style={{ display: "block", color: SOUS, fontSize: 14 }}>
-                  {chf(Number(a.prix_vente))}
+                  {formatPrixClient(Number(a.prix_vente))}
                   {!a.en_stock && a.type_article !== "personnalisable" && !phraseDelaiCommande(a)
                     && " · épuisé pour l'instant"}
                 </span>
@@ -171,7 +174,7 @@ export default function PanierVisiteur({ articles }: { articles: ArticlePanier[]
       </ul>
 
       <p style={{ color: MARINE, fontSize: 20, fontWeight: 700, margin: 0, textAlign: "right" }}>
-        Total indicatif : {chf(total)}
+        Total indicatif : {formatPrixClient(total)}
       </p>
       <p style={{ color: SOUS, fontSize: 13.5, margin: 0, textAlign: "right" }}>
         Les frais de remise et la remise membre se calculent à l&apos;étape suivante.

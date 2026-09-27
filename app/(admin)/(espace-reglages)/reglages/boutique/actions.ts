@@ -6,7 +6,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import {
   formatPoids,
-  libelleSeuil,
+  formatPrixClient,
   lireSaisieFrancoPort,
   lireSaisieGrille,
   type LigneSaisieGrille,
@@ -70,7 +70,7 @@ export async function enregistrerFrancoPort(formData: FormData): Promise<RetourF
   return {
     message: saisie.seuil === null
       ? "La livraison n'est plus jamais offerte. Les commandes déjà confirmées ne changent pas."
-      : `Livraison offerte dès ${libelleSeuil(saisie.seuil)} d'articles. Les commandes déjà confirmées ne changent pas.`,
+      : `Livraison offerte dès ${formatPrixClient(saisie.seuil)} d'articles. Les commandes déjà confirmées ne changent pas.`,
   };
 }
 

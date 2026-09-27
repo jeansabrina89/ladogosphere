@@ -55,8 +55,8 @@ export function phraseDelaiCommande(a: ArticleSurCommande | null | undefined): s
   if (max === null || max < 0) return null;
   const min = nb(a.delai_commande_min_jours);
   const jours = (n: number) => `${n} jour${n === 1 ? "" : "s"} ouvrable${n === 1 ? "" : "s"}`;
-  if (min === null || min >= max) return `Livré sous ${jours(max)}`;
-  return `Livré sous ${min} à ${jours(max)}`;
+  if (min === null || min >= max) return `Disponible sous ${jours(max)}`;
+  return `Disponible sous ${min} à ${jours(max)}`;
 }
 
 /** Cet article s'achète-t-il alors qu'il n'est pas en rayon ? */
@@ -454,11 +454,60 @@ export function lireSaisieFrancoPort(
   return { ok: true, valeur: String(n), seuil: n };
 }
 
-/** « 100.– » pour un montant rond, « 99.50 » sinon : le seuil comme on l'affiche. */
-export function libelleSeuil(seuil: number): string {
-  const n = r2(seuil);
-  return n % 1 === 0 ? `${n}.–` : n.toFixed(2);
+// ── Le prix tel que la cliente le lit ──────────────────────────────────────
+
+/**
+ * Un montant à la suisse, POUR LES ÉCRANS CLIENTS DE LA BOUTIQUE.
+ *
+ *   35      → « 35.– »        (le tiret demi-cadratin, U+2013)
+ *   12.50   → « 12.50 »       (avec centimes, toujours deux décimales)
+ *   1250    → « 1'250.– »     (l'apostrophe des milliers)
+ *   −9.50   → « −9.50 »       (le signe moins, U+2212, pas le trait d'union)
+ *
+ * PAS DE « CHF ». La page entière est en francs ; le répéter à chaque ligne
+ * ajoute du bruit sans lever aucune ambiguïté. Une seule mention « Prix TTC »
+ * sous le total du panier suffit à dire ce qu'on lit.
+ *
+ * LES ÉCRANS INTERNES N'Y TOUCHENT PAS, et c'est délibéré : une facture, un
+ * avoir, un ticket, le journal comptable et la caisse gardent leurs deux
+ * décimales. « 35.– » est une écriture de vitrine ; une pièce comptable
+ * s'écrit « 35.00 », parce qu'elle se relit, s'additionne et se contrôle.
+ *
+ * L'ARRONDI D'ABORD. `0.1 + 0.2` vaut 0.30000000000000004 en flottant : sans
+ * `r2`, le test « est-ce un entier ? » tomberait juste par chance et la
+ * troncature du nombre entier se ferait sur une valeur fausse. On arrondit
+ * donc au centime AVANT de décider de la forme.
+ */
+export function formatPrixClient(montant: number): string {
+  const n = r2(Number(montant) || 0);
+  // `Math.abs` avant tout : le signe est écrit à part, sinon « -0.00 »
+  // apparaîtrait pour un montant nul venu d'une soustraction.
+  const absolu = Math.abs(n);
+  const signe = n < 0 ? "−" : "";
+  // Les milliers, groupés par l'apostrophe suisse. La coupure se pose devant
+  // chaque groupe de trois chiffres qui n'est pas en début de nombre.
+  const entier = String(Math.trunc(absolu)).replace(/\B(?=(\d{3})+(?!\d))/g, "'");
+  if (Number.isInteger(absolu)) return `${signe}${entier}.–`;
+  const centimes = absolu.toFixed(2).split(".")[1];
+  return `${signe}${entier}.${centimes}`;
 }
+
+/**
+ * Ce qu'on dit d'un article qui ne part pas par la poste, UNE SEULE FOIS.
+ *
+ * La phrase a été recopiée à la main d'un écran à l'autre, et les copies ont
+ * divergé : « Trop lourd pour un colis » parlait du poids, alors que la vraie
+ * raison est parfois le volume ou la fragilité. Une constante ne se corrige
+ * qu'à un endroit — et un test refuse qu'on la recopie
+ * (`tests/prixClientBoutique.test.ts`).
+ *
+ * Le message du panier qui refuse l'envoi postal garde SA forme : il nomme les
+ * articles concernés, ce que cette phrase-ci ne peut pas faire, et il s'affiche
+ * juste au-dessus des deux autres modes de remise — répéter « à retirer à la
+ * pension » à cet endroit-là ne dirait rien de plus.
+ */
+export const TEXTE_NON_EXPEDIABLE =
+  "Cet article ne part pas par la poste : à retirer à la pension, ou au départ de votre chien.";
 
 // ── Modes de remise ────────────────────────────────────────────────────────
 
@@ -503,9 +552,12 @@ export function optionsRemise(c: ContexteRemise): OptionRemise[] {
   const raisonPostal =
     c.lignes.length === 0 ? "Votre panier est vide."
     : nonExpediables.length > 0
-      ? nonExpediables.some((l) => (l.libelle ?? "").length >= 0) && nonExpediables.length === 1
-        ? `« ${nonExpediables[0].libelle} » ne peut pas être expédié : c'est trop lourd pour un colis.`
-        : `${nonExpediables.length} articles de votre panier ne peuvent pas être expédiés : c'est trop lourd pour un colis.`
+      ? nonExpediables.length === 1
+        ? `« ${nonExpediables[0].libelle} » ne part pas par la poste.`
+        // NOMMER, pas compter : « 2 articles » oblige à relire tout le panier
+        // pour deviner lesquels, et c'est justement ce qu'on venait savoir.
+        : `Ces articles ne partent pas par la poste : ${nonExpediables
+            .map((l) => `« ${l.libelle} »`).join(", ")}.`
     : sansPoids.length > 0
       ? `Le poids de « ${sansPoids[0].libelle} » n'est pas connu : l'envoi ne peut pas être chiffré.`
     : poids > c.poidsMaxGrammes

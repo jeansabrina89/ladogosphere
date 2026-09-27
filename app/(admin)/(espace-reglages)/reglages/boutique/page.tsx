@@ -1,6 +1,6 @@
 import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { lireParametresEnLigne } from "@/src/lib/venteEnLigne";
-import { libelleSeuil } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
@@ -27,7 +27,7 @@ export default async function ReglagesBoutiquePage() {
           titre="🛍️ Boutique"
           sousTitre={params.francoPortDes === null
             ? "La livraison n'est jamais offerte."
-            : `Livraison offerte dès ${libelleSeuil(params.francoPortDes)} d'articles.`}
+            : `Livraison offerte dès ${formatPrixClient(params.francoPortDes)} d'articles.`}
           action={<Bouton href="/reglages" variante="secondaire">← Réglages</Bouton>}
         />
 

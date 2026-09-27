@@ -12,6 +12,7 @@ import {
   libelleModePaiement,
   formatAdresse,
   phraseDelaiCommande,
+  formatPrixClient,
 } from "@/src/lib/venteEnLigneLogique";
 import { formatDateFR } from "@/src/lib/dates";
 import EnTete from "@/app/components/ui/EnTete";
@@ -25,8 +26,6 @@ const MARINE = "#1B2B5E";
 const SOUS = "rgba(27,43,94,0.55)";
 const VERT = "#1F6E5B";
 const BORDURE = "1px solid rgba(27,43,94,0.12)";
-
-const chf = (n: number) => `${Number(n).toFixed(2)} CHF`;
 
 const COULEUR_STATUT: Record<string, string> = {
   confirmee: "#8A5A1F",
@@ -111,12 +110,12 @@ export default async function MesCommandesPage() {
                             chercher ici trois semaines plus tard. */}
                         {l.sur_commande && phraseDelaiCommande(l) && (
                           <span style={{ display: "block", color: "#8A5A1F", fontSize: 13.5, fontWeight: 600 }}>
-                            Commandé chez notre fournisseur · {phraseDelaiCommande(l)?.replace("Livré sous ", "livré sous ")}
+                            Commandé chez notre fournisseur · {phraseDelaiCommande(l)?.replace("Disponible sous ", "disponible sous ")}
                           </span>
                         )}
                       </span>
                       <span style={{ color: MARINE, fontSize: 15, fontWeight: 600, whiteSpace: "nowrap" }}>
-                        {chf(Number(l.montant))}
+                        {formatPrixClient(Number(l.montant))}
                       </span>
                     </li>
                   ))}
@@ -125,19 +124,22 @@ export default async function MesCommandesPage() {
                 <div style={{ borderTop: BORDURE, paddingTop: 10, marginTop: 4, display: "grid", gap: 4 }}>
                   {Number(c.remise_membre) > 0 && (
                     <p style={{ color: VERT, fontSize: 14, margin: 0, display: "flex", justifyContent: "space-between" }}>
-                      <span>Remises</span><span>−{chf(Number(c.remise_membre))}</span>
+                      <span>Remises</span><span>{formatPrixClient(-Number(c.remise_membre))}</span>
                     </p>
                   )}
                   {Number(c.frais_port) > 0 && (
                     <p style={{ color: SOUS, fontSize: 14, margin: 0, display: "flex", justifyContent: "space-between" }}>
-                      <span>Frais de port</span><span>{chf(Number(c.frais_port))}</span>
+                      <span>Frais de port</span><span>{formatPrixClient(Number(c.frais_port))}</span>
                     </p>
                   )}
                   <p style={{
                     color: MARINE, fontSize: 17, fontWeight: 700, margin: 0,
                     display: "flex", justifyContent: "space-between",
                   }}>
-                    <span>Prix TTC</span><span>{chf(Number(c.montant_total))}</span>
+                    <span>Total</span><span>{formatPrixClient(Number(c.montant_total))}</span>
+                  </p>
+                  <p style={{ color: SOUS, fontSize: 13, margin: 0, textAlign: "right" }}>
+                    Prix TTC
                   </p>
                 </div>
 

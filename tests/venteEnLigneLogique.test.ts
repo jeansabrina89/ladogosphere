@@ -224,16 +224,20 @@ describe("modes de remise", () => {
     const postal = optionRemise(contexte([COLLIER, CROQUETTES]), "postal");
     expect(postal.disponible).toBe(false);
     expect(postal.raison).toContain("Croquettes Robur 12 kg");
-    expect(postal.raison).toContain("trop lourd");
+    expect(postal.raison).toContain("ne part pas par la poste");
     expect(postal.frais).toBeNull();
     // Mais le retrait reste ouvert : on ne bloque pas la commande.
     expect(optionRemise(contexte([COLLIER, CROQUETTES]), "retrait").disponible).toBe(true);
   });
 
-  it("compte les articles non expédiables quand il y en a plusieurs", () => {
+  it("NOMME les articles non expédiables quand il y en a plusieurs", () => {
     const litiere = ligne({ libelle: "Litière 10 kg", expediable: false, poids_grammes: 10000 });
     const postal = optionRemise(contexte([CROQUETTES, litiere]), "postal");
-    expect(postal.raison).toContain("2 articles");
+    expect(postal.raison).toContain("Croquettes Robur 12 kg");
+    expect(postal.raison).toContain("Litière 10 kg");
+    // Un compte seul ne dit pas LESQUELS : la cliente devrait relire son panier
+    // ligne a ligne pour le deviner, alors que c'est ce qu'elle venait savoir.
+    expect(postal.raison).not.toMatch(/d+ articles/);
   });
 
   it("refuse l'envoi au-delà du poids maximal, en disant la limite", () => {
@@ -392,18 +396,18 @@ describe("APP 26 : ce qui s'achète alors qu'il n'est pas en rayon", () => {
 
   describe("la phrase de délai", () => {
     it("dit les deux bornes quand elles diffèrent", () => {
-      expect(phraseDelaiCommande(commandable)).toBe("Livré sous 5 à 8 jours ouvrables");
+      expect(phraseDelaiCommande(commandable)).toBe("Disponible sous 5 à 8 jours ouvrables");
     });
 
     it("n'en dit qu'une quand elles se valent", () => {
       expect(phraseDelaiCommande({ delai_commande_min_jours: 8, delai_commande_max_jours: 8 }))
-        .toBe("Livré sous 8 jours ouvrables");
+        .toBe("Disponible sous 8 jours ouvrables");
       expect(phraseDelaiCommande({ delai_commande_max_jours: 8 }))
-        .toBe("Livré sous 8 jours ouvrables");
+        .toBe("Disponible sous 8 jours ouvrables");
     });
 
     it("accorde le singulier", () => {
-      expect(phraseDelaiCommande({ delai_commande_max_jours: 1 })).toBe("Livré sous 1 jour ouvrable");
+      expect(phraseDelaiCommande({ delai_commande_max_jours: 1 })).toBe("Disponible sous 1 jour ouvrable");
     });
 
     it("dit « ouvrables », parce que la différence compte", () => {

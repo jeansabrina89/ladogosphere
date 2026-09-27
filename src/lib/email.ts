@@ -11,7 +11,7 @@ import {
 import { ajouterJoursISO } from "@/src/lib/cotisationPeriode";
 import { phrasesRappelVeilleEssai } from "@/src/lib/rappelVeilleLogique";
 import { CLE_AVIS_GOOGLE, ligneAvisGooglePiedDePage } from "@/src/lib/avisGoogle";
-import { mentionPortCommande } from "@/src/lib/venteEnLigneLogique";
+import { mentionPortCommande, formatPrixClient } from "@/src/lib/venteEnLigneLogique";
 import { choixDesLignes } from "@/src/lib/personnalisation";
 import { libelleConfiguration } from "@/src/lib/personnalisationLogique";
 
@@ -1362,7 +1362,7 @@ export async function envoyerEmailCommandeConfirmee(
         <td style="padding:6px 0; color:#1B2B5E; font-size:14px;">${l.quantite} × ${l.libelle}${options
           ? `<br><span style="color:#6B7280; font-size:13px;">${echapper(options)}</span>`
           : ""}</td>
-        <td style="padding:6px 0; color:#1B2B5E; font-size:14px; text-align:right; white-space:nowrap;">${chfEmail(Number(l.montant))} CHF</td>
+        <td style="padding:6px 0; color:#1B2B5E; font-size:14px; text-align:right; white-space:nowrap;">${formatPrixClient(Number(l.montant))}</td>
       </tr>`;
     })
     .join("");
@@ -1389,17 +1389,18 @@ export async function envoyerEmailCommandeConfirmee(
         <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">🛍️ Commande ${cmd.numero ?? ""}</h3>
         <table cellpadding="0" cellspacing="0" style="width:100%;">
           ${lignesHtml}
-          ${remise > 0 ? `<tr><td style="padding:6px 0; color:#1F6E5B; font-size:14px;">Remises</td><td style="padding:6px 0; color:#1F6E5B; font-size:14px; text-align:right;">−${chfEmail(remise)} CHF</td></tr>` : ""}
+          ${remise > 0 ? `<tr><td style="padding:6px 0; color:#1F6E5B; font-size:14px;">Remises</td><td style="padding:6px 0; color:#1F6E5B; font-size:14px; text-align:right;">${formatPrixClient(-remise)}</td></tr>` : ""}
           ${port === "offerte"
             ? `<tr><td style="padding:6px 0; color:#6B7280; font-size:14px;">Frais de port</td><td style="padding:6px 0; color:#1F6E5B; font-size:14px; font-weight:bold; text-align:right;">Livraison offerte</td></tr>`
             : typeof port === "number"
-              ? `<tr><td style="padding:6px 0; color:#6B7280; font-size:14px;">Frais de port</td><td style="padding:6px 0; color:#6B7280; font-size:14px; text-align:right;">${chfEmail(port)} CHF</td></tr>`
+              ? `<tr><td style="padding:6px 0; color:#6B7280; font-size:14px;">Frais de port</td><td style="padding:6px 0; color:#6B7280; font-size:14px; text-align:right;">${formatPrixClient(port)}</td></tr>`
               : ""}
           <tr>
-            <td style="padding:12px 0 0 0; border-top:2px solid #FFFFFF; color:#1B2B5E; font-weight:bold; font-size:16px;">Prix TTC</td>
-            <td style="padding:12px 0 0 0; border-top:2px solid #FFFFFF; color:#1B2B5E; font-weight:bold; font-size:16px; text-align:right;">${chfEmail(Number(cmd.montant_total))} CHF</td>
+            <td style="padding:12px 0 0 0; border-top:2px solid #FFFFFF; color:#1B2B5E; font-weight:bold; font-size:16px;">Total</td>
+            <td style="padding:12px 0 0 0; border-top:2px solid #FFFFFF; color:#1B2B5E; font-weight:bold; font-size:16px; text-align:right;">${formatPrixClient(Number(cmd.montant_total))}</td>
           </tr>
         </table>
+        <p style="margin:8px 0 0 0; color:#6B7280; font-size:13px; text-align:right;">Prix TTC</p>
       </div>
 
       <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">

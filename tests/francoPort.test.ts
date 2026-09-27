@@ -5,7 +5,7 @@ import {
   fraisPort,
   francoAtteint,
   infoLivraisonOfferte,
-  libelleSeuil,
+  formatPrixClient,
   lireFrancoPort,
   lireSaisieFrancoPort,
   mentionPortCommande,
@@ -106,7 +106,7 @@ describe("le seuil ne rend pas expédiable ce qui ne l'est pas", () => {
     const o = postal(lignes);
     expect(o.disponible).toBe(false);
     expect(o.frais).toBeNull();
-    expect(o.raison).toContain("ne peut pas être expédié");
+    expect(o.raison).toContain("ne part pas par la poste");
     expect(infoLivraisonOfferte(contexte(lignes))).toBeNull();
   });
 
@@ -173,9 +173,11 @@ describe("le paramètre et sa saisie", () => {
     }
   });
 
-  it("le seuil comme on l'affiche", () => {
-    expect(libelleSeuil(100)).toBe("100.–");
-    expect(libelleSeuil(99.5)).toBe("99.50");
+  it("le seuil comme on l'affiche — le format client, pas un second format", () => {
+    // `libelleSeuil` rendait deja « 100.– » : c'etait `formatPrixClient` sous un
+    // autre nom. Le doublon le plus discret est celui qui porte deux noms.
+    expect(formatPrixClient(100)).toBe("100.–");
+    expect(formatPrixClient(99.5)).toBe("99.50");
   });
 });
 
@@ -220,8 +222,8 @@ describe("un seul calcul, et les écrans qui le lisent", () => {
     expect(code("app/(public)/catalogue/panier/page.tsx")).toContain("francoPortDes={params.francoPortDes}");
     const panier = code("app/(public)/catalogue/panier/Panier.tsx");
     expect(panier).toContain("const franco = infoLivraisonOfferte(contexte);");
-    expect(panier).toContain("Livraison offerte dès {libelleSeuil(franco.seuil)} d&apos;articles");
-    expect(panier).toContain(`{portOffert ? "Offerts" : chf(total.port)}`);
+    expect(panier).toContain("Livraison offerte dès {formatPrixClient(franco.seuil)} d&apos;articles");
+    expect(panier).toContain(`{portOffert ? "Offerts" : formatPrixClient(total.port)}`);
     // Pas de compte à rebours : aucun écart entre le seuil et le panier n'est calculé.
     expect(panier).not.toMatch(/franco\.seuil\s*-|-\s*franco\.seuil|seuil\s*-\s*total|plus que \{/);
   });
