@@ -5,6 +5,28 @@ import { useRouter } from "next/navigation";
 import { CreditCard, Smartphone, Landmark, Wallet } from "lucide-react";
 import { reglerReservationAvecAbonnement } from "./actions";
 
+/**
+ * Payer une réservation — LE SEUL écran client de la pension qui garde le
+ * format des factures, et il le garde pour deux raisons distinctes.
+ *
+ * ── 1. LA CLIENTE COMPARE CET ÉCRAN À SA FACTURE ──────────────────────────
+ *
+ * Quand une facture est émise, cette boîte lui dit d'indiquer son numéro dans
+ * le motif du virement, « ou d'utiliser le bulletin QR de la facture ». Elle a
+ * donc le PDF ouvert à côté. Deux écritures du même montant — « 226.50 » ici,
+ * « 226.50 CHF » là — sont exactement ce qui fait hésiter avant de payer, et
+ * une hésitation au moment de payer coûte un appel ou un virement de travers.
+ *
+ * ── 2. LE MONTANT EST AUSSI UNE SAISIE ────────────────────────────────────
+ *
+ * Le champ est un `input type="number"` : sa valeur doit rester un nombre que
+ * le navigateur sait relire. « 226.– » et « 1'250.50 » n'en sont pas. Le
+ * format de vitrine est ici techniquement impossible, pas seulement inopportun.
+ *
+ * C'est pour cela que `Montant à payer (CHF)` garde son « CHF » : devant un
+ * champ où l'on TAPE un nombre, le mot dit dans quelle unité — c'est la seule
+ * place de l'espace client où il apprend encore quelque chose.
+ */
 export default function BoutonPaiementClient({
   reservation_id,
   numeroFacture,
@@ -104,7 +126,7 @@ export default function BoutonPaiementClient({
                   )}
                   {montant_final > 0 && (
                     <p className="text-xs text-gray-400 mt-1 text-center">
-                      Total facturé : {montant_final} CHF · Déjà payé : {montant_paye} CHF
+                      Total facturé : {montant_final.toFixed(2)} CHF · Déjà payé : {(montant_paye || 0).toFixed(2)} CHF
                     </p>
                   )}
                 </div>

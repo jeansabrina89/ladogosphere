@@ -11,6 +11,7 @@ import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import BadgeStatut from "@/app/components/ui/BadgeStatut";
 import BoutonCommander from "./BoutonCommander";
+import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
 
 const MARINE = "#1B2B5E";
 
@@ -165,7 +166,7 @@ export default async function AbonnementsPage() {
                           {JOURS_PAR_CARTE} journées ({JOURS_PAYES} payées + 1 offerte)
                         </p>
                         <p style={{ fontWeight: 700, color: MARINE, fontSize: 18, margin: "0 0 10px" }}>
-                          CHF {prix.toFixed(2)}
+                          {formatPrixClient(prix)}
                         </p>
                         <BoutonCommander categorie={type.categorie} />
                       </div>

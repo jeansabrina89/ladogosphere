@@ -38,7 +38,12 @@ const EXEMPLES: Record<string, string> = {
   nom_chien: "Rex",
   date_debut: "lundi 6 juillet 2026",
   date_fin: "vendredi 10 juillet 2026",
+  // « montant » sert aux e-mails de PENSION et de FACTURE : deux décimales,
+  // comme la pièce que la cliente reçoit. « prix » est la variable de la
+  // BOUTIQUE (retour en stock) : format de vitrine. Les deux ne se confondent
+  // pas, et l'aperçu doit montrer ce que la cliente lira vraiment.
   montant: "120.00",
+  prix: "35.–",
   annee: "2026",
 };
 

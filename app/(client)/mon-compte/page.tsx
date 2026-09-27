@@ -19,6 +19,7 @@ import BadgeStatut from "@/app/components/ui/BadgeStatut";
 import EtatVide from "@/app/components/ui/EtatVide";
 import InstallerAppButton from "@/app/InstallerAppButton";
 import { tuilesVisibles } from "@/src/lib/entreesEspaceClient";
+import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
 
 export default async function MonComptePage() {
   const supabase = await createClient();
@@ -197,10 +198,10 @@ export default async function MonComptePage() {
           {/* Avoir */}
           <div style={statCardStyle("#FBE2DE")}>
             <p style={{ fontSize: "24px", fontWeight: 500, color: "#A8453A", margin: 0, lineHeight: 1 }}>
-              {soldeAvoir.toFixed(2)}
+              {formatPrixClient(soldeAvoir)}
             </p>
             <p style={{ fontSize: "13px", color: "rgba(168,69,58,0.7)", marginTop: "6px", marginBottom: 0 }}>
-              Avoir CHF
+              Avoir
             </p>
           </div>
 
@@ -208,10 +209,10 @@ export default async function MonComptePage() {
           {totalARegler > 0 && (
             <Link href="/mon-compte/reservations" style={statCardStyle("#F4EAC9")}>
               <p style={{ fontSize: "24px", fontWeight: 500, color: "#6E5410", margin: 0, lineHeight: 1 }}>
-                {totalARegler.toFixed(2)}
+                {formatPrixClient(totalARegler)}
               </p>
               <p style={{ fontSize: "13px", color: "rgba(110,84,16,0.7)", marginTop: "6px", marginBottom: 0 }}>
-                À régler CHF
+                À régler
               </p>
             </Link>
           )}
@@ -258,8 +259,8 @@ export default async function MonComptePage() {
               </p>
               <p style={{ fontSize: 13, color: "rgba(27,43,94,0.6)", margin: "0 0 4px" }}>
                 {estRenouvellement
-                  ? `Ton adhésion prend fin le ${formatDateLong(cotisationEnCours!.date_fin)}. L'adhésion annuelle de ${montantCotisation} CHF te donne accès aux tarifs membres sur toutes tes réservations.`
-                  : `L'adhésion annuelle de ${montantCotisation} CHF te donne accès aux tarifs membres sur toutes tes réservations.`}
+                  ? `Ton adhésion prend fin le ${formatDateLong(cotisationEnCours!.date_fin)}. L'adhésion annuelle de ${formatPrixClient(montantCotisation)} te donne accès aux tarifs membres sur toutes tes réservations.`
+                  : `L'adhésion annuelle de ${formatPrixClient(montantCotisation)} te donne accès aux tarifs membres sur toutes tes réservations.`}
               </p>
               <BoutonDemanderAdhesion montant={montantCotisation} renouvellement={estRenouvellement} />
             </Carte>
@@ -321,7 +322,7 @@ export default async function MonComptePage() {
                       {montant > 0 && (
                         <div style={{ textAlign: "right", flexShrink: 0 }}>
                           <p style={{ fontWeight: 700, color: "#1B2B5E", fontSize: "18px", margin: "0 0 4px" }}>
-                            {montant.toFixed(2)} CHF
+                            {formatPrixClient(montant)}
                           </p>
                           {(prochaine as any).statut_paiement &&
                             (prochaine as any).statut_paiement !== "paye" && (

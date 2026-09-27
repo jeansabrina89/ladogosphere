@@ -17,6 +17,7 @@ import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 import { resteAPayer } from "@/src/lib/montants";
+import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
 
 const sTopnavA: CSSProperties = { color: "#1F6E5B", textDecoration: "none", fontWeight: 600, fontSize: 14 };
 const sCarteHaut: CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 };
@@ -207,9 +208,9 @@ export default async function MesReservationsPage({
                   <p style={sLigne}>🏠 {formatBoxLabel(res.boxes)} · {libelleType(res.type_reservation)}</p>
                   {res.montant_final > 0 ? (
                     <p style={sMontant}>
-                      💰 {Number(res.montant_final).toFixed(2)} CHF
+                      💰 {formatPrixClient(Number(res.montant_final))}
                       {res.statut_paiement === "partiel" && res.montant_paye > 0 ? (
-                        <span style={sMontantDetail}> (payé : {Number(res.montant_paye).toFixed(2)} · reste : {resteAPayer.toFixed(2)} CHF)</span>
+                        <span style={sMontantDetail}> (payé : {formatPrixClient(Number(res.montant_paye))} · reste : {formatPrixClient(resteAPayer)})</span>
                       ) : null}
                     </p>
                   ) : null}

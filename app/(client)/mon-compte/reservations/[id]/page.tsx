@@ -17,6 +17,7 @@ import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 import { resteAPayer as resteRestant } from "@/src/lib/montants";
+import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
 
 const MARINE = "#1B2B5E";
 const SERIF = "Georgia,'Times New Roman',serif";
@@ -165,18 +166,18 @@ export default async function DetailReservationClientPage({
                 {res.reservation_extras.map((extra: any) => (
                   <div key={extra.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 14, padding: "3px 0", color: MARINE }}>
                     <span>{extra.libelle}</span>
-                    <span>{Number(extra.montant) > 0 ? "+" : ""}{Number(extra.montant).toFixed(2)} CHF</span>
+                    <span>{Number(extra.montant) > 0 ? "+" : ""}{formatPrixClient(Number(extra.montant))}</span>
                   </div>
                 ))}
               </div>
             )}
-            <Ligne label="Montant">{Number(res.montant_final) > 0 ? `${Number(res.montant_final).toFixed(2)} CHF` : "—"}</Ligne>
-            <Ligne label="Payé">{Number(res.montant_paye || 0).toFixed(2)} CHF</Ligne>
+            <Ligne label="Montant">{Number(res.montant_final) > 0 ? formatPrixClient(Number(res.montant_final)) : "—"}</Ligne>
+            <Ligne label="Payé">{formatPrixClient(Number(res.montant_paye || 0))}</Ligne>
             {regleParAbo ? (
               <Ligne label="Mode de règlement"><span style={{ color: "#1F6E5B", fontWeight: 700 }}>🎟️ Réglée par carte journées</span></Ligne>
             ) : (
               resteAPayer > 0 && res.statut !== "annulee" && (
-                <Ligne label="Reste à payer"><span style={{ color: "#A8453A", fontWeight: 700 }}>{resteAPayer.toFixed(2)} CHF</span></Ligne>
+                <Ligne label="Reste à payer"><span style={{ color: "#A8453A", fontWeight: 700 }}>{formatPrixClient(resteAPayer)}</span></Ligne>
               )
             )}
             <Ligne label="Statut paiement"><BadgePaiement statut={res.statut_paiement} /></Ligne>
@@ -223,7 +224,7 @@ export default async function DetailReservationClientPage({
                       </p>
                     </div>
                     <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: m.montant < 0 ? "#DC2626" : "#4AAEA0" }}>
-                      {m.montant >= 0 ? "+" : ""}{m.montant.toFixed(2)} CHF
+                      {m.montant >= 0 ? "+" : ""}{formatPrixClient(m.montant)}
                     </p>
                   </div>
                 ))}

@@ -13,6 +13,7 @@ import {
 import { lireReglagesPrestations, tachesDuClient } from "@/src/lib/prestationsDb";
 import { bornesDuMois, libelleMois } from "@/src/lib/factureLocataireLogique";
 import CommandeLocataire from "./CommandeLocataire";
+import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
 
 export const dynamic = "force-dynamic";
 
@@ -99,7 +100,7 @@ export default async function MesPrestationsPage() {
           {abo ? (
             <>
               <p style={{ margin: 0, fontWeight: 700, color: MARINE, fontSize: 16 }}>
-                {formule?.nom ?? "Forfait"} — {Number(abo.prix_mensuel_fige ?? 0).toFixed(2)} CHF / mois
+                {formule?.nom ?? "Forfait"} — {formatPrixClient(Number(abo.prix_mensuel_fige ?? 0))} / mois
               </p>
               {formule?.description && (
                 <p style={{ color: SOUS, fontSize: 13, margin: "4px 0 0" }}>{formule.description}</p>
@@ -174,7 +175,7 @@ export default async function MesPrestationsPage() {
                 <li key={t.id} style={{ fontSize: 14, color: MARINE, overflowWrap: "anywhere" }}>
                   {formatDateFR(t.date)} — {t.prestation}
                   {t.origine !== "forfait" && (
-                    <span style={{ color: SOUS }}> · {t.prix_fige.toFixed(2)} CHF</span>
+                    <span style={{ color: SOUS }}> · {formatPrixClient(t.prix_fige)}</span>
                   )}
                 </li>
               ))}

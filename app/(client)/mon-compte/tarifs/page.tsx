@@ -11,6 +11,7 @@ import { cotisationActive, cotisationEnAttente } from "@/src/lib/cotisation";
 import { joursEntre, JOURS_FENETRE_RENOUVELLEMENT } from "@/src/lib/cotisationPeriode";
 import { aujourdhuiISO, formatDateLong } from "@/src/lib/dates";
 import BoutonDemanderAdhesion from "@/app/components/BoutonDemanderAdhesion";
+import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
 
 const MARINE = "#1B2B5E";
 
@@ -45,7 +46,7 @@ function getPrix(
   const t = tarifs.find((r) => r.categorie === categorie && r.membre === membre);
   if (!t) return "—";
   const n = parseFloat(t.prix);
-  return isNaN(n) ? "—" : `CHF ${n.toFixed(2)}`;
+  return isNaN(n) ? "—" : formatPrixClient(n);
 }
 
 function LigneGrille({
@@ -213,8 +214,8 @@ export default async function TarifsClientPage() {
               <p style={sSecTitre}>{estRenouvellement ? "★ Renouveler mon adhésion" : "★ Devenir membre"}</p>
               <p style={sSecSous}>
                 {estRenouvellement
-                  ? `Ton adhésion prend fin le ${formatDateLong(cotisationEnCours!.date_fin)}. L'adhésion annuelle de ${cotisation || 200} CHF est obligatoire pour pouvoir réserver (hors journée d'essai).`
-                  : `L'adhésion annuelle de ${cotisation || 200} CHF est obligatoire pour pouvoir réserver (hors journée d'essai).`}
+                  ? `Ton adhésion prend fin le ${formatDateLong(cotisationEnCours!.date_fin)}. L'adhésion annuelle de ${formatPrixClient(cotisation || 200)} est obligatoire pour pouvoir réserver (hors journée d'essai).`
+                  : `L'adhésion annuelle de ${formatPrixClient(cotisation || 200)} est obligatoire pour pouvoir réserver (hors journée d'essai).`}
               </p>
               <BoutonDemanderAdhesion montant={cotisation} renouvellement={estRenouvellement} />
             </Carte>
@@ -292,7 +293,7 @@ export default async function TarifsClientPage() {
                   L&apos;adhésion annuelle donne accès aux tarifs membres sur toutes les formules.
                 </p>
                 <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 20, fontWeight: 700, color: "#6E5410", whiteSpace: "nowrap", marginLeft: 12 }}>
-                  CHF {cotisation.toFixed(2)} / an
+                  {formatPrixClient(cotisation)} / an
                 </span>
               </div>
             </div>
@@ -301,7 +302,7 @@ export default async function TarifsClientPage() {
         </div>
 
         <p style={{ fontSize: 12, color: "rgba(27,43,94,0.4)", textAlign: "center", marginTop: 16 }}>
-          Tarifs en CHF TTC · Année {annee}
+          Tarifs TTC · Année {annee}
         </p>
 
       </div>

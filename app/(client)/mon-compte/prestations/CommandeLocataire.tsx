@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ajusterMaSemaine, commanderPrestation } from "./actions";
 import { JOURS_SEMAINE, estGarde } from "@/src/lib/prestationsLogique";
+import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
 
 const MARINE = "#1B2B5E";
 const SOUS = "rgba(27,43,94,0.6)";
@@ -93,7 +94,7 @@ export default function CommandeLocataire({
                 <select id="cl-prestation" name="prestation_id" required style={champ}>
                   <option value="">— choisir —</option>
                   {commandables.map((p) => (
-                    <option key={p.id} value={p.id}>{p.nom} — {p.prix.toFixed(2)} CHF</option>
+                    <option key={p.id} value={p.id}>{p.nom} — {formatPrixClient(p.prix)}</option>
                   ))}
                 </select>
               </div>

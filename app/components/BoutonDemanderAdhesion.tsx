@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { demanderAdhesion } from "@/app/(client)/mon-compte/actions";
+import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
 
 export default function BoutonDemanderAdhesion({ montant, renouvellement = false }: { montant: number; renouvellement?: boolean }) {
   const [ouvert, setOuvert] = useState(false);
@@ -41,7 +42,7 @@ export default function BoutonDemanderAdhesion({ montant, renouvellement = false
           >
             <p style={{ fontFamily: "Georgia, serif", fontSize: 18, fontWeight: 700, color: "#1B2B5E", margin: "0 0 6px" }}>{renouvellement ? "Renouveler mon adhésion" : "Demander mon adhésion"}</p>
             <p style={{ fontSize: 13, color: "rgba(27,43,94,0.6)", margin: "0 0 18px" }}>
-              Cotisation annuelle de {montant || 200} CHF. Comment souhaites-tu la régler ?
+              Cotisation annuelle de {formatPrixClient(montant || 200)}. Comment souhaites-tu la régler ?
             </p>
             <button
               disabled={loading}

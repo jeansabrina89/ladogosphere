@@ -1271,9 +1271,6 @@ function echapper(texte: string): string {
 // BOUTIQUE EN LIGNE
 // ===========================================================================
 
-const chfEmail = (n: number) =>
-  new Intl.NumberFormat("fr-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
-
 const LIBELLES_REMISE: Record<string, string> = {
   retrait: "Retrait à la pension",
   depart_chien: "Remise au départ de votre chien",
@@ -1495,7 +1492,7 @@ export async function envoyerEmailRetourEnStock(p: {
   token: string;
   photoUrl?: string | null;
 }): Promise<void> {
-  const prix = chfEmail(Number(p.prix ?? 0));
+  const prix = formatPrixClient(Number(p.prix ?? 0));
   const m = await modeleEmail("retour_en_stock", { article: p.article, prix });
 
   const lienArticle = `${SITE_URL}/catalogue/${p.articleId}`;
@@ -1526,7 +1523,7 @@ export async function envoyerEmailRetourEnStock(p: {
         </tr>
         <tr>
           <td style="padding:0 0 20px 0; color:#1B2B5E; font-size:22px; font-weight:bold;">
-            ${prix} CHF <span style="color:#6B7280; font-size:14px; font-weight:normal;">TTC</span>
+            ${prix}
           </td>
         </tr>
         <tr>

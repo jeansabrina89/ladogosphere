@@ -18,6 +18,7 @@ import {
 } from "@/src/lib/cohabitation";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
+import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -530,7 +531,7 @@ export default function TunnelReservation({
       date_debut: "2000-01-01",
       date_fin: "2000-01-01",
     });
-    return montant > 0 ? `${montant.toFixed(2)} CHF` : "tarif chien seul";
+    return montant > 0 ? formatPrixClient(montant) : "tarif chien seul";
   })();
 
   let estimation: number | null = null;
@@ -1276,7 +1277,7 @@ export default function TunnelReservation({
                   {nbOcc > 1 ? `Estimation indicative (${nbOcc} dates)` : "Estimation indicative"}
                 </span>
                 <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 20, fontWeight: 700, color: "#6E5410", whiteSpace: "nowrap" as const }}>
-                  CHF {estimation.toFixed(2)}
+                  {formatPrixClient(estimation)}
                 </span>
               </div>
               <p style={{ margin: "8px 0 0", fontSize: 12, color: "#6E5410", opacity: 0.85, lineHeight: 1.4 }}>
@@ -1326,7 +1327,7 @@ export default function TunnelReservation({
                 borderRadius: 12, padding: "14px 16px", marginBottom: 12,
               }}>
                 <p style={{ margin: 0, fontWeight: 700, color: "#6E5410", fontSize: 14.5 }}>
-                  ⭐ Adhésion {montantCotisation.toFixed(0)}.- ajoutée à cette réservation
+                  ⭐ Adhésion {formatPrixClient(montantCotisation)} ajoutée à cette réservation
                 </p>
                 <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "#6E5410", lineHeight: 1.5 }}>
                   Votre première réservation de pension inclut l&apos;adhésion annuelle. Vous devenez membre immédiatement ; le montant est réglé avec cette réservation.
