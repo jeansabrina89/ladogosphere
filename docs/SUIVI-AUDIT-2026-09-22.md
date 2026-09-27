@@ -322,10 +322,10 @@ Si le délai doit pouvoir différer d'une marque à l'autre chez un même
 fournisseur, l'exception par article y répond déjà ; s'il faut le régler par
 marque, c'est un sujet en soi.
 
-## ARRÊT DEMANDÉ AU LOT 28 : le rattachement précède la confirmation
+## Le rattachement avant confirmation — FERMÉ au lot 28-BIS (`beb9856`)
 
-**Constaté le 27.09.2026, NON corrigé**, parce que le brief demandait de
-m'arrêter et de le dire avant de toucher quoi que ce soit.
+**Constaté au lot 28, corrigé au lot 28-BIS.** Ce qui suit reste écrit parce que
+le défaut a existé, et que sa trace vaut mieux que son effacement.
 
 `lier_client_auth` est un trigger **`AFTER INSERT ON auth.users`**, et son corps
 est :
@@ -361,3 +361,54 @@ trigger `AFTER UPDATE OF email_confirmed_at`, soit un appel explicite depuis
 l'application au premier accès confirmé. Le second se teste ; le premier se
 déclenche même si l'application n'est pas au courant. Le choix dépend aussi de la
 question de savoir si un rattachement automatique est souhaitable du tout.
+
+### Ce qui a été fait au lot 28-BIS
+
+**Deux portes, et il fallait les deux.** Le trigger n'était que la première :
+`creerOuLierFicheClient` rattache elle aussi, et elle est appelée juste après
+`signUp` — donc avec un compte que personne n'a confirmé. Fermer le seul trigger
+aurait été cosmétique.
+
+**Le rattachement n'a plus que deux moments** : au passage de
+`email_confirmed_at` de NULL à une date (`on_auth_user_confirmed`), et à
+l'insertion si l'adresse arrive **déjà** confirmée — le compte employé créé par
+l'administratrice avec `email_confirm: true`, où c'est son geste qui atteste
+l'adresse.
+
+**Le profil, lui, reste créé à l'insertion** : il ne porte que ce compte, et les
+gardes de l'application le lisent dès la première requête.
+
+**Mesure d'avant** : 9 fiches rattachées, dont **une à un compte non confirmé**.
+Cette fiche-là n'a pas été modifiée — le lot était en lecture seule sur les
+données. Elle est à regarder si son titulaire ne s'est jamais connecté.
+
+**Éprouvé en base, transaction annulée** : inscription non confirmée → fiche non
+rattachée ; confirmation → rattachée ; fiche déjà rattachée → inchangée ; compte
+déjà confirmé → rattachée à l'insertion. Mutation : remettre le rattachement à
+l'insertion fait échouer le premier contrôle.
+
+## La vitrine illisible par les visiteurs — FERMÉ au lot 28-BIS
+
+**Une régression d'APP 26, trouvée par Claude Cowork le 26.09.2026**, et qui a
+coûté une journée de boutique.
+
+La vue `articles_vitrine` appelait `delai_commande_effectif`, fermée à `anon` et
+`authenticated` comme toute fonction du dépôt. La vue est devenue illisible pour
+ces deux rôles : `ERROR 42501`. Le site affichait « La boutique est
+momentanément indisponible ».
+
+**Ce que personne n'avait vu** : la vue est SECURITY DEFINER, donc elle lit
+`articles` avec les droits de son propriétaire — mais ce report **ne vaut que
+pour les tables**. Le privilège EXECUTE d'une fonction est vérifié avec le rôle
+courant.
+
+**La suite de tests est restée verte du début à la fin** : elle lisait la vue
+avec la clé de service. C'est le test qui manquait, pas la règle.
+
+**Corrigé dans la vue, pas dans les droits** : ouvrir la fonction à `anon`
+l'aurait rendue appelable par `/rest/v1/rpc` avec la clé publique, et elle rend
+le délai de n'importe quel article — y compris un article non commandable, que
+la vue refuse justement de publier depuis APP 27.
+
+`AGENTS.md` porte désormais la règle, et `tests/vitrineLisibleParAnon.test.ts`
+refuse toute fonction révoquée appelée par la vue.
