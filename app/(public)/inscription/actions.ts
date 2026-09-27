@@ -286,6 +286,14 @@ export async function signalerInscriptionSiCompteExiste(email: string): Promise<
   const cible = normaliserEmail(email);
   if (!cible) return;
 
+  /*
+   * L'IP est lue ICI, dans l'action serveur, et non reçue du navigateur : un
+   * paramètre serait choisi par l'appelant, donc changé à chaque tentative.
+   */
+  const { headers } = await import("next/headers");
+  const { ipDeLaRequete } = await import("@/src/lib/limiteTentatives");
+  const ip = ipDeLaRequete(await headers());
+
   try {
     /*
      * `compteAuthParEmail`, et JAMAIS `listUsers` — le dépôt l'interdit, et un
@@ -303,6 +311,27 @@ export async function signalerInscriptionSiCompteExiste(email: string): Promise<
      */
     const recherche = await compteAuthParEmail(cible);
     if (!recherche.ok || !recherche.id) return;
+
+    /*
+     * LA LIMITE (C-13, APP 29) : une par heure et par adresse.
+     *
+     * C'est le seul envoi de l'application joignable SANS être connecté, vers une
+     * adresse arbitraire. Sans plafond, on se sert de notre domaine pour harceler
+     * une boîte — et notre réputation d'expéditeur en paie le prix, donc à terme
+     * tous nos e-mails, y compris les factures.
+     *
+     * Le plafond est posé APRÈS la recherche du compte, et c'est délibéré : le
+     * compteur ne doit se remplir que pour les adresses qui donneraient vraiment
+     * lieu à un envoi. Le poser avant ferait compter les adresses inconnues, donc
+     * bloquer une personne au motif que quelqu'un d'autre a tâtonné.
+     *
+     * L'ÉCRAN NE CHANGE PAS quand le plafond est atteint : le message reste
+     * « Si cette adresse peut être utilisée, vous allez recevoir un e-mail. »
+     * Dire « trop de tentatives » révélerait qu'il y a eu des tentatives sur
+     * cette adresse, donc qu'elle existe — et rouvrirait C-05.
+     */
+    const { tentativeAutorisee } = await import("@/src/lib/limiteTentatives");
+    if (!(await tentativeAutorisee("email_compte_existe", { email: cible, ip }))) return;
 
     const { envoyerEmailCompteExisteDeja } = await import("@/src/lib/email");
     await envoyerEmailCompteExisteDeja({ email: cible });
