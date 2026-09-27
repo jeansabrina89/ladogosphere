@@ -11,7 +11,7 @@ import { cotisationActive, cotisationEnAttente } from "@/src/lib/cotisation";
 import { joursEntre, JOURS_FENETRE_RENOUVELLEMENT } from "@/src/lib/cotisationPeriode";
 import { aujourdhuiISO, formatDateLong } from "@/src/lib/dates";
 import BoutonDemanderAdhesion from "@/app/components/BoutonDemanderAdhesion";
-import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/prixClient";
 
 const MARINE = "#1B2B5E";
 

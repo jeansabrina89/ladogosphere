@@ -5,7 +5,6 @@ import {
   fraisPort,
   francoAtteint,
   infoLivraisonOfferte,
-  formatPrixClient,
   lireFrancoPort,
   lireSaisieFrancoPort,
   mentionPortCommande,
@@ -15,6 +14,7 @@ import {
   type LignePanier,
   type PalierPort,
 } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/prixClient";
 
 /**
  * Livraison offerte à partir d'un montant d'articles.

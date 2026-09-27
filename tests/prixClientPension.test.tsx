@@ -10,10 +10,14 @@ import "./setup/attenteJsdom";
  *
  * ── LA LIGNE QUE CE FICHIER DÉFEND ────────────────────────────────────────
  *
- * Réservations, tarifs, prestations, abonnements et tableau de bord écrivent
- * « 226.50 » et « 200.– », comme la boutique. `mon-compte/factures` écrit
- * « 226.50 CHF », parce que la cliente lit cet écran avec le PDF ouvert à côté :
- * deux écritures du même montant, à cet endroit-là, font hésiter avant de payer.
+ * La frontière ne passe pas entre les ÉCRANS mais entre les MONTANTS. Un
+ * montant de séjour, de tarif ou de boutique s'écrit « 226.50 » et « 200.– ».
+ * Un montant calculé à partir des FACTURES ou des AVOIRS — un payé, un reste à
+ * payer, un solde d'avoir — s'écrit « 226.50 CHF », parce que la cliente le
+ * compare au bulletin de versement qu'elle a sous les yeux.
+ *
+ * Les deux se croisent donc SUR LA MÊME LIGNE, et c'est le cas le plus utile à
+ * tenir : « 💰 226.50 (payé : 89.00 CHF · reste : 137.50 CHF) ».
  *
  * Les deux écrans sont donc RENDUS ici, l'un après l'autre, dans le même
  * fichier. C'est volontaire : une garde qui ne lit qu'un côté laisse l'autre
@@ -24,6 +28,7 @@ import "./setup/attenteJsdom";
 const H = vi.hoisted(() => ({
   factures: [] as Record<string, unknown>[],
   reservations: [] as Record<string, unknown>[],
+  soldeAvoir: 0,
 }));
 
 // ── Le décor : juste assez de base pour que les deux pages se rendent ───────
@@ -92,13 +97,38 @@ vi.mock("@/src/utils/supabase/server", () => ({
 vi.mock("@/src/lib/coordonneesPaiement", () => ({
   getCoordonneesPaiement: async () => ({ iban: "CH00", titulaire: "La Dogosphère" }),
 }));
-vi.mock("@/src/lib/avoirs", () => ({ getSoldeAvoir: async () => 0 }));
+vi.mock("@/src/lib/avoirs", () => ({ getSoldeAvoir: async () => H.soldeAvoir }));
+
+// Le tableau de bord seul : ce qu'il lit en plus des réservations.
+vi.mock("@/src/lib/membre", () => ({ estMembreActif: async () => true }));
+vi.mock("@/src/lib/cotisation", () => ({
+  cotisationActive: async () => null,
+  cotisationEnAttente: async () => null,
+}));
+vi.mock("@/src/lib/essaiReservation", () => ({
+  datesEssaiParChien: async () => new Map<string, string>(),
+}));
 vi.mock("@/src/lib/abonnementSolde", () => ({ getAbonnementsClient: async () => [] }));
 
+/**
+ * jsdom n_implemente pas matchMedia, et le tableau de bord monte
+ * InstallerAppButton, qui s_en sert pour savoir si l_application tourne en
+ * mode autonome. Le stub rend toujours faux : le bouton s_affiche, ce qui est
+ * l_etat par defaut dans un navigateur, et aucun montant n_en depend.
+ */
+if (!window.matchMedia) {
+  window.matchMedia = ((requete: string) => ({
+    matches: false, media: requete, onchange: null,
+    addEventListener: () => {}, removeEventListener: () => {},
+    addListener: () => {}, removeListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+}
 afterEach(() => {
   cleanup();
   H.factures = [];
   H.reservations = [];
+  H.soldeAvoir = 0;
 });
 
 /** Le texte visible, espaces normalisés. */
@@ -132,14 +162,17 @@ describe("les réservations : le format de la vitrine", () => {
     render(await Page({ searchParams: Promise.resolve({}) }));
   }
 
-  it("écrit 226.50, 89.– et 137.50 — et aucun « CHF »", async () => {
+  it("le TOTAL du séjour est à la suisse, le payé et le reste au format pièce", async () => {
     await rendre();
     const texte = lu();
-    expect(texte).toContain("226.50");
-    // 89 est rond : il prend le tiret demi-cadratin, pas « 89.00 ».
-    expect(texte).toContain("89.–");
-    expect(texte).toContain("137.50");
-    expect(texte).not.toContain("89.00");
+    // Le total du séjour : aucun « CHF » accolé, jamais.
+    expect(texte).toContain("💰 226.50 (");
+    expect(texte, "le total du séjour ne prend pas le format pièce").not.toContain("226.50 CHF");
+    // Le payé est un encaissement, le reste vient des factures : les deux
+    // portent les deux décimales ET le « CHF ».
+    expect(texte).toContain("payé : 89.00 CHF");
+    expect(texte).toContain("reste : 137.50 CHF");
+    expect(texte, "89 rond s'écrit 89.00, pas 89.–").not.toContain("89.–");
   });
 
   it("LE POINT 4, EN UNE SEULE VUE : la carte à la suisse, le bouton en format pièce", async () => {
@@ -156,20 +189,127 @@ describe("les réservations : le format de la vitrine", () => {
      */
     await rendre();
 
-    const ligne = screen.getByText(/226.50/);
-    expect(ligne.textContent).toContain("89.–");
-    expect(ligne.textContent).toContain("137.50");
-    expect(ligne.textContent, "les montants du séjour n'ont plus de CHF").not.toContain("CHF");
+    const ligne = screen.getByText(/226\.50/);
+    expect(ligne.textContent).toContain("💰 226.50 (");
+    expect(ligne.textContent).toContain("payé : 89.00 CHF");
+    expect(ligne.textContent).toContain("reste : 137.50 CHF");
 
     const payer = screen.getByRole("button", { name: /Payer/ });
     expect(payer.textContent, "le bouton suit la facture").toContain("137.50 CHF");
+    // LE POINT : le reste écrit dans la parenthèse et le montant du bouton sont
+    // le MÊME nombre, écrit de la MÊME façon. C'est ce qui permet de vérifier
+    // d'un coup d'oeil qu'on s'apprête à payer la bonne somme.
+    expect(payer.textContent).toContain("137.50 CHF");
+    expect(ligne.textContent).toContain("137.50 CHF");
   });
 
-  it("« CHF » n'apparaît QUE dans le bouton qui mène à la facture", async () => {
-    // La garde inverse : si un montant du séjour reprend le format pièce, il y
-    // aura deux « CHF » sur l'écran, et ce test le dira.
+  it("« CHF » n'apparaît QUE sur des montants dérivés des factures", async () => {
+    /**
+     * CE TEST A CHANGÉ D'OBJET, et il est plus strict qu'avant.
+     *
+     * Il comptait « CHF » et en exigeait UN SEUL : celui du bouton « Payer ».
+     * Le payé et le reste étant passés au format pièce, il y en a maintenant
+     * trois — et un simple compte ne dirait plus rien de juste.
+     *
+     * Il vérifie donc ce qu'on voulait vraiment dire : chaque « CHF » de
+     * l'écran suit un montant dérivé des factures, et aucun autre. Le seul
+     * montant de séjour de la page, le total, n'en porte pas.
+     */
     await rendre();
-    expect((lu().match(/CHF/g) ?? []).length).toBe(1);
+    const texte = lu();
+    const avecCHF = [...texte.matchAll(/([0-9'.,]+) CHF/g)].map((m) => m[1]);
+    // 89.00 (encaissé), 137.50 (reste dérivé des factures), 137.50 (le bouton).
+    expect(avecCHF).toEqual(["89.00", "137.50", "137.50"]);
+    // Et le total du séjour n'y est pas.
+    expect(avecCHF).not.toContain("226.50");
+  });
+});
+
+describe("le tableau de bord : les deux tuiles viennent des factures", () => {
+  /**
+   * « Avoir » est un solde d'avoir, « À régler » la somme des restes dérivés des
+   * factures. Deux cents francs ronds : c'est le montant qui distingue les deux
+   * formats à coup sûr — « 200.00 CHF » d'un côté, « 200.– » de l'autre.
+   */
+  async function rendre() {
+    H.soldeAvoir = 200;
+    H.reservations = [
+      {
+        id: "res-9",
+        numero: 9,
+        date_debut: "2026-07-06",
+        date_fin: "2026-07-10",
+        statut: "terminee",
+        statut_paiement: "impaye",
+        montant_final: 200,
+        montant_paye: 0,
+        montant_restant: 200,
+        type_reservation: "pension",
+        reservation_chiens: [{ chiens: { nom: "Pixel" } }],
+      },
+    ];
+    const { default: Page } = await import("@/app/(client)/mon-compte/page");
+    render(await Page());
+  }
+
+  it("« Avoir » et « À régler » s'écrivent « 200.00 CHF »", async () => {
+    await rendre();
+    const texte = lu();
+    expect((texte.match(/200.00 CHF/g) ?? []).length, "les deux tuiles").toBe(2);
+    // Les libellés n'ont pas bougé : le « CHF » est dans le montant, pas dessous.
+    expect(texte).toContain("Avoir");
+    expect(texte).toContain("À régler");
+    expect(texte).not.toContain("Avoir CHF");
+    expect(texte).not.toContain("À régler CHF");
+  });
+
+  it("DEUX CENTS FRANCS, DEUX ÉCRITURES, SUR LE MÊME ÉCRAN", async () => {
+    /**
+     * Le meilleur test de la règle, et il est tombé par accident en écrivant le
+     * précédent : ce tableau de bord affiche DEUX FOIS le nombre 200, à deux
+     * endroits, dans deux formats — et les deux sont justes.
+     *
+     *   « 200.00 CHF » sous Avoir et sous À régler   → dérivés des factures
+     *   « L'adhésion annuelle de 200.– »             → un TARIF
+     *
+     * La frontière ne passe donc pas entre les écrans, ni entre les montants
+     * ronds et les autres : elle passe entre ce qui se compare à une pièce et ce
+     * qui ne se compare à rien. Si quelqu'un uniformise un jour cet écran, dans
+     * un sens ou dans l'autre, ce test le dira.
+     */
+    await rendre();
+    const texte = lu();
+    expect(texte).toContain("200.00 CHF");
+    expect(texte).toContain("L'adhésion annuelle de 200.–");
+    expect(texte, "la cotisation n'est pas une pièce").not.toContain("adhésion annuelle de 200.00 CHF");
+  });
+
+  it("le montant de la PROCHAINE réservation reste un montant de séjour", async () => {
+    /**
+     * Sur le même écran, et c'est voulu : la prochaine réservation affiche le
+     * prix du séjour, qui ne se compare à aucune pièce. Il garde le tiret.
+     */
+    H.soldeAvoir = 0;
+    H.reservations = [
+      {
+        id: "res-10",
+        numero: 10,
+        date_debut: "2099-07-06",
+        date_fin: "2099-07-10",
+        statut: "validee",
+        statut_paiement: "paye",
+        montant_final: 340,
+        montant_paye: 340,
+        montant_restant: 0,
+        type_reservation: "pension",
+        reservation_chiens: [{ chiens: { nom: "Pixel" } }],
+      },
+    ];
+    const { default: Page } = await import("@/app/(client)/mon-compte/page");
+    render(await Page());
+    const texte = lu();
+    expect(texte).toContain("340.–");
+    expect(texte).not.toContain("340.00 CHF");
   });
 });
 

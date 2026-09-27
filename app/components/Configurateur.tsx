@@ -3,7 +3,7 @@
 import { createContext, useContext, useMemo, useState } from "react";
 import ApercuPersonnalisation from "@/app/components/ApercuPersonnalisation";
 import { urlPhotoArticle } from "@/src/lib/boutiqueLogique";
-import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/prixClient";
 import {
   determinerTaille,
   recalculerTailles,

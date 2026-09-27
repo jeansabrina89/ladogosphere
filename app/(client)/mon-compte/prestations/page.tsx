@@ -13,7 +13,7 @@ import {
 import { lireReglagesPrestations, tachesDuClient } from "@/src/lib/prestationsDb";
 import { bornesDuMois, libelleMois } from "@/src/lib/factureLocataireLogique";
 import CommandeLocataire from "./CommandeLocataire";
-import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/prixClient";
 
 export const dynamic = "force-dynamic";
 

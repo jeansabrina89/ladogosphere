@@ -10,8 +10,8 @@ import { libellesConfiguration } from "@/src/lib/personnalisationLogique";
 import {
   LIBELLE_SUR_MESURE,
   phraseDelaiCommande,
-  formatPrixClient,
 } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/prixClient";
 import OptionsChoisies from "@/app/components/OptionsChoisies";
 
 /**

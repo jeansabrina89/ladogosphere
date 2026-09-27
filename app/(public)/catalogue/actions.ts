@@ -18,7 +18,6 @@ import {
 } from "@/src/lib/venteEnLigne";
 import {
   adresseComplete,
-  formatPrixClient,
   optionRemise,
   refusConfirmation,
   totalCommande,
@@ -26,6 +25,7 @@ import {
   type ModePaiement,
   type ModeRemise,
 } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/prixClient";
 import {
   delaiTotal,
   datePromise,

@@ -6,12 +6,12 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import {
   formatPoids,
-  formatPrixClient,
   lireSaisieFrancoPort,
   lireSaisieGrille,
   type LigneSaisieGrille,
   type PalierPort,
 } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/prixClient";
 
 /** La clé du seuil de livraison offerte dans parametres. */
 const CLE_FRANCO_PORT = "franco_port_des";

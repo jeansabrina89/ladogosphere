@@ -11,7 +11,8 @@ import {
 import { ajouterJoursISO } from "@/src/lib/cotisationPeriode";
 import { phrasesRappelVeilleEssai } from "@/src/lib/rappelVeilleLogique";
 import { CLE_AVIS_GOOGLE, ligneAvisGooglePiedDePage } from "@/src/lib/avisGoogle";
-import { mentionPortCommande, formatPrixClient } from "@/src/lib/venteEnLigneLogique";
+import { mentionPortCommande } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/prixClient";
 import { choixDesLignes } from "@/src/lib/personnalisation";
 import { libelleConfiguration } from "@/src/lib/personnalisationLogique";
 

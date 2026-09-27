@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ajusterMaSemaine, commanderPrestation } from "./actions";
 import { JOURS_SEMAINE, estGarde } from "@/src/lib/prestationsLogique";
-import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/prixClient";
 
 const MARINE = "#1B2B5E";
 const SOUS = "rgba(27,43,94,0.6)";

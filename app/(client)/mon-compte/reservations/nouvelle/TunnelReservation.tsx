@@ -18,7 +18,7 @@ import {
 } from "@/src/lib/cohabitation";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
-import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/prixClient";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

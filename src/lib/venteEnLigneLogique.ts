@@ -454,43 +454,7 @@ export function lireSaisieFrancoPort(
   return { ok: true, valeur: String(n), seuil: n };
 }
 
-// ── Le prix tel que la cliente le lit ──────────────────────────────────────
-
-/**
- * Un montant à la suisse, POUR LES ÉCRANS CLIENTS DE LA BOUTIQUE.
- *
- *   35      → « 35.– »        (le tiret demi-cadratin, U+2013)
- *   12.50   → « 12.50 »       (avec centimes, toujours deux décimales)
- *   1250    → « 1'250.– »     (l'apostrophe des milliers)
- *   −9.50   → « −9.50 »       (le signe moins, U+2212, pas le trait d'union)
- *
- * PAS DE « CHF ». La page entière est en francs ; le répéter à chaque ligne
- * ajoute du bruit sans lever aucune ambiguïté. Une seule mention « Prix TTC »
- * sous le total du panier suffit à dire ce qu'on lit.
- *
- * LES ÉCRANS INTERNES N'Y TOUCHENT PAS, et c'est délibéré : une facture, un
- * avoir, un ticket, le journal comptable et la caisse gardent leurs deux
- * décimales. « 35.– » est une écriture de vitrine ; une pièce comptable
- * s'écrit « 35.00 », parce qu'elle se relit, s'additionne et se contrôle.
- *
- * L'ARRONDI D'ABORD. `0.1 + 0.2` vaut 0.30000000000000004 en flottant : sans
- * `r2`, le test « est-ce un entier ? » tomberait juste par chance et la
- * troncature du nombre entier se ferait sur une valeur fausse. On arrondit
- * donc au centime AVANT de décider de la forme.
- */
-export function formatPrixClient(montant: number): string {
-  const n = r2(Number(montant) || 0);
-  // `Math.abs` avant tout : le signe est écrit à part, sinon « -0.00 »
-  // apparaîtrait pour un montant nul venu d'une soustraction.
-  const absolu = Math.abs(n);
-  const signe = n < 0 ? "−" : "";
-  // Les milliers, groupés par l'apostrophe suisse. La coupure se pose devant
-  // chaque groupe de trois chiffres qui n'est pas en début de nombre.
-  const entier = String(Math.trunc(absolu)).replace(/\B(?=(\d{3})+(?!\d))/g, "'");
-  if (Number.isInteger(absolu)) return `${signe}${entier}.–`;
-  const centimes = absolu.toFixed(2).split(".")[1];
-  return `${signe}${entier}.${centimes}`;
-}
+// ── Ce qui ne part pas par la poste ────────────────────────────────
 
 /**
  * Ce qu'on dit d'un article qui ne part pas par la poste, UNE SEULE FOIS.

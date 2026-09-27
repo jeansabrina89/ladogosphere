@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   optionsRemise,
   infoLivraisonOfferte,
-  formatPrixClient,
   totalCommande,
   refusConfirmation,
   remisesParOrigine,
@@ -21,6 +20,7 @@ import {
   type ModeRemise,
   type PalierPort,
 } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/prixClient";
 import { changerQuantite, retirerDuPanier, confirmerCommande } from "../actions";
 import OptionsChoisies from "@/app/components/OptionsChoisies";
 

@@ -20,8 +20,8 @@ import {
   disponibilite,
   disponibiliteVitrine,
   phraseDelaiCommande,
-  formatPrixClient,
 } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/prixClient";
 import { ajouterAuPanier } from "./actions";
 import { ajouter as ajouterLocalement } from "./panierNavigateur";
 

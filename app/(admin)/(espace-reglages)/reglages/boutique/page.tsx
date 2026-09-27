@@ -1,6 +1,6 @@
 import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { lireParametresEnLigne } from "@/src/lib/venteEnLigne";
-import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/prixClient";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";

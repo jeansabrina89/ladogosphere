@@ -8,10 +8,10 @@ import {
   disponibiliteVitrine,
   mentionRemiseMembre,
   phraseDelaiCommande,
-  formatPrixClient,
   TEXTE_NON_EXPEDIABLE,
   type ArticleSurCommande,
 } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/prixClient";
 import { articleVitrine } from "@/src/lib/vitrine";
 import { lireParametresEnLigne } from "@/src/lib/venteEnLigne";
 import FusionPanier from "../FusionPanier";

@@ -19,7 +19,7 @@ import BadgeStatut from "@/app/components/ui/BadgeStatut";
 import EtatVide from "@/app/components/ui/EtatVide";
 import InstallerAppButton from "@/app/InstallerAppButton";
 import { tuilesVisibles } from "@/src/lib/entreesEspaceClient";
-import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient, formatPrixFacture } from "@/src/lib/prixClient";
 
 export default async function MonComptePage() {
   const supabase = await createClient();
@@ -198,7 +198,7 @@ export default async function MonComptePage() {
           {/* Avoir */}
           <div style={statCardStyle("#FBE2DE")}>
             <p style={{ fontSize: "24px", fontWeight: 500, color: "#A8453A", margin: 0, lineHeight: 1 }}>
-              {formatPrixClient(soldeAvoir)}
+              {formatPrixFacture(soldeAvoir)}
             </p>
             <p style={{ fontSize: "13px", color: "rgba(168,69,58,0.7)", marginTop: "6px", marginBottom: 0 }}>
               Avoir
@@ -209,7 +209,7 @@ export default async function MonComptePage() {
           {totalARegler > 0 && (
             <Link href="/mon-compte/reservations" style={statCardStyle("#F4EAC9")}>
               <p style={{ fontSize: "24px", fontWeight: 500, color: "#6E5410", margin: 0, lineHeight: 1 }}>
-                {formatPrixClient(totalARegler)}
+                {formatPrixFacture(totalARegler)}
               </p>
               <p style={{ fontSize: "13px", color: "rgba(110,84,16,0.7)", marginTop: "6px", marginBottom: 0 }}>
                 À régler

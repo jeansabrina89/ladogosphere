@@ -12,8 +12,8 @@ import {
   libelleModePaiement,
   formatAdresse,
   phraseDelaiCommande,
-  formatPrixClient,
 } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/prixClient";
 import { formatDateFR } from "@/src/lib/dates";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";

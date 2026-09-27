@@ -11,7 +11,7 @@ import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import BadgeStatut from "@/app/components/ui/BadgeStatut";
 import BoutonCommander from "./BoutonCommander";
-import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/prixClient";
 
 const MARINE = "#1B2B5E";
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { demanderAdhesion } from "@/app/(client)/mon-compte/actions";
-import { formatPrixClient } from "@/src/lib/venteEnLigneLogique";
+import { formatPrixClient } from "@/src/lib/prixClient";
 
 export default function BoutonDemanderAdhesion({ montant, renouvellement = false }: { montant: number; renouvellement?: boolean }) {
   const [ouvert, setOuvert] = useState(false);
