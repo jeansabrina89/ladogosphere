@@ -152,11 +152,28 @@ describe("le croisement catégorie x animal, sur la fiche", () => {
   });
 
   it("« Espèce » n'apparaît que si « Rongeurs » est coché", () => {
-    // La catégorie ne suffit pas, l'animal ne suffit pas : il faut les deux —
-    // et `especes` n'est dans la liste d'AUCUNE catégorie, donc elle se montre
-    // par la seule règle de l'animal, sur la fiche.
     expect(groupeVautPourAnimaux("especes", ["rongeur"])).toBe(true);
     expect(groupeVautPourAnimaux("especes", ["chien"])).toBe(false);
+  });
+
+  it("SUR LA FICHE, « Espèce » ne se montre encore NULLE PART", () => {
+    /**
+     * Ce test constate un état, il ne le défend pas.
+     *
+     * `especes` n'est dans la liste d'aucune catégorie ni dans `PAR_DEFAUT` :
+     * `champsDeCategorieEtAnimaux` ne la rend donc jamais, et la section des
+     * étiquettes ne la propose à Sabrina pour aucun rayon — même en cochant
+     * « Rongeurs ». Aucun article ne peut porter d'espèce aujourd'hui (vérifié
+     * en base le 28.09.2026 : zéro).
+     *
+     * CONSÉQUENCE POUR APP 31 : le filtre « Espèce » du catalogue est en place et
+     * juste, mais il restera vide tant que la fiche ne permettra pas de cocher
+     * une espèce. Le jour où on l'ouvrira, ce test rougira — et c'est le but :
+     * il faudra alors décider, pas découvrir.
+     */
+    for (const rayon of ["alimentation_complete", "litiere", "cages_enclos", "friandises"]) {
+      expect(champsDeCategorieEtAnimaux(rayon, ["rongeur"]), rayon).not.toContain("especes");
+    }
   });
 
   it("le croisement n'invente jamais un champ que la catégorie ne demande pas", () => {
@@ -272,8 +289,14 @@ describe("la table vit en UN seul endroit", () => {
 
     const filtres = readFileSync(
       join(__dirname, "..", "src/lib/filtresCatalogueLogique.ts"), "utf8");
-    expect(filtres).toContain("groupeVautPourAnimaux");
+    // APP 31 : le catalogue pose sa question à `groupeFiltrablePourOnglet`, qui
+    // sait en plus ce que « aucun animal » veut dire dans un onglet. La fiche,
+    // elle, continue d'appeler `groupeVautPourAnimaux` — les deux silences n'ont
+    // pas le même sens, et c'est pour cela qu'il y a deux fonctions.
+    expect(filtres).toContain("groupeFiltrablePourOnglet");
     expect(filtres).toContain("valeursPourAnimaux");
+    // Et aucune condition sur l'animal écrite dans l'écran : un seul appel.
+    expect(filtres).not.toMatch(/f\.animal\s*\?\s*\[f\.animal\]\s*:\s*null\s*\)\s*;/);
   });
 });
 

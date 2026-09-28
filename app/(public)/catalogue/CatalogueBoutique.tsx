@@ -16,6 +16,7 @@ import {
   type Filtres,
 } from "@/src/lib/filtresCatalogueLogique";
 import FiltresCatalogue from "./FiltresCatalogue";
+import OngletsAnimaux from "./OngletsAnimaux";
 import {
   disponibilite,
   disponibiliteVitrine,
@@ -359,48 +360,15 @@ export default function CatalogueBoutique({
       {/*
         * Les onglets d'animal. Sur téléphone ils DÉFILENT horizontalement :
         * six onglets plus « Tous » ne tiennent pas sur 375 px, et les replier
-        * sur deux lignes ferait sauter la grille d'un demi-écran. Le conteneur
-        * porte donc « overflow-x: auto » et les onglets « flex-shrink: 0 » —
-        * sans le second, ils se compriment au lieu de défiler, et la page prend
-        * une barre horizontale. Vérifié à 375 px.
+        * sur deux lignes ferait sauter la grille d'un demi-écran. La rangée et
+        * son recentrage vivent dans « OngletsAnimaux » ; ici on décide seulement
+        * QUELS onglets existent.
         */}
       {onglets.length > 0 && (
-        <nav
-          aria-label="Choisir un animal"
-          style={{
-            display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4,
-            // Le défilement reste DANS la barre : la page, elle, ne bouge pas.
-            scrollbarWidth: "thin", WebkitOverflowScrolling: "touch",
-          }}
-        >
-          {onglets.map((o) => (
-            <button
-              key={o.valeur ?? "tous"}
-              type="button"
-              aria-pressed={o.actif}
-              onClick={() => appliquer({ ...filtres, animal: o.valeur })}
-              style={{
-                flexShrink: 0,
-                minHeight: CIBLE,
-                padding: "8px 16px",
-                borderRadius: 999,
-                border: o.actif ? "1px solid #C9A84C" : BORDURE,
-                background: o.actif ? "#F4EAC9" : "#FFFFFF",
-                color: o.actif ? "#6E5410" : MARINE,
-                fontSize: 15,
-                fontWeight: o.actif ? 700 : 500,
-                fontFamily: "inherit",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {o.libelle}{" "}
-              <span style={{ color: o.actif ? "#6E5410" : SOUS, fontWeight: 500 }}>
-                ({o.nombre})
-              </span>
-            </button>
-          ))}
-        </nav>
+        <OngletsAnimaux
+          onglets={onglets}
+          surChoix={(animal) => appliquer({ ...filtres, animal })}
+        />
       )}
 
       {/* Le panneau à gauche sur écran large, un bouton plein écran sur

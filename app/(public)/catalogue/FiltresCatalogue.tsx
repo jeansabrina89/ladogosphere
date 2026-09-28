@@ -140,7 +140,15 @@ export default function FiltresCatalogue({
 }) {
   const [ouvert, setOuvert] = useState(false);
   const actifs = nombreFiltresActifs(filtres);
-  const effacer = () => surChangement({ ...FILTRES_VIDES });
+  /*
+   * « Tout effacer » efface les FILTRES, pas la navigation.
+   *
+   * L'onglet d'animal survit : on ne renvoie pas quelqu'un qui parcourt le rayon
+   * des rongeurs vers toute la boutique parce qu'il a décoché une couleur. Avant
+   * APP 31, `FILTRES_VIDES` remettait aussi `animal` à null, et le bouton
+   * changeait donc de page sans le dire.
+   */
+  const effacer = () => surChangement({ ...FILTRES_VIDES, animal: filtres.animal });
 
   const resultats = `${nombreResultats} article${nombreResultats > 1 ? "s" : ""}`;
 

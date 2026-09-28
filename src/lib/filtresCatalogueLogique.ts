@@ -2,7 +2,7 @@ import {
   ANIMAUX,
   type ChampEtiquette,
   valeursPourAnimaux,
-  groupeVautPourAnimaux,
+  groupeFiltrablePourOnglet,
   GROUPES,
   TAILLES_ARTICLE,
   champsDeCategorie,
@@ -372,7 +372,7 @@ export function filtresAffiches(
   // 5. Les trois étiquettes qui valent pour tout le magasin, puis celles que
   //    la catégorie choisie appelle. Sans catégorie choisie, on s'en tient
   //    aux trois : un panneau qui propose tout ne se lit plus.
-  const universelles: GroupeEtiquette[] = ["ages", "besoins", "tailles_chien"];
+  const universelles: GroupeEtiquette[] = ["ages", "besoins", "tailles_chien", "especes"];
   // << Gout >> est le seul filtre SEMI-universel : il vaut pour toute la
   // nourriture, quel que soit le rayon, et n a aucun sens pour un collier.
   // Sans rayon choisi, il se montre donc avec les universelles ; avec un rayon
@@ -381,21 +381,31 @@ export function filtresAffiches(
   if (!f.categorie) universelles.push("gouts");
 
   /*
-   * APP 27 : dans un onglet, seuls les filtres de CET animal se proposent.
+   * APP 27, complété en APP 31 : dans un onglet, seuls les filtres de CET animal
+   * se proposent.
    *
    * « Taille du chien » sous l'onglet Chats serait une faute que la cliente
    * remarquerait ; « Espèce » ailleurs que chez les rongeurs ne voudrait rien
    * dire. La règle vient de la table unique (« etiquettesArticles »), jamais
-   * d'une condition écrite ici.
+   * d'une condition écrite ici — et c'est pour cela qu'il n'y a plus qu'un
+   * APPEL, sans le moindre `if` autour.
    *
-   * Sans onglet (« Tous »), tout se propose : on ne sait pas encore pour qui la
-   * cliente cherche, et lui cacher un filtre l'empêcherait de trouver.
+   * Sans onglet (« Tous »), presque tout se propose : on ne sait pas encore pour
+   * qui la cliente cherche, et lui cacher un filtre l'empêcherait de trouver.
+   * L'exception — les groupes qui PRÉCISENT l'animal, comme « Espèce » — est
+   * décidée là-bas aussi.
    */
-  const pourCetAnimal = (c: ChampEtiquette) =>
-    c === "taille_article" || c === "sans_cereales" || c === "monoproteine"
-      ? true
-      : groupeVautPourAnimaux(c, f.animal ? [f.animal] : null);
+  const pourCetAnimal = (c: ChampEtiquette) => groupeFiltrablePourOnglet(c, f.animal);
 
+  /*
+   * APP 31 : « Espèce » est une universelle, c'est-à-dire qu'aucun RAYON ne la
+   * commande — elle ne dépend que de l'animal. Un foin, une litière et une cage
+   * de lapin se filtrent tous par l'espèce, et lister les rayons concernés
+   * aurait créé une seconde règle à tenir à jour.
+   *
+   * C'est `pourCetAnimal` qui la retire partout ailleurs que chez les rongeurs,
+   * onglet « Tous » compris.
+   */
   const universellesVues = universelles.filter(pourCetAnimal);
 
   const propres = f.categorie

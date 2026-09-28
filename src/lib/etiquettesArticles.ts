@@ -411,6 +411,53 @@ const PAR_DEFAUT: (GroupeEtiquette | "taille_article" | ChampCase)[] = ["tailles
 
 export type ChampEtiquette = GroupeEtiquette | "taille_article" | ChampCase;
 
+
+/**
+ * Les groupes qui ne veulent RIEN DIRE tant que l'animal n'est pas choisi.
+ *
+ * « Espèce » précise l'animal : Lapin, Cochon d'Inde, Hamster. Dans l'onglet
+ * « Tous », entre des croquettes pour chien et un griffoir, cette liste ne
+ * proposerait que des valeurs que la plupart des articles de la page ne peuvent
+ * pas porter — et un filtre qui vide la grille dès qu'on y touche apprend à la
+ * cliente à ne plus s'en servir.
+ *
+ * « Taille du chien » n'est PAS dans ce cas, et c'est exactement la différence :
+ * elle qualifie l'ARTICLE, pas l'animal. Quelqu'un qui parcourt tout le magasin
+ * peut vouloir « grand chien » sans changer d'onglet, et le trouve.
+ *
+ * Une entrée de plus ici se décide comme celles de GROUPES_PAR_ANIMAL : par ce
+ * que le groupe dit, jamais par ce qu'un écran trouve encombrant.
+ */
+const EXIGENT_L_ANIMAL: readonly GroupeEtiquette[] = ["especes"];
+
+/**
+ * Ce champ se propose-t-il comme FILTRE dans l'onglet de cet animal ?
+ *
+ * `animal` vaut null pour l'onglet « Tous ». C'est LA question que le catalogue
+ * pose, et elle se répond entièrement ici : l'écran appelle, il ne raisonne pas.
+ *
+ * ── POURQUOI CETTE FONCTION EXISTE, ALORS QUE groupeVautPourAnimaux EXISTE ──
+ *
+ * Les deux ne répondent pas à la même question, et leur silence a un sens
+ * opposé. `groupeVautPourAnimaux` sert la FICHE d'un article : « aucun animal
+ * coché » y veut dire « pas encore renseigné », donc on montre tout, sinon une
+ * fiche neuve serait vide et impossible à remplir. Le catalogue, lui, sait ce
+ * que « aucun animal » veut dire : c'est l'onglet « Tous », un choix de la
+ * cliente, pas une lacune. Reprendre la permissivité de la fiche y aurait fait
+ * apparaître « Espèce » dans « Tous » dès qu'un rongeur a un article.
+ */
+export function groupeFiltrablePourOnglet(
+  champ: ChampEtiquette,
+  animal: string | null | undefined,
+): boolean {
+  // Ni la taille de l'article ni les cases ne dépendent de l'animal.
+  if (champ === "taille_article" || champ === "sans_cereales" || champ === "monoproteine") {
+    return true;
+  }
+  if (!animal) return !EXIGENT_L_ANIMAL.includes(champ);
+  return groupeVautPourAnimaux(champ, [animal]);
+}
+
 /** Les champs d'étiquettes à montrer pour cette catégorie, dans l'ordre. */
 export function champsDeCategorie(categorie: string | null | undefined): ChampEtiquette[] {
   return PAR_CATEGORIE[String(categorie ?? "")] ?? PAR_DEFAUT;
