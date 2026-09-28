@@ -73,6 +73,9 @@ export type Article = {
   couleurs: string[];
   matieres: string[];
   usages_jouet: string[];
+  /* APP 47 : la liste d'administration se range par animal, comme la boutique.
+     La colonne existait depuis APP 24 ; elle n'était simplement pas demandée. */
+  animaux: string[];
 };
 
 export type MouvementStock = {

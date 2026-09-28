@@ -596,7 +596,8 @@ const COLONNES_COMMUNES = `
   remise_membre_exclue,
   disponible_sur_commande, delai_commande_min_jours, delai_commande_max_jours,
   ages, besoins, tailles_chien, gouts, proteines, sans_cereales, monoproteine,
-  taille_article, couleurs, matieres, usages_jouet
+  taille_article, couleurs, matieres, usages_jouet,
+  animaux
 `;
 
 /**

@@ -20,6 +20,7 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import EtatVide from "@/app/components/ui/EtatVide";
 import FiltresArticles from "./FiltresArticles";
+import type { OngletAnimal } from "@/src/lib/listeArticlesAdmin";
 import { LIBELLE_SUR_MESURE } from "@/src/lib/venteEnLigneLogique";
 
 /**
@@ -133,6 +134,10 @@ export default function CatalogueStock({
   gestion,
   actions,
   avis,
+  onglets,
+  groupes,
+  rayonsOuverts,
+  lienOnglet,
 }: {
   perimetre: PerimetreStock;
   /** Ce qui reste après les filtres de l'écran. */
@@ -155,6 +160,22 @@ export default function CatalogueStock({
    * arrive ; ce composant se contente de lui donner une place visible.
    */
   avis?: string | null;
+  /**
+   * APP 47 — le classement par animal puis par rayon, pour le magasin.
+   *
+   * Les deux sont FACULTATIFS, et c'est ce qui laisse l'atelier intact : sa
+   * page n'en passe aucun, et le composant rend alors le tableau d'un seul
+   * tenant, exactement comme avant. Des fournitures de fabrication n'ont ni
+   * animal ni rayon de magasin ; leur imposer ce classement aurait fabriqué un
+   * rayon « Divers » de cent lignes.
+   */
+  onglets?: OngletAnimal[];
+  /** Les rayons, déjà ordonnés et non vides. Absent : un seul tableau. */
+  groupes?: { valeur: string; libelle: string; articles: Article[] }[];
+  /** Les rayons s'ouvrent-ils d'emblée ? Décidé par la page, qui sait si l'on cherche. */
+  rayonsOuverts?: boolean;
+  /** L'adresse d'un onglet, construite par la page : elle seule connaît les filtres. */
+  lienOnglet?: (animal: string | null) => string;
 }) {
   const config = configPerimetre(perimetre);
 
@@ -176,6 +197,106 @@ export default function CatalogueStock({
   // L'envoi postal ne concerne que ce qui se vend : pas l'atelier.
   const boutique = perimetre === "boutique";
   const nbSansPoids = boutique ? actifs.filter(manquePoids).length : 0;
+
+  /**
+   * Le tableau, rendu UNE FOIS PAR RAYON quand le classement est demandé.
+   *
+   * Extrait tel quel du corps précédent : mêmes colonnes, mêmes pastilles,
+   * même défilement horizontal dans son conteneur — la page, elle, ne part
+   * jamais de travers. Ce qui change est seulement d'où vient la liste.
+   */
+  const tableau = (liste: Article[]) => (
+              <div className="overflow-x-auto">
+                <table className="w-full" style={{ minWidth: 720, fontSize: 15 }}>
+                  <thead>
+                    <tr style={{ color: sousTexte, textAlign: "left" }}>
+                      <th className="py-2 font-medium" style={{ width: 56 }}>&nbsp;</th>
+                      <th className="py-2 font-medium">Référence</th>
+                      <th className="py-2 font-medium">{config.colonneNom}</th>
+                      <th className="py-2 font-medium">Catégorie</th>
+                      <th className="py-2 font-medium text-right">Prix TTC</th>
+                      <th className="py-2 font-medium text-right">Taux</th>
+                      <th className="py-2 font-medium text-right">Stock</th>
+                      <th className="py-2 font-medium text-right">Seuil</th>
+                      {boutique && <th className="py-2 font-medium" style={{ paddingLeft: 12 }}>Poste</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {liste.map((a) => {
+                      const alerte = sousLeSeuil(a);
+                      return (
+                        <tr key={a.id} style={{ borderTop: bordure }}>
+                          <td className="py-2"><Vignette article={a} /></td>
+                          <td className="py-2" style={{ color: sousTexte, whiteSpace: "nowrap" }}>
+                            {a.reference}
+                          </td>
+                          <td className="py-2">
+                            <Link
+                              href={`/boutique/articles/${a.id}`}
+                              style={{ color: marine, fontWeight: 700 }}
+                            >
+                              {a.nom}
+                            </Link>
+                            {/* La pastille dit ce que l'article MONTRE ; la
+                                mention « retiré » dit s'il existe encore. Deux
+                                questions différentes, deux marques différentes. */}
+                            <Pastille statut={a.statut_vitrine} actif={a.actif} />
+                            <span style={{ display: "block", fontSize: 12, color: sousTexte }}>
+                              {a.marque ?? ""}
+                              {a.marque && a.fournisseur_id ? " · " : ""}
+                              {a.fournisseur_id ? (nomFournisseur.get(a.fournisseur_id) ?? "") : ""}
+                              {!a.actif && config.mentionRetire}
+                            </span>
+                            {a.disponible_sur_commande === true && (
+                              surCommandeSansDelai(a, a.fournisseur_id ? delaiFournisseur.get(a.fournisseur_id) : null)
+                                ? (
+                                  <span style={{
+                                    display: "block", fontSize: 12, fontWeight: 700, color: "#6E5410",
+                                  }}>
+                                    ⚠️ Sur commande, mais sans délai : reste « Épuisé »
+                                  </span>
+                                )
+                                : (
+                                  <span style={{ display: "block", fontSize: 12, color: "#1F6E5B" }}>
+                                    📥 Sur commande
+                                  </span>
+                                )
+                            )}
+                            {mentionPublicationProgrammee(a) && (
+                              <span style={{ display: "block", fontSize: 12, color: "#6E5410" }}>
+                                {mentionPublicationProgrammee(a)}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2" style={{ color: sousTexte }}>
+                            {libelleCategorieArticle(a.categorie)}
+                          </td>
+                          <td className="py-2 text-right" style={{ color: marine, fontWeight: 600, whiteSpace: "nowrap" }}>
+                            {chf(Number(a.prix_vente))}
+                          </td>
+                          <td className="py-2 text-right" style={{ color: sousTexte, whiteSpace: "nowrap" }}>
+                            {Number(a.taux_tva).toString().replace(".", ",")} %
+                          </td>
+                          <td
+                            className="py-2 text-right"
+                            style={{ color: alerte ? "#A8453A" : marine, fontWeight: 700, whiteSpace: "nowrap" }}
+                          >
+                            {alerte && "⚠️ "}
+                            {formatQuantite(a.stock_actuel)} {a.unite}
+                          </td>
+                          <td className="py-2 text-right" style={{ color: sousTexte }}>
+                            {Number(a.stock_alerte ?? 0) > 0 ? formatQuantite(a.stock_alerte) : "—"}
+                          </td>
+                          {boutique && (
+                            <td className="py-2" style={{ paddingLeft: 12 }}><Poste article={a} /></td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+  );
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -233,6 +354,49 @@ export default function CatalogueStock({
           )}
         </div>
 
+        {onglets && onglets.length > 0 && lienOnglet && (
+          /*
+           * Des LIENS, pas des boutons : ils fonctionnent sans JavaScript, se
+           * partagent, se rouvrent dans un onglet du navigateur, et le clavier
+           * les atteint sans qu'on ait rien à écrire. `aria-current` dit lequel
+           * est actif — la couleur seule ne le dirait pas à qui n'y voit pas.
+           *
+           * La barre défile HORIZONTALEMENT dans son conteneur : sur un
+           * téléphone, huit onglets ne tiennent pas, et c'est la barre qui
+           * glisse, jamais la page.
+           */
+          <nav
+            aria-label="Filtrer par animal"
+            className="overflow-x-auto"
+            style={{ margin: "0 0 12px", minWidth: 0 }}
+          >
+            <ul style={{
+              display: "flex", gap: 8, listStyle: "none", margin: 0, padding: "2px 0",
+              width: "max-content",
+            }}>
+              {onglets.map((o) => (
+                <li key={o.valeur ?? "tous"}>
+                  <Link
+                    href={lienOnglet(o.valeur)}
+                    aria-current={o.actif ? "page" : undefined}
+                    style={{
+                      display: "inline-block", whiteSpace: "nowrap",
+                      minHeight: 40, lineHeight: "28px", padding: "6px 14px",
+                      borderRadius: 999, border: o.actif ? `2px solid ${marine}` : bordure,
+                      backgroundColor: o.actif ? "#E4E7F1" : "#FFFFFF",
+                      color: marine, fontSize: 14.5, fontWeight: o.actif ? 700 : 500,
+                      textDecoration: "none",
+                    }}
+                  >
+                    {o.libelle}{" "}
+                    <span style={{ color: sousTexte, fontWeight: 600 }}>{o.nombre}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
+
         <FiltresArticles
           fournisseurs={fournisseurs}
           libelleRetires={config.libelleRetires}
@@ -243,100 +407,36 @@ export default function CatalogueStock({
           <Carte>
             <EtatVide icone={config.icone} titre={config.videTitre} message={config.videMessage} />
           </Carte>
+        ) : groupes ? (
+          /*
+           * Un bloc par rayon, replié par défaut.
+           *
+           * <details> et non un bouton : il fonctionne sans JavaScript, se
+           * cherche au clavier, et le navigateur sait déjà le faire. Les
+           * rayons vides ne sont pas ici — la page ne les a pas envoyés.
+           */
+          <div style={{ display: "grid", gap: 10 }}>
+            {groupes.map((g) => (
+              <Carte key={g.valeur}>
+                <details open={rayonsOuverts === true}>
+                  <summary
+                    style={{
+                      cursor: "pointer", color: marine, fontSize: 16, fontWeight: 700,
+                      listStyle: "revert", padding: "2px 0",
+                    }}
+                  >
+                    {g.libelle}{" "}
+                    <span style={{ color: sousTexte, fontWeight: 600 }}>
+                      ({g.articles.length})
+                    </span>
+                  </summary>
+                  <div style={{ marginTop: 12 }}>{tableau(g.articles)}</div>
+                </details>
+              </Carte>
+            ))}
+          </div>
         ) : (
-          <Carte>
-            {/* Le tableau défile dans son conteneur : la page, elle, ne part jamais de travers. */}
-            <div className="overflow-x-auto">
-              <table className="w-full" style={{ minWidth: 720, fontSize: 15 }}>
-                <thead>
-                  <tr style={{ color: sousTexte, textAlign: "left" }}>
-                    <th className="py-2 font-medium" style={{ width: 56 }}>&nbsp;</th>
-                    <th className="py-2 font-medium">Référence</th>
-                    <th className="py-2 font-medium">{config.colonneNom}</th>
-                    <th className="py-2 font-medium">Catégorie</th>
-                    <th className="py-2 font-medium text-right">Prix TTC</th>
-                    <th className="py-2 font-medium text-right">Taux</th>
-                    <th className="py-2 font-medium text-right">Stock</th>
-                    <th className="py-2 font-medium text-right">Seuil</th>
-                    {boutique && <th className="py-2 font-medium" style={{ paddingLeft: 12 }}>Poste</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {articles.map((a) => {
-                    const alerte = sousLeSeuil(a);
-                    return (
-                      <tr key={a.id} style={{ borderTop: bordure }}>
-                        <td className="py-2"><Vignette article={a} /></td>
-                        <td className="py-2" style={{ color: sousTexte, whiteSpace: "nowrap" }}>
-                          {a.reference}
-                        </td>
-                        <td className="py-2">
-                          <Link
-                            href={`/boutique/articles/${a.id}`}
-                            style={{ color: marine, fontWeight: 700 }}
-                          >
-                            {a.nom}
-                          </Link>
-                          {/* La pastille dit ce que l'article MONTRE ; la
-                              mention « retiré » dit s'il existe encore. Deux
-                              questions différentes, deux marques différentes. */}
-                          <Pastille statut={a.statut_vitrine} actif={a.actif} />
-                          <span style={{ display: "block", fontSize: 12, color: sousTexte }}>
-                            {a.marque ?? ""}
-                            {a.marque && a.fournisseur_id ? " · " : ""}
-                            {a.fournisseur_id ? (nomFournisseur.get(a.fournisseur_id) ?? "") : ""}
-                            {!a.actif && config.mentionRetire}
-                          </span>
-                          {a.disponible_sur_commande === true && (
-                            surCommandeSansDelai(a, a.fournisseur_id ? delaiFournisseur.get(a.fournisseur_id) : null)
-                              ? (
-                                <span style={{
-                                  display: "block", fontSize: 12, fontWeight: 700, color: "#6E5410",
-                                }}>
-                                  ⚠️ Sur commande, mais sans délai : reste « Épuisé »
-                                </span>
-                              )
-                              : (
-                                <span style={{ display: "block", fontSize: 12, color: "#1F6E5B" }}>
-                                  📥 Sur commande
-                                </span>
-                              )
-                          )}
-                          {mentionPublicationProgrammee(a) && (
-                            <span style={{ display: "block", fontSize: 12, color: "#6E5410" }}>
-                              {mentionPublicationProgrammee(a)}
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2" style={{ color: sousTexte }}>
-                          {libelleCategorieArticle(a.categorie)}
-                        </td>
-                        <td className="py-2 text-right" style={{ color: marine, fontWeight: 600, whiteSpace: "nowrap" }}>
-                          {chf(Number(a.prix_vente))}
-                        </td>
-                        <td className="py-2 text-right" style={{ color: sousTexte, whiteSpace: "nowrap" }}>
-                          {Number(a.taux_tva).toString().replace(".", ",")} %
-                        </td>
-                        <td
-                          className="py-2 text-right"
-                          style={{ color: alerte ? "#A8453A" : marine, fontWeight: 700, whiteSpace: "nowrap" }}
-                        >
-                          {alerte && "⚠️ "}
-                          {formatQuantite(a.stock_actuel)} {a.unite}
-                        </td>
-                        <td className="py-2 text-right" style={{ color: sousTexte }}>
-                          {Number(a.stock_alerte ?? 0) > 0 ? formatQuantite(a.stock_alerte) : "—"}
-                        </td>
-                        {boutique && (
-                          <td className="py-2" style={{ paddingLeft: 12 }}><Poste article={a} /></td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Carte>
+          <Carte>{tableau(articles)}</Carte>
         )}
       </div>
     </main>
