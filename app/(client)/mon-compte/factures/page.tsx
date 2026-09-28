@@ -4,13 +4,13 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { formatDateFR } from "@/src/lib/dates";
 import { etatFacture, libelleEtatFacture, couleursEtatFacture } from "@/src/lib/factureStatut";
+import { formatPrixFacture } from "@/src/lib/prixClient";
 
 // Mes factures — le client ne voit QUE les siennes (le filtre est posé ici sur
 // son client_id, et la RLS de `factures` dit la même chose).
 
 const MARINE = "#1B2B5E";
 const GRIS = "rgba(27,43,94,0.6)";
-const chf = (n: number) => `${(Number(n) || 0).toFixed(2)} CHF`;
 
 type FactureClient = {
   id: string; numero: string | null; type: string; statut: string;
@@ -51,7 +51,7 @@ export default async function MesFacturesPage() {
             </h1>
             {totalDu > 0 && (
               <p style={{ color: "#A8453A", fontWeight: 600, margin: "6px 0 0" }}>
-                Reste à payer : {chf(totalDu)}
+                Reste à payer : {formatPrixFacture(totalDu)}
               </p>
             )}
           </div>
@@ -89,9 +89,9 @@ export default async function MesFacturesPage() {
                     </p>
                   </div>
                   <div style={{ textAlign: "right", minWidth: 110 }}>
-                    <p style={{ fontWeight: 700, color: MARINE, margin: 0 }}>{chf(Number(f.montant_total))}</p>
+                    <p style={{ fontWeight: 700, color: MARINE, margin: 0 }}>{formatPrixFacture(f.montant_total)}</p>
                     {reste > 0 && (
-                      <p style={{ fontSize: 13, color: "#A8453A", margin: "2px 0 0" }}>reste {chf(reste)}</p>
+                      <p style={{ fontSize: 13, color: "#A8453A", margin: "2px 0 0" }}>reste {formatPrixFacture(reste)}</p>
                     )}
                   </div>
                   <span style={{

@@ -1,4 +1,5 @@
 import { pourPdf } from "@/src/lib/texteWinAnsi";
+import { formatPrixFacture } from "@/src/lib/prixClient";
 import React from "react";
 import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
 import { BulletinQr } from "@/src/lib/svgQrVersPdf";
@@ -94,8 +95,18 @@ export type FacturePdfProps = {
   bulletinSvg?: string | null;
 };
 
-const chf = (n: number) =>
-  new Intl.NumberFormat("fr-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+/**
+ * Les montants de la pièce passent TOUS par `formatPrixFacture`.
+ *
+ * Le formateur local passait par `Intl.NumberFormat("fr-CH")`, qui rend ici
+ * « 226,50 » et « 1'250,50 » — avec une VIRGULE décimale, alors que l'écran des
+ * factures rendait « 226.50 ». La cliente lisait donc deux écritures du même
+ * montant, l'une à l'écran et l'autre sur le PDF joint au même e-mail.
+ *
+ * Pire : le résultat d'`Intl` dépend de la version d'ICU embarquée par le
+ * runtime. Un PDF émis est la pièce justificative, figée pour dix ans ; son
+ * écriture ne peut pas dépendre de la machine qui l'a produit un jour donné.
+ */
 
 const jolieDate = (iso: string | null | undefined) => {
   if (!iso) return "—";
@@ -181,39 +192,39 @@ export function FacturePdf(p: FacturePdfProps) {
               ) : null}
               {l.remise_libelle ? (
                 <Text style={{ fontSize: 7.5, color: GRIS }}>
-                  {l.prix_base != null ? `Prix de base ${chf(Number(l.prix_base))} · ` : ""}
+                  {l.prix_base != null ? `Prix de base ${formatPrixFacture(l.prix_base)} · ` : ""}
                   {pourPdf(l.remise_libelle)}
                 </Text>
               ) : null}
             </View>
             <Text style={s.colQte}>{l.quantite}</Text>
-            <Text style={s.colPu}>{chf(l.prix_unitaire)}</Text>
-            <Text style={s.colMontant}>{chf(l.montant)}</Text>
+            <Text style={s.colPu}>{formatPrixFacture(l.prix_unitaire)}</Text>
+            <Text style={s.colMontant}>{formatPrixFacture(l.montant)}</Text>
           </View>
         ))}
 
         <View style={s.totaux} wrap={false}>
           <View style={s.ligneTotal}>
-            <Text>Total</Text><Text>{chf(p.total)} CHF</Text>
+            <Text>Total</Text><Text>{formatPrixFacture(p.total)}</Text>
           </View>
           {(p.acomptesRecus ?? []).map((a, i) => (
             <View key={i} style={s.ligneTotal}>
-              <Text>Acompte reçu le {jolieDate(a.date)}</Text><Text>{pourPdf("− ")}{chf(a.montant)} CHF</Text>
+              <Text>Acompte reçu le {jolieDate(a.date)}</Text><Text>{pourPdf("− ")}{formatPrixFacture(a.montant)}</Text>
             </View>
           ))}
           {p.acomptes > 0 && (
             <View style={s.ligneTotal}>
-              <Text>Acomptes déjà versés</Text><Text>{pourPdf("− ")}{chf(p.acomptes)} CHF</Text>
+              <Text>Acomptes déjà versés</Text><Text>{pourPdf("− ")}{formatPrixFacture(p.acomptes)}</Text>
             </View>
           )}
           {p.dejaPaye > 0 && (
             <View style={s.ligneTotal}>
-              <Text>Déjà payé</Text><Text>{pourPdf("− ")}{chf(p.dejaPaye)} CHF</Text>
+              <Text>Déjà payé</Text><Text>{pourPdf("− ")}{formatPrixFacture(p.dejaPaye)}</Text>
             </View>
           )}
           <View style={s.ligneTotalFort}>
             <Text style={s.gras}>{estAvoir ? "Montant de l'avoir" : "Reste à payer"}</Text>
-            <Text style={s.gras}>{chf(estAvoir ? p.total : p.reste)} CHF</Text>
+            <Text style={s.gras}>{formatPrixFacture(estAvoir ? p.total : p.reste)}</Text>
           </View>
         </View>
 
@@ -228,17 +239,17 @@ export function FacturePdf(p: FacturePdfProps) {
         {p.tva && (p.tva.lignes.length > 0 || (p.tva.motifs?.length ?? 0) > 0) && (
           <View style={s.ventilation} wrap={false}>
             <View style={s.ligneTotal}>
-              <Text>Total HT</Text><Text>{chf(p.tva.totalHt)} CHF</Text>
+              <Text>Total HT</Text><Text>{formatPrixFacture(p.tva.totalHt)}</Text>
             </View>
             {p.tva.lignes.map((l, i) => (
               <View key={i} style={s.ligneTotal}>
-                <Text>{pourPdf(l.etiquette)} sur {chf(l.base)}</Text>
-                <Text>{chf(l.tva)} CHF</Text>
+                <Text>{pourPdf(l.etiquette)} sur {formatPrixFacture(l.base)}</Text>
+                <Text>{formatPrixFacture(l.tva)}</Text>
               </View>
             ))}
             <View style={s.ligneTotal}>
               <Text style={s.gras}>Total TTC</Text>
-              <Text style={s.gras}>{chf(p.tva.totalTtc)} CHF</Text>
+              <Text style={s.gras}>{formatPrixFacture(p.tva.totalTtc)}</Text>
             </View>
             {/* Une ligne à 0 % sans explication est incompréhensible : le motif
                 saisi dans les réglages est repris ici, mot pour mot. */}

@@ -38,11 +38,16 @@ const EXEMPLES: Record<string, string> = {
   nom_chien: "Rex",
   date_debut: "lundi 6 juillet 2026",
   date_fin: "vendredi 10 juillet 2026",
-  // « montant » sert aux e-mails de PENSION et de FACTURE : deux décimales,
-  // comme la pièce que la cliente reçoit. « prix » est la variable de la
-  // BOUTIQUE (retour en stock) : format de vitrine. Les deux ne se confondent
-  // pas, et l'aperçu doit montrer ce que la cliente lira vraiment.
-  montant: "120.00",
+  // « montant » sert aux e-mails de PENSION et de FACTURE : c'est une PIÈCE,
+  // donc deux décimales, l'apostrophe des milliers et « CHF » derrière —
+  // exactement ce que formatPrixFacture rend. « prix » est la variable de la
+  // BOUTIQUE (retour en stock) : format de vitrine, sans unité. Les deux ne se
+  // confondent pas, et l'aperçu doit montrer ce que la cliente lira vraiment.
+  //
+  // L'UNITÉ EST DANS LA VARIABLE, plus dans le texte des modèles : les quatre
+  // modèles qui écrivaient « CHF {montant} » ne l'écrivent plus, sinon la
+  // cliente lirait « CHF 226.50 CHF ».
+  montant: "120.00 CHF",
   prix: "35.–",
   annee: "2026",
 };

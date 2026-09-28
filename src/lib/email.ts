@@ -12,7 +12,7 @@ import { ajouterJoursISO } from "@/src/lib/cotisationPeriode";
 import { phrasesRappelVeilleEssai } from "@/src/lib/rappelVeilleLogique";
 import { CLE_AVIS_GOOGLE, ligneAvisGooglePiedDePage } from "@/src/lib/avisGoogle";
 import { mentionPortCommande } from "@/src/lib/venteEnLigneLogique";
-import { formatPrixClient } from "@/src/lib/prixClient";
+import { formatPrixClient, formatPrixFacture } from "@/src/lib/prixClient";
 import { choixDesLignes } from "@/src/lib/personnalisation";
 import { libelleConfiguration } from "@/src/lib/personnalisationLogique";
 
@@ -227,7 +227,7 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
   facture_emise: {
     sujet: "Votre facture {numero} — La Dogosphère",
     titre: "Bonjour {prenom},",
-    intro: "Voici votre facture <strong>{numero}</strong> du {date}, d'un montant de <strong>CHF {montant}</strong>, payable jusqu'au <strong>{echeance}</strong>.",
+    intro: "Voici votre facture <strong>{numero}</strong> du {date}, d'un montant de <strong>{montant}</strong>, payable jusqu'au <strong>{echeance}</strong>.",
     message_final: "Le PDF est joint à ce message ; il est aussi disponible dans votre espace client. Merci de votre confiance ! 🐾",
   },
   /*
@@ -260,19 +260,19 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
   relance_paiement: {
     sujet: "Rappel : règlement de votre séjour à La Dogosphère",
     titre: "Bonjour {prenom},",
-    intro: "Nous revenons vers vous au sujet du séjour de votre compagnon : son règlement de CHF {montant} ne nous est pas encore parvenu.",
+    intro: "Nous revenons vers vous au sujet du séjour de votre compagnon : son règlement de {montant} ne nous est pas encore parvenu.",
     message_final: "Si le paiement a été effectué très récemment, merci de ne pas tenir compte de ce message. Un grand merci !",
   },
   rappel_paiement_1: {
     sujet: "1er rappel — règlement en attente",
     titre: "Bonjour {prenom},",
-    intro: "Sauf erreur de notre part, le montant de CHF {montant} pour le séjour de votre compagnon reste impayé à ce jour.",
+    intro: "Sauf erreur de notre part, le montant de {montant} pour le séjour de votre compagnon reste impayé à ce jour.",
     message_final: "Nous vous remercions de bien vouloir procéder au règlement dans les meilleurs délais.",
   },
   rappel_paiement_2: {
     sujet: "2ème rappel — règlement impayé",
     titre: "Bonjour {prenom},",
-    intro: "Malgré nos précédents messages, le montant de CHF {montant} reste impayé à ce jour. Nous vous remercions de régulariser votre situation sans tarder.",
+    intro: "Malgré nos précédents messages, le montant de {montant} reste impayé à ce jour. Nous vous remercions de régulariser votre situation sans tarder.",
     message_final: "Sans règlement de votre part, nous serons contraints d'envisager les démarches nécessaires. Nous restons bien sûr à votre disposition pour toute question.",
   },
 };
@@ -652,7 +652,7 @@ export async function envoyerEmailPaiement({
   numeroFacture?: string | null;
 }) {
   const m = await modeleEmail("paiement", {
-    prenom, montant: montant.toFixed(2),
+    prenom, montant: formatPrixFacture(montant),
     date_debut: formatDate(date_debut), date_fin: formatDate(date_fin),
   });
   await envoyerEmail({
@@ -680,7 +680,7 @@ export async function envoyerEmailPaiement({
           </tr>
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px;">Montant</td>
-            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">CHF ${montant.toFixed(2)}</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">${formatPrixFacture(montant)}</td>
           </tr>
         </table>
       </div>
@@ -722,7 +722,7 @@ export async function envoyerEmailRelancePaiement({
   const typeModele =
     niveau === 3 ? "rappel_paiement_2" : niveau === 2 ? "rappel_paiement_1" : "relance_paiement";
   const m = await modeleEmail(typeModele, {
-    prenom, montant: montant.toFixed(2),
+    prenom, montant: formatPrixFacture(montant),
     date_debut: formatDate(date_debut), date_fin: formatDate(date_fin),
   });
   await envoyerEmail({
@@ -750,7 +750,7 @@ export async function envoyerEmailRelancePaiement({
           </tr>
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px;">Montant dû</td>
-            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">CHF ${montant.toFixed(2)}</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">${formatPrixFacture(montant)}</td>
           </tr>
         </table>
       </div>
@@ -833,7 +833,7 @@ export async function envoyerEmailResultatEssai({
   } catch { /* valeur de repli */ }
 
   const type = resultat === "valide" ? "essai_valide" : "essai_seconde_journee";
-  const m = await modeleEmail(type, { prenom, nom_chien, montant: montant.toFixed(2) });
+  const m = await modeleEmail(type, { prenom, nom_chien, montant: formatPrixFacture(montant) });
 
   const lienReserver = `${SITE_URL}/mon-compte/reservations/nouvelle`;
 
@@ -844,7 +844,7 @@ export async function envoyerEmailResultatEssai({
     ? `
       <p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">
         Vous pouvez réserver ses journées et ses séjours depuis votre espace client.
-        L'adhésion annuelle de <strong>CHF ${montant.toFixed(2)}</strong> est ajoutée à la première réservation.
+        L'adhésion annuelle de <strong>${formatPrixFacture(montant)}</strong> est ajoutée à la première réservation.
       </p>`
     : `
       <div style="background-color:#FFF8E1; border-left:4px solid #C9A84C; border-radius:8px; padding:16px; margin:0 0 24px 0;">
@@ -1008,7 +1008,7 @@ export async function envoyerEmailRappelCotisation({
   variante?: VarianteRappelCotisation;
 }) {
   const finLisible = formatDate(date_fin);
-  const vars = { prenom, nom, date_fin: finLisible, montant: montant.toFixed(2) };
+  const vars = { prenom, nom, date_fin: finLisible, montant: formatPrixFacture(montant) };
   const m = await modeleEmail("rappel_cotisation", vars);
   const v = VARIANTES_RAPPEL_COTISATION[variante];
   // Titre + première phrase : pilotés par la variante (échue / rappel).
@@ -1042,7 +1042,7 @@ export async function envoyerEmailRappelCotisation({
           </tr>
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px;">Renouvellement de l'adhésion</td>
-            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">CHF ${montant.toFixed(2)}</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">${formatPrixFacture(montant)}</td>
           </tr>
         </table>
       </div>
@@ -1076,7 +1076,7 @@ export async function envoyerEmailRappelCotisation({
           </tr>`}
           <tr>
             <td style="padding:4px 0; color:#7A5C00; font-size:13px;">Montant</td>
-            <td style="padding:4px 0; color:#7A5C00; font-weight:bold; font-size:13px;">CHF ${montant.toFixed(2)}</td>
+            <td style="padding:4px 0; color:#7A5C00; font-weight:bold; font-size:13px;">${formatPrixFacture(montant)}</td>
           </tr>
           <tr>
             <td style="padding:4px 0; color:#7A5C00; font-size:13px;">Référence</td>
@@ -1111,7 +1111,7 @@ export async function envoyerEmailFactureEmise(p: {
     numero: p.numero,
     date: formatDate(p.date),
     echeance: formatDate(p.echeance),
-    montant: p.montant.toFixed(2),
+    montant: formatPrixFacture(p.montant),
   };
   const m = await modeleEmail("facture_emise", vars);
 
@@ -1140,7 +1140,7 @@ export async function envoyerEmailFactureEmise(p: {
           </tr>
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px;">Montant</td>
-            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">CHF ${p.montant.toFixed(2)}</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">${formatPrixFacture(p.montant)}</td>
           </tr>
         </table>
       </div>
@@ -1193,7 +1193,7 @@ export async function envoyerEmailTicketBoutique(p: {
           </tr>
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px;">Montant</td>
-            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">CHF ${Math.abs(p.montant).toFixed(2)}</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:18px;">${formatPrixFacture(Math.abs(p.montant))}</td>
           </tr>
         </table>
       </div>

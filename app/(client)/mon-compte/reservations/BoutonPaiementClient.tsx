@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CreditCard, Smartphone, Landmark, Wallet } from "lucide-react";
 import { reglerReservationAvecAbonnement } from "./actions";
+import { formatPrixFacture } from "@/src/lib/prixClient";
 
 /**
  * Payer une réservation — LE SEUL écran client de la pension qui garde le
@@ -91,7 +92,7 @@ export default function BoutonPaiementClient({
       <button onClick={() => setOuvert(true)}
         className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white"
         style={{ backgroundColor: "#C9A84C" }}>
-        💳 {resteInitial > 0 ? `Payer ${resteInitial.toFixed(2)} CHF` : "Payer"}
+        💳 {resteInitial > 0 ? `Payer ${formatPrixFacture(resteInitial)}` : "Payer"}
       </button>
 
       {ouvert && (
@@ -121,12 +122,12 @@ export default function BoutonPaiementClient({
                   />
                   {resteInitial > 0 && parseFloat(montantASaisir) < resteInitial && (
                     <p className="text-xs text-orange-500 mt-1 text-center">
-                      ⚠️ Paiement partiel — reste : {(resteInitial - parseFloat(montantASaisir)).toFixed(2)} CHF
+                      ⚠️ Paiement partiel — reste : {formatPrixFacture(resteInitial - parseFloat(montantASaisir))}
                     </p>
                   )}
                   {montant_final > 0 && (
                     <p className="text-xs text-gray-400 mt-1 text-center">
-                      Total facturé : {montant_final.toFixed(2)} CHF · Déjà payé : {(montant_paye || 0).toFixed(2)} CHF
+                      Total facturé : {formatPrixFacture(montant_final)} · Déjà payé : {formatPrixFacture(montant_paye)}
                     </p>
                   )}
                 </div>
@@ -192,8 +193,8 @@ export default function BoutonPaiementClient({
                         <p className="font-semibold" style={{ color: "#1B2B5E" }}>Mon avoir</p>
                         <p className="text-xs" style={{ color: soldeAvoir >= resteInitial ? "#6B7280" : "#DC2626" }}>
                           {soldeAvoir >= resteInitial
-                            ? `Solde disponible : ${soldeAvoir.toFixed(2)} CHF`
-                            : `Solde insuffisant — ${soldeAvoir.toFixed(2)} CHF disponibles`}
+                            ? `Solde disponible : ${formatPrixFacture(soldeAvoir)}`
+                            : `Solde insuffisant — ${formatPrixFacture(soldeAvoir)} disponibles`}
                         </p>
                       </div>
                     </button>
@@ -216,13 +217,13 @@ export default function BoutonPaiementClient({
                     <div className="flex justify-between">
                       <span className="text-gray-500">Mon avoir disponible</span>
                       <span className="font-semibold" style={{ color: "#4AAEA0" }}>
-                        {soldeAvoir.toFixed(2)} CHF
+                        {formatPrixFacture(soldeAvoir)}
                       </span>
                     </div>
                     <div className="flex justify-between border-t pt-2 mt-2">
                       <span className="text-gray-500">Montant à payer</span>
                       <span className="font-bold text-lg" style={{ color: "#1B2B5E" }}>
-                        {resteInitial.toFixed(2)} CHF
+                        {formatPrixFacture(resteInitial)}
                       </span>
                     </div>
                   </div>
@@ -239,7 +240,7 @@ export default function BoutonPaiementClient({
                     disabled={avoirLoading}
                     className="flex-1 py-2 rounded-xl font-semibold text-sm text-white disabled:opacity-50"
                     style={{ backgroundColor: "#4AAEA0" }}>
-                    {avoirLoading ? "…" : `✅ Confirmer ${resteInitial.toFixed(2)} CHF`}
+                    {avoirLoading ? "…" : `✅ Confirmer ${formatPrixFacture(resteInitial)}`}
                   </button>
                 </div>
               </div>
@@ -305,7 +306,7 @@ export default function BoutonPaiementClient({
                       <div className="flex justify-between border-t pt-2 mt-2">
                         <span className="text-gray-500">Montant à virer</span>
                         <span className="font-bold text-lg" style={{ color: "#4AAEA0" }}>
-                          {montantNum.toFixed(2)} CHF
+                          {formatPrixFacture(montantNum)}
                         </span>
                       </div>
                       {numeroFacture && (

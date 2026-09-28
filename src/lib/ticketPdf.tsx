@@ -1,4 +1,5 @@
 import { pourPdf } from "@/src/lib/texteWinAnsi";
+import { formatPrixFacture } from "@/src/lib/prixClient";
 import React from "react";
 import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 
@@ -26,7 +27,12 @@ const s = StyleSheet.create({
   ligne: { flexDirection: "row", marginBottom: 3 },
   libelle: { flex: 1, paddingRight: 6 },
   detail: { fontSize: 7.5, color: GRIS },
-  montant: { width: 58, textAlign: "right" },
+  // 70 points, et non 58 comme avant : les montants portent désormais
+  // « CHF », et « -12'345.67 CHF » demande 59.7 points en Helvetica 8.5.
+  // Au-dessous, react-pdf ne déborde pas -- il COUPE le montant en deux
+  // lignes, sans rien signaler. Les 12 points pris à la colonne du libellé
+  // sont sans effet : elle est en `flex: 1` et ses libellés se replient déjà.
+  montant: { width: 70, textAlign: "right" },
   totalLigne: { flexDirection: "row", justifyContent: "space-between", marginTop: 3 },
   totalFort: { flexDirection: "row", justifyContent: "space-between", marginTop: 6, paddingTop: 5, borderTopWidth: 1, borderTopColor: MARINE },
   gras: { fontFamily: "Helvetica-Bold" },
@@ -79,8 +85,18 @@ export type TicketProps = {
   surFacture: boolean;
 };
 
-const chf = (n: number) =>
-  new Intl.NumberFormat("fr-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+/**
+ * Les montants de la pièce passent TOUS par `formatPrixFacture`.
+ *
+ * Le formateur local passait par `Intl.NumberFormat("fr-CH")`, qui rend ici
+ * « 226,50 » et « 1'250,50 » — avec une VIRGULE décimale, alors que l'écran des
+ * factures rendait « 226.50 ». La cliente lisait donc deux écritures du même
+ * montant, l'une à l'écran et l'autre sur le PDF joint au même e-mail.
+ *
+ * Pire : le résultat d'`Intl` dépend de la version d'ICU embarquée par le
+ * runtime. Un PDF émis est la pièce justificative, figée pour dix ans ; son
+ * écriture ne peut pas dépendre de la machine qui l'a produit un jour donné.
+ */
 
 /**
  * Hauteur du rouleau : il s'allonge avec le nombre de lignes, et avec le bloc
@@ -145,16 +161,16 @@ export function TicketPdf(p: TicketProps) {
             <View style={s.libelle}>
               <Text>{pourPdf(l.libelle)}</Text>
               <Text style={s.detail}>
-                {l.quantite} × {chf(l.prix_unitaire)}
+                {l.quantite} × {formatPrixFacture(l.prix_unitaire)}
                 {l.prix_base != null && l.prix_base !== l.prix_unitaire
-                  ? ` (au lieu de ${chf(Number(l.prix_base))})`
+                  ? ` (au lieu de ${formatPrixFacture(Number(l.prix_base))})`
                   : ""}
               </Text>
               {l.remise_libelle ? (
                 <Text style={s.detail}>{pourPdf(l.remise_libelle)}</Text>
               ) : null}
             </View>
-            <Text style={s.montant}>{chf(l.montant)}</Text>
+            <Text style={s.montant}>{formatPrixFacture(l.montant)}</Text>
           </View>
         ))}
 
@@ -162,19 +178,19 @@ export function TicketPdf(p: TicketProps) {
 
         <View style={s.totalLigne}>
           <Text>Total</Text>
-          <Text>{chf(p.total)}</Text>
+          <Text>{formatPrixFacture(p.total)}</Text>
         </View>
 
         {p.arrondi !== 0 && (
           <View style={s.totalLigne}>
             <Text>Arrondi 5 ct.</Text>
-            <Text>{chf(p.arrondi)}</Text>
+            <Text>{formatPrixFacture(p.arrondi)}</Text>
           </View>
         )}
 
         <View style={s.totalFort}>
           <Text style={s.grand}>{estRetour ? "Remboursé" : "À payer"}</Text>
-          <Text style={s.grand}>{chf(Math.abs(p.aRegler))}</Text>
+          <Text style={s.grand}>{formatPrixFacture(Math.abs(p.aRegler))}</Text>
         </View>
 
         <View style={[s.totalLigne, { marginTop: 6 }]}>
@@ -192,12 +208,12 @@ export function TicketPdf(p: TicketProps) {
           <>
             <View style={s.totalLigne}>
               <Text>Reçu</Text>
-              <Text>{chf(p.recu)}</Text>
+              <Text>{formatPrixFacture(p.recu)}</Text>
             </View>
             {p.rendu !== null && p.rendu !== undefined && (
               <View style={s.totalLigne}>
                 <Text style={s.gras}>Rendu</Text>
-                <Text style={s.gras}>{chf(p.rendu)}</Text>
+                <Text style={s.gras}>{formatPrixFacture(p.rendu)}</Text>
               </View>
             )}
           </>
@@ -217,17 +233,17 @@ export function TicketPdf(p: TicketProps) {
             <View style={s.filet} />
             <View style={s.totalLigne}>
               <Text>Total HT</Text>
-              <Text>{chf(p.tva.totalHt)}</Text>
+              <Text>{formatPrixFacture(p.tva.totalHt)}</Text>
             </View>
             {p.tva.lignes.map((l, i) => (
               <View key={i} style={s.totalLigne}>
-                <Text>{pourPdf(l.etiquette)} sur {chf(l.base)}</Text>
-                <Text>{chf(l.tva)}</Text>
+                <Text>{pourPdf(l.etiquette)} sur {formatPrixFacture(l.base)}</Text>
+                <Text>{formatPrixFacture(l.tva)}</Text>
               </View>
             ))}
             <View style={s.totalLigne}>
               <Text style={s.gras}>Total TTC</Text>
-              <Text style={s.gras}>{chf(p.tva.totalTtc)}</Text>
+              <Text style={s.gras}>{formatPrixFacture(p.tva.totalTtc)}</Text>
             </View>
             {(p.tva.motifs ?? []).map((m, i) => (
               <Text key={i} style={s.detail}>{pourPdf(m)}</Text>

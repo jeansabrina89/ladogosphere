@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, it, expect } from "vitest";
-import { formatPrixClient, formatPrixFacture } from "@/src/lib/prixClient";
+import { formatPrixClient } from "@/src/lib/prixClient";
 
 /**
  * Les deux écritures d'un montant, et la frontière entre elles.
@@ -11,11 +11,17 @@ import { formatPrixClient, formatPrixFacture } from "@/src/lib/prixClient";
  * qui reste dans `tests/prixClientBoutique.test.ts` garde les ÉCRANS de la
  * boutique ; ici on garde les deux FONCTIONS.
  *
- * Le dernier describe est celui qui compte le plus : il compare
- * `formatPrixFacture` au formateur local de `mon-compte/factures`, caractère
- * par caractère. Ces deux-là doivent rendre la même chose, et rien ne le
- * garantit à part ce test — la page des factures est volontairement restée
- * autonome, et deux écritures d'un même format finissent toujours par diverger.
+ * CE FICHIER NE GARDE QUE `formatPrixClient`, l'écriture de vitrine.
+ * `formatPrixFacture` et tout ce qui touche aux PIÈCES — le PDF, le ticket,
+ * l'écran des factures, le bulletin QR, les exports — vivent dans
+ * `tests/piecesFormatMontant.test.ts`, parce que leur sujet est la pièce et non
+ * la fonction.
+ *
+ * Le test qui comparait `formatPrixFacture` au formateur local de
+ * `mon-compte/factures` a disparu avec ce formateur : il n'y a plus deux
+ * écritures à mettre d'accord. Ce qui le remplace refuse `Intl.NumberFormat` et
+ * `toLocaleString` dans tous les fichiers de pièces — la cause de l'écart,
+ * plutôt que l'un de ses symptômes.
  */
 
 describe("le prix comme la cliente le lit", () => {
@@ -70,79 +76,6 @@ describe("le prix comme la cliente le lit", () => {
   it("aucun « CHF » : la page entière est en francs", () => {
     for (const montant of [0, 35, 12.5, 1250, -9.5]) {
       expect(formatPrixClient(montant)).not.toContain("CHF");
-    }
-  });
-});
-
-describe("le montant d'une pièce : ce qui se compare à une facture", () => {
-  it("garde toujours ses DEUX décimales, et son « CHF »", () => {
-    expect(formatPrixFacture(226.5)).toBe("226.50 CHF");
-    expect(formatPrixFacture(89)).toBe("89.00 CHF");
-    expect(formatPrixFacture(0)).toBe("0.00 CHF");
-  });
-
-  it("un montant rond ne prend JAMAIS le tiret", () => {
-    // C'est le cas qui distingue les deux formats à coup sûr : un montant à
-    // centimes s'écrit pareil des deux côtés, un montant rond non.
-    expect(formatPrixFacture(200)).toBe("200.00 CHF");
-    expect(formatPrixFacture(200)).not.toContain("–");
-    expect(formatPrixClient(200)).toBe("200.–");
-  });
-
-  it("accepte ce que Postgres renvoie pour un « numeric » : une chaîne", () => {
-    // `montant_restant` arrive en chaîne. La page des factures fait déjà ce
-    // `Number(n) || 0`, et cette fonction doit se comporter pareil.
-    expect(formatPrixFacture("226.5")).toBe("226.50 CHF");
-    expect(formatPrixFacture(null)).toBe("0.00 CHF");
-    expect(formatPrixFacture(undefined)).toBe("0.00 CHF");
-    expect(formatPrixFacture("pas un nombre")).toBe("0.00 CHF");
-  });
-
-  it("un avoir négatif garde le trait d'union de toFixed", () => {
-    /**
-     * Et c'est voulu : ce format-là imite la pièce comptable, qui écrit
-     * « -12.05 ». Le signe moins typographique (U+2212) appartient à la
-     * vitrine, où il se lit mieux ; une pièce s'écrit comme elle s'additionne.
-     */
-    expect(formatPrixFacture(-12.05)).toBe("-12.05 CHF");
-    expect(formatPrixClient(-12.05)).toBe("−12.05");
-  });
-
-  it("pas de séparateur de milliers : la page des factures n'en met pas", () => {
-    expect(formatPrixFacture(1250.5)).toBe("1250.50 CHF");
-    expect(formatPrixFacture(1250.5)).not.toContain("'");
-    // La vitrine, elle, groupe.
-    expect(formatPrixClient(1250.5)).toBe("1'250.50");
-  });
-});
-
-describe("LA GARANTIE : formatPrixFacture rend EXACTEMENT ce que la page des factures rend", () => {
-  /**
-   * `app/(client)/mon-compte/factures/page.tsx` garde son formateur local, sur
-   * décision explicite : c'est l'écran de référence, celui que la cliente lit
-   * avec son PDF ouvert. Mais deux écritures d'un même format finissent
-   * toujours par diverger, et celle-là divergerait en silence.
-   *
-   * Ce test relit la ligne dans le dépôt, en reconstruit la fonction, et compare
-   * les deux sorties. Il n'impose pas laquelle a raison — il impose qu'elles
-   * soient d'accord.
-   */
-  const LIGNE = "const chf = (n: number) => `${(Number(n) || 0).toFixed(2)} CHF`;";
-
-  it("la page des factures définit encore son formateur, mot pour mot", () => {
-    const source = readFileSync(
-      join(__dirname, "..", "app/(client)/mon-compte/factures/page.tsx"),
-      "utf8",
-    );
-    expect(source, "si cette ligne change, le test suivant ne prouve plus rien").toContain(LIGNE);
-  });
-
-  it("les deux rendent la même chaîne, sur tous les cas qui comptent", () => {
-    // La fonction de la page, reconstruite depuis sa propre définition.
-    const chfPage = (n: number | string | null | undefined) =>
-      `${(Number(n) || 0).toFixed(2)} CHF`;
-    for (const montant of [0, 89, 200, 226.5, 12.05, 99.95, 1250.5, -12.05, "226.5", null, undefined]) {
-      expect(formatPrixFacture(montant as number), String(montant)).toBe(chfPage(montant as number));
     }
   });
 });

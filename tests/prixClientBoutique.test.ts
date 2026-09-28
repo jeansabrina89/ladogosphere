@@ -221,9 +221,16 @@ describe("LA FRONTIÈRE : les écrans internes gardent leurs deux décimales", (
     }
   });
 
-  it("la facture et le ticket restent à deux décimales", () => {
+  it("la facture et le ticket gardent le format de la PIÈCE", () => {
+    /**
+     * Ils y restent à deux décimales, mais plus par `Intl` : ils appellent
+     * `formatPrixFacture` depuis le lot des pièces. Le détail du format est gardé
+     * par `tests/piecesFormatMontant.test.ts` ; ici on garde seulement qu'ils ne
+     * sont PAS passés au format de vitrine.
+     */
     for (const piece of ["src/lib/facturePdf.tsx", "src/lib/ticketPdf.tsx"]) {
-      expect(codeSeul(piece), piece).toContain("minimumFractionDigits: 2");
+      expect(codeSeul(piece), piece).toContain("formatPrixFacture(");
+      expect(codeSeul(piece), piece).not.toContain("formatPrixClient");
     }
   });
 

@@ -135,10 +135,11 @@ describe("plus de « CHF » ni de « TTC » autour du prix", () => {
 });
 
 describe("l'aperçu de l'écran d'édition montre le même format", () => {
-  it("{prix} a une valeur d'exemple à la suisse, {montant} garde les décimales", () => {
+  it("{prix} est à la suisse, {montant} est une PIÈCE", () => {
     /**
      * Deux variables voisines et deux formats : {prix} est la variable de la
-     * BOUTIQUE, {montant} celle des e-mails de pension et de facture. Un aperçu
+     * BOUTIQUE (vitrine, sans unité), {montant} celle des e-mails de pension et
+     * de facture (une PIÈCE, donc « CHF » comprise dans la variable). Un aperçu
      * qui les confondrait apprendrait le mauvais format à qui rédige.
      */
     const source = readFileSync(
@@ -146,6 +147,6 @@ describe("l'aperçu de l'écran d'édition montre le même format", () => {
       "utf8",
     );
     expect(source).toContain('prix: "35.–"');
-    expect(source).toContain('montant: "120.00"');
+    expect(source).toContain('montant: "120.00 CHF"');
   });
 });

@@ -406,13 +406,17 @@ describe("la frontière, relue dans le dépôt", () => {
      */
     const partage = codeSeul("app/(client)/mon-compte/factures/page.tsx");
     expect(partage, "les factures suivent le PDF, pas la vitrine").not.toContain("formatPrixClient");
-    expect(partage).toContain("const chf = (n: number) => `${(Number(n) || 0).toFixed(2)} CHF`;");
+    // Son formateur local a disparu au lot des pièces : l'écran et le PDF
+    // appellent désormais la MÊME fonction, ce qui est plus fort que deux
+    // écritures qu'un test comparait.
+    expect(partage).toContain("formatPrixFacture(");
+    expect(partage).not.toMatch(/const chf\s*=/);
   });
 
-  it("le PDF de facture n'a pas bougé non plus", () => {
+  it("le PDF de facture garde le format de la pièce", () => {
     const pdf = codeSeul("src/lib/facturePdf.tsx");
     expect(pdf).not.toContain("formatPrixClient");
-    expect(pdf).toContain("minimumFractionDigits: 2");
+    expect(pdf).toContain("formatPrixFacture(");
   });
 
   it("LE POINT 4 : la boîte de paiement garde le format de la facture", () => {

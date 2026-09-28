@@ -102,7 +102,9 @@ describe("la maison dit « adhésion », jamais « cotisation »", () => {
   });
 
   it("les deux textes d’essai parlent bien d’adhésion", () => {
-    expect(SOURCE).toContain("L'adhésion annuelle de <strong>CHF ${montant.toFixed(2)}</strong>");
+    // Le montant passe par formatPrixFacture depuis le lot des pièces : ce
+    // test garde le MOT, pas l'écriture du montant.
+    expect(SOURCE).toContain("L'adhésion annuelle de <strong>${formatPrixFacture(montant)}</strong>");
     expect(SOURCE).toContain("L'adhésion n'est pas due tant que la journée d'essai n'est pas concluante.");
   });
 });

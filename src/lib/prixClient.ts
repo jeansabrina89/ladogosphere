@@ -65,22 +65,49 @@ export function formatPrixClient(montant: number): string {
 }
 
 /**
- * Un montant de PIÈCE, pour ce qui se compare à une facture ou à un avoir.
+ * Un montant de PIÈCE : facture, avoir, ticket, e-mail de paiement, écran qui
+ * renvoie à l'une de ces trois choses.
  *
- *   226.50  → « 226.50 CHF »
- *   200     → « 200.00 CHF »   (jamais « 200.– » : c'est le cas qui distingue
- *                               les deux formats à coup sûr)
- *   −12.05  → « -12.05 CHF »
+ *   226.50    → « 226.50 CHF »
+ *   200       → « 200.00 CHF »   (jamais « 200.– » : c'est le cas qui distingue
+ *                                 les deux formats à coup sûr)
+ *   1250.50   → « 1'250.50 CHF » (l'apostrophe DROITE, U+0027)
+ *   −12.05    → « -12.05 CHF »   (le TRAIT D'UNION, voir plus bas)
  *
- * C'est l'écriture de `app/(client)/mon-compte/factures`, reprise à l'identique
- * plutôt que réinventée : `toFixed(2)` suivi de « CHF ». Le `Number(n) || 0`
- * accepte les chaînes que Postgres renvoie pour un `numeric`, et retombe sur
- * zéro pour une valeur illisible — comme la page des factures le fait déjà.
+ * LE TRAIT D'UNION N'EST PAS UN CHOIX DE GOÛT. Les PDF sont composés en
+ * Helvetica avec `/WinAnsiEncoding`, et le signe moins typographique U+2212 est
+ * ABSENT de WinAnsi : il ne lève aucune erreur, il ne s'imprime simplement pas
+ * (voir `src/lib/texteWinAnsi.ts`). Un avoir de −12.05 se serait imprimé
+ * « 12.05 CHF » sur la pièce, c'est-à-dire l'inverse de ce qu'il dit. Le trait
+ * d'union, lui, existe dans WinAnsi.
  *
- * PAS DE SÉPARATEUR DE MILLIERS, et c'est voulu : la page des factures n'en
- * met pas, et cette fonction doit rendre exactement ce qu'elle rend. Un test
- * compare les deux caractère par caractère.
+ * L'APOSTROPHE EST DROITE (U+0027) POUR LA MÊME RAISON : l'apostrophe courbe
+ * U+2019 n'est pas dans WinAnsi non plus. Un test vérifie que la sortie de cette
+ * fonction traverse `pourPdf` SANS CHANGER — c'est la garantie qu'un montant
+ * s'imprime tel qu'il s'affiche.
+ *
+ * Le `Number(n) || 0` accepte les chaînes que Postgres renvoie pour un
+ * `numeric`, et retombe sur zéro pour une valeur illisible.
+ *
+ * CE QUI NE PASSE PAS PAR ICI, et pour des raisons de norme, pas de style :
+ *
+ *   • la charge utile du bulletin QR — la norme SIX impose « 1250.50 », sans
+ *     séparateur de milliers. C'est `swissqrbill` qui l'écrit, et on ne lui
+ *     passe qu'un NOMBRE ;
+ *   • la zone « Montant » imprimée du bulletin — la même bibliothèque, qui
+ *     applique la règle des Swiss Implementation Guidelines : espace comme
+ *     séparateur de milliers, « 1 250.50 » ;
+ *   • les exports CSV — une apostrophe devant un nombre en fait du texte dans
+ *     un tableur, et la colonne ne s'additionne plus.
  */
 export function formatPrixFacture(montant: number | string | null | undefined): string {
-  return `${(Number(montant) || 0).toFixed(2)} CHF`;
+  // ARRONDI AU CENTIME D'ABORD : sans lui, -0.001 donnerait le signe de son
+  // nombre et la valeur absolue arrondie, donc « -0.00 CHF » — un montant nul
+  // qui a l'air d'un avoir.
+  const n = Math.round((Number(montant) || 0) * 100) / 100;
+  // `Math.abs` d'abord : le signe s'écrit à part, sinon « -0.00 CHF »
+  // apparaîtrait pour un zéro venu d'une soustraction.
+  const [entier, centimes] = Math.abs(n).toFixed(2).split(".");
+  const groupe = entier.replace(/\B(?=(\d{3})+(?!\d))/g, "'");
+  return `${n < 0 ? "-" : ""}${groupe}.${centimes} CHF`;
 }
