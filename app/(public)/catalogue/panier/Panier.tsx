@@ -12,7 +12,9 @@ import {
   prixBaseLigne,
   formatPoids,
   poidsTotal,
-  MODES_PAIEMENT_LIGNE,
+  optionsPaiement,
+  panierMixte,
+  PHRASE_PANIER_MIXTE,
   adresseComplete,
   type Adresse,
   type LignePanier,
@@ -322,28 +324,33 @@ export default function Panier({
         <h2 style={{ color: MARINE, fontSize: 18, fontWeight: 700, margin: 0 }}>
           Comment souhaitez-vous payer ?
         </h2>
-        {MODES_PAIEMENT_LIGNE.map((m) => (
+        {optionsPaiement(lignes).map((m) => (
           <div key={m.valeur}>
             <button
               type="button"
-              disabled={!m.actif}
+              disabled={!m.disponible}
               aria-pressed={paiement === m.valeur}
               onClick={() => setPaiement(m.valeur)}
               style={{
                 width: "100%", minHeight: CIBLE + 12, padding: "12px 14px", textAlign: "left",
                 borderRadius: 14,
                 border: paiement === m.valeur ? `2px solid ${VERT}` : BORDURE,
-                backgroundColor: !m.actif ? "#F2F0EC" : paiement === m.valeur ? "#F1F8F6" : "#FFFFFF",
-                color: m.actif ? MARINE : SOUS,
+                backgroundColor: !m.disponible ? "#F2F0EC" : paiement === m.valeur ? "#F1F8F6" : "#FFFFFF",
+                color: m.disponible ? MARINE : SOUS,
                 fontSize: 16, fontWeight: paiement === m.valeur ? 700 : 500,
-                fontFamily: "inherit", cursor: m.actif ? "pointer" : "not-allowed",
+                fontFamily: "inherit", cursor: m.disponible ? "pointer" : "not-allowed",
               }}
             >
               {paiement === m.valeur ? "✓ " : ""}{m.libelle}
             </button>
-            <p style={{ color: SOUS, fontSize: 14, margin: "4px 0 0" }}>{m.aide}</p>
+            {/* La raison PREND la place de l'aide : un mode impossible n'a pas
+                à expliquer comment il marcherait. */}
+            <p style={{ color: SOUS, fontSize: 14, margin: "4px 0 0" }}>{m.raison ?? m.aide}</p>
           </div>
         ))}
+        {panierMixte(lignes) && (
+          <p style={{ color: SOUS, fontSize: 14, margin: 0 }}>{PHRASE_PANIER_MIXTE}</p>
+        )}
       </section>
 
       {/* ── Le compte, ligne par ligne ── */}

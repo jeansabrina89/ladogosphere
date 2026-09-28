@@ -1,6 +1,6 @@
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { listerCommandes } from "@/src/lib/personnalisation";
-import { STATUTS_COMMANDE } from "@/src/lib/personnalisationLogique";
+import { STATUTS_COMMANDE, STATUT_ATTENTE_PAIEMENT } from "@/src/lib/personnalisationLogique";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
@@ -27,10 +27,22 @@ export default async function CommandesPage({
 
   const commandes = await listerCommandes();
   const ouvertes = ["a_faire", "en_cours", "prete"];
-  const sections = STATUTS_COMMANDE.filter((s) =>
-    avecCloses ? true : ouvertes.includes(s.valeur)
+  /**
+   * APP 38 — « attente_paiement » n'est PAS une colonne de travail.
+   *
+   * Elle est retirée des sections, y compris de « Voir les closes » : ces
+   * commandes ne sont ni à faire, ni closes. Les mêler aux autres ferait
+   * compter comme travail ce qui n'a pas encore été payé — et c'est exactement
+   * ce que ce lot empêche. Elles ont leur propre bloc, plus bas, en lecture
+   * seule.
+   */
+  const sections = STATUTS_COMMANDE.filter(
+    (s) =>
+      s.valeur !== STATUT_ATTENTE_PAIEMENT &&
+      (avecCloses ? true : ouvertes.includes(s.valeur)),
   );
 
+  const enAttente = commandes.filter((c) => c.statut === STATUT_ATTENTE_PAIEMENT);
   const nbOuvertes = commandes.filter((c) => ouvertes.includes(c.statut)).length;
   const nbRetard = commandes.filter((c) => c.enRetard).length;
 
@@ -109,6 +121,36 @@ export default async function CommandesPage({
               );
             })}
           </div>
+        )}
+
+        {/*
+          En lecture seule, et repliée : Sabrina doit les VOIR VENIR sans
+          pouvoir les lancer. Aucune carte, donc aucun bouton d'avancement —
+          une commande sort d'ici par le paiement, jamais par un clic.
+        */}
+        {enAttente.length > 0 && (
+          <details style={{ marginTop: 24 }}>
+            <summary style={{
+              color: "#8A5A1F", backgroundColor: "#F7EFE0", borderRadius: 12,
+              padding: "8px 12px", fontSize: 15, fontWeight: 700, cursor: "pointer",
+              listStyle: "revert",
+            }}>
+              En attente de paiement ({enAttente.length})
+            </summary>
+            <p style={{ color: sousTexte, fontSize: 13.5, margin: "10px 0 8px" }}>
+              Commandées en ligne, pas encore payées. La fabrication part toute seule
+              dès que la facture est soldée — il n&apos;y a rien à faire ici.
+            </p>
+            <ul style={{ margin: 0, paddingLeft: 20, color: sousTexte, fontSize: 14 }}>
+              {enAttente.map((c) => (
+                <li key={c.id} style={{ marginBottom: 4 }}>
+                  <strong style={{ color: "#1B2B5E" }}>{c.numero}</strong>
+                  {" — "}{c.article}
+                  {c.client ? ` · ${c.client}` : ""}
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
 
         <p style={{ color: sousTexte, fontSize: 13, marginTop: 24 }}>

@@ -570,7 +570,20 @@ export function composantsAConsommer(
 
 // ── Suivi de fabrication ────────────────────────────────────────────────────
 
-export type StatutCommande = "a_faire" | "en_cours" | "prete" | "remise" | "annulee";
+export type StatutCommande =
+  | "attente_paiement" | "a_faire" | "en_cours" | "prete" | "remise" | "annulee";
+
+/**
+ * APP 38 — commandée en ligne, pas encore payée.
+ *
+ * Elle existe, elle est numérotée, ses choix sont figés — mais rien n'est
+ * coupé ni cousu tant que la facture n'est pas soldée, et elle n'a donc pas de
+ * date promise : le compte à rebours part du paiement.
+ *
+ * Le comptoir ne la connaît pas : Sabrina encaisse elle-même, la commande naît
+ * « a_faire ».
+ */
+export const STATUT_ATTENTE_PAIEMENT = "attente_paiement";
 
 export const STATUTS_COMMANDE: {
   valeur: StatutCommande;
@@ -579,6 +592,8 @@ export const STATUTS_COMMANDE: {
   couleur: string;
   fond: string;
 }[] = [
+  { valeur: "attente_paiement", libelle: "En attente de paiement", titre: "En attente de paiement",
+    couleur: "#8A5A1F", fond: "#F7EFE0" },
   { valeur: "a_faire",  libelle: "À faire",  titre: "À faire",  couleur: "#6E5410", fond: "#F4EAC9" },
   { valeur: "en_cours", libelle: "En cours", titre: "En cours", couleur: "#2A3B6B", fond: "#E4E7F1" },
   { valeur: "prete",    libelle: "Prête",    titre: "Prêtes",   couleur: "#1F6E5B", fond: "#DBEFEA" },
@@ -590,8 +605,16 @@ export function libelleStatutCommande(statut: string | null | undefined): string
   return STATUTS_COMMANDE.find((s) => s.valeur === statut)?.libelle ?? "—";
 }
 
-/** Le statut qui suit, quand il y en a un — le bouton « une seule touche ». */
+/**
+ * Le statut qui suit, quand il y en a un — le bouton « une seule touche ».
+ *
+ * « attente_paiement » n'en a PAS : ce n'est pas un geste de Sabrina qui la
+ * fait avancer, c'est l'arrivée du paiement. Lui donner un bouton reviendrait
+ * à pouvoir lancer une fabrication non payée d'un clic, ce que ce lot existe
+ * précisément pour empêcher.
+ */
 export function statutSuivant(statut: string): StatutCommande | null {
+  if (statut === STATUT_ATTENTE_PAIEMENT) return null;
   if (statut === "a_faire") return "en_cours";
   if (statut === "en_cours") return "prete";
   if (statut === "prete") return "remise";
@@ -606,6 +629,10 @@ export function estEnRetard(
 ): boolean {
   if (!datePromise) return false;
   if (statut === "remise" || statut === "annulee") return false;
+  // Une commande non payée n'a pas de date promise, donc pas de retard
+  // possible. La garde est écrite quand même : le jour où une date y serait
+  // posée par erreur, on ne veut pas compter en retard ce qui n'a rien promis.
+  if (statut === STATUT_ATTENTE_PAIEMENT) return false;
   return datePromise.slice(0, 10) < aujourdhuiISO.slice(0, 10);
 }
 

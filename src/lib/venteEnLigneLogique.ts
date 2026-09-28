@@ -656,6 +656,17 @@ export function refusConfirmation(p: {
   }
   if (!p.modePaiement) return "Choisissez comment vous voulez payer.";
 
+  /**
+   * APP 38 — le grisé du navigateur ne suffit pas : une requête forgée
+   * arriverait ici avec « sur_place » et un collier gravé dans le panier, et
+   * la fabrication partirait sans paiement. La règle se tient des DEUX côtés,
+   * avec la même phrase, pour que la cliente lise la même chose où qu'elle la
+   * rencontre.
+   */
+  if (p.modePaiement === "sur_place" && contientSurMesure(p.lignes)) {
+    return RAISON_SUR_MESURE_PAIEMENT;
+  }
+
   // Ce qui a pu être acheté au comptoir entre-temps se voit déjà ici.
   const epuise = p.lignes.find(
     (l) =>
@@ -702,6 +713,66 @@ export const MODES_PAIEMENT_LIGNE: {
 
 export function libelleModePaiement(mode: string | null | undefined): string {
   return MODES_PAIEMENT_LIGNE.find((m) => m.valeur === mode)?.libelle ?? "—";
+}
+
+/**
+ * APP 38 — un article fait sur mesure se paie AVANT d'être fabriqué.
+ *
+ * La règle est commerciale, et publiée : la fabrication ne commence qu'une fois
+ * le paiement reçu, et l'annulation reste gratuite tant qu'elle n'a pas
+ * commencé. « Je paie au retrait » promettrait l'inverse — fabriquer d'abord,
+ * encaisser peut-être — sur un objet qui ne se revend à personne d'autre.
+ */
+export const RAISON_SUR_MESURE_PAIEMENT =
+  "Les articles faits sur mesure se paient à la commande.";
+
+/** Le panier contient-il au moins un article fabriqué pour ce client ? */
+export function contientSurMesure(lignes: LignePanier[]): boolean {
+  return lignes.some((l) => l.type_article === "personnalisable");
+}
+
+/** Du sur mesure ET de l'ordinaire : toute la commande suivra la facture. */
+export function panierMixte(lignes: LignePanier[]): boolean {
+  return (
+    contientSurMesure(lignes) &&
+    lignes.some((l) => l.type_article !== "personnalisable")
+  );
+}
+
+/**
+ * Dite seulement quand le cas se présente. Sans elle, une cliente qui ajoute
+ * une laisse à côté de son collier gravé ne comprendrait pas pourquoi « payer
+ * au retrait » vient de disparaître pour toute sa commande.
+ */
+export const PHRASE_PANIER_MIXTE =
+  "Votre panier contient un article fait sur mesure : toute la commande passe par la facture, articles ordinaires compris.";
+
+export type OptionPaiement = {
+  valeur: ModePaiement;
+  libelle: string;
+  aide: string;
+  disponible: boolean;
+  /** Pourquoi c'est impossible, en toutes lettres. Jamais un bouton muet. */
+  raison: string | null;
+};
+
+/**
+ * Les trois modes, TOUJOURS affichés — la même règle que `optionsRemise` : un
+ * mode absent laisse croire qu'il n'existe pas, un mode grisé avec sa raison
+ * apprend quelque chose.
+ *
+ * Seul « au retrait » tombe devant le sur mesure. « Payer en ligne » garde son
+ * état actuel : il est inactif pour une autre raison, et le jour où il
+ * s'ouvrira, il conviendra au sur mesure sans qu'on touche à ceci.
+ */
+export function optionsPaiement(lignes: LignePanier[]): OptionPaiement[] {
+  const surMesure = contientSurMesure(lignes);
+  return MODES_PAIEMENT_LIGNE.map((m) => {
+    if (m.valeur === "sur_place" && surMesure) {
+      return { ...m, disponible: false, raison: RAISON_SUR_MESURE_PAIEMENT };
+    }
+    return { ...m, disponible: m.actif, raison: null };
+  });
 }
 
 // ── Statuts d'une commande ─────────────────────────────────────────────────

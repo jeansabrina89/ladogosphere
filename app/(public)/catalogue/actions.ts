@@ -492,8 +492,18 @@ function messageConfirmation(message: string): string {
 }
 
 /**
- * Chaque ligne configurée devient une commande d'atelier d'APP 12, sans vente :
- * l'encaissement viendra à la remise, ou par la facture.
+ * Chaque ligne configurée devient une commande d'atelier d'APP 12, sans vente.
+ *
+ * APP 38 : elle naît « attente_paiement », SANS date promise. La fabrication
+ * ne commence qu'une fois la facture soldée ; c'est
+ * `liberer_atelier_commande_payee`, appelée par `recalculer_paiement_facture`,
+ * qui la fait passer « a_faire » et calcule ALORS la date promise.
+ *
+ * Le délai est calculé et transmis quand même : il est stocké dans
+ * `delai_jours`, et c'est lui que la bascule reprendra le jour du paiement.
+ * `p_date_promise` est ignoré par la fonction quand le statut est
+ * « attente_paiement » — promettre une date dont le compte à rebours n'a pas
+ * commencé serait s'engager sur rien.
  */
 async function creerCommandesAtelier(panierId: string, clientId: string): Promise<string | null> {
   const { data: lignes } = await supabaseAdmin
@@ -525,6 +535,7 @@ async function creerCommandesAtelier(panierId: string, clientId: string): Promis
       p_notes: "Commande passée en ligne.",
       p_user_id: null,
       p_vente: null,
+      p_statut: "attente_paiement",
     });
     if (error) return "Votre article sur mesure n'a pas pu être enregistré en fabrication.";
 

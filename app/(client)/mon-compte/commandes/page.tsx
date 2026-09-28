@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { commandesDuClient } from "@/src/lib/venteEnLigne";
 import { choixDesLignes } from "@/src/lib/personnalisation";
-import { libellesConfiguration } from "@/src/lib/personnalisationLogique";
+import { libellesConfiguration, STATUT_ATTENTE_PAIEMENT } from "@/src/lib/personnalisationLogique";
 import OptionsChoisies from "@/app/components/OptionsChoisies";
 import {
   libelleStatutLigne,
@@ -50,6 +50,29 @@ export default async function MesCommandesPage() {
   // Les choix d'un article sur mesure vivent dans sa commande d'atelier.
   const choix = await choixDesLignes(commandes.flatMap((c) => c.lignes));
 
+  /**
+   * APP 38 — les commandes d'atelier encore en attente de leur paiement.
+   *
+   * On lit l'état RÉEL de la fabrication, plutôt que de le déduire du statut de
+   * la facture : c'est la commande d'atelier qui décide si elle a commencé, et
+   * déduire aurait menti le jour où les deux divergent.
+   */
+  const ateliersIds = commandes
+    .flatMap((c) => c.lignes)
+    .map((l) => l.commande_personnalisee_id)
+    .filter((id): id is string => !!id);
+  const { data: ateliers } = ateliersIds.length
+    ? await supabaseAdmin
+        .from("commandes_personnalisees")
+        .select("id, statut")
+        .in("id", ateliersIds)
+    : { data: [] };
+  const attenteAtelier = new Set(
+    ((ateliers ?? []) as unknown as { id: string; statut: string }[])
+      .filter((a) => a.statut === STATUT_ATTENTE_PAIEMENT)
+      .map((a) => a.id),
+  );
+
   const factureIds = commandes.map((c) => c.facture_id).filter((id): id is string => !!id);
   const { data: factures } = factureIds.length
     ? await supabaseAdmin.from("factures").select("id, numero").in("id", factureIds)
@@ -83,11 +106,23 @@ export default async function MesCommandesPage() {
                   <span style={{ flex: "1 1 160px", color: MARINE, fontSize: 18, fontWeight: 700 }}>
                     {c.numero ?? "Commande"}
                   </span>
-                  <span style={{
-                    color: COULEUR_STATUT[c.statut] ?? SOUS, fontSize: 15, fontWeight: 700,
-                  }}>
-                    {libelleStatutLigne(c.statut, true)}
-                  </span>
+                  {/*
+                    « En attente de paiement » PASSE DEVANT : c'est ce qui
+                    bloque, et c'est la seule chose sur laquelle la cliente peut
+                    agir. Lire « Confirmée » en attendant son propre virement
+                    laisserait croire que tout suit son cours.
+                  */}
+                  {c.lignes.some((l) => l.commande_personnalisee_id && attenteAtelier.has(l.commande_personnalisee_id)) ? (
+                    <span style={{ color: "#8A5A1F", fontSize: 15, fontWeight: 700 }}>
+                      En attente de paiement
+                    </span>
+                  ) : (
+                    <span style={{
+                      color: COULEUR_STATUT[c.statut] ?? SOUS, fontSize: 15, fontWeight: 700,
+                    }}>
+                      {libelleStatutLigne(c.statut, true)}
+                    </span>
+                  )}
                 </div>
 
                 <p style={{ color: SOUS, fontSize: 14, margin: "2px 0 12px" }}>

@@ -328,12 +328,22 @@ describe("refus de confirmation", () => {
   });
 
   it("ne s'inquiète pas du stock d'un article personnalisable", () => {
+    /**
+     * Ce test porte sur le STOCK : un article fabriqué à la demande n'en a pas,
+     * et un stock à zéro ne doit donc rien bloquer. L'assertion n'a pas changé.
+     *
+     * Seul le mode de paiement a été corrigé, de « sur_place » à « facture » :
+     * APP 38 interdit de payer au retrait un article fait sur mesure, et le
+     * scénario d'origine était devenu impossible. Le laisser tel quel aurait
+     * fait échouer ce test pour une raison qui n'est pas la sienne — et
+     * l'affaiblir en retirant le sur mesure aurait supprimé ce qu'il garde.
+     */
     const surMesure = ligne({
       libelle: "Collier sur mesure", type_article: "personnalisable", stock_disponible: 0,
     });
     expect(refusConfirmation({
       lignes: [surMesure], mode: "retrait", contexte: contexte([surMesure]),
-      modePaiement: "sur_place",
+      modePaiement: "facture",
     })).toBeNull();
   });
 });
