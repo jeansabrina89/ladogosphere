@@ -514,6 +514,24 @@ export function surCommandeSansDelai(
  */
 export const BUCKET_PHOTOS_BOUTIQUE = "boutique-photos";
 
+/**
+ * Ce qu'on dit quand un article ne peut plus être supprimé (APP 32).
+ *
+ * Il ne nomme AUCUNE table : « ventes_lignes » n'apprendrait rien à Sabrina, et
+ * expliquerait la base au lieu du métier. Il dit les quatre familles de traces
+ * qui existent, ce qui suffit à comprendre pourquoi — et à savoir où regarder.
+ *
+ * ── POURQUOI IL VIT ICI, ET PAS DANS L'ACTION ─────────────────────────────
+ *
+ * Un fichier « use server » ne peut exporter que des fonctions ASYNC : une
+ * constante y casse le module entier, et Next le dit au BUILD, pas au type-check
+ * ni aux tests. L'action et la fiche le lisent donc tous deux depuis ce module
+ * de logique pure, qui n'a jamais eu cette contrainte.
+ */
+export const REFUS_SUPPRESSION_ARTICLE =
+  "Cet article a déjà servi (vente, commande, stock ou option) : il ne peut qu'être retiré de la vente.";
+
+
 export function urlPhotoArticle(photoPath: string | null | undefined): string | null {
   const chemin = String(photoPath ?? "").trim();
   if (!chemin) return null;

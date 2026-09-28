@@ -132,6 +132,7 @@ export default function CatalogueStock({
   fournisseurs,
   gestion,
   actions,
+  avis,
 }: {
   perimetre: PerimetreStock;
   /** Ce qui reste après les filtres de l'écran. */
@@ -148,6 +149,12 @@ export default function CatalogueStock({
   gestion: boolean;
   /** Les boutons de l'en-tête, décidés par la page. */
   actions?: React.ReactNode;
+  /**
+   * Un message à confirmer en tête de liste — la suppression d'un article, par
+   * exemple. Il vient de la page, parce que c'est elle qui sait d'où l'on
+   * arrive ; ce composant se contente de lui donner une place visible.
+   */
+  avis?: string | null;
 }) {
   const config = configPerimetre(perimetre);
 
@@ -178,6 +185,19 @@ export default function CatalogueStock({
           sousTitre={config.affiches(articles.length)}
           action={actions}
         />
+
+        {avis && (
+          <p
+            role="status"
+            style={{
+              backgroundColor: "#E8F5F4", border: "1px solid #4AAEA0",
+              borderRadius: 12, padding: "10px 14px", margin: "0 0 16px",
+              color: "#1B5E4F", fontSize: 15, fontWeight: 600,
+            }}
+          >
+            {avis}
+          </p>
+        )}
 
         <div
           className="grid gap-4 mb-6"

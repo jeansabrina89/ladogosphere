@@ -22,6 +22,8 @@ export default async function ArticlesPage({
   searchParams: Promise<{
     q?: string; categorie?: string; fournisseur?: string; seuil?: string; inactifs?: string;
     statut?: string; sanspoids?: string; sansetiquettes?: string; surcommande?: string;
+    /* APP 32 : « ART-0057 Paille », posé par la suppression pour le confirmer. */
+    supprime?: string;
   }>;
 }) {
   const acces = await exigerAccesAdmin("perm_boutique_vente");
@@ -74,8 +76,19 @@ export default async function ArticlesPage({
     return cible.includes(recherche);
   };
 
+  /*
+   * La confirmation de suppression.
+   *
+   * Elle voyage dans l'adresse plutôt que dans une session : l'article n'existe
+   * plus, il n'y a donc plus rien à interroger pour savoir ce qui vient de se
+   * passer. Elle nomme la référence ET le nom, parce que « Article supprimé »
+   * ne dit pas lequel — et c'est exactement ce qu'on veut relire.
+   */
+  const supprime = (params.supprime ?? "").trim().slice(0, 120);
+
   return (
     <CatalogueStock
+      avis={supprime ? `${supprime} a été supprimé définitivement.` : null}
       perimetre="boutique"
       articles={tous.filter(correspond)}
       tous={tous}

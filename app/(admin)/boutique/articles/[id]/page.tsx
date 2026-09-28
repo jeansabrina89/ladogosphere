@@ -24,6 +24,8 @@ import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import ActionsMouvement from "./ActionsMouvement";
 import PhotoArticle from "./PhotoArticle";
+import BoutonSupprimerArticle from "./BoutonSupprimerArticle";
+import { REFUS_SUPPRESSION_ARTICLE } from "@/src/lib/boutiqueLogique";
 import { libelleSecteur } from "@/src/lib/tvaLogique";
 import { formatCoutUnitaire } from "@/src/lib/coutMoyen";
 
@@ -120,6 +122,22 @@ export default async function ArticlePage({
     ? margeArticle(Number(article.prix_vente), article.prix_achat === null ? null : Number(article.prix_achat))
     : null;
   const alerte = sousLeSeuil(article);
+
+  /*
+   * Le bouton « Supprimer » n'existe que si l'article n'a JAMAIS servi.
+   *
+   * La réponse se lit en base, jamais ici : `article_supprimable` parcourt
+   * toutes les tables qui référencent l'article, et elle les trouve dans
+   * `pg_constraint` — donc une onzième table ajoutée demain est couverte sans
+   * qu'on y pense.
+   *
+   * Ce n'est qu'un AFFICHAGE : l'action relit la même garde dans la même
+   * transaction que le DELETE, parce qu'une vente peut passer entre les deux.
+   */
+  const { data: supprimableBrut } = gestion
+    ? await supabaseAdmin.rpc("article_supprimable", { p_article_id: id })
+    : { data: false };
+  const supprimable = supprimableBrut === true;
 
   // Combien de monde attend cet article. C'est une information d'ACHAT :
   // elle dit quoi racheter, et en quelle quantité.
@@ -269,6 +287,45 @@ export default async function ArticlePage({
             </p>
           )}
         </Carte>
+
+
+        {/*
+          * SUPPRIMER, OU SEULEMENT RETIRER DE LA VENTE (APP 32).
+          *
+          * La question n'a qu'une réponse juste, et elle est en base : un
+          * article qui a servi appartient aux pièces comptables. L'écran ne la
+          * devine pas — il appelle `article_supprimable`, qui parcourt toutes
+          * les tables référençant l'article, y compris l'alerte de retour en
+          * stock d'une cliente et les options qui l'utilisent comme composant.
+          *
+          * Le cas contraire n'est PAS muet : dire pourquoi le bouton n'est pas
+          * là vaut mieux que de laisser chercher.
+          */}
+        {gestion && (
+          <Carte>
+            <h2 className="font-bold" style={{ color: marine, margin: "0 0 8px" }}>
+              Supprimer
+            </h2>
+            {supprimable ? (
+              <>
+                <p style={{ color: sousTexte, fontSize: 15, margin: "0 0 12px" }}>
+                  Cet article n&apos;a jamais servi : aucune vente, aucune commande,
+                  aucun mouvement de stock, aucune option. Il peut être supprimé
+                  définitivement.
+                </p>
+                <BoutonSupprimerArticle
+                  id={id}
+                  reference={article.reference}
+                  nom={article.nom}
+                />
+              </>
+            ) : (
+              <p style={{ color: sousTexte, fontSize: 15, margin: 0 }}>
+                {REFUS_SUPPRESSION_ARTICLE}
+              </p>
+            )}
+          </Carte>
+        )}
 
         <Carte>
           <h2 className="font-bold" style={{ color: marine, margin: "0 0 12px" }}>Photo</h2>

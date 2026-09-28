@@ -41,6 +41,10 @@ import {
   etiquettesDepuisChamps,
 } from "@/src/lib/etiquettesArticles";
 import { lireCoutSaisi } from "@/src/lib/coutMoyen";
+import {
+  BUCKET_PHOTOS_BOUTIQUE,
+  REFUS_SUPPRESSION_ARTICLE,
+} from "@/src/lib/boutiqueLogique";
 
 /**
  * Un champ `datetime-local` rend « 2026-10-12T08:00 » — sans fuseau. On le
@@ -109,6 +113,76 @@ function revalider(perimetre: PerimetreStock, ...autres: string[]) {
   for (const chemin of [config.liste, config.accueil, "/", ...autres]) {
     revalidatePath(chemin);
   }
+}
+
+
+/**
+ * Supprimer un article qui n'a JAMAIS servi.
+ *
+ * ── CE QUI REND CETTE ACTION SÛRE ─────────────────────────────────────────
+ *
+ * 1. LA MÊME GARDE QUE LA MODIFICATION. Le périmètre est relu EN BASE — pas
+ *    reçu du formulaire — puis `garde` exige « gestion » dessus. Supprimer est
+ *    au moins aussi lourd que modifier ; ce serait absurde de le protéger moins.
+ *
+ * 2. LA CONDITION EST RELUE DANS LA MÊME TRANSACTION QUE LE DELETE, par la
+ *    fonction SQL `supprimer_article`. L'écran a pu montrer le bouton il y a
+ *    deux minutes ; depuis, une cliente a pu s'inscrire à l'alerte de retour en
+ *    stock, ou une vente passer à la caisse. Un contrôle fait à l'affichage
+ *    informe, il ne protège pas.
+ *
+ * 3. AUCUNE LIGNE RENDUE = REFUS. La fonction ne lève pas d'exception : on veut
+ *    une phrase pour l'utilisatrice, pas une erreur Postgres à traduire.
+ *
+ * La photo part APRÈS la suppression, et seulement si elle a eu lieu : un
+ * fichier effacé pour un DELETE qui n'a pas abouti serait perdu pour rien.
+ */
+export async function supprimerArticle(
+  _etat: EtatBoutique,
+  formData: FormData
+): Promise<EtatBoutique> {
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) return { erreur: "Article introuvable." };
+
+  // Le périmètre vient de la BASE : un champ caché ne décide jamais d'un droit.
+  const article = await lireArticle(id);
+  if (!article) return { erreur: "Article introuvable." };
+
+  const g = await garde(perimetreDeArticle(article));
+  if (g.erreur) return { erreur: g.erreur };
+
+  const { data, error } = await supabaseAdmin.rpc("supprimer_article", {
+    p_article_id: id,
+    p_user_id: g.userId ?? null,
+  });
+  if (error) return { erreur: error.message };
+
+  const lignes = (data ?? []) as { reference: string; nom: string; photo_path: string | null }[];
+  if (lignes.length === 0) return { erreur: REFUS_SUPPRESSION_ARTICLE };
+
+  const { reference, nom, photo_path } = lignes[0];
+
+  /*
+   * La photo d'un article supprimé n'a plus aucun lecteur : personne ne saura
+   * jamais à quoi ce fichier correspondait. Le laisser, c'est garder une donnée
+   * que plus rien ne réclame.
+   *
+   * Un échec ici n'annule rien : l'article est supprimé, et le redire à
+   * l'utilisatrice à cause d'un fichier orphelin serait lui donner un problème
+   * qui n'est pas le sien.
+   */
+  if (photo_path) {
+    try {
+      await supabaseAdmin.storage.from(BUCKET_PHOTOS_BOUTIQUE).remove([photo_path]);
+    } catch (err) {
+      console.error("suppression photo article:", err);
+    }
+  }
+
+  revalider(perimetreDeArticle(article));
+  redirect(
+    `${PERIMETRES[perimetreDeArticle(article)].liste}?supprime=${encodeURIComponent(`${reference} ${nom}`)}`
+  );
 }
 
 /** Création et modification d'un article : une seule action, un seul chemin. */
