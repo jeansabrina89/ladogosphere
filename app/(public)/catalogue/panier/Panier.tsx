@@ -24,10 +24,13 @@ import { formatPrixClient } from "@/src/lib/prixClient";
 import { changerQuantite, retirerDuPanier, confirmerCommande } from "../actions";
 import {
   LIEN_CONFIDENTIALITE,
+  LIEN_CONDITIONS_VENTE,
   LIEN_EXTERNE,
   STYLE_LIEN_LEGAL,
   MENTION_DONNEES_AVANT,
   MENTION_DONNEES_LIEN,
+  MENTION_COMMANDE_AVANT,
+  MENTION_COMMANDE_LIEN,
 } from "@/src/lib/liensLegaux";
 import OptionsChoisies from "@/app/components/OptionsChoisies";
 
@@ -439,14 +442,17 @@ export default function Panier({
             </p>
           )}
           {/*
-            La phrase du brief citait AUSSI les conditions de vente. L'app n'en
-            a aucune — ni page, ni lien, ni mention : seules les conditions de
-            la PENSION existent, et elles ne régissent pas un achat en boutique.
-            Annoncer des conditions qu'on ne peut pas lire aurait été pire que
-            de n'en annoncer aucune.
+            APP 36 n'avait posé que la seconde phrase : l'app n'avait aucune
+            condition de vente à citer — ni page, ni lien. Celles de la PENSION
+            existaient, mais garder un chien et vendre un sac de croquettes
+            n'obéissent pas aux mêmes règles. La page est née au lot SITE 34.
           */}
           <p style={{ color: SOUS, fontSize: 12.5, margin: "8px 0 0", textAlign: "center" }}>
-            {MENTION_DONNEES_AVANT}
+            {MENTION_COMMANDE_AVANT}
+            <a href={LIEN_CONDITIONS_VENTE} {...LIEN_EXTERNE} style={STYLE_LIEN_LEGAL}>
+              {MENTION_COMMANDE_LIEN}
+            </a>
+            . {MENTION_DONNEES_AVANT}
             <a href={LIEN_CONFIDENTIALITE} {...LIEN_EXTERNE} style={STYLE_LIEN_LEGAL}>
               {MENTION_DONNEES_LIEN}
             </a>

@@ -19,6 +19,13 @@ import type { CSSProperties } from "react";
 
 export const LIEN_CONFIDENTIALITE = "https://ladogosphere.ch/confidentialite";
 export const LIEN_CONDITIONS_PENSION = "https://ladogosphere.ch/conditions-pension";
+/**
+ * Les conditions de la BOUTIQUE, distinctes de celles de la pension : garder
+ * un chien et vendre un sac de croquettes n'obéissent pas aux mêmes règles.
+ * La page est née au lot SITE 34 ; APP 36 n'avait donc pu poser que la moitié
+ * de la phrase du panier.
+ */
+export const LIEN_CONDITIONS_VENTE = "https://ladogosphere.ch/conditions-vente";
 
 /**
  * Ce que tout lien sortant doit porter.
@@ -56,6 +63,11 @@ export const MENTION_DONNEES_LIEN = "politique de confidentialité";
 
 /** Le lien discret posé à côté de la case « photos », aux deux endroits. */
 export const EN_SAVOIR_PLUS = "En savoir plus";
+
+/** Ce qui précède le lien des conditions, sous le bouton du panier. */
+export const MENTION_COMMANDE_AVANT = "En commandant, vous acceptez nos ";
+/** Le texte du lien lui-même, dans cette phrase. */
+export const MENTION_COMMANDE_LIEN = "conditions de vente";
 
 /** L'alerte « retour en stock » : ce que devient l'adresse laissée. */
 export const MENTION_ALERTE_STOCK =

@@ -4,6 +4,7 @@ import { describe, it, expect } from "vitest";
 import {
   LIEN_CONFIDENTIALITE,
   LIEN_CONDITIONS_PENSION,
+  LIEN_CONDITIONS_VENTE,
   LIEN_EXTERNE,
   COULEUR_LIEN_LEGAL,
 } from "@/src/lib/liensLegaux";
@@ -53,11 +54,15 @@ describe("les écrans qui collectent des données renvoient à la politique", ()
     /**
      * `target="_blank"` sans `rel` laisse la page ouverte accéder à celle qui
      * l'a ouverte. Les deux vont ensemble : on vérifie que la propagation du
-     * jeu commun est là partout où la constante est employée.
+     * jeu commun est là partout où l'UNE des constantes est employée — sinon
+     * un lien ajouté plus tard, comme celui des conditions de vente, passerait
+     * à côté du garde-fou.
      */
     for (const relatif of ECRANS_AVEC_MENTION) {
       const source = lire(relatif);
-      const liens = [...source.matchAll(/href=\{LIEN_CONFIDENTIALITE\}([\s\S]{0,120})/g)];
+      const liens = [
+        ...source.matchAll(/href=\{LIEN_(?:CONFIDENTIALITE|CONDITIONS_VENTE|CONDITIONS_PENSION)\}([\s\S]{0,120})/g),
+      ];
       expect(liens.length, `${relatif} : au moins un lien`).toBeGreaterThan(0);
       for (const [, suite] of liens) {
         expect(suite, `${relatif} : {...LIEN_EXTERNE}`).toContain("LIEN_EXTERNE");
@@ -65,6 +70,21 @@ describe("les écrans qui collectent des données renvoient à la politique", ()
     }
     expect(LIEN_EXTERNE.target).toBe("_blank");
     expect(LIEN_EXTERNE.rel).toBe("noopener noreferrer");
+  });
+
+  it("le panier cite AUSSI les conditions de vente (APP 37)", () => {
+    /**
+     * APP 36 n'avait posé que la moitié de la phrase : la page n'existait pas
+     * encore. Elle existe depuis SITE 34, et la moitié manquante est la seule
+     * qui engage la cliente sur autre chose que ses données.
+     */
+    const source = lire("app/(public)/catalogue/panier/Panier.tsx");
+    expect(source).toContain("LIEN_CONDITIONS_VENTE");
+    expect(source).toContain("MENTION_COMMANDE_AVANT");
+    // Les deux liens, dans cet ordre : on accepte AVANT d'être informée.
+    expect(source.indexOf("LIEN_CONDITIONS_VENTE")).toBeLessThan(
+      source.lastIndexOf("LIEN_CONFIDENTIALITE"),
+    );
   });
 
   it("les deux adresses pointent vers le SITE, pas vers l'application", () => {
@@ -75,9 +95,16 @@ describe("les écrans qui collectent des données renvoient à la politique", ()
      */
     expect(LIEN_CONFIDENTIALITE).toBe("https://ladogosphere.ch/confidentialite");
     expect(LIEN_CONDITIONS_PENSION).toBe("https://ladogosphere.ch/conditions-pension");
-    for (const url of [LIEN_CONFIDENTIALITE, LIEN_CONDITIONS_PENSION]) {
+    expect(LIEN_CONDITIONS_VENTE).toBe("https://ladogosphere.ch/conditions-vente");
+    for (const url of [LIEN_CONFIDENTIALITE, LIEN_CONDITIONS_PENSION, LIEN_CONDITIONS_VENTE]) {
       expect(url).not.toContain("reservation.");
     }
+    /**
+     * Vente et pension sont DEUX pages : garder un chien et vendre un sac de
+     * croquettes n'obéissent pas aux mêmes règles. Les confondre ferait
+     * accepter à une cliente des conditions qui ne régissent pas son achat.
+     */
+    expect(LIEN_CONDITIONS_VENTE).not.toBe(LIEN_CONDITIONS_PENSION);
   });
 });
 

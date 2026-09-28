@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { LIEN_CONFIDENTIALITE, LIEN_CONDITIONS_VENTE } from "@/src/lib/liensLegaux";
 import * as Sentry from "@sentry/nextjs";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
@@ -54,7 +55,42 @@ async function lienAvisGoogle(): Promise<string> {
 }
 
 // Template de base commun à tous les emails
-const emailTemplate = async (contenu: string) => `
+/**
+ * Les liens légaux du pied, sous l'adresse du site (APP 37).
+ *
+ * ── POURQUOI UNE FONCTION EXPORTÉE ────────────────────────────────────────
+ *
+ * Pour qu'un test puisse lire les deux variantes sans monter le décor d'une
+ * commande — huit tables, un PDF, un client. Le pied SANS conditions se
+ * vérifie sur un e-mail réellement rendu ; celui AVEC se vérifie ici. Un
+ * décor trop lourd est la raison la plus fréquente de ne rien vérifier du
+ * tout.
+ *
+ * ── LE STYLE EST CELUI DU PIED, PAS CELUI DE L'APPLICATION ────────────────
+ *
+ * `#4AAEA0` sans soulignement : la même écriture que l'adresse du site et que
+ * l'e-mail juste au-dessus. Ce n'est PAS `#1F6E5B`, retenu dans l'application
+ * au lot APP 36 pour son contraste — deux couleurs de lien côte à côte dans un
+ * pied de six lignes se verraient plus que l'écart qu'elles corrigent.
+ */
+export const piedLiensLegaux = (avecConditionsVente: boolean): string => `
+                    <p style="margin:4px 0 0; font-size:13px;">
+                      <a href="${LIEN_CONFIDENTIALITE}" style="color:#4AAEA0; text-decoration:none;">Confidentialité</a>${
+                        avecConditionsVente
+                          ? `<span style="color:#9CA3AF;"> · </span><a href="${LIEN_CONDITIONS_VENTE}" style="color:#4AAEA0; text-decoration:none;">Conditions de vente</a>`
+                          : ""
+                      }
+                    </p>`;
+
+/**
+ * `conditionsVente` : réservé aux e-mails qui accompagnent un ACHAT. Une
+ * confirmation de réservation ou un rappel de vaccin n'en relève pas, et un
+ * pied qui cite tout ne se lit plus.
+ */
+const emailTemplate = async (
+  contenu: string,
+  options: { conditionsVente?: boolean } = {},
+) => `
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -96,7 +132,8 @@ const emailTemplate = async (contenu: string) => `
                     </p>
                     <p style="margin:0; font-size:13px;">
                       <a href="https://ladogosphere.ch" style="color:#4AAEA0; text-decoration:none;">🌐 ladogosphere.ch</a>
-                    </p>${ligneAvisGooglePiedDePage(await lienAvisGoogle())}
+                    </p>
+                    ${piedLiensLegaux(options.conditionsVente === true)}${ligneAvisGooglePiedDePage(await lienAvisGoogle())}
                   </td>
                   <td style="text-align:right; vertical-align:top;">
                     <img src="${SITE_URL}/logo-mail.png" alt="Logo" width="50" height="50" style="height:50px; width:50px; opacity:0.3;" />
@@ -1413,7 +1450,13 @@ export async function envoyerEmailCommandeConfirmee(
           : '<p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">Votre facture vous parvient par un second e-mail, avec son bulletin de versement QR.</p>'}
 
       <p style="color:#6B7280; font-size:14px; margin:0;">${m.message_final}</p>
-    `),
+    `,
+      // Le seul e-mail qui scelle l'achat : c'est là que les conditions de
+      // vente ont leur place. Pas conditionné à la présence du PDF — le même
+      // e-mail ne doit pas dire deux choses différentes selon qu'une facture
+      // a pu être fabriquée ou non.
+      { conditionsVente: true },
+    ),
   });
 
   return { envoye: true, pdfJoint, destinataire: adresse };
