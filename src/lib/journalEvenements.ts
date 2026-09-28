@@ -273,6 +273,46 @@ const LIBELLES: Record<string, string> = {
   identite_corrigee: "Identité juridique corrigée",
   changement_prepare: "Changement d’entité préparé",
   changement_annule: "Changement d’entité annulé",
+
+  // ── APP 33 bis : les gestes qui s'affichaient « Autre geste : … » ────────
+  //
+  // Chacun a été relu dans le code AVANT d'être nommé : trois des libellés
+  // proposés disaient autre chose que ce que la trace enregistre, et un
+  // libellé faux est pire que pas de libellé — on ne le rouvre jamais.
+
+  /**
+   * L'e-mail d'UNE personne en attente n'est pas parti. Le motif porte
+   * l'erreur ; l'entité est la ligne d'alerte, pas l'article.
+   */
+  alerte_envoi_echec: "Alerte retour en stock : envoi échoué",
+  /**
+   * « demandé », et non « renvoyée » : la trace s'écrit quand `notifie_le`
+   * repasse à null, AVANT la nouvelle tentative — qui peut échouer à son tour
+   * (« L'envoi a de nouveau échoué. L'alerte reste en attente. »). Dire
+   * « renvoyée » affirmerait un envoi qui n'a peut-être jamais eu lieu.
+   */
+  alerte_renvoyee: "Alerte retour en stock : renvoi demandé",
+  /**
+   * Le bilan par ARTICLE d'une vague de notifications. Il porte deux nombres,
+   * `envoyees` ET `echecs`, et s'écrit dès que l'un des deux n'est pas nul :
+   * une vague entièrement ratée s'afficherait donc « envoyées » si on s'en
+   * tenait au mot.
+   */
+  alerte_retour_en_stock: "Alertes retour en stock : bilan des envois",
+
+  chien_change_de_fiche: "Chien déplacé vers une autre fiche client",
+  compte_auth_detache: "Compte de connexion détaché de la fiche",
+  fiche_interne_creee: "Fiche interne créée",
+
+  /**
+   * Ces trois-là portent l'identifiant nul : le bilan est celui d'un LOT, pas
+   * d'une facture. « Pièces de LA facture » aurait fait chercher laquelle.
+   */
+  documents_reconcilies: "Documents de facture réconciliés",
+  documents_introuvables: "Factures émises sans document conservé",
+  document_renonce: "Document de facture abandonné après six échecs",
+
+  tva_prestation: "Taux de TVA d'une prestation modifié",
 };
 
 /**
@@ -352,6 +392,41 @@ const LIBELLES_PAR_ENTITE: Record<string, Record<string, string>> = {
   },
   acces: {
     refus: "Accès refusé",
+  },
+
+  /**
+   * APP 33 bis — DEUX SORTES DE COMMANDES, ET ELLES NE SE RESSEMBLENT PAS.
+   *
+   * `commande` désigne une commande SUR MESURE
+   * (`commandes_personnalisees`) : un objet qu'on fabrique, dont le passage
+   * en « en cours » décompte les fournitures. `commande_en_ligne` désigne un
+   * achat de la boutique (`commandes`).
+   *
+   * Les deux écrivent l'événement `statut`. Un libellé global aurait donc dit
+   * la même chose des deux, et « Statut de commande modifié », lu juste sous
+   * « Commande en ligne confirmée », se serait lu comme la même commande.
+   */
+  commande: {
+    creation: "Commande sur mesure créée",
+    statut: "Statut de la commande sur mesure modifié",
+  },
+  commande_en_ligne: {
+    statut: "Statut de la commande en ligne modifié",
+    confirmation: "Commande en ligne confirmée",
+    remise: "Commande en ligne remise au client",
+    /**
+     * `remise` et `expediee` sortent de la MÊME ligne SQL de
+     * `remettre_commande` (`evenement = p_statut`). Nommer l'une sans l'autre
+     * aurait laissé « Autre geste : expediee » apparaître le premier jour où
+     * un colis part — c'est-à-dire longtemps après qu'on ait cessé d'y penser.
+     */
+    expediee: "Commande en ligne expédiée",
+    /**
+     * Sans cette ligne, le libellé global `annulation` s'appliquait :
+     * « Annulée par contre-écriture », qui parle d'une écriture comptable et
+     * n'a rien à voir avec une commande rendue au stock.
+     */
+    annulation: "Commande en ligne annulée",
   },
 };
 

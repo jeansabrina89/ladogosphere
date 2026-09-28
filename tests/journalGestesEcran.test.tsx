@@ -254,34 +254,88 @@ describe("les libellés, et ce qui n'en a pas encore", () => {
     expect(aUnLibelle("depart", "reservation")).toBe(true);
   });
 
-  it("LA LISTE DES GESTES SANS LIBELLÉ, pour qu'on les voie", () => {
+  it("PLUS AUCUN GESTE DE LA BASE NE S'AFFICHE « Autre geste : … »", () => {
     /**
-     * Ce test ne défend pas un état : il l'EXPOSE. Les couples ci-dessous sont
-     * ceux relevés en base le 28.09.2026 ; onze n'ont pas encore de mot
-     * français, et s'affichent donc « Autre geste : … ».
+     * APP 33 avait relevé ces onze couples en base le 28.09.2026 et les avait
+     * laissés au repli, exprès, pour qu'on les VOIE. APP 33 bis les nomme, et
+     * ce test passe de l'exposition à la garde : chacun doit avoir son mot
+     * français, et c'est le libellé EXACT qui est vérifié.
      *
-     * Le jour où Sabrina en nomme un, ce test rougit et on retire sa ligne. Le
-     * jour où un nouveau geste arrive sans libellé, il faudra l'ajouter ici —
-     * et c'est justement le moment où l'on se pose la question.
+     * Trois ne disent pas ce qui avait été proposé — la trace a été relue dans
+     * le code, et elle enregistrait autre chose. Les raisons sont écrites à
+     * côté de chaque libellé dans `journalEvenements.ts`.
+     *
+     * Le jour où un geste neuf arrive sans libellé, il ne rougira PAS ici : il
+     * faudra l'ajouter à cette liste, et c'est le moment où l'on se pose la
+     * question. Le test du repli, juste au-dessus, garde la mécanique.
      */
-    const SANS_LIBELLE = [
-      ["alerte_stock", "alerte_envoi_echec"],
-      ["alerte_stock", "alerte_renvoyee"],
-      ["article", "alerte_retour_en_stock"],
-      ["chiens", "chien_change_de_fiche"],
-      ["clients", "compte_auth_detache"],
-      ["clients", "fiche_interne_creee"],
-      ["commande", "statut"],
-      ["commande_en_ligne", "confirmation"],
-      ["commande_en_ligne", "remise"],
-      ["facture", "documents_reconcilies"],
-      ["parametres_tva", "tva_prestation"],
+    const NOMMES = [
+      ["alerte_stock", "alerte_envoi_echec", "Alerte retour en stock : envoi échoué"],
+      ["alerte_stock", "alerte_renvoyee", "Alerte retour en stock : renvoi demandé"],
+      ["article", "alerte_retour_en_stock", "Alertes retour en stock : bilan des envois"],
+      ["chiens", "chien_change_de_fiche", "Chien déplacé vers une autre fiche client"],
+      ["clients", "compte_auth_detache", "Compte de connexion détaché de la fiche"],
+      ["clients", "fiche_interne_creee", "Fiche interne créée"],
+      ["commande", "statut", "Statut de la commande sur mesure modifié"],
+      ["commande_en_ligne", "confirmation", "Commande en ligne confirmée"],
+      ["commande_en_ligne", "remise", "Commande en ligne remise au client"],
+      ["facture", "documents_reconcilies", "Documents de facture réconciliés"],
+      ["parametres_tva", "tva_prestation", "Taux de TVA d'une prestation modifié"],
     ] as const;
 
-    for (const [entite, evenement] of SANS_LIBELLE) {
-      expect(aUnLibelle(evenement, entite), `${entite}/${evenement}`).toBe(false);
-      expect(libelleEvenement(evenement, entite)).toBe(`Autre geste : ${evenement}`);
+    const orphelins = NOMMES.filter(([e, ev]) => !aUnLibelle(ev, e));
+    expect(orphelins.map(([e, ev]) => `${e}/${ev}`), "sans libellé").toEqual([]);
+
+    for (const [entite, evenement, libelle] of NOMMES) {
+      expect(libelleEvenement(evenement, entite), `${entite}/${evenement}`).toBe(libelle);
     }
+  });
+
+  it("les deux sortes de commandes ne se disent PAS la même chose", () => {
+    /**
+     * `commande` est une commande SUR MESURE (`commandes_personnalisees`),
+     * `commande_en_ligne` un achat de la boutique (`commandes`). Les deux
+     * écrivent l'événement `statut` : un libellé global aurait dit la même
+     * chose des deux, et la confusion se serait lue à l'écran, une ligne sous
+     * l'autre.
+     */
+    expect(libelleEvenement("statut", "commande")).toBe(
+      "Statut de la commande sur mesure modifié",
+    );
+    expect(libelleEvenement("statut", "commande_en_ligne")).toBe(
+      "Statut de la commande en ligne modifié",
+    );
+
+    /**
+     * `remise` et `expediee` sortent de la MÊME ligne SQL de
+     * `remettre_commande` (`evenement = p_statut`). Nommer l'une sans l'autre
+     * aurait laissé « Autre geste : expediee » au premier colis.
+     */
+    expect(libelleEvenement("expediee", "commande_en_ligne")).toBe("Commande en ligne expédiée");
+
+    /**
+     * Et sans libellé propre, l'annulation d'une commande retombait sur le
+     * libellé global : « Annulée par contre-écriture », qui parle d'une
+     * écriture comptable. Un libellé faux ne se rouvre jamais.
+     */
+    expect(libelleEvenement("annulation", "commande_en_ligne")).toBe("Commande en ligne annulée");
+    expect(libelleEvenement("annulation", "depense")).toBe("Annulée par contre-écriture");
+  });
+
+  it("les bilans de lot ne parlent pas d'UNE facture", () => {
+    /**
+     * `documents_reconcilies` et `documents_introuvables` portent l'identifiant
+     * nul : ils résument un passage sur PLUSIEURS factures. Un libellé au
+     * singulier aurait fait chercher laquelle — et l'écran n'a pas de lien à
+     * offrir, puisqu'il n'y en a pas une.
+     */
+    for (const code of ["documents_reconcilies", "documents_introuvables"]) {
+      expect(libelleEvenement(code, "facture"), code).not.toMatch(/\bla facture\b/i);
+      expect(aUnLibelle(code, "facture"), code).toBe(true);
+    }
+    expect(libelleEvenement("document_renonce", "facture")).toBe(
+      "Document de facture abandonné après six échecs",
+    );
   });
 
   it("les gestes les plus fréquents, eux, sont en français", () => {
