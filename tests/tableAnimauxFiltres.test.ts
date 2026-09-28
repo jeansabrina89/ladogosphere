@@ -84,11 +84,32 @@ describe("la table, lue directement", () => {
   });
 
   it("« Type de soin », la couleur, la matière et l'usage valent pour tous", () => {
-    for (const g of ["types_soin", "couleurs", "matieres", "usages_jouet", "ages"] as const) {
+    for (const g of ["types_soin", "couleurs", "matieres", "usages_jouet"] as const) {
       for (const a of ANIMAUX) {
         expect(groupeVautPourAnimaux(g, [a]), `${g}/${a}`).toBe(true);
       }
     }
+  });
+
+  it("l'âge vaut pour tous, SAUF pour qui n'a aucun âge", () => {
+    /**
+     * L'âge était dans la liste ci-dessus jusqu'au lot APP 46. Il en sort, et
+     * ce n'est pas un affaiblissement : la faune sauvage n'a AUCUNE valeur
+     * d'âge — on ne demande pas si une boule de graisse est pour un hérisson
+     * junior. Un filtre « Âge » vide n'apprendrait rien et laisserait croire à
+     * une liste vide plutôt qu'à une question qui ne se pose pas.
+     *
+     * La règle se lit dans `AGES_PAR_ANIMAL`, une seule fois : elle n'est pas
+     * écrite une seconde fois dans la table des groupes, où les deux auraient
+     * fini par se contredire.
+     */
+    for (const a of ANIMAUX) {
+      const attendu = valeursPourAnimaux("ages", [a]).length > 0;
+      expect(groupeVautPourAnimaux("ages", [a]), `ages/${a}`).toBe(attendu);
+    }
+    // Et concrètement : six oui, un non.
+    expect(ANIMAUX.filter((a) => groupeVautPourAnimaux("ages", [a]))).toHaveLength(6);
+    expect(groupeVautPourAnimaux("ages", ["faune"])).toBe(false);
   });
 
   it("aucun animal connu : rien n'est masqué", () => {

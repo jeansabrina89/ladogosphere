@@ -32,6 +32,7 @@ export type CategorieArticle =
   | "griffoirs"
   | "couchages"
   | "gamelles"
+  | "mangeoires"
   | "cages_enclos"
   | "soins"
   | "medaillons_accessoires"
@@ -95,6 +96,14 @@ export const CATEGORIES_ARTICLE: {
    * 2,6 %, la gamelle elle-même non.
    */
   { valeur: "gamelles",     libelle: "Gamelles", taux: TAUX_NORMAL, perissable: false },
+  /*
+   * APP 46 : mangeoires et maisonnettes à oiseaux, maisonnette à hérissons.
+   * Juste après les gamelles — c'est la gamelle de ceux qu'on ne possède pas.
+   *
+   * 8,1 % : un objet de jardin. Les graines qu'on y met, elles, relèvent de
+   * l'alimentation et de son taux.
+   */
+  { valeur: "mangeoires",   libelle: "Mangeoires", taux: TAUX_NORMAL, perissable: false },
   // APP 27 : l'habitat, donc juste après le couchage.
   { valeur: "cages_enclos", libelle: "Cages et enclos", taux: TAUX_NORMAL, perissable: false },
   /*

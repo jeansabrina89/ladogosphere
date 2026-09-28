@@ -67,7 +67,7 @@ describe("la contrainte accepte les deux rayons, et rien d'autre", () => {
     const valeurs = (bloc.replace(/--[^\n]*/g, "").match(/'([^']+)'/g) ?? [])
       .map((v) => v.replace(/'/g, ""));
 
-    expect(valeurs).toHaveLength(21);
+    expect(valeurs).toHaveLength(22);
     for (const c of NEUFS) expect(valeurs, c).toContain(c);
   });
 

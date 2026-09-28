@@ -281,7 +281,9 @@ describe("APP 27 : le délai ne sort que s'il est promis", () => {
      */
     const plat = sql
       .replace(/[()]/g, "")
-      .replace(/\selse null\s/gi, " ")
+      // `else null` ET `else null::integer` : `pg_get_viewdef` écrit la forme
+      // typée, et une reprise fidèle de sa sortie la garde (APP 46).
+      .replace(/\selse null(::\w+)?\s/gi, " ")
       .replace(/\s+/g, " ")
       .toLowerCase();
 

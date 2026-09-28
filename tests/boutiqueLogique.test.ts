@@ -57,8 +57,8 @@ describe("taux de TVA proposé par la catégorie", () => {
     expect(tauxPropose(null)).toBe(8.1);
   });
 
-  it("les dix-neuf catégories du modèle sont là, en français accentué", () => {
-    expect(CATEGORIES_ARTICLE).toHaveLength(21);
+  it("les vingt-deux catégories du modèle sont là, en français accentué", () => {
+    expect(CATEGORIES_ARTICLE).toHaveLength(22);
     // APP 27 : les trois rayons neufs, et les trois libellés élargis.
     expect(libelleCategorieArticle("alimentation_complete")).toBe("Alimentation complète");
     expect(libelleCategorieArticle("griffoirs")).toBe("Griffoirs");
@@ -101,7 +101,7 @@ describe("taux de TVA proposé par la catégorie", () => {
       "friandises", "mastication", "complements", "litiere",
       "colliers", "laisses", "harnais", "muselieres", "longes",
       "jouets", "peluches", "griffoirs",
-      "couchages", "gamelles", "cages_enclos",
+      "couchages", "gamelles", "mangeoires", "cages_enclos",
       "soins", "medaillons_accessoires", "divers",
     ]);
     // Les deux rayons d'APP 34, à leur place exacte.

@@ -34,8 +34,8 @@ describe("le régime en vigueur", () => {
     expect(POURCENTAGE_PAR_DEFAUT).toBe(10);
   });
 
-  it("couvre les vingt et une catégories du magasin", () => {
-    expect(CATEGORIES_ARTICLE).toHaveLength(21);
+  it("couvre les vingt-deux catégories du magasin", () => {
+    expect(CATEGORIES_ARTICLE).toHaveLength(22);
   });
 
   it("APP 27 : aucun rayon n'est oublié par la remise, écran ET prix", () => {
@@ -74,6 +74,8 @@ describe("le régime en vigueur", () => {
     for (const c of [
       "alimentation_complete", "griffoirs", "cages_enclos",
       "complements", "gamelles",
+      // APP 46
+      "mangeoires",
     ]) {
       expect(sql, `${c} doit avoir sa ligne de remise`).toContain(c);
     }
@@ -165,7 +167,7 @@ describe("ce qui ne bouge pas", () => {
 describe("le résumé de l’écran", () => {
   it("dit un taux unique quand il n’y en a qu’un", () => {
     const lignes = CATEGORIES_ARTICLE.map((c) => ligne({ categorie: c.valeur }));
-    expect(resumeRemises(lignes)).toBe("Remise membre : 10 % sur 21 catégories.");
+    expect(resumeRemises(lignes)).toBe("Remise membre : 10 % sur 22 catégories.");
   });
 
   it("dit la fourchette quand les taux diffèrent, et compte les exclues", () => {

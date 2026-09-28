@@ -37,10 +37,20 @@ export type GroupeEtiquette =
  * dirait « Croquettes ». Le même libellé sert à l'onglet du catalogue et à la
  * pastille de la fiche — une seule forme, un seul endroit à corriger.
  */
-export type Animal = "chien" | "chat" | "rongeur" | "furet" | "reptile" | "oiseau";
+/**
+ * APP 46 — « faune » ferme la liste : les écureuils, les hérissons et les
+ * oiseaux du jardin. Ce ne sont pas des animaux de compagnie, et c'est
+ * justement pour cela qu'ils ont leur propre entrée : on ne range pas une
+ * maisonnette à hérissons sous « rongeurs ».
+ *
+ * Un article peut porter DEUX animaux : une boule de graisse nourrit la mésange
+ * du jardin comme la perruche du salon, et elle est donc « oiseau » et « faune ».
+ */
+export type Animal =
+  | "chien" | "chat" | "rongeur" | "furet" | "reptile" | "oiseau" | "faune";
 
 export const ANIMAUX: readonly Animal[] = [
-  "chien", "chat", "rongeur", "furet", "reptile", "oiseau",
+  "chien", "chat", "rongeur", "furet", "reptile", "oiseau", "faune",
 ] as const;
 
 export type Valeur = { valeur: string; libelle: string };
@@ -102,6 +112,7 @@ export const GROUPES: Record<GroupeEtiquette, Groupe> = {
       { valeur: "furet", libelle: "Furets" },
       { valeur: "reptile", libelle: "Reptiles" },
       { valeur: "oiseau", libelle: "Oiseaux" },
+      { valeur: "faune", libelle: "Faune sauvage" },
     ],
   },
   ages: {
@@ -313,6 +324,16 @@ const AGES_PAR_ANIMAL: Record<Animal, readonly string[]> = {
   furet: ["junior", "adulte", "senior"],
   reptile: ["junior", "adulte", "senior"],
   oiseau: ["junior", "adulte", "senior"],
+  /**
+   * APP 46 — la faune sauvage n'a PAS d'âge.
+   *
+   * On ne demande pas si une boule de graisse est pour un hérisson junior : on
+   * ne connaît pas l'animal qui viendra, c'est tout le propre d'un jardin. La
+   * liste vide n'est pas un oubli, et `groupeVautPourAnimaux` la lit comme une
+   * règle — sans quoi il faudrait l'écrire une seconde fois plus haut, et les
+   * deux finiraient par se contredire.
+   */
+  faune: [],
 };
 
 /** Ce groupe vaut-il pour au moins un de ces animaux ? */
@@ -321,11 +342,20 @@ export function groupeVautPourAnimaux(
   animaux: readonly string[] | null | undefined
 ): boolean {
   const regle = GROUPES_PAR_ANIMAL[groupe];
-  if (regle === "tous") return true;
   // Aucun animal connu : on ne masque pas par excès de zèle — une fiche dont
   // l'animal n'est pas encore coché doit rester remplissable.
   const liste = (animaux ?? []).filter((a): a is Animal => (ANIMAUX as readonly string[]).includes(a));
   if (liste.length === 0) return true;
+
+  /**
+   * L'âge vaut « pour tous », mais pas pour qui n'a AUCUNE valeur d'âge :
+   * proposer un filtre « Âge » sous l'onglet Faune sauvage n'afficherait rien
+   * du tout, et laisserait croire à une liste vide plutôt qu'à une question qui
+   * ne se pose pas. La règle se lit dans `AGES_PAR_ANIMAL`, une seule fois.
+   */
+  if (groupe === "ages") return liste.some((a) => AGES_PAR_ANIMAL[a].length > 0);
+
+  if (regle === "tous") return true;
   return liste.some((a) => regle.includes(a));
 }
 
@@ -403,6 +433,14 @@ const PAR_CATEGORIE: Record<string, (GroupeEtiquette | "taille_article" | ChampC
    * qu'on choisit.
    */
   gamelles: EQUIPEMENT,
+  /**
+   * APP 46 — mangeoires et maisonnettes à oiseaux, maisonnette à hérissons.
+   *
+   * Pas de « taille du chien », contrairement au reste de l'équipement : la
+   * taille qui compte est celle de l'objet, pas celle d'un animal qu'on ne
+   * choisit pas. Même liste que les cages et enclos, pour la même raison.
+   */
+  mangeoires: ["taille_article", "couleurs", "matieres"],
   jouets: ["tailles_chien", "matieres", "usages_jouet"],
   peluches: ["tailles_chien", "matieres", "usages_jouet"],
   /* APP 27. Un griffoir, une cage : un objet qui a une taille, une couleur et

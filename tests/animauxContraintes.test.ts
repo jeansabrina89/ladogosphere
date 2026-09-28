@@ -46,24 +46,51 @@ function valeursCitees(texte: string): string[] {
   return (sansCommentaires.match(/'([^']+)'/g) ?? []).map((v) => v.replace(/'/g, ""));
 }
 
-function migrationDe(contrainte: string): string {
+/**
+ * TOUTES les migrations qui posent une contrainte, dans l'ordre.
+ *
+ * Une contrainte de vocabulaire est reposée à chaque fois qu'on l'élargit : il
+ * y en a donc plusieurs, et elles ne disent pas la même chose. La PREMIÈRE
+ * porte ce qui n'arrive qu'une fois — la colonne, sa valeur par défaut, la
+ * reprise des données, l'index. La DERNIÈRE porte le vocabulaire en vigueur.
+ *
+ * Les confondre, c'est ce qui vient de se passer au lot APP 46 : la migration
+ * du septième animal a été prise pour celle qui crée la colonne, et trois
+ * tests ont réclamé à un fichier neuf des lignes qui appartiennent à 2026.
+ */
+function migrationsDe(contrainte: string): string[] {
   const fichiers = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
-  const trouve = fichiers
-    .filter((f) => readFileSync(join(MIGRATIONS, f), "utf8").includes(`add constraint ${contrainte}`))
-    .at(-1);
-  if (!trouve) throw new Error(`aucune migration ne pose ${contrainte}`);
-  return readFileSync(join(MIGRATIONS, trouve), "utf8");
+  const trouves = fichiers.filter((f) =>
+    readFileSync(join(MIGRATIONS, f), "utf8").includes(`add constraint ${contrainte}`),
+  );
+  if (trouves.length === 0) throw new Error(`aucune migration ne pose ${contrainte}`);
+  return trouves.map((f) => readFileSync(join(MIGRATIONS, f), "utf8"));
+}
+
+/** Le vocabulaire EN VIGUEUR : la dernière à l'avoir reposé. */
+function migrationDe(contrainte: string): string {
+  return migrationsDe(contrainte).at(-1) as string;
+}
+
+/** Ce qui n'arrive qu'une fois : la migration qui a CRÉÉ la colonne. */
+function creationDe(contrainte: string): string {
+  return migrationsDe(contrainte)[0];
 }
 
 describe("le vocabulaire des animaux", () => {
   const sql = () => migrationDe("articles_animaux_check");
 
-  it("six animaux, et pas un de plus", () => {
-    const m = sql().match(/articles_animaux_check check \(\s*animaux <@ array\[([^\]]+)\]/);
+  it("sept animaux, et pas un de plus", () => {
+    /**
+     * « faune » est entré au lot APP 46 : les écureuils, les hérissons et les
+     * oiseaux du jardin. Ce ne sont pas des animaux de compagnie — c'est
+     * justement pourquoi ils ne pouvaient pas se ranger sous « rongeurs ».
+     */
+    const m = sql().match(/articles_animaux_check[\s\S]*?animaux <@ array\[([\s\S]*?)\]::text\[\]/);
     expect(m, "la contrainte doit fermer le vocabulaire").toBeTruthy();
     const valeurs = valeursCitees(m?.[1] ?? "");
     expect(valeurs.sort()).toEqual(
-      ["chat", "chien", "furet", "oiseau", "reptile", "rongeur"]);
+      ["chat", "chien", "faune", "furet", "oiseau", "reptile", "rongeur"]);
   });
 
   it("un article sans animal est refusé", () => {
@@ -75,13 +102,17 @@ describe("le vocabulaire des animaux", () => {
   it("les articles existants deviennent des articles pour chiens", () => {
     // Sans cela, 125 articles seraient partis avec un tableau vide — donc
     // refusés par la contrainte, ou invisibles.
-    const s = sql();
+    //
+    // C'est la migration de CRÉATION qui porte cela, pas celle qui élargit le
+    // vocabulaire : une reprise de données ne se rejoue pas à chaque lot.
+    const s = creationDe("articles_animaux_check");
     expect(s).toMatch(/animaux text\[\] not null default '\{chien\}'/);
     expect(s).toMatch(/update public\.articles set animaux = '\{chien\}'/);
   });
 
   it("l'index existe : c'est un filtre sur tableau, donc GIN", () => {
-    expect(sql()).toContain("articles_animaux_gin on public.articles using gin (animaux)");
+    expect(creationDe("articles_animaux_check"))
+      .toContain("articles_animaux_gin on public.articles using gin (animaux)");
   });
 });
 
@@ -151,15 +182,17 @@ describe("les types de soin", () => {
 describe("les rayons : aucun doublon, et chacun à sa place", () => {
   const sql = () => migrationDe("articles_categorie_check");
 
-  it("vingt et une catégories, dont les neuves de chaque lot", () => {
+  it("vingt-deux catégories, dont les neuves de chaque lot", () => {
     const m = sql().match(/articles_categorie_check\s+check\s*\(\s*categorie = any \(array\[([\s\S]*?)\]::text\[\]\)/);
     const valeurs = valeursCitees(m?.[1] ?? "");
-    expect(valeurs).toHaveLength(21);
+    expect(valeurs).toHaveLength(22);
     for (const neuve of [
       // APP 27
       "cages_enclos", "griffoirs", "alimentation_complete",
       // APP 34
       "complements", "gamelles",
+      // APP 46
+      "mangeoires",
     ]) {
       expect(valeurs, `${neuve} doit exister`).toContain(neuve);
     }
@@ -198,7 +231,7 @@ describe("les rayons : aucun doublon, et chacun à sa place", () => {
     const vue = derniereDefinitionDeLaVue()
       .match(/array_position\(\s*array\[([\s\S]*?)\]::text\[\],/)?.[1] ?? "";
     expect(valeursCitees(vue)).toEqual(valeursCitees(contrainte));
-    expect(valeursCitees(vue), "vingt et un rayons").toHaveLength(21);
+    expect(valeursCitees(vue), "vingt-deux rayons").toHaveLength(22);
   });
 });
 
@@ -235,7 +268,7 @@ describe("l'ordre des rayons : trois listes qui doivent rester jumelles", () => 
     const vue = lire(derniereDefinitionDeLaVue().match(/array_position\(\s*array\[([\s\S]*?)\]::text\[\],/)?.[1] ?? "");
     const cotesTypeScript = CATEGORIES_ARTICLE.map((c) => c.valeur);
 
-    expect(contrainte, "la contrainte doit lister 21 rayons").toHaveLength(21);
+    expect(contrainte, "la contrainte doit lister 22 rayons").toHaveLength(22);
     expect(vue, "vue vs contrainte").toEqual(contrainte);
     expect(cotesTypeScript, "module vs contrainte — même ordre, pas seulement mêmes valeurs")
       .toEqual(contrainte);
