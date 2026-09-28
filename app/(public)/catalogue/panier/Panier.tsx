@@ -22,6 +22,13 @@ import {
 } from "@/src/lib/venteEnLigneLogique";
 import { formatPrixClient } from "@/src/lib/prixClient";
 import { changerQuantite, retirerDuPanier, confirmerCommande } from "../actions";
+import {
+  LIEN_CONFIDENTIALITE,
+  LIEN_EXTERNE,
+  STYLE_LIEN_LEGAL,
+  MENTION_DONNEES_AVANT,
+  MENTION_DONNEES_LIEN,
+} from "@/src/lib/liensLegaux";
 import OptionsChoisies from "@/app/components/OptionsChoisies";
 
 const MARINE = "#1B2B5E";
@@ -431,6 +438,20 @@ export default function Panier({
               {refus}
             </p>
           )}
+          {/*
+            La phrase du brief citait AUSSI les conditions de vente. L'app n'en
+            a aucune — ni page, ni lien, ni mention : seules les conditions de
+            la PENSION existent, et elles ne régissent pas un achat en boutique.
+            Annoncer des conditions qu'on ne peut pas lire aurait été pire que
+            de n'en annoncer aucune.
+          */}
+          <p style={{ color: SOUS, fontSize: 12.5, margin: "8px 0 0", textAlign: "center" }}>
+            {MENTION_DONNEES_AVANT}
+            <a href={LIEN_CONFIDENTIALITE} {...LIEN_EXTERNE} style={STYLE_LIEN_LEGAL}>
+              {MENTION_DONNEES_LIEN}
+            </a>
+            .
+          </p>
         </div>
       </div>
     </div>

@@ -2,6 +2,12 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { createClient } from "@/src/utils/supabase/server";
 import { modifierProfil } from "./actions";
 import { LIBELLE_ACCORD_PHOTOS, PRECISION_RETRAIT_ACCORD_PHOTOS } from "@/src/lib/accordPhotos";
+import {
+  LIEN_CONFIDENTIALITE,
+  LIEN_EXTERNE,
+  STYLE_LIEN_LEGAL,
+  EN_SAVOIR_PLUS,
+} from "@/src/lib/liensLegaux";
 import { formatDateFR } from "@/src/lib/dates";
 import Link from "next/link";
 import EnTete from "@/app/components/ui/EnTete";
@@ -88,7 +94,12 @@ export default async function MonProfilPage() {
                   {LIBELLE_ACCORD_PHOTOS}
                 </span>
               </label>
-              <p style={{ ...muted, marginTop: 10 }}>{PRECISION_RETRAIT_ACCORD_PHOTOS}</p>
+              <p style={{ ...muted, marginTop: 10 }}>
+                {PRECISION_RETRAIT_ACCORD_PHOTOS}{" "}
+                <a href={LIEN_CONFIDENTIALITE} {...LIEN_EXTERNE} style={STYLE_LIEN_LEGAL}>
+                  {EN_SAVOIR_PLUS}
+                </a>
+              </p>
               {client.photos_ok_modifie_le && (
                 <p style={{ ...muted, marginTop: 4 }}>
                   Dernière modification : {formatDateFR(client.photos_ok_modifie_le)}

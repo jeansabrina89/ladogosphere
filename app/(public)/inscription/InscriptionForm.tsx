@@ -9,6 +9,14 @@ import {
   TITRE_INSCRIPTION_NEUTRE,
 } from "@/src/lib/inscriptionNeutre";
 import { LIBELLE_ACCORD_PHOTOS } from "@/src/lib/accordPhotos";
+import {
+  LIEN_CONFIDENTIALITE,
+  LIEN_EXTERNE,
+  STYLE_LIEN_LEGAL,
+  MENTION_DONNEES_AVANT,
+  MENTION_DONNEES_LIEN,
+  EN_SAVOIR_PLUS,
+} from "@/src/lib/liensLegaux";
 
 export default function InscriptionForm() {
   const [prenom, setPrenom] = useState("");
@@ -181,6 +189,12 @@ export default function InscriptionForm() {
             {LIBELLE_ACCORD_PHOTOS}
           </span>
         </label>
+        {/* Hors du <label> : cliquer le lien ne doit pas décocher la case. */}
+        <p className="text-sm" style={{ margin: "8px 0 0", paddingLeft: 32 }}>
+          <a href={LIEN_CONFIDENTIALITE} {...LIEN_EXTERNE} style={STYLE_LIEN_LEGAL}>
+            {EN_SAVOIR_PLUS}
+          </a>
+        </p>
       </div>
 
       <div>
@@ -234,6 +248,15 @@ export default function InscriptionForm() {
         style={{ backgroundColor: "#4AAEA0" }}>
         {loading ? "Création du compte..." : "Créer mon compte"}
       </button>
+
+      {/* Sous le bouton : elle se lit au moment de décider, pas en haut de page. */}
+      <p className="text-sm" style={{ color: "rgba(27,43,94,0.7)", margin: 0, textAlign: "center" }}>
+        {MENTION_DONNEES_AVANT}
+        <a href={LIEN_CONFIDENTIALITE} {...LIEN_EXTERNE} style={STYLE_LIEN_LEGAL}>
+          {MENTION_DONNEES_LIEN}
+        </a>
+        .
+      </p>
     </form>
   );
 }

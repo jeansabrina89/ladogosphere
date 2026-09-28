@@ -2,6 +2,13 @@
 
 import { useActionState, useState } from "react";
 import { sInscrireAlerte, annulerMonAlerte, type EtatAlerte } from "./actionsAlerte";
+import {
+  LIEN_CONFIDENTIALITE,
+  LIEN_EXTERNE,
+  STYLE_LIEN_LEGAL,
+  MENTION_ALERTE_STOCK,
+  MENTION_ALERTE_STOCK_LIEN,
+} from "@/src/lib/liensLegaux";
 
 /**
  * « Prévenez-moi quand cet article est de nouveau disponible. »
@@ -127,8 +134,19 @@ export default function AlerteStock({
                 backgroundColor: "#FFFFFF", fontFamily: "inherit", boxSizing: "border-box",
               }}
             />
+            {/*
+              Cette ligne disait déjà « Elle ne sert qu'à ce message. Nous ne
+              demandons rien d'autre. » — la même promesse, sans l'adresse où
+              elle est écrite noir sur blanc. Deux phrases voisines qui disent
+              la même chose se lisent moins bien qu'une seule : celle-ci la
+              remplace et renvoie à la page.
+            */}
             <p style={{ color: SOUS, fontSize: 13, margin: 0 }}>
-              Elle ne sert qu&apos;à ce message. Nous ne demandons rien d&apos;autre.
+              {MENTION_ALERTE_STOCK}{" "}
+              <a href={LIEN_CONFIDENTIALITE} {...LIEN_EXTERNE} style={STYLE_LIEN_LEGAL}>
+                {MENTION_ALERTE_STOCK_LIEN}
+              </a>
+              .
             </p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button
