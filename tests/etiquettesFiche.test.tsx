@@ -167,6 +167,109 @@ describe("on masque, on n'efface pas", () => {
   });
 });
 
+describe("« Espèce » suit l'animal, et rien d'autre (APP 31 bis)", () => {
+  /**
+   * La décision d'APP 27 : sur la fiche, « Espèce » apparaît quand « Rongeurs »
+   * est coché, quelle que soit la catégorie. Elle n'était écrite nulle part —
+   * `especes` n'est dans la liste d'aucun rayon — et la fiche ne la tenait donc
+   * pas, alors que son propre commentaire la promettait.
+   */
+
+  it("cocher « Rongeurs » fait apparaître Espèce, même sur une litière", () => {
+    // Une litière ne demande AUCUNE étiquette de rayon : s'il apparaît quelque
+    // chose, cela ne peut venir que de l'animal.
+    render(<EtiquettesArticle categorie="litiere" />);
+    expect(screen.queryByRole("button", { name: "Lapin" }), "avant").toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Rongeurs" }));
+    expect(screen.getByRole("button", { name: "Lapin" })).toBeTruthy();
+    expect(screen.getByText("Espèce")).toBeTruthy();
+  });
+
+  it("à la création, « Chiens » est coché : pas d'Espèce", () => {
+    render(<EtiquettesArticle categorie="alimentation_complete" />);
+    expect(screen.queryByRole("button", { name: "Lapin" })).toBeNull();
+  });
+
+  it("décocher « Rongeurs » la cache SANS vider les pastilles", () => {
+    /**
+     * On masque, on n'efface pas : recocher l'animal doit ramener les espèces
+     * telles quelles, sans aller-retour au serveur. C'est la moitié de la règle ;
+     * l'autre moitié est ce qui PART à l'enregistrement, testé juste après.
+     */
+    render(<EtiquettesArticle categorie="litiere" />);
+    fireEvent.click(screen.getByRole("button", { name: "Rongeurs" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lapin" }));
+    expect(screen.getByRole("button", { name: "Lapin" }).getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Rongeurs" }));
+    expect(screen.queryByRole("button", { name: "Lapin" }), "cachée").toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Rongeurs" }));
+    expect(
+      screen.getByRole("button", { name: "Lapin" }).getAttribute("aria-pressed"),
+      "retrouvée telle quelle",
+    ).toBe("true");
+  });
+
+  it("CE QUI PART : rien, tant que « Rongeurs » n'est pas coché", () => {
+    /**
+     * LA RAISON EST EN BASE, pas dans le goût : `articles_especes_rongeur_check`
+     * refuse une espèce sans « rongeur » dans les animaux. Envoyer quand même
+     * aurait renvoyé une erreur SQL brute à Sabrina, au lieu d'un écran.
+     *
+     * C'est la seule exception au « on masque, on n'efface pas » des champs
+     * cachés, et elle ne vaut que pour les universelles de l'animal.
+     */
+    const { container } = render(<EtiquettesArticle categorie="litiere" />);
+    fireEvent.click(screen.getByRole("button", { name: "Rongeurs" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lapin" }));
+    expect(champsEnvoyes(container).especes, "montrée : elle part").toBe("lapin");
+
+    fireEvent.click(screen.getByRole("button", { name: "Rongeurs" }));
+    expect(champsEnvoyes(container).especes, "cachée : elle ne part pas").toBe("");
+    // Et ce qui part reste valide pour la base : aucune espèce sans rongeur.
+    const envoye = etiquettesDepuisChamps(champsEnvoyes(container));
+    expect(envoye.especes).toEqual([]);
+    expect(envoye.animaux).not.toContain("rongeur");
+  });
+
+  it("les AUTRES champs cachés partent toujours : la règle ne déborde pas", () => {
+    /**
+     * La garde inverse. Si l'exception s'étendait à tous les groupes, changer de
+     * rayon effacerait les étiquettes qu'on avait mis vingt minutes à saisir.
+     */
+    const { container } = render(
+      <EtiquettesArticle
+        categorie="colliers"
+        article={{ gouts: ["poulet"], ages: ["chiot"], animaux: ["chien"] } as never}
+      />,
+    );
+    // Un collier ne montre ni le goût ni l'âge — ils partent quand même.
+    expect(screen.queryByRole("button", { name: "Poulet" })).toBeNull();
+    expect(champsEnvoyes(container).gouts).toBe("poulet");
+    expect(champsEnvoyes(container).ages).toBe("chiot");
+  });
+
+  it("et la perte est ANNONCÉE, jamais silencieuse", () => {
+    /**
+     * Décocher l'animal puis enregistrer écarte les espèces. Le dire avant coûte
+     * une phrase ; le découvrir après coûte de retrouver lesquelles étaient
+     * cochées, et de ne pas savoir pourquoi elles ont disparu.
+     */
+    render(<EtiquettesArticle categorie="litiere" />);
+    fireEvent.click(screen.getByRole("button", { name: "Rongeurs" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lapin" }));
+    expect(screen.queryByText(/ne sera pas\s+enregistrée/), "rien à annoncer").toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Rongeurs" }));
+    const alerte = screen.getAllByRole("alert").map((e) => e.textContent).join(" ");
+    expect(alerte).toContain("Espèce");
+    expect(alerte).toContain("Lapin");
+    expect(alerte).toContain("ne sera pas");
+  });
+});
+
+
 describe("l'écriture côté serveur", () => {
   const source = (chemin: string) => readFileSync(join(__dirname, "..", chemin), "utf8");
 

@@ -413,22 +413,64 @@ export type ChampEtiquette = GroupeEtiquette | "taille_article" | ChampCase;
 
 
 /**
- * Les groupes qui ne veulent RIEN DIRE tant que l'animal n'est pas choisi.
+ * LES UNIVERSELLES DE L'ANIMAL — une seule liste, trois conséquences.
  *
- * « Espèce » précise l'animal : Lapin, Cochon d'Inde, Hamster. Dans l'onglet
- * « Tous », entre des croquettes pour chien et un griffoir, cette liste ne
- * proposerait que des valeurs que la plupart des articles de la page ne peuvent
- * pas porter — et un filtre qui vide la grille dès qu'on y touche apprend à la
- * cliente à ne plus s'en servir.
+ * Ce sont les groupes qu'AUCUN rayon ne commande, et qui ne veulent rien dire
+ * tant que l'animal n'est pas connu.
+ *
+ * « Espèce » précise l'animal : Lapin, Cochon d'Inde, Hamster. Un foin, une
+ * litière, une cage et une friandise de lapin se filtrent tous par l'espèce —
+ * lister les rayons concernés aurait créé une seconde règle à tenir à jour, et
+ * le jour où l'un serait oublié le champ disparaîtrait sans raison visible.
  *
  * « Taille du chien » n'est PAS dans ce cas, et c'est exactement la différence :
- * elle qualifie l'ARTICLE, pas l'animal. Quelqu'un qui parcourt tout le magasin
- * peut vouloir « grand chien » sans changer d'onglet, et le trouve.
+ * elle qualifie l'ARTICLE, pas l'animal, et c'est un rayon qui l'appelle.
+ *
+ * CE QUE CETTE LISTE ENTRAÎNE, aux trois endroits :
+ *
+ *   • la FICHE (`champsDeCategorieEtAnimaux`) la montre dès que son animal est
+ *     coché, quel que soit le rayon — et PAS du tout tant qu'aucun animal ne
+ *     l'est : on ne précise pas une espèce avant de savoir que c'est un rongeur ;
+ *   • le CATALOGUE (`groupeFiltrablePourOnglet`) la retire de l'onglet
+ *     « Tous », où elle proposerait Lapin et Hamster entre deux sacs de
+ *     croquettes ;
+ *   • le FORMULAIRE (`groupeExigeSonAnimal`) n'envoie pas ses valeurs quand
+ *     elle n'est pas montrée — la base refuse une espèce sans rongeur
+ *     (`articles_especes_rongeur_check`), et une erreur SQL brute n'est pas une
+ *     réponse qu'on montre à quelqu'un.
  *
  * Une entrée de plus ici se décide comme celles de GROUPES_PAR_ANIMAL : par ce
  * que le groupe dit, jamais par ce qu'un écran trouve encombrant.
  */
-const EXIGENT_L_ANIMAL: readonly GroupeEtiquette[] = ["especes"];
+const UNIVERSELLES_DE_L_ANIMAL: readonly GroupeEtiquette[] = ["especes"];
+
+/**
+ * Ce groupe est-il une universelle de l'animal ?
+ *
+ * Le formulaire s'en sert pour savoir ce qu'il ne doit PAS envoyer quand le
+ * champ n'est pas montré. Pour tous les autres groupes la règle inverse tient
+ * toujours : on masque, on n'efface pas — un article mal classé puis reclassé
+ * retrouve ses étiquettes.
+ */
+export function groupeExigeSonAnimal(groupe: GroupeEtiquette): boolean {
+  return UNIVERSELLES_DE_L_ANIMAL.includes(groupe);
+}
+
+/**
+ * Les universelles de l'animal que CES animaux autorisent.
+ *
+ * Liste vide (fiche neuve, aucun animal coché) : aucune. C'est la différence
+ * avec `groupeVautPourAnimaux`, qui répond vrai par prudence pour laisser une
+ * fiche vide remplissable — ici la prudence irait dans l'autre sens, en
+ * proposant de préciser une espèce à qui n'a pas encore dit « rongeur ».
+ */
+function universellesDeCesAnimaux(
+  animaux: readonly string[] | null | undefined
+): GroupeEtiquette[] {
+  const liste = (animaux ?? []).filter((a): a is Animal => (ANIMAUX as readonly string[]).includes(a));
+  if (liste.length === 0) return [];
+  return UNIVERSELLES_DE_L_ANIMAL.filter((g) => groupeVautPourAnimaux(g, liste));
+}
 
 /**
  * Ce champ se propose-t-il comme FILTRE dans l'onglet de cet animal ?
@@ -454,7 +496,7 @@ export function groupeFiltrablePourOnglet(
   if (champ === "taille_article" || champ === "sans_cereales" || champ === "monoproteine") {
     return true;
   }
-  if (!animal) return !EXIGENT_L_ANIMAL.includes(champ);
+  if (!animal) return !UNIVERSELLES_DE_L_ANIMAL.includes(champ);
   return groupeVautPourAnimaux(champ, [animal]);
 }
 
@@ -480,13 +522,28 @@ export function champsDeCategorieEtAnimaux(
   categorie: string | null | undefined,
   animaux: readonly string[] | null | undefined
 ): ChampEtiquette[] {
-  return champsDeCategorie(categorie).filter((champ) => {
+  const duRayon = champsDeCategorie(categorie).filter((champ) => {
     // Les cases et la taille de l'article ne dépendent pas de l'animal.
     if (champ === "taille_article" || champ === "sans_cereales" || champ === "monoproteine") {
       return true;
     }
     return groupeVautPourAnimaux(champ, animaux);
   });
+
+  /*
+   * APP 31 bis : les universelles de l'animal viennent EN PLUS, et en tête.
+   *
+   * Elles ne sortent d'aucun rayon — c'est leur définition — donc aucune liste
+   * de `PAR_CATEGORIE` ne peut les apporter. C'est ce qui manquait : la décision
+   * d'APP 27 (« Espèce apparaît quand Rongeurs est coché, quelle que soit la
+   * catégorie ») n'était écrite nulle part, et la fiche ne la tenait pas.
+   *
+   * Le `filter` final n'a rien à retirer aujourd'hui, et c'est voulu : le jour
+   * où quelqu'un ajoutera « especes » à un rayon, le champ ne se dédoublera pas.
+   */
+  const universelles = universellesDeCesAnimaux(animaux)
+    .filter((g) => !duRayon.includes(g));
+  return [...universelles, ...duRayon];
 }
 
 export function concerne(
@@ -645,7 +702,19 @@ export function etiquettesRemplies(
   article: EtiquettesArticle
 ): { libelle: string; valeurs: string[] }[] {
   const lignes: { libelle: string; valeurs: string[] }[] = [];
-  for (const champ of champsDeCategorie(article.categorie)) {
+  /*
+   * Les universelles de l'animal d'abord, comme sur le formulaire.
+   *
+   * Sans elles, une espèce enregistrée ne se relirait NULLE PART : cette
+   * fonction parcourt les champs du rayon, et « especes » n'est dans aucun.
+   * Rien n'apparaît pour autant si la valeur est vide — on n'affiche que ce qui
+   * est rempli — donc ajouter la liste ici ne montre jamais un champ de trop.
+   */
+  const champs = [
+    ...UNIVERSELLES_DE_L_ANIMAL.filter((g) => !champsDeCategorie(article.categorie).includes(g)),
+    ...champsDeCategorie(article.categorie),
+  ];
+  for (const champ of champs) {
     if (champ === "sans_cereales" || champ === "monoproteine") {
       if (article[champ]) {
         const c = CASES.find((x) => x.champ === champ)!;

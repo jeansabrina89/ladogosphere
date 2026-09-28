@@ -9,6 +9,7 @@ import {
   TAILLES_ARTICLE,
   champVersValeurs,
   champsDeCategorieEtAnimaux,
+  groupeExigeSonAnimal,
   valeursPourAnimaux,
   libelleValeur,
   normaliserCouleur,
@@ -171,6 +172,16 @@ export default function EtiquettesArticle({
    * au lieu de le découvrir après enregistrement.
    */
   const montres = champsDeCategorieEtAnimaux(categorie, listes.animaux);
+  /*
+   * Les universelles de l'animal qui portent des valeurs sans être montrées :
+   * elles seront écartées à l'enregistrement, et on le dit tout de suite.
+   */
+  const perduesFauteDAnimal = LISTES
+    .filter((g) => groupeExigeSonAnimal(g) && !montres.includes(g) && listes[g].length > 0)
+    .map((groupe) => ({
+      groupe,
+      valeurs: listes[groupe].map((v) => libelleValeur(groupe, v)),
+    }));
   /* Aucun animal coché : la base refusera. On le dit ICI, pas après. */
   const sansAnimal = listes.animaux.length === 0;
 
@@ -226,6 +237,22 @@ export default function EtiquettesArticle({
             dans aucun onglet de la boutique.
           </p>
         )}
+        {/*
+          * L'AVERTISSEMENT QUI ÉVITE UNE PERTE SILENCIEUSE (APP 31 bis).
+          *
+          * Décocher l'animal cache le champ ; enregistrer dans cet état écarte
+          * ses valeurs, parce que la base refuse la combinaison. Le dire AVANT
+          * coûte une phrase ; le découvrir après coûte de retrouver quelles
+          * espèces étaient cochées.
+          */}
+        {perduesFauteDAnimal.map(({ groupe, valeurs }) => (
+          <p key={`perdu-${groupe}`} role="alert" style={{
+            fontSize: 13.5, fontWeight: 600, color: "#8A5A1F", margin: "8px 0 0",
+          }}>
+            {GROUPES[groupe].libelle} ({valeurs.join(", ")}) ne sera pas
+            enregistrée : cochez l&apos;animal correspondant pour la garder.
+          </p>
+        ))}
       </div>
 
       {LISTES.filter((g) => montres.includes(g)).map((groupe) => (
@@ -339,15 +366,32 @@ export default function EtiquettesArticle({
         </label>
       ))}
 
-      {/* Ce que la catégorie masque part quand même, à sa valeur actuelle :
-          on cache, on n'efface pas. Une liste par champ, valeurs séparées par
-          une virgule — dix champs répétés se perdraient au premier refus. */}
+      {/*
+        * Ce que la catégorie masque part quand même, à sa valeur actuelle : on
+        * cache, on n'efface pas. Une liste par champ, valeurs séparées par une
+        * virgule — dix champs répétés se perdraient au premier refus.
+        *
+        * ── L'EXCEPTION, ET ELLE VIENT DE LA BASE (APP 31 bis) ───────────────
+        *
+        * Une universelle de l'animal ne part PAS quand elle n'est pas montrée.
+        * `articles_especes_rongeur_check` refuse une espèce sans « rongeur » dans
+        * les animaux : décocher Rongeurs et enregistrer aurait renvoyé une erreur
+        * SQL brute, que personne ne devrait avoir à lire.
+        *
+        * Les valeurs restent dans `listes` : recocher Rongeurs les fait revenir
+        * sur-le-champ, sans aller-retour au serveur. On ne les perd donc qu'en
+        * ENREGISTRANT sans l'animal — et l'avertissement ci-dessus le dit avant.
+        */}
       {LISTES.map((groupe) => (
         <input
           key={`cache-${groupe}`}
           type="hidden"
           name={groupe}
-          value={valeursVersChamp(listes[groupe])}
+          value={
+            groupeExigeSonAnimal(groupe) && !montres.includes(groupe)
+              ? ""
+              : valeursVersChamp(listes[groupe])
+          }
         />
       ))}
       <input type="hidden" name="taille_article" value={taille} />

@@ -6,6 +6,8 @@ import {
   ANIMAUX,
   champsDeCategorie,
   champsDeCategorieEtAnimaux,
+  etiquettesRemplies,
+  groupeExigeSonAnimal,
   groupeVautPourAnimaux,
   valeursPourAnimaux,
 } from "@/src/lib/etiquettesArticles";
@@ -156,30 +158,111 @@ describe("le croisement catégorie x animal, sur la fiche", () => {
     expect(groupeVautPourAnimaux("especes", ["chien"])).toBe(false);
   });
 
-  it("SUR LA FICHE, « Espèce » ne se montre encore NULLE PART", () => {
+  it("« Rongeurs » coché : « Espèce » apparaît, QUEL QUE SOIT le rayon", () => {
     /**
-     * Ce test constate un état, il ne le défend pas.
+     * La décision d'APP 27 (D.2, 26.09) : sur la fiche, « Espèce » suit l'animal
+     * et rien d'autre. APP 31 a montré qu'elle n'était écrite nulle part —
+     * `especes` n'est dans aucune liste de rayon ni dans `PAR_DEFAUT`, donc le
+     * croisement ne la rendait jamais, pour aucune catégorie.
      *
-     * `especes` n'est dans la liste d'aucune catégorie ni dans `PAR_DEFAUT` :
-     * `champsDeCategorieEtAnimaux` ne la rend donc jamais, et la section des
-     * étiquettes ne la propose à Sabrina pour aucun rayon — même en cochant
-     * « Rongeurs ». Aucun article ne peut porter d'espèce aujourd'hui (vérifié
-     * en base le 28.09.2026 : zéro).
-     *
-     * CONSÉQUENCE POUR APP 31 : le filtre « Espèce » du catalogue est en place et
-     * juste, mais il restera vide tant que la fiche ne permettra pas de cocher
-     * une espèce. Le jour où on l'ouvrira, ce test rougira — et c'est le but :
-     * il faudra alors décider, pas découvrir.
+     * Les quatre rayons ci-dessous n'ont rien en commun : un aliment, une
+     * litière qui ne demande AUCUNE étiquette, un snack, un objet. C'est le but
+     * — si le champ dépendait encore d'une liste de rayons, l'un d'eux le
+     * trahirait.
      */
-    for (const rayon of ["alimentation_complete", "litiere", "cages_enclos", "friandises"]) {
-      expect(champsDeCategorieEtAnimaux(rayon, ["rongeur"]), rayon).not.toContain("especes");
+    for (const rayon of ["alimentation_complete", "litiere", "friandises", "cages_enclos"]) {
+      expect(champsDeCategorieEtAnimaux(rayon, ["rongeur"]), rayon).toContain("especes");
     }
   });
 
-  it("le croisement n'invente jamais un champ que la catégorie ne demande pas", () => {
-    // Une litière ne montre rien, quel que soit l'animal.
+  it("« Rongeurs » décoché : « Espèce » disparaît, dans les mêmes rayons", () => {
+    for (const rayon of ["alimentation_complete", "litiere", "friandises", "cages_enclos"]) {
+      expect(champsDeCategorieEtAnimaux(rayon, ["chien"]), rayon).not.toContain("especes");
+    }
+  });
+
+  it("aucun AUTRE animal ne la fait apparaître", () => {
+    for (const animal of ["chien", "chat", "furet", "reptile", "oiseau"]) {
+      expect(champsDeCategorieEtAnimaux("alimentation_complete", [animal]), animal)
+        .not.toContain("especes");
+    }
+    // Un article pour rongeurs ET chats la garde : l'un de ses animaux la demande.
+    expect(champsDeCategorieEtAnimaux("alimentation_complete", ["chat", "rongeur"]))
+      .toContain("especes");
+  });
+
+  it("FICHE NEUVE, aucun animal coché : PAS d'Espèce", () => {
+    /**
+     * C'est le seul endroit où cette règle diverge de `groupeVautPourAnimaux`,
+     * qui répond vrai par prudence pour laisser une fiche vide remplissable. Ici
+     * la prudence irait dans l'autre sens : proposer de préciser une espèce à
+     * quelqu'un qui n'a pas encore dit « rongeur » ferait cocher « Lapin » sur
+     * un collier de chien.
+     */
+    expect(champsDeCategorieEtAnimaux("alimentation_complete", [])).not.toContain("especes");
+    expect(champsDeCategorieEtAnimaux("alimentation_complete", null)).not.toContain("especes");
+    // Et le reste du rayon est bien là : on n'a pas vidé la fiche au passage.
+    expect(champsDeCategorieEtAnimaux("alimentation_complete", [])).toContain("ages");
+  });
+
+  it("elle vient EN TÊTE : l'espèce se lit juste sous l'animal", () => {
+    // Le formulaire ordonne par sa propre liste, mais la fiche en LECTURE suit
+    // celle-ci : l'espèce doit y précéder les étiquettes du rayon.
+    expect(champsDeCategorieEtAnimaux("alimentation_complete", ["rongeur"])[0]).toBe("especes");
+  });
+
+  it("une espèce enregistrée se RELIT sur la fiche", () => {
+    /**
+     * `etiquettesRemplies` parcourait les champs du rayon, et « especes » n'est
+     * dans aucun : une espèce cochée puis enregistrée n'aurait paru nulle part.
+     * On n'affiche que ce qui est rempli, donc rien n'apparaît pour un article
+     * sans espèce.
+     */
+    const lignes = etiquettesRemplies({
+      categorie: "litiere",
+      especes: ["lapin"],
+    } as never);
+    expect(lignes.map((l) => l.libelle)).toContain("Espèce");
+    expect(lignes.find((l) => l.libelle === "Espèce")?.valeurs).toEqual(["Lapin"]);
+
+    const sansEspece = etiquettesRemplies({ categorie: "litiere", especes: [] } as never);
+    expect(sansEspece.map((l) => l.libelle)).not.toContain("Espèce");
+  });
+
+  it("le croisement n'ajoute AU RAYON aucun champ qu'il ne demande pas", () => {
+    /**
+     * ── LA FORMULATION A CHANGÉ EN APP 31 bis, ET ELLE EST PLUS PRÉCISE ─────
+     *
+     * Elle disait : « le croisement n'invente jamais un champ que la catégorie
+     * ne demande pas ». C'était vrai tant qu'aucun champ n'existait hors rayon.
+     * « Espèce » en est un : AUCUN rayon ne la commande, par définition — c'est
+     * l'animal, et lui seul, qui la fait paraître.
+     *
+     * L'invariant tient donc toujours, dit exactement : le croisement ne rend
+     * RIEN d'autre que les champs du rayon (éventuellement retirés par l'animal)
+     * PLUS les universelles de l'animal. Il n'invente rien ; il additionne deux
+     * sources, et il n'y en a que deux.
+     */
+    for (const rayon of ["litiere", "colliers", "alimentation_seche", "jouets", "soins"]) {
+      for (const a of ANIMAUX) {
+        const rendus = champsDeCategorieEtAnimaux(rayon, [a]);
+        const duRayon = champsDeCategorie(rayon);
+        for (const champ of rendus) {
+          const legitime =
+            duRayon.includes(champ) ||
+            (champ !== "taille_article" && champ !== "sans_cereales" &&
+             champ !== "monoproteine" && groupeExigeSonAnimal(champ));
+          expect(legitime, `${rayon}/${a} : ${champ} ne vient ni du rayon ni de l'animal`)
+            .toBe(true);
+        }
+      }
+    }
+
+    // Et le cas concret : une litière ne montre RIEN, sauf chez les rongeurs où
+    // l'espèce — qui n'est pas du rayon — vient de l'animal.
     for (const a of ANIMAUX) {
-      expect(champsDeCategorieEtAnimaux("litiere", [a]), a).toEqual([]);
+      expect(champsDeCategorieEtAnimaux("litiere", [a]), a)
+        .toEqual(a === "rongeur" ? ["especes"] : []);
     }
     // Un collier de chat perd la taille du chien et ne gagne rien.
     expect(champsDeCategorieEtAnimaux("colliers", ["chat"]))
