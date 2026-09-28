@@ -58,7 +58,7 @@ describe("taux de TVA proposé par la catégorie", () => {
   });
 
   it("les dix-neuf catégories du modèle sont là, en français accentué", () => {
-    expect(CATEGORIES_ARTICLE).toHaveLength(19);
+    expect(CATEGORIES_ARTICLE).toHaveLength(21);
     // APP 27 : les trois rayons neufs, et les trois libellés élargis.
     expect(libelleCategorieArticle("alimentation_complete")).toBe("Alimentation complète");
     expect(libelleCategorieArticle("griffoirs")).toBe("Griffoirs");
@@ -80,11 +80,16 @@ describe("taux de TVA proposé par la catégorie", () => {
 
   it("suit l'ordre du magasin, pas l'alphabet", () => {
     /*
-     * Dix-neuf rayons depuis APP 27. L'ordre est celui du magasin : ce qui se
+     * Vingt et un rayons depuis APP 34. L'ordre est celui du magasin : ce qui se
      * mange d'abord, puis les consommables, puis l'équipement, puis les soins.
-     * Les trois neufs s'y insèrent par voisinage de sens — l'alimentation
-     * complète avec les aliments, les griffoirs près des jouets, les cages près
-     * des couchages.
+     * Les neufs s'y insèrent par voisinage de SENS — l'alimentation complète
+     * avec les aliments, les griffoirs près des jouets, les cages près des
+     * couchages, les compléments après la mastication (ce qu'on ajoute au
+     * repas), les gamelles après les couchages (l'équipement du coin repas).
+     *
+     * Les compléments ne sont surtout PAS collés à « Alimentation complète » :
+     * celle-ci est un repas ENTIER, et le voisinage aurait entretenu la
+     * confusion que ce rayon vient justement lever.
      *
      * Le MÊME ordre est écrit dans la vue « articles_vitrine », qui en tire
      * « ordre_categorie » pour le site. Un test dédié compare les deux listes
@@ -93,12 +98,15 @@ describe("taux de TVA proposé par la catégorie", () => {
      */
     expect(CATEGORIES_ARTICLE.map((c) => c.valeur)).toEqual([
       "alimentation_seche", "alimentation_humide", "alimentation_complete",
-      "friandises", "mastication", "litiere",
+      "friandises", "mastication", "complements", "litiere",
       "colliers", "laisses", "harnais", "muselieres", "longes",
       "jouets", "peluches", "griffoirs",
-      "couchages", "cages_enclos",
+      "couchages", "gamelles", "cages_enclos",
       "soins", "medaillons_accessoires", "divers",
     ]);
+    // Les deux rayons d'APP 34, à leur place exacte.
+    expect(ordreCategorie("complements")).toBe(ordreCategorie("mastication") + 1);
+    expect(ordreCategorie("gamelles")).toBe(ordreCategorie("couchages") + 1);
     // Un rang par catégorie, et le dernier rang pour une valeur inconnue.
     expect(ordreCategorie("alimentation_seche")).toBe(0);
     expect(ordreCategorie("colliers")).toBeLessThan(ordreCategorie("jouets"));

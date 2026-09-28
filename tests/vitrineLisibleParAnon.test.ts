@@ -109,12 +109,21 @@ describe("la vue de la vitrine n'appelle aucune fonction fermée", () => {
   });
 
   it("le délai est calculé dans la vue, par coalesce, et non par une fonction", () => {
+    /**
+     * INSENSIBLE À LA CASSE depuis APP 34, et c'est volontaire.
+     *
+     * Une définition reprise de `pg_get_viewdef` — ce que demandent les briefs
+     * qui touchent à la vue — rend `COALESCE` en majuscules. Exiger la
+     * minuscule faisait rougir ce test pour une question d'orthographe, pas de
+     * propriété : ce qu'il doit garder, c'est que le délai se calcule DANS la
+     * vue, jamais par un appel de fonction.
+     */
     const { sql } = derniereDefinitionDeLaVue();
     const corps = corpsDeLaVue(sql);
-    expect(corps).toMatch(/coalesce\(a\.delai_commande_min_jours,\s*f\.delai_commande_min_jours\)/);
-    expect(corps).toMatch(/coalesce\(a\.delai_commande_max_jours,\s*f\.delai_commande_max_jours\)/);
+    expect(corps).toMatch(/coalesce\(a\.delai_commande_min_jours,\s*f\.delai_commande_min_jours\)/i);
+    expect(corps).toMatch(/coalesce\(a\.delai_commande_max_jours,\s*f\.delai_commande_max_jours\)/i);
     expect(corps, "plus aucun appel à la fonction")
-      .not.toMatch(/delai_commande_effectif\s*\(/);
+      .not.toMatch(/delai_commande_effectif\s*\(/i);
   });
 
   it("le fournisseur est joint pour son DÉLAI, et rien d'autre ne sort", () => {
@@ -125,7 +134,9 @@ describe("la vue de la vitrine n'appelle aucune fonction fermée", () => {
      */
     const { sql } = derniereDefinitionDeLaVue();
     const corps = corpsDeLaVue(sql);
-    expect(corps).toContain("left join public.fournisseurs f on f.id = a.fournisseur_id");
+    // Le schéma n'est pas toujours écrit : `pg_get_viewdef` l'omet quand il est
+    // dans le search_path. C'est la JOINTURE qui compte, pas son orthographe.
+    expect(corps).toMatch(/left join\s+(public\.)?fournisseurs f on f\.id = a\.fournisseur_id/i);
     // Aucune colonne `f.` autre que les deux délais.
     const colonnesFournisseur = [...corps.matchAll(/\bf\.(\w+)/g)].map((m) => m[1]);
     for (const c of colonnesFournisseur) {

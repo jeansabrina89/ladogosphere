@@ -34,8 +34,8 @@ describe("le régime en vigueur", () => {
     expect(POURCENTAGE_PAR_DEFAUT).toBe(10);
   });
 
-  it("couvre les dix-neuf catégories du magasin", () => {
-    expect(CATEGORIES_ARTICLE).toHaveLength(19);
+  it("couvre les vingt et une catégories du magasin", () => {
+    expect(CATEGORIES_ARTICLE).toHaveLength(21);
   });
 
   it("APP 27 : aucun rayon n'est oublié par la remise, écran ET prix", () => {
@@ -53,12 +53,28 @@ describe("le régime en vigueur", () => {
      * app27_remise_membre_rayons_neufs. Ce test garde la règle : une catégorie
      * du magasin a sa ligne, ou la remise lui échappe en silence.
      */
+    /*
+     * SEULES LES INSTRUCTIONS D'INSERTION SONT LUES (APP 34).
+     *
+     * Avant, le test cherchait le nom du rayon dans TOUT le fichier de la
+     * migration. Or celle qui ajoute un rayon y écrit aussi la contrainte
+     * CHECK, qui le nomme : le test passait donc même quand la ligne de remise
+     * manquait. Trouvé par mutation — retirer ('gamelles', 10) de l'insertion
+     * ne le faisait pas rougir.
+     */
     const sql = readdirSync(join(__dirname, "..", "supabase", "migrations"))
       .filter((f) => f.endsWith(".sql")).sort()
       .map((f) => readFileSync(join(__dirname, "..", "supabase", "migrations", f), "utf8"))
-      .filter((t) => /insert into public.remise_membre_categories/i.test(t))
+      .flatMap((t) => [
+        ...t.matchAll(/insert\s+into\s+public\.remise_membre_categories[\s\S]*?;/gi),
+      ].map((m) => m[0]))
       .join(String.fromCharCode(10));
-    for (const c of ["alimentation_complete", "griffoirs", "cages_enclos"]) {
+    // APP 34 ajoute les deux derniers : un rayon neuf sans sa ligne naîtrait
+    // cassé — l'écran annoncerait 10 %, le prix facturerait le plein tarif.
+    for (const c of [
+      "alimentation_complete", "griffoirs", "cages_enclos",
+      "complements", "gamelles",
+    ]) {
       expect(sql, `${c} doit avoir sa ligne de remise`).toContain(c);
     }
   });
@@ -149,7 +165,7 @@ describe("ce qui ne bouge pas", () => {
 describe("le résumé de l’écran", () => {
   it("dit un taux unique quand il n’y en a qu’un", () => {
     const lignes = CATEGORIES_ARTICLE.map((c) => ligne({ categorie: c.valeur }));
-    expect(resumeRemises(lignes)).toBe("Remise membre : 10 % sur 19 catégories.");
+    expect(resumeRemises(lignes)).toBe("Remise membre : 10 % sur 21 catégories.");
   });
 
   it("dit la fourchette quand les taux diffèrent, et compte les exclues", () => {

@@ -21,6 +21,31 @@ import { describe, it, expect } from "vitest";
 const MIGRATIONS = join(__dirname, "..", "supabase", "migrations");
 
 /** Le contenu de la migration qui pose une contrainte donnée, la plus récente. */
+/** La migration la PLUS RÉCENTE qui définit la vue de la vitrine. */
+function derniereDefinitionDeLaVue(): string {
+  const fichiers = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
+  const trouve = fichiers
+    .filter((f) => /create\s+(or\s+replace\s+)?view\s+public\.articles_vitrine/i
+      .test(readFileSync(join(MIGRATIONS, f), "utf8")))
+    .at(-1);
+  if (!trouve) throw new Error("aucune migration ne définit articles_vitrine");
+  return readFileSync(join(MIGRATIONS, trouve), "utf8");
+}
+
+/**
+ * Les valeurs citées d'un tableau SQL, COMMENTAIRES RETIRÉS D'ABORD.
+ *
+ * Sans ce nettoyage, une apostrophe française dans un commentaire —
+ * « l'équipement du coin repas » — passe pour un délimiteur de chaîne et
+ * décale toute la liste d'un cran. Les valeurs extraites restent au bon
+ * nombre, ce qui rend la faute très difficile à voir : elles sont simplement
+ * fausses. (Trouvé en APP 34.)
+ */
+function valeursCitees(texte: string): string[] {
+  const sansCommentaires = texte.replace(/--[^\n]*/g, "");
+  return (sansCommentaires.match(/'([^']+)'/g) ?? []).map((v) => v.replace(/'/g, ""));
+}
+
 function migrationDe(contrainte: string): string {
   const fichiers = readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort();
   const trouve = fichiers
@@ -36,7 +61,7 @@ describe("le vocabulaire des animaux", () => {
   it("six animaux, et pas un de plus", () => {
     const m = sql().match(/articles_animaux_check check \(\s*animaux <@ array\[([^\]]+)\]/);
     expect(m, "la contrainte doit fermer le vocabulaire").toBeTruthy();
-    const valeurs = (m?.[1] ?? "").match(/'([^']+)'/g)?.map((v) => v.replace(/'/g, "")) ?? [];
+    const valeurs = valeursCitees(m?.[1] ?? "");
     expect(valeurs.sort()).toEqual(
       ["chat", "chien", "furet", "oiseau", "reptile", "rongeur"]);
   });
@@ -65,7 +90,7 @@ describe("les espèces, et la place laissée aux suivantes", () => {
 
   it("huit espèces de rongeurs, vocabulaire fermé", () => {
     const m = sql().match(/articles_especes_check check \(\s*especes <@ array\[([\s\S]*?)\]::text\[\]/);
-    const valeurs = (m?.[1] ?? "").match(/'([^']+)'/g)?.map((v) => v.replace(/'/g, "")) ?? [];
+    const valeurs = valeursCitees(m?.[1] ?? "");
     expect(valeurs.sort()).toEqual(
       ["chinchilla", "cochon_inde", "degu", "gerbille", "hamster", "lapin", "rat", "souris"]);
   });
@@ -95,7 +120,7 @@ describe("les âges : le chaton entre, le chiot reste", () => {
 
   it("cinq âges, dont chaton", () => {
     const m = sql().match(/articles_ages_check check \(\s*ages <@ array\[([^\]]+)\]/);
-    const valeurs = (m?.[1] ?? "").match(/'([^']+)'/g)?.map((v) => v.replace(/'/g, "")) ?? [];
+    const valeurs = valeursCitees(m?.[1] ?? "");
     expect(valeurs.sort()).toEqual(["adulte", "chaton", "chiot", "junior", "senior"]);
   });
 
@@ -111,7 +136,7 @@ describe("les types de soin", () => {
 
   it("onze types, vocabulaire fermé", () => {
     const m = sql().match(/articles_types_soin_check check \(\s*types_soin <@ array\[([\s\S]*?)\]::text\[\]/);
-    const valeurs = (m?.[1] ?? "").match(/'([^']+)'/g)?.map((v) => v.replace(/'/g, "")) ?? [];
+    const valeurs = valeursCitees(m?.[1] ?? "");
     expect(valeurs.sort()).toEqual([
       "antiparasitaire", "apres_shampooing", "demelant", "dents", "griffes",
       "oreilles", "pattes", "pelage", "shampooing", "truffe", "yeux",
@@ -123,14 +148,19 @@ describe("les types de soin", () => {
   });
 });
 
-describe("les rayons : trois neufs, aucun doublon", () => {
+describe("les rayons : aucun doublon, et chacun à sa place", () => {
   const sql = () => migrationDe("articles_categorie_check");
 
-  it("dix-neuf catégories, dont les trois neuves", () => {
-    const m = sql().match(/articles_categorie_check check \(\s*categorie = any \(array\[([\s\S]*?)\]::text\[\]\)/);
-    const valeurs = (m?.[1] ?? "").match(/'([^']+)'/g)?.map((v) => v.replace(/'/g, "")) ?? [];
-    expect(valeurs).toHaveLength(19);
-    for (const neuve of ["cages_enclos", "griffoirs", "alimentation_complete"]) {
+  it("vingt et une catégories, dont les neuves de chaque lot", () => {
+    const m = sql().match(/articles_categorie_check\s+check\s*\(\s*categorie = any \(array\[([\s\S]*?)\]::text\[\]\)/);
+    const valeurs = valeursCitees(m?.[1] ?? "");
+    expect(valeurs).toHaveLength(21);
+    for (const neuve of [
+      // APP 27
+      "cages_enclos", "griffoirs", "alimentation_complete",
+      // APP 34
+      "complements", "gamelles",
+    ]) {
       expect(valeurs, `${neuve} doit exister`).toContain(neuve);
     }
   });
@@ -142,7 +172,7 @@ describe("les rayons : trois neufs, aucun doublon", () => {
      * répartis entre les deux au hasard de la date de saisie. `soins` est
      * réutilisée, son libellé élargi.
      */
-    const valeurs = sql().match(/articles_categorie_check check \(\s*categorie = any \(array\[([\s\S]*?)\]::text\[\]\)/)?.[1] ?? "";
+    const valeurs = sql().match(/articles_categorie_check\s+check\s*\(\s*categorie = any \(array\[([\s\S]*?)\]::text\[\]\)/)?.[1] ?? "";
     expect(valeurs).toContain("'soins'");
     expect(valeurs, "un doublon de rayon").not.toContain("soins_hygiene");
     // Même raisonnement pour la litière, qui existait aussi.
@@ -156,11 +186,19 @@ describe("les rayons : trois neufs, aucun doublon", () => {
      * n'aurait pas d'ordre, et le site le classerait n'importe où — ou nulle
      * part. Les deux listes doivent donc rester jumelles.
      */
-    const s = sql();
-    const contrainte = s.match(/articles_categorie_check check \(\s*categorie = any \(array\[([\s\S]*?)\]::text\[\]\)/)?.[1] ?? "";
-    const vue = s.match(/array_position\(\s*array\[([\s\S]*?)\]::text\[\],/)?.[1] ?? "";
-    const lire = (t: string) => (t.match(/'([^']+)'/g) ?? []).map((v) => v.replace(/'/g, ""));
-    expect(lire(vue)).toEqual(lire(contrainte));
+    /*
+     * CHAQUE LISTE VIENT DE SA MIGRATION (APP 34).
+     *
+     * Les deux ont longtemps vécu dans le même fichier. Depuis qu'une migration
+     * peut redéfinir la vue SEULE, les chercher au même endroit comparerait une
+     * version périmée à elle-même — un test vert pour de mauvaises raisons.
+     */
+    const contrainte = migrationDe("articles_categorie_check")
+      .match(/articles_categorie_check\s+check\s*\(\s*categorie = any \(array\[([\s\S]*?)\]::text\[\]\)/)?.[1] ?? "";
+    const vue = derniereDefinitionDeLaVue()
+      .match(/array_position\(\s*array\[([\s\S]*?)\]::text\[\],/)?.[1] ?? "";
+    expect(valeursCitees(vue)).toEqual(valeursCitees(contrainte));
+    expect(valeursCitees(vue), "vingt et un rayons").toHaveLength(21);
   });
 });
 
@@ -181,14 +219,23 @@ describe("l'ordre des rayons : trois listes qui doivent rester jumelles", () => 
      */
     const { CATEGORIES_ARTICLE } = await import("@/src/lib/boutiqueLogique");
     const sql = migrationDe("articles_categorie_check");
-    const lire = (t: string) => (t.match(/'([^']+)'/g) ?? []).map((v) => v.replace(/'/g, ""));
+    const lire = valeursCitees;
 
     const contrainte = lire(
-      sql.match(/articles_categorie_check check \(\s*categorie = any \(array\[([\s\S]*?)\]::text\[\]\)/)?.[1] ?? "");
-    const vue = lire(sql.match(/array_position\(\s*array\[([\s\S]*?)\]::text\[\],/)?.[1] ?? "");
+      sql.match(/articles_categorie_check\s+check\s*\(\s*categorie = any \(array\[([\s\S]*?)\]::text\[\]\)/)?.[1] ?? "");
+    /*
+     * LA VUE SE LIT DANS SA DERNIÈRE DÉFINITION, pas dans la migration de la
+     * contrainte (APP 34).
+     *
+     * Les deux ont longtemps vécu dans le même fichier. Depuis qu'une migration
+     * peut redéfinir la vue seule, chercher le tableau ici comparerait une
+     * version périmée — et le jour où les deux divergeraient, ce test resterait
+     * vert pour de mauvaises raisons.
+     */
+    const vue = lire(derniereDefinitionDeLaVue().match(/array_position\(\s*array\[([\s\S]*?)\]::text\[\],/)?.[1] ?? "");
     const cotesTypeScript = CATEGORIES_ARTICLE.map((c) => c.valeur);
 
-    expect(contrainte, "la contrainte doit lister 19 rayons").toHaveLength(19);
+    expect(contrainte, "la contrainte doit lister 21 rayons").toHaveLength(21);
     expect(vue, "vue vs contrainte").toEqual(contrainte);
     expect(cotesTypeScript, "module vs contrainte — même ordre, pas seulement mêmes valeurs")
       .toEqual(contrainte);

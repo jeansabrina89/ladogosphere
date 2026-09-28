@@ -20,6 +20,7 @@ export type CategorieArticle =
   | "alimentation_complete"
   | "friandises"
   | "mastication"
+  | "complements"
   | "litiere"
   | "colliers"
   | "laisses"
@@ -30,6 +31,7 @@ export type CategorieArticle =
   | "peluches"
   | "griffoirs"
   | "couchages"
+  | "gamelles"
   | "cages_enclos"
   | "soins"
   | "medaillons_accessoires"
@@ -60,6 +62,19 @@ export const CATEGORIES_ARTICLE: {
   // les snacks du rongeur. Un rayon de plus les aurait séparés sans raison.
   { valeur: "friandises",   libelle: "Friandises et snacks",   taux: TAUX_REDUIT, perissable: true },
   { valeur: "mastication",  libelle: "Mastication",  taux: TAUX_REDUIT, perissable: true },
+  /*
+   * APP 34 : ce qui se donne EN PLUS du repas — herbes, poudres, huiles,
+   * levure, gélatine, flocons à mélanger.
+   *
+   * Juste après la mastication, et surtout PAS à côté d'« Alimentation
+   * complète » : celle-ci est un repas entier (granulés, foin des NAC). Le
+   * voisinage aurait entretenu la confusion que ce rayon vient lever.
+   *
+   * 2,6 % : c'est de l'aliment pour animaux, comme le reste de la nourriture.
+   * Périssable : une huile rancit, une levure se périme — la date se demande à
+   * l'entrée en stock.
+   */
+  { valeur: "complements",  libelle: "Compléments alimentaires", taux: TAUX_REDUIT, perissable: true },
   { valeur: "litiere",      libelle: "Litière",      taux: TAUX_REDUIT, perissable: false },
   { valeur: "colliers",     libelle: "Colliers",     taux: TAUX_NORMAL, perissable: false },
   { valeur: "laisses",      libelle: "Laisses",      taux: TAUX_NORMAL, perissable: false },
@@ -72,6 +87,14 @@ export const CATEGORIES_ARTICLE: {
   { valeur: "griffoirs",    libelle: "Griffoirs",    taux: TAUX_NORMAL, perissable: false },
   // « coussins et paniers » depuis APP 27 : un panier de chat est un couchage.
   { valeur: "couchages",    libelle: "Couchages, coussins et paniers", taux: TAUX_NORMAL, perissable: false },
+  /*
+   * APP 34 : écuelles et gamelles anti-glouton. Juste après les couchages —
+   * l'équipement du coin repas suit celui du coin dodo.
+   *
+   * 8,1 % : un objet, pas un aliment. Ce qu'on mange DANS une gamelle est à
+   * 2,6 %, la gamelle elle-même non.
+   */
+  { valeur: "gamelles",     libelle: "Gamelles", taux: TAUX_NORMAL, perissable: false },
   // APP 27 : l'habitat, donc juste après le couchage.
   { valeur: "cages_enclos", libelle: "Cages et enclos", taux: TAUX_NORMAL, perissable: false },
   /*

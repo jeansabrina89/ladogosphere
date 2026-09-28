@@ -269,12 +269,28 @@ describe("APP 27 : le délai ne sort que s'il est promis", () => {
     const sql = sqlVue();
     const condition = "a.disponible_sur_commande and d.max_jours is not null";
 
+    /*
+     * LE SQL EST NORMALISÉ D'ABORD (APP 34) : parenthèses retirées, espaces
+     * réduits, `else null` — qui est le défaut de SQL — écarté.
+     *
+     * Ce test gardait l'ORTHOGRAPHE d'une définition écrite à la main. Une
+     * définition reprise de `pg_get_viewdef`, ce que demandent les briefs qui
+     * touchent à la vue, écrit les mêmes choses autrement — et le test rougissait
+     * pour une mise en page. Ce qu'il doit garder, c'est que les TROIS colonnes
+     * portent la MÊME condition.
+     */
+    const plat = sql
+      .replace(/[()]/g, "")
+      .replace(/\selse null\s/gi, " ")
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+
     // `sur_commande` la porte, et les deux délais aussi.
-    expect(sql).toContain(`${condition} as sur_commande`);
+    expect(plat).toContain(`${condition} as sur_commande`);
     for (const colonne of ["delai_commande_min_jours", "delai_commande_max_jours"]) {
       const champ = colonne.replace("delai_commande_", "").replace("_jours", "");
-      expect(sql, `${colonne} doit être conditionnée`).toContain(
-        `case when ${condition}\n       then d.${champ}_jours end as ${colonne}`,
+      expect(plat, `${colonne} doit être conditionnée`).toContain(
+        `case when ${condition} then d.${champ}_jours end as ${colonne}`,
       );
     }
 

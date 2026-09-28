@@ -379,12 +379,30 @@ const PAR_CATEGORIE: Record<string, (GroupeEtiquette | "taille_article" | ChampC
   alimentation_complete: ALIMENT,
   friandises: ALIMENT,
   mastication: ALIMENT,
+  /*
+   * APP 34. PAS `ALIMENT` : un complément n'a ni goût ni « Contient » au sens
+   * où une croquette en a. On ne demande pas la protéine d'une huile de saumon
+   * — la réponse serait « saumon », et elle n'apprendrait rien.
+   *
+   * Restent les trois qui servent vraiment à choisir : pour quel âge, pour quel
+   * besoin, pour quelle taille de chien. Les deux cases (sans céréales,
+   * monoprotéine) n'y sont pas non plus : elles qualifient une ration complète,
+   * pas ce qu'on ajoute par-dessus.
+   */
+  complements: ["ages", "besoins", "tailles_chien"],
   colliers: EQUIPEMENT,
   laisses: EQUIPEMENT,
   harnais: EQUIPEMENT,
   muselieres: EQUIPEMENT,
   longes: EQUIPEMENT,
   couchages: EQUIPEMENT,
+  /*
+   * APP 34 : exactement l'équipement — taille du chien, taille de l'article,
+   * couleur, matière. La matière compte plus ici qu'ailleurs : inox, céramique
+   * et plastique ne se valent pas pour une gamelle, et c'est souvent par là
+   * qu'on choisit.
+   */
+  gamelles: EQUIPEMENT,
   jouets: ["tailles_chien", "matieres", "usages_jouet"],
   peluches: ["tailles_chien", "matieres", "usages_jouet"],
   /* APP 27. Un griffoir, une cage : un objet qui a une taille, une couleur et
