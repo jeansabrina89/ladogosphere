@@ -7,6 +7,8 @@ import {
   type StatutCommandeLigne,
 } from "@/src/lib/venteEnLigneLogique";
 import { publierCeQuiEstDu } from "@/src/lib/publicationArticle";
+import { animauxOuvertsEnLigne } from "@/src/lib/animauxEnLigne";
+import { animauxOuvertsDeLArticle } from "@/src/lib/animauxEnLigneLogique";
 
 /**
  * Vente en ligne — couche base. Elle ne décide rien : les règles viennent de
@@ -232,8 +234,22 @@ function avecDisponible(a: Record<string, unknown>): ArticleEnLigne {
 const FILTRE_PUBLICATION = () =>
   `date_publication.is.null,date_publication.lte.${new Date().toISOString()}`;
 
+/**
+ * APP 48 — les animaux fermés ne quittent pas la base.
+ *
+ * `overlaps` est le `&&` de Postgres : au moins un animal en commun avec la
+ * liste ouverte. Le filtre est dans la REQUÊTE, pas à l'affichage — c'est la
+ * même règle que pour un brouillon : ce qu'un client n'a pas à voir ne doit pas
+ * sortir. Et la colonne `animaux` rendue est réduite aux ouverts, sans quoi
+ * l'onglet d'un animal fermé renaîtrait d'un article qui porte les deux.
+ */
+function reduireAuxOuverts(a: Record<string, unknown>, ouverts: string[]): Record<string, unknown> {
+  return { ...a, animaux: animauxOuvertsDeLArticle(a.animaux as string[] | null, ouverts) };
+}
+
 export async function catalogueEnLigne(): Promise<ArticleEnLigne[]> {
   await publierCeQuiEstDu();
+  const ouverts = await animauxOuvertsEnLigne();
   const { data } = await supabaseAdmin
     .from("articles")
     .select(COLONNES_ARTICLE)
@@ -241,15 +257,18 @@ export async function catalogueEnLigne(): Promise<ArticleEnLigne[]> {
     .eq("vendable_en_ligne", true)
     .eq("composant", false)
     .eq("statut_vitrine", "publie")
+    .overlaps("animaux", ouverts)
     .or(FILTRE_PUBLICATION())
     .order("nom");
-  const articles = ((data ?? []) as unknown as Record<string, unknown>[]).map(avecDisponible);
+  const articles = ((data ?? []) as unknown as Record<string, unknown>[])
+    .map((a) => avecDisponible(reduireAuxOuverts(a, ouverts)));
   const delais = await delaisSurCommande(articles.map((a) => a.id));
   return articles.map((a) => ({ ...a, ...(delais.get(a.id) ?? {}) }));
 }
 
 export async function articleEnLigne(id: string): Promise<ArticleEnLigne | null> {
   await publierCeQuiEstDu();
+  const ouverts = await animauxOuvertsEnLigne();
   const { data } = await supabaseAdmin
     .from("articles")
     .select(COLONNES_ARTICLE)
@@ -258,10 +277,11 @@ export async function articleEnLigne(id: string): Promise<ArticleEnLigne | null>
     .eq("vendable_en_ligne", true)
     .eq("composant", false)
     .eq("statut_vitrine", "publie")
+    .overlaps("animaux", ouverts)
     .or(FILTRE_PUBLICATION())
     .maybeSingle();
   if (!data) return null;
-  const article = avecDisponible(data as unknown as Record<string, unknown>);
+  const article = avecDisponible(reduireAuxOuverts(data as unknown as Record<string, unknown>, ouverts));
   return { ...article, ...((await delaisSurCommande([article.id])).get(article.id) ?? {}) };
 }
 

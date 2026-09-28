@@ -5,6 +5,7 @@ import { remiseLigne as remiseLigneFigee } from "@/src/lib/prixLogique";
 import { estMembreActif } from "@/src/lib/membre";
 import { lireCatalogueOptions } from "@/src/lib/personnalisation";
 import type { ArticleCatalogue, Catalogue } from "./revaliderLigne";
+import { animauxOuvertsEnLigne } from "@/src/lib/animauxEnLigne";
 
 /**
  * Le catalogue dont la revalidation a besoin, chargé d'un coup.
@@ -55,6 +56,13 @@ export async function chargerCatalogue(
       .eq("vendable_en_ligne", true)
       .eq("composant", false)
       .eq("statut_vitrine", "publie")
+      /*
+       * APP 48 — un animal fermé en ligne sort du catalogue du panier, donc de
+       * la revalidation : une ligne déjà posée devient « n'est plus proposé »
+       * et bloque la confirmation, exactement comme un article dépublié. Le
+       * mécanisme existait ; il suffisait que l'article n'y soit plus.
+       */
+      .overlaps("animaux", await animauxOuvertsEnLigne())
       .or(FILTRE_PUBLICATION()),
     contextePrix(),
     clientId ? estMembreActif(supabaseAdmin, clientId) : Promise.resolve(false),

@@ -12,6 +12,13 @@ import {
   type PalierPort,
 } from "@/src/lib/venteEnLigneLogique";
 import { formatPrixClient } from "@/src/lib/prixClient";
+import { libelleValeur } from "@/src/lib/etiquettesArticles";
+import {
+  CLE_ANIMAUX_EN_LIGNE,
+  TOUS_LES_ANIMAUX,
+  lireAnimauxOuverts,
+  validerAnimauxOuverts,
+} from "@/src/lib/animauxEnLigneLogique";
 
 /** La clé du seuil de livraison offerte dans parametres. */
 const CLE_FRANCO_PORT = "franco_port_des";
@@ -142,5 +149,64 @@ export async function enregistrerGrillePort(formData: FormData): Promise<RetourG
     message: `Grille enregistrée : ${saisie.paliers
       .map((p) => `jusqu'à ${formatPoids(p.jusqu_a_grammes)} → ${p.prix.toFixed(2)}`)
       .join(" · ")}. Colis de ${formatPoids(saisie.poidsMaxGrammes)} au plus. Les commandes déjà confirmées ne changent pas.`,
+  };
+}
+
+export type RetourAnimaux = { error?: string; message?: string };
+
+/**
+ * Réglages → Boutique : « Animaux vendus en ligne ».
+ *
+ * Décocher un animal le retire du site ET de l'application — son onglet, ses
+ * articles, ses filtres. Rien ne bouge au comptoir : la caisse, l'inventaire et
+ * la liste d'administration continuent de voir ces articles, qui se vendent
+ * toujours en magasin.
+ *
+ * Réservé à l'administratrice, comme les autres réglages : c'est une décision
+ * commerciale, et elle vide une partie de la vitrine.
+ *
+ * Aucune donnée d'article n'est touchée : un animal refermé rouvre à l'identique.
+ */
+export async function enregistrerAnimauxEnLigne(formData: FormData): Promise<RetourAnimaux> {
+  const acces = await verifierAdmin();
+  if (acces.error) return { error: "Réservé à l'administratrice." };
+
+  const saisie = validerAnimauxOuverts(formData.getAll("animaux").map(String));
+  if (!saisie.ok) return { error: saisie.message };
+
+  const { data: avant } = await supabaseAdmin
+    .from("parametres").select("valeur").eq("cle", CLE_ANIMAUX_EN_LIGNE).maybeSingle();
+
+  const { data: ligne, error } = await supabaseAdmin
+    .from("parametres")
+    .upsert(
+      { cle: CLE_ANIMAUX_EN_LIGNE, valeur: saisie.valeur, updated_at: new Date().toISOString() },
+      { onConflict: "cle" },
+    )
+    .select("id")
+    .single();
+  if (error || !ligne) return { error: error?.message ?? "Enregistrement impossible." };
+
+  await tracerEvenement({
+    entite: "parametre",
+    entiteId: ligne.id as string,
+    evenement: CLE_ANIMAUX_EN_LIGNE,
+    // Les listes, pas la chaîne brute : le journal se relit à l'œil.
+    avant: { animaux: lireAnimauxOuverts((avant?.valeur as string | null) ?? null) },
+    apres: { animaux: saisie.animaux },
+    userId: acces.userId ?? null,
+  });
+
+  revalidatePath("/reglages/boutique");
+  revalidatePath("/catalogue");
+  revalidatePath("/catalogue/panier");
+
+  const fermes = TOUS_LES_ANIMAUX.filter((a) => !saisie.animaux.includes(a));
+  return {
+    message: fermes.length === 0
+      ? "Tous les animaux sont vendus en ligne."
+      : `En ligne : ${saisie.animaux.map((a) => libelleValeur("animaux", a)).join(", ")}. `
+        + `Retirés de la boutique en ligne : ${fermes.map((a) => libelleValeur("animaux", a)).join(", ")} — `
+        + "leurs articles restent vendables au comptoir.",
   };
 }

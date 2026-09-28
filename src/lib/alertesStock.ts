@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { urlPhotoArticle } from "@/src/lib/boutiqueLogique";
 import { envoyerEmailRetourEnStock } from "@/src/lib/email";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { animauxOuvertsEnLigne } from "@/src/lib/animauxEnLigne";
+import { articleOuvertEnLigne } from "@/src/lib/animauxEnLigneLogique";
 import {
   disponibleDe,
   estRetourEnStock,
@@ -199,10 +201,22 @@ export async function notifierRetourEnStock(articleId: string): Promise<Resultat
   try {
     const { data: article } = await supabaseAdmin
       .from("articles")
-      .select("id, nom, prix_vente, photo_path")
+      .select("id, nom, prix_vente, photo_path, animaux")
       .eq("id", articleId)
       .maybeSingle();
     if (!article) return resultat;
+
+    /*
+     * APP 48 — l'alerte ne part pas pour un animal fermé en ligne.
+     *
+     * L'e-mail dit « l'article que vous attendiez est revenu » et renvoie vers
+     * sa fiche. Fermée, cette fiche n'existe plus : on enverrait une personne
+     * vers une page introuvable pour lui annoncer une bonne nouvelle. Les
+     * lignes d'alerte restent en attente — elles repartiront si l'animal
+     * rouvre, ce qui est exactement ce qu'on veut.
+     */
+    const ouverts = await animauxOuvertsEnLigne();
+    if (!articleOuvertEnLigne(article.animaux as string[] | null, ouverts)) return resultat;
 
     const { data: lignes } = await supabaseAdmin
       .from("alertes_stock")
