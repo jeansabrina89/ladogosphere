@@ -14,7 +14,14 @@ import { join } from "node:path";
  * ailleurs qu'au dépôt commun. Il échouera en nommant le fichier fautif.
  */
 
-const RACINES = ["app", "src"];
+/**
+ * `scripts` a été ajouté le 28.09.2026 (APP 35 bis).
+ *
+ * Le balayage s'arrêtait à `app` et `src` : un script d'import déposait donc
+ * dans le bucket sans que ce test le voie. Un garde-fou qui ne regarde pas
+ * partout où l'on écrit donne surtout l'impression d'être gardé.
+ */
+const RACINES = ["app", "src", "scripts"];
 
 /**
  * Les envois autorisés. **Un seul**, et c'est le but : la liste des exceptions
@@ -27,6 +34,22 @@ const RACINES = ["app", "src"];
  */
 const ENVOIS_CONNUS: Record<string, string> = {
   "src/lib/depotImage.ts": "LE passage obligé — deposerImage() et deposerDocument()",
+  /**
+   * APP 35 — import des photos Eric Schweizer, script à USAGE UNIQUE.
+   *
+   * Il ne pouvait pas emprunter le passage obligé : `deposerImage()` importe
+   * `@/src/lib/supabase-admin`, et l'alias `@/` n'existe qu'au build — node ne
+   * le résout pas. Il a donc son propre envoi.
+   *
+   * Ce que le passage obligé protège tient quand même : les octets déposés
+   * sortent de `convertirEnWebp(…, FORMAT_ARTICLE)` de `src/lib/imageBoutique`,
+   * importé tel quel, qui redimensionne ET jette les métadonnées. Rien de brut
+   * ne part. Vérifié par le test ci-dessous, qui relit le script.
+   *
+   * Cette ligne se retire le jour où le script n'a plus de raison d'exister.
+   */
+  "scripts/import-photos-schweizer.mjs":
+    "Script à usage unique — convertit par convertirEnWebp() avant de déposer",
 };
 
 function fichiersSources(dossier: string, trouves: string[] = []): string[] {
@@ -34,7 +57,9 @@ function fichiersSources(dossier: string, trouves: string[] = []): string[] {
     if (entree === "node_modules" || entree === ".next") continue;
     const chemin = join(dossier, entree);
     if (statSync(chemin).isDirectory()) fichiersSources(chemin, trouves);
-    else if (/\.(ts|tsx)$/.test(entree)) trouves.push(chemin);
+    // `.mjs` et `.js` aussi : les scripts du dépôt n'ont pas d'autre forme, et
+    // c'est justement là que le balayage ne regardait pas.
+    else if (/\.(ts|tsx|mjs|js)$/.test(entree)) trouves.push(chemin);
   }
   return trouves;
 }
@@ -69,8 +94,34 @@ describe("le dépôt d'image est un passage obligé", () => {
     }
   });
 
-  it("le garde-fou ne tolère plus aucune exception", () => {
-    expect(Object.keys(ENVOIS_CONNUS)).toEqual(["src/lib/depotImage.ts"]);
+  it("la liste des exceptions est CELLE-CI, et elle ne grandit pas toute seule", () => {
+    /**
+     * Elle avait été vidée le 23.09.2026 et tenait à une seule ligne. La
+     * seconde est un script d'usage unique (APP 35) qui ne peut pas importer
+     * le passage obligé. Figer la liste ici oblige à écrire la raison dans le
+     * même geste qu'on l'allonge.
+     */
+    expect(Object.keys(ENVOIS_CONNUS).sort()).toEqual([
+      "scripts/import-photos-schweizer.mjs",
+      "src/lib/depotImage.ts",
+    ]);
+  });
+
+  it("le script qui dépose lui-même convertit AVANT, par la fonction de l'app", () => {
+    /**
+     * C'est la raison écrite de son exception, et une raison qui ne se vérifie
+     * pas est une raison qu'on finit par recopier ailleurs. S'il déposait les
+     * octets reçus du fournisseur, il publierait ce que l'app refuse.
+     */
+    const source = readFileSync(
+      join(process.cwd(), "scripts/import-photos-schweizer.mjs"),
+      "utf8",
+    );
+    expect(source, "il importe la conversion de l'app").toMatch(
+      /import\s*\{[\s\S]*?convertirEnWebp[\s\S]*?\}\s*from\s*["'][^"']*imageBoutique\.ts["']/,
+    );
+    // Ce qui part au bucket est le produit de la conversion, jamais les octets reçus.
+    expect(source).toMatch(/\.upload\(\s*chemin,\s*conversion\.octets/);
   });
 
   it("chaque chemin d'entrée passe par le dépôt commun", () => {

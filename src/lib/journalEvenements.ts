@@ -258,6 +258,10 @@ const LIBELLES: Record<string, string> = {
   // une cliente où en est sa commande.
   commande_au_fournisseur: "Commandé chez le fournisseur",
   reception_marchandise: "Marchandise reçue et réservée pour les commandes en attente",
+  // APP 35 : l'import des photos d'un fournisseur (scripts/import-photos-*).
+  // L'entité reste `parametre` : le geste ne concerne aucun article en
+  // particulier, et `article` ferait pointer l'écran vers une fiche absente.
+  import_photos_fournisseur: "Photos importées depuis un fournisseur",
   promotion_creee: "Rubrique créée",
   promotion_modifiee: "Rubrique modifiée",
   promotion_desactivee: "Rubrique désactivée",

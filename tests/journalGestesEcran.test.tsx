@@ -293,6 +293,21 @@ describe("les libellés, et ce qui n'en a pas encore", () => {
     expect(libelleEvenement("vente", "vente")).toBe("Vente encaissée");
     expect(libelleEvenement("retour", "vente")).toBe("Retour de caisse");
   });
+
+  it("l'import des photos d'un fournisseur est nommé, et sous son entité", () => {
+    /**
+     * APP 35 l'avait laissé au repli — « Autre geste :
+     * import_photos_fournisseur ». APP 35 bis le nomme.
+     *
+     * L'entité reste `parametre` : le geste ne concerne aucun article en
+     * particulier, et `article` ferait pointer l'écran vers une fiche absente.
+     * Le libellé est donc vérifié SOUS cette entité, celle que le script écrit.
+     */
+    expect(aUnLibelle("import_photos_fournisseur", "parametre")).toBe(true);
+    expect(libelleEvenement("import_photos_fournisseur", "parametre")).toBe(
+      "Photos importées depuis un fournisseur",
+    );
+  });
 });
 
 // ── Les champs sensibles ───────────────────────────────────────────────────
