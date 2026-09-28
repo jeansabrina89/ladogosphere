@@ -45,6 +45,14 @@ export default async function ReglagesPage() {
             titre="🧾 TVA"
             note="Régime d'assujettissement, méthode de décompte, taux de dette fiscale nette et taux facturés par catégorie d'articles."
           />
+          {/* APP 33. Il n'a rien à régler : c'est le seul raccourci de cet
+              écran qui mène à une LECTURE. Il est ici quand même, parce que
+              c'est ici qu'on cherche « qui a fait ça ». */}
+          <Raccourci
+            href="/reglages/journal"
+            titre="📓 Journal des gestes"
+            note="Qui a fait quoi, et quand. Toutes les traces de l'application, filtrables par période, par personne et par type. Lecture seule."
+          />
         </div>
 
         <section style={{ marginTop: 28, minWidth: 0 }}>

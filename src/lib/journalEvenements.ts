@@ -351,8 +351,29 @@ const LIBELLES_PAR_ENTITE: Record<string, Record<string, string>> = {
   },
 };
 
+/**
+ * Y a-t-il un libellé français pour ce geste ?
+ *
+ * L'écran « Journal des gestes » (APP 33) s'en sert pour son repli, et un test
+ * s'en sert pour LISTER ce qui n'en a pas encore. Sans cette distinction, un
+ * événement sans libellé s'afficherait sous son nom technique et personne ne le
+ * remarquerait — c'est ainsi qu'on finit par lire « alerte_renvoyee » pendant
+ * deux ans.
+ */
+export function aUnLibelle(evenement: string, entite?: string | null): boolean {
+  return (entite ? LIBELLES_PAR_ENTITE[entite]?.[evenement] : undefined) !== undefined
+    || LIBELLES[evenement] !== undefined;
+}
+
+/**
+ * Le libellé d'un geste, et son REPLI quand il n'en a pas.
+ *
+ * Le repli est lisible et il se voit : « Autre geste : alerte_renvoyee » dit à
+ * la fois ce qui s'est passé et qu'il manque un mot. Rendre le nom technique nu
+ * — ce que faisait cette fonction — le faisait passer pour un libellé.
+ */
 export function libelleEvenement(evenement: string, entite?: string | null): string {
   return (entite ? LIBELLES_PAR_ENTITE[entite]?.[evenement] : undefined)
     ?? LIBELLES[evenement]
-    ?? evenement;
+    ?? `Autre geste : ${evenement}`;
 }

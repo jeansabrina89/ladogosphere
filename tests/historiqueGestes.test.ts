@@ -104,7 +104,10 @@ describe("les libellés des gestes", () => {
     expect(libelleEvenement("annulation", "depense")).toBe("Annulée par contre-écriture");
     expect(libelleEvenement("depart", "reservation")).toBe("Départ");
     expect(libelleEvenement("paiement", "paiement")).toBe("Encaissement");
-    expect(libelleEvenement("code_inconnu", "reservation")).toBe("code_inconnu");
+    // APP 33 : le repli est DIT, il ne se fait plus passer pour un libelle.
+    // Rendre le nom technique nu le laissait lire comme du francais, et
+    // personne ne remarquait qu il manquait un mot.
+    expect(libelleEvenement("code_inconnu", "reservation")).toBe("Autre geste : code_inconnu");
   });
 });
 
