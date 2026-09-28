@@ -38,6 +38,7 @@
  *   node scripts/import-photos-schweizer.mjs --essai            (rien n'est écrit)
  *   node scripts/import-photos-schweizer.mjs --limite 3
  *   node scripts/import-photos-schweizer.mjs
+ *   node scripts/import-photos-schweizer.mjs --fichier "Claude outputs/autre.txt"
  */
 
 import { readFileSync } from "node:fs";
@@ -49,7 +50,16 @@ import {
   FORMAT_ARTICLE,
 } from "../src/lib/imageBoutique.ts";
 
-const FICHIER = "Claude outputs/photos-schweizer-chiens.txt";
+/**
+ * Le fichier des chiens reste le défaut (APP 35).
+ *
+ * `--fichier <chemin>` sert les lots suivants — chats, rongeurs, oiseaux,
+ * faune (APP 45) — sans que rien ne change pour qui relance le premier. Le
+ * défaut est gardé plutôt que rendu obligatoire : une option qu'on peut
+ * oublier vaut mieux qu'un argument qu'on peut se tromper d'écrire, et le
+ * script est déjà relançable sans effet.
+ */
+const FICHIER_PAR_DEFAUT = "Claude outputs/photos-schweizer-chiens.txt";
 const FOURNISSEUR = "Eric Schweizer";
 const URL_IMAGE = (id) =>
   `https://pet.ericschweizer.ch/userdata/dcshop/images/normal/${id}.png`;
@@ -64,6 +74,18 @@ const ESSAI = args.includes("--essai");
 const LIMITE = (() => {
   const i = args.indexOf("--limite");
   return i >= 0 ? Number(args[i + 1]) : Infinity;
+})();
+const FICHIER = (() => {
+  const i = args.indexOf("--fichier");
+  if (i < 0) return FICHIER_PAR_DEFAUT;
+  const chemin = args[i + 1];
+  // Un `--fichier` sans chemin reprendrait le défaut en silence, et l'on
+  // croirait avoir traité un lot qu'on n'a pas ouvert.
+  if (!chemin || chemin.startsWith("--")) {
+    console.error("--fichier attend un chemin.");
+    process.exit(1);
+  }
+  return chemin;
 })();
 
 const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -271,7 +293,10 @@ async function principal() {
     if (cibles.length > 0) aFaire.push({ photo, cibles });
   }
 
-  console.log(`Fichier      : ${photos.length} photos, ${toutesRefs.length} références`);
+  // Le chemin est DIT : avec deux fichiers, la seule erreur possible est de
+  // croire qu'on traite l'un quand on traite l'autre.
+  console.log(`Fichier      : ${FICHIER}`);
+  console.log(`Contenu      : ${photos.length} photos, ${toutesRefs.length} références`);
   console.log(`À traiter    : ${aFaire.length} photos, ${aFaire.reduce((n, x) => n + x.cibles.length, 0)} articles`);
   if (introuvables.length) console.log(`Introuvables : ${introuvables.length} (${introuvables.slice(0, 10).join(", ")}${introuvables.length > 10 ? "…" : ""})`);
   if (autreFournisseur.length) console.log(`Autre fournisseur : ${autreFournisseur.length}`);
