@@ -78,7 +78,7 @@ export default function FormModifierClient({
         <input type="checkbox" name="membre" id="membre"
                defaultChecked={caseCochee(v, "membre", !!client.membre)} />
         <label htmlFor="membre" className="font-semibold">
-          ⭐ Membre (tarifs préférentiels)
+          ⭐ Membre
         </label>
       </div>
 

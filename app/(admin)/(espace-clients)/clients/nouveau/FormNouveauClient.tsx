@@ -66,7 +66,7 @@ export default function FormNouveauClient() {
         <label htmlFor="membre" className="flex items-center gap-2 font-semibold">
           <input type="checkbox" name="membre" id="membre"
                  defaultChecked={caseCochee(v, "membre", false)} />
-          ⭐ Membre (tarifs préférentiels)
+          ⭐ Membre
         </label>
       </div>
 
