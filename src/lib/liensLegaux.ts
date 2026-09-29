@@ -42,7 +42,7 @@ export const LIEN_CONDITIONS_VENTE = "https://ladogosphere.ch/conditions-vente";
  * Relevées sur le site le 29.09.2026.
  */
 export const VERSION_CONDITIONS_PENSION = "2026-09-29";
-export const VERSION_CONDITIONS_VENTE = "2026-09-28";
+export const VERSION_CONDITIONS_VENTE = "2026-09-29";
 
 /**
  * Ce que tout lien sortant doit porter.
