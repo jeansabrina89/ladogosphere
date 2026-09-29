@@ -19,7 +19,7 @@ import type { ModeReglementVente } from "@/src/lib/caisseLogique";
  * transaction que la libération de la réservation. Rien n'est refait ici.
  */
 
-export type Retour = { error?: string; message?: string; venteId?: string };
+export type Retour = { error?: string; message?: string; venteId?: string; avertissement?: string };
 
 async function garde(): Promise<{ userId?: string; erreur?: string }> {
   const verif = await verifierPermissionBoutique("vente");
@@ -221,6 +221,17 @@ export async function enregistrerNumeroSuivi(
  * Annulation d'une commande non remise : motif obligatoire, réservation de
  * stock libérée. Une facture déjà émise s'annule par AVOIR — jamais en la
  * supprimant : elle est numérotée, elle est partie chez le client.
+ *
+ * L'atelier suit la commande TANT QUE RIEN N'EST FABRIQUÉ. C'est la fonction
+ * SQL qui s'en charge, dans la même transaction que l'annulation :
+ * « attente_paiement » et « a_faire » passent à « annulee », « en_cours » et
+ * « prete » restent ouvertes — leurs fournitures sont déjà sorties du stock,
+ * et rien ici ne saurait les rendre.
+ *
+ * Avant APP 51, cette boucle vivait ICI et n'avait AUCUN filtre de statut :
+ * elle annulait jusqu'à la pièce prête, hors transaction, sans rendre la
+ * matière. Une commande annulée d'un clic pouvait donc effacer un travail
+ * déjà fait, et l'inventaire restait faux sans que personne le voie.
  */
 export async function annulerCommande(commandeId: string, motif: string): Promise<Retour> {
   const g = await garde();
@@ -246,15 +257,26 @@ export async function annulerCommande(commandeId: string, motif: string): Promis
     };
   }
 
-  // La commande d'atelier attachée n'a plus lieu d'être non plus.
+  // Ce qui reste ouvert à l'atelier : la fabrication a commencé, et personne
+  // ne peut le deviner depuis cet écran. On le nomme plutôt que de le taire.
   const lignes = await lignesDeCommande(commandeId);
-  for (const l of lignes) {
-    if (!l.commande_personnalisee_id) continue;
-    await supabaseAdmin.rpc("changer_statut_commande", {
-      p_commande_id: l.commande_personnalisee_id,
-      p_statut: "annulee",
-      p_user_id: g.userId ?? null,
-    });
+  const ateliers = lignes
+    .map((l) => l.commande_personnalisee_id)
+    .filter((id): id is string => !!id);
+
+  let alerte = "";
+  if (ateliers.length > 0) {
+    const { data } = await supabaseAdmin
+      .from("commandes_personnalisees")
+      .select("numero")
+      .in("id", ateliers)
+      .in("statut", ["en_cours", "prete"]);
+    const numeros = (data ?? []).map((c) => c.numero).filter(Boolean);
+    if (numeros.length > 0) {
+      alerte =
+        `Commande annulée. La fabrication de la commande d'atelier n° ${numeros.join(", ")}` +
+        " a déjà commencé : elle reste ouverte, à régler à la main.";
+    }
   }
 
   let note = "";
@@ -266,7 +288,10 @@ export async function annulerCommande(commandeId: string, motif: string): Promis
   }
 
   rafraichir(commandeId);
-  return { message: `Commande annulée, stock libéré.${note}` };
+  return {
+    message: `Commande annulée, stock libéré.${note}`,
+    ...(alerte ? { avertissement: alerte } : {}),
+  };
 }
 
 /**

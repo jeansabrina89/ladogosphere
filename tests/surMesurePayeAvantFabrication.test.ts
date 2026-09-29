@@ -405,12 +405,30 @@ describe("au comptoir, RIEN ne change", () => {
 
 // ── L'annulation ───────────────────────────────────────────────────────────
 
-describe("annuler la commande annule l'atelier qui n'a pas commencé", () => {
-  it("l'annulation en ligne emporte les commandes en attente", () => {
+/**
+ * ── LA PORTÉE A DÉMÉNAGÉ (APP 51) ─────────────────────────────────────────
+ *
+ * Ce bloc affirmait que l'annulation n'emportait QUE « attente_paiement » —
+ * et il le lisait dans la migration d'APP 38, par son nom de fichier. C'était
+ * vrai le jour où il a été écrit, et c'est resté vrai de ce FICHIER-LÀ pour
+ * toujours : APP 51 a élargi la règle à « a_faire » dans une migration
+ * suivante, sans que rien ici ne bronche.
+ *
+ * Un test qui vise un fichier de migration par son nom ne garde donc pas une
+ * règle : il garde une archive. La règle vivante — quels statuts sont
+ * emportés, lesquels restent, et pourquoi — est gardée par
+ * `tests/annulationEmporteAtelier.test.ts`, qui relit la DERNIÈRE définition
+ * de la fonction, quelle que soit la migration qui la porte.
+ *
+ * Ce qui reste ici est ce qu'APP 38 a réellement établi et qui ne bouge pas :
+ * l'annulation d'une commande en ligne touche à l'atelier, et elle le dit au
+ * journal des gestes.
+ */
+describe("APP 38 : l'annulation touche à l'atelier, et le journal l'enregistre", () => {
+  it("la fonction d'annulation lit bien les commandes d'atelier liées", () => {
     const sql = migrationApp38();
     const bloc = sql.slice(sql.indexOf("function public.annuler_commande_en_ligne"));
-    expect(bloc).toMatch(/cp\.statut = 'attente_paiement'/);
-    expect(bloc).toMatch(/set statut = 'annulee'\s+where id = r\.id and statut = 'attente_paiement'/);
+    expect(bloc).toMatch(/join public\.commandes_personnalisees cp on cp\.id = cl\.commande_personnalisee_id/);
   });
 
   it("et elle le dit au journal, comme tout changement de statut", () => {

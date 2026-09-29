@@ -21,6 +21,7 @@ const MARINE = "#1B2B5E";
 const SOUS = "rgba(27,43,94,0.55)";
 const VERT = "#1F6E5B";
 const GRENAT = "#8A1F1F";
+const OR = "#8A6A1F";
 const BORDURE = "1px solid rgba(27,43,94,0.14)";
 const CIBLE = 44;
 
@@ -71,6 +72,7 @@ export default function CarteCommandeEnLigne({ commande }: { commande: CommandeA
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [avis, setAvis] = useState<string | null>(null);
+  const [alerte, setAlerte] = useState<string | null>(null);
   const [mode, setMode] = useState("especes");
   const [suivi, setSuivi] = useState(commande.numero_suivi ?? "");
   const [ouvert, setOuvert] = useState(false);
@@ -80,12 +82,15 @@ export default function CarteCommandeEnLigne({ commande }: { commande: CommandeA
   const close = commande.statut === "remise" || commande.statut === "expediee"
     || commande.statut === "annulee";
 
-  async function agir(action: Promise<{ error?: string; message?: string }>) {
+  async function agir(
+    action: Promise<{ error?: string; message?: string; avertissement?: string }>,
+  ) {
     setEnCours(true);
     const res = await action;
     setEnCours(false);
     setErreur(res.error ?? null);
     setAvis(res.error ? null : res.message ?? null);
+    setAlerte(res.error ? null : res.avertissement ?? null);
     if (!res.error) router.refresh();
   }
 
@@ -154,6 +159,14 @@ export default function CarteCommandeEnLigne({ commande }: { commande: CommandeA
       )}
       {avis && (
         <p role="status" style={{ color: VERT, fontSize: 15, margin: "0 0 10px", fontWeight: 600 }}>{avis}</p>
+      )}
+      {/*
+        Or, et non grenat : le geste a bien eu lieu, mais il laisse quelque
+        chose d'ouvert à l'atelier. Le rouge dirait « c'est raté » et ferait
+        chercher une erreur qui n'existe pas.
+      */}
+      {alerte && (
+        <p role="status" style={{ color: OR, fontSize: 15, margin: "0 0 10px", fontWeight: 600 }}>{alerte}</p>
       )}
 
       {commande.statut === "annulee" ? (
