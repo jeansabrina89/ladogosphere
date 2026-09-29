@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { createClient } from "@/src/utils/supabase/server";
 import { dateEssaiDisponible, STATUTS_ESSAI_OCCUPANT } from "@/src/lib/journeeEssai";
 import { datesCompletesPourChiens } from "@/src/lib/suggestionBox";
+import { fermeturesPourClient } from "@/src/lib/fermeturesPension";
+import { joursFermes } from "@/src/lib/fermeturesPensionLogique";
 
 function getJoursFeries(annee: number): string[] {
   const feries: string[] = [];
@@ -141,9 +143,20 @@ export async function GET(req: NextRequest) {
     ...getJoursFeries(annee + 1),
   ];
 
+  /**
+   * APP 59 — les jours de fermeture de la pension rejoignent les dates fermées.
+   *
+   * Ils y sont mêlés plutôt que rendus à part : le calendrier grise déjà
+   * `dates_fermees`, et un second tableau aurait demandé de retoucher chaque
+   * écran — dont un aurait été oublié. Effet de bord voulu : une journée
+   * d'essai tombant un jour de fermeture est fermée d'office, sans qu'on ait à
+   * la fermer aussi dans « Essais fermés ».
+   */
+  const joursFermeture = joursFermes(await fermeturesPourClient());
+
   return NextResponse.json({
     jours_feries: joursFeries,
     dates_pleines: datesPleine,
-    dates_fermees: datesFermees,
+    dates_fermees: Array.from(new Set([...datesFermees, ...joursFermeture])),
   });
 }

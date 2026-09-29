@@ -17,6 +17,8 @@ import { selectionMixteRefusee, estPrivatifPourSelection } from "@/src/lib/cohab
 import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { lireDateOuverture } from "@/src/lib/ouverture";
 import { dateAvantOuverture, refusDateAvantOuverture } from "@/src/lib/ouvertureLogique";
+import { fermeturesPourClient } from "@/src/lib/fermeturesPension";
+import { fermetureQuiEmpeche, messageFermeture } from "@/src/lib/fermeturesPensionLogique";
 import { creerReservationsPersonnel, annulerReservationPersonnel } from "@/src/lib/reservationPersonnel";
 import { enregistrerAcceptation } from "@/src/lib/acceptationsConditions";
 import { REFUS_CONDITIONS_PENSION } from "@/src/lib/acceptationsConditionsLogique";
@@ -206,6 +208,20 @@ export async function creerDemandeReservation(
     if (dateAvantOuverture(occ.date_debut, dateOuverture)) {
       return { ok: false, erreur: refusDateAvantOuverture(dateOuverture) };
     }
+  }
+
+  /**
+   * APP 59 — la pension est fermée : ni arrivée, ni départ.
+   *
+   * On regarde CHAQUE occurrence, et pour chacune seulement son arrivée et son
+   * départ : un séjour qui enjambe la fermeture est permis, c'est celui-là même
+   * qu'une fermeture de Noël est censée laisser passer. Placée après le chemin
+   * du personnel, qui n'est jamais bloqué.
+   */
+  const fermetures = await fermeturesPourClient();
+  for (const occ of input.occurrences) {
+    const f = fermetureQuiEmpeche(occ.date_debut, occ.date_fin, fermetures);
+    if (f) return { ok: false, erreur: messageFermeture(f) };
   }
 
   // 5. Gate essai, CHIEN PAR CHIEN (cf. src/lib/journeeEssai.ts) :

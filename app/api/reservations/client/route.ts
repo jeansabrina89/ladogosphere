@@ -18,6 +18,8 @@ import { selectionMixteRefusee, estPrivatifPourSelection } from "@/src/lib/cohab
 import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { lireDateOuverture } from "@/src/lib/ouverture";
 import { dateAvantOuverture, refusDateAvantOuverture } from "@/src/lib/ouvertureLogique";
+import { fermeturesPourClient } from "@/src/lib/fermeturesPension";
+import { fermetureQuiEmpeche, messageFermeture } from "@/src/lib/fermeturesPensionLogique";
 import { creerReservationsPersonnel } from "@/src/lib/reservationPersonnel";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 
@@ -101,6 +103,13 @@ export async function POST(req: NextRequest) {
   const dateOuverture = await lireDateOuverture();
   if (dateAvantOuverture(date_debut, dateOuverture)) {
     return NextResponse.json({ error: refusDateAvantOuverture(dateOuverture) }, { status: 400 });
+  }
+
+  // APP 59 — ni arrivée ni départ pendant une fermeture. Après le chemin du
+  // personnel, qui n'est pas concerné.
+  const fermeture = fermetureQuiEmpeche(date_debut, date_fin, await fermeturesPourClient());
+  if (fermeture) {
+    return NextResponse.json({ error: messageFermeture(fermeture) }, { status: 400 });
   }
 
   // Règle de la journée d'essai, CHIEN PAR CHIEN (cf. src/lib/journeeEssai.ts).

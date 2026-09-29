@@ -200,6 +200,7 @@ export default async function PensionPage({
             <Raccourci href="/planning" titre="🗂️ Planning" note="Vue semaine et mois des box" />
             <Raccourci href="/boxes" titre="🏠 Box" note="Capacités et indisponibilités" />
             <Raccourci href="/calendrier-essais" titre="🚫 Essais fermés" note="Les dates où l'on n'accueille pas d'essai" />
+            <Raccourci href="/fermetures-pension" titre="🔒 Fermetures de la pension" note="Les périodes sans arrivée ni départ. Un séjour qui les enjambe reste possible." />
           </div>
         </section>
       </div>

@@ -11,6 +11,11 @@ import {
   heureDansPlage,
   type Horaires,
 } from "@/src/lib/horaires";
+import {
+  avertissementFermeturePersonnel,
+  fermetureQuiEmpeche,
+  type Fermeture,
+} from "@/src/lib/fermeturesPensionLogique";
 import { appelerApi } from "@/src/lib/reseau";
 import { useState, useEffect, useRef } from "react";
 import { formatBoxLabel } from "@/src/lib/boxes";
@@ -52,6 +57,7 @@ export default function FormReservation({
   estAdmin = false,
   dateOuverture = "",
   horaires = HORAIRES_DEFAUT,
+  fermetures = [],
 }: {
   clients: Client[];
   chiens: Chien[];
@@ -70,6 +76,11 @@ export default function FormReservation({
    * vaut aussi bien pour un écran monté sans la prop que pour une base muette.
    */
   horaires?: Horaires;
+  /**
+   * Les fermetures de la pension (APP 59). Elles n'INTERDISENT rien ici :
+   * l'équipe doit pouvoir saisir un cas particulier. Elles servent à le dire.
+   */
+  fermetures?: Fermeture[];
 }) {
   const router = useRouter();
   const [type, setType] = useState("journee");
@@ -239,6 +250,19 @@ export default function FormReservation({
   const avantOuverture =
     dateAvantOuverture(dateDebut, dateOuverture) ||
     dateAvantOuverture(dateDebutRecurrence, dateOuverture);
+
+  /**
+   * APP 59 — la date saisie tombe-t-elle dans une fermeture ?
+   *
+   * On passe l'arrivée ET le départ : un séjour qui enjambe la fermeture ne
+   * déclenche rien, exactement comme côté client. Une garderie ou un essai ont
+   * les deux dates au même jour, et la règle se replie d'elle-même.
+   */
+  const fermetureTouchee = fermetureQuiEmpeche(
+    dateDebut,
+    type === "sejour" ? (dateFin || dateDebut) : dateDebut,
+    fermetures,
+  ) ?? fermetureQuiEmpeche(dateDebutRecurrence, dateDebutRecurrence, fermetures);
 
   // Journée d'essai à une date déjà prise : bloquée, sauf forçage admin valide.
   const essaiDatePrise = type === "essai" && etatEssai !== null && !etatEssai.disponible;
@@ -841,6 +865,13 @@ export default function FormReservation({
             La date de récurrence compte aussi : une série qui démarre avant
             l'ouverture est exactement le cas qu'on veut voir signalé.
           */}
+          {fermetureTouchee && (
+            <div role="status" className="rounded-xl border p-3 text-sm"
+                 style={{ backgroundColor: "#FDECEC", borderColor: "#E8847A", color: "#8A1F1F" }}>
+              {avertissementFermeturePersonnel(fermetureTouchee)}
+            </div>
+          )}
+
           {avantOuverture && (
             <div role="status" className="rounded-xl border p-3 text-sm"
                  style={{ backgroundColor: "#FDF6E3", borderColor: "#C9A84C", color: "#6E5410" }}>

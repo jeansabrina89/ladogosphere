@@ -31,7 +31,9 @@ export type EntiteJournal =
   // Les fiches, les adhésions et les messages : tout geste du personnel se trace.
   | "chien" | "client" | "campagne"
   // Un refus de la garde (garde.ts) : l'entité est le compte qui a frappé.
-  | "acces";
+  | "acces"
+  // APP 59 : les périodes où la pension n'accueille ni ne rend aucun chien.
+  | "fermeture_pension";
 
 export type EvenementJournal = {
   entite: EntiteJournal;
@@ -251,6 +253,11 @@ const LIBELLES: Record<string, string> = {
   horaires_sejour: "Horaires : arrivée et départ d'un séjour",
   horaires_essai_arrivee: "Horaires : arrivée d'une journée d'essai",
   horaires_essai_depart: "Horaires : départ d'une journée d'essai",
+  // APP 59 — les versions des conditions, et les fermetures de la pension.
+  conditions_pension_version: "Version des conditions de la pension",
+  conditions_vente_version: "Version des conditions de vente",
+  fermeture_ajoutee: "Pension fermée sur une période",
+  fermeture_retiree: "Période de fermeture retirée",
   // APP 58 — six clés, six libellés : le journal dit LAQUELLE a bougé. Un seul
   // libellé « Signature modifiée » aurait obligé à ouvrir l'avant/après pour
   // savoir si c'était le nom ou le numéro de téléphone.
