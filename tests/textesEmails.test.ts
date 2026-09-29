@@ -104,7 +104,13 @@ describe("la maison dit « adhésion », jamais « cotisation »", () => {
   it("les deux textes d’essai parlent bien d’adhésion", () => {
     // Le montant passe par formatPrixFacture depuis le lot des pièces : ce
     // test garde le MOT, pas l'écriture du montant.
-    expect(SOURCE).toContain("L'adhésion annuelle de <strong>${formatPrixFacture(montant)}</strong>");
+    /**
+     * APP 60 — cette phrase est devenue un BLOC modifiable : elle a quitté le
+     * corps de la fonction pour DEFAUTS_MODELES, et le montant est désormais
+     * une variable ({montant}) au lieu d'un appel de code. Ce test garde le
+     * MOT, comme avant, et le cherche là où il vit maintenant.
+     */
+    expect(SOURCE).toContain("L'adhésion annuelle de <strong>{montant}</strong>");
     expect(SOURCE).toContain("L'adhésion n'est pas due tant que la journée d'essai n'est pas concluante.");
   });
 });
@@ -139,8 +145,14 @@ describe("les deux e-mails de la journée d’essai sont transactionnels", () =>
     expect(corps).not.toContain("#E8F5F4");
     expect(corps).not.toContain("interpellée");
     expect(corps).not.toContain("répondez simplement à cet e-mail ou appelez-nous");
-    expect(corps).toContain(
-      "Nous restons à votre disposition pour toute question ou tout renseignement complémentaire.",
+    /**
+     * APP 60 — la phrase est devenue un BLOC : le gabarit porte sa clé, et le
+     * texte vit dans DEFAUTS_MODELES. Les deux sont vérifiés, pour qu'un
+     * gabarit qui perdrait sa clé tombe ici.
+     */
+    expect(corps).toContain('${m.b("disponibilite")}');
+    expect(SOURCE).toContain(
+      'disponibilite: "Nous restons à votre disposition pour toute question ou tout renseignement complémentaire."',
     );
   });
 
@@ -153,10 +165,17 @@ describe("les deux e-mails de la journée d’essai sont transactionnels", () =>
   it("le résultat accepté propose un lien discret, plus un gros bouton", () => {
     const debut = SOURCE.indexOf("const appel = resultat === \"valide\"");
     const bloc = SOURCE.slice(debut, SOURCE.indexOf("</table>`;", debut));
-    // Le lien prend la couleur des liens du pied de page.
-    expect(bloc).toContain('style="color:#4AAEA0; text-decoration:none;">Ouvrir mon espace client');
-    // La seconde journée demande un geste : elle garde son bouton.
-    expect(bloc).toContain("Réserver la seconde journée");
+    /**
+     * APP 60 — les deux libellés sont devenus des blocs modifiables. Ce que ce
+     * test garde n'a pas changé : le résultat accepté propose un LIEN discret,
+     * de la couleur du pied de page, et la seconde journée garde son BOUTON.
+     * Seuls les mots peuvent désormais être reformulés, et on vérifie qu'ils
+     * sont bien là où on les cherchera.
+     */
+    expect(bloc).toContain('style="color:#4AAEA0; text-decoration:none;">${m.b("bouton_espace")}');
+    expect(bloc).toContain('${m.b("bouton_seconde")}');
+    expect(SOURCE).toContain('bouton_espace: "Ouvrir mon espace client"');
+    expect(SOURCE).toContain('bouton_seconde: "Réserver la seconde journée"');
     expect(SOURCE).not.toContain("libelleBouton");
   });
 

@@ -104,8 +104,15 @@ describe("le cron et le modèle", () => {
     const corps = email.slice(debut, email.indexOf("\n}\n", debut));
     expect(corps).toContain('if (type === "essai")');
     expect(corps).toContain("phrasesRappelVeilleEssai(nom_chien, heure_arrivee)");
-    // Le séjour garde sa liste et ses horaires, intacts.
-    expect(corps).toContain("Sa nourriture habituelle (quantités pour toute la durée du séjour)");
+    /**
+     * APP 60 — la liste « N'oubliez pas » est devenue un BLOC modifiable : ses
+     * lignes ont quitté le corps de la fonction pour DEFAUTS_MODELES. Le
+     * gabarit porte la clé, les lignes vivent à côté des quatre champs. Les
+     * deux sont vérifiés, pour qu'un gabarit qui perdrait sa clé tombe ici.
+     */
+    expect(corps).toContain('${m.l("oubliez_lignes")');
+    expect(lire("src", "lib", "email.ts"))
+      .toContain('"✔ Sa nourriture habituelle (quantités pour toute la durée du séjour)"');
     /**
      * APP 59 — les heures ne sont plus écrites dans ce fichier : elles
      * viennent du réglage `horaires_sejour`. Ce test gardait le littéral

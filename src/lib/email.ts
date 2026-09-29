@@ -13,6 +13,11 @@ import { ajouterJoursISO } from "@/src/lib/cotisationPeriode";
 import { phrasesRappelVeilleEssai } from "@/src/lib/rappelVeilleLogique";
 import { CLE_AVIS_GOOGLE, blocAvisGoogleCorps, ligneAvisGooglePiedDePage } from "@/src/lib/avisGoogle";
 import { texteDepuisHtml } from "@/src/lib/emailTexte";
+import {
+  accesBlocs,
+  type AccesBlocs,
+  type BlocsModele,
+} from "@/src/lib/blocsEmail";
 import { formatHoraire } from "@/src/lib/horaires";
 import { lireHoraires } from "@/src/lib/horairesServeur";
 import {
@@ -233,16 +238,45 @@ export type ChampsModele = {
   titre: string;
   intro: string;
   message_final: string;
+  /**
+   * APP 60 — les AUTRES textes de l'e-mail, par clé : paragraphes, titres
+   * d'encadrés, lignes de listes, phrases d'aide. Les quatre champs ci-dessus
+   * n'en couvraient qu'une part ; tout le reste était écrit dans le HTML, et
+   * Sabrina ne pouvait pas le reformuler sans un lot.
+   *
+   * Ce sont les valeurs D'ORIGINE. En base, `modeles_email.blocs` ne contient
+   * que ce qui a été réellement changé : une clé absente ou vide revient ici.
+   */
+  blocs?: BlocsModele;
 };
+
+/** Ce qu'un modèle rend à celui qui l'affiche : les champs, et les blocs. */
+export type ModeleRendu = ChampsModele & AccesBlocs;
 
 export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
   // Les textes vivent avec la règle qu'ils servent, dans alertesStockLogique.
-  retour_en_stock: { ...MODELE_RETOUR_EN_STOCK },
+  retour_en_stock: {
+    ...MODELE_RETOUR_EN_STOCK,
+    blocs: {
+      bouton_article: "Voir l'article",
+      pourquoi_ligne1: "Vous recevez cet e-mail parce que vous avez demandé à être prévenu du retour",
+      pourquoi_ligne2: "de cet article. Il ne s'agit pas d'une lettre d'information.",
+      lien_desinscription: "Ne plus être prévenu pour cet article",
+      desinscription_note: "— cela n'affecte aucun autre e-mail.",
+    },
+  },
   commande_confirmee: {
     sujet: "Votre commande {numero} est enregistrée",
     titre: "Merci {prenom} ! 🛍️",
     intro: "Nous avons bien reçu votre commande et nous la préparons.",
     message_final: "Une question sur votre commande ? Répondez simplement à cet e-mail.",
+    blocs: {
+      reglement_retrait: "Vous réglerez votre commande au retrait.",
+      // {numero_facture} est posé par le code : le numéro est une DONNÉE, mais
+      // la phrase qui l'entoure se reformule.
+      facture_jointe: "Votre facture n° {numero_facture} est jointe ; vous la retrouvez aussi dans votre espace client.",
+      facture_suit: "Votre facture vous parvient par un second e-mail, avec son bulletin de versement QR.",
+    },
   },
   commande_expediee: {
     sujet: "Votre commande {numero} est en route",
@@ -255,30 +289,53 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
     titre: "Bonjour {prenom} ! 👋",
     intro: "Nous avons bien reçu votre demande de réservation et nous vous en remercions.",
     message_final: "Pour toute question, n'hésitez pas à nous contacter directement par email ou téléphone.",
+    blocs: {
+      recap_titre: "📋 Récapitulatif",
+      attente: "⏳ Notre équipe va traiter votre demande et vous confirmera sous <strong>24 heures</strong>.",
+    },
   },
   reservation_validee: {
     sujet: "Votre réservation est confirmée !",
     titre: "Bonjour {prenom} ! 🎉",
     intro: "Excellente nouvelle ! Votre réservation a été <strong style=\"color:#4AAEA0;\">confirmée</strong> par notre équipe.",
     message_final: "Nous sommes ravis d'accueillir votre compagnon ! 🐶",
+    blocs: {
+      recap_titre: "📋 Détails de votre séjour",
+      pratiques_titre: "📍 Informations pratiques",
+    },
   },
   reservation_annulee: {
     sujet: "Votre réservation a été annulée",
     titre: "Bonjour {prenom},",
     intro: "Nous vous informons que votre réservation a été <strong style=\"color:#E8847A;\">annulée</strong>.",
     message_final: "Nous espérons vous revoir bientôt à La Dogosphère ! 🐾",
+    blocs: {
+      recap_titre: "📋 Réservation annulée",
+      contact: "Si vous n'êtes pas à l'origine de cette annulation ou si vous souhaitez faire une nouvelle réservation, contactez-nous directement.",
+    },
   },
   reservation_refusee: {
     sujet: "Votre demande de réservation",
     titre: "Bonjour {prenom},",
     intro: "Nous sommes navrés : nous ne pouvons malheureusement pas <strong style=\"color:#E8847A;\">donner suite</strong> à votre demande de réservation pour les dates indiquées.",
     message_final: "N'hésitez pas à nous proposer d'autres dates — nous espérons pouvoir accueillir votre compagnon très bientôt ! 🐾",
+    blocs: {
+      recap_titre: "📋 Votre demande",
+      alternative: "Vos dates ne sont peut-être plus disponibles, mais nous ferons notre possible pour trouver une solution. Contactez-nous ou proposez-nous d'autres dates.",
+    },
   },
   paiement: {
     sujet: "Règlement de votre séjour à La Dogosphère",
     titre: "Bonjour {prenom},",
     intro: "Voici le récapitulatif de votre séjour et les informations de paiement.",
     message_final: "Merci de procéder au règlement dans les meilleurs délais. N'hésitez pas à nous contacter pour toute question. 🐾",
+    blocs: {
+      recap_titre: "📋 Votre séjour",
+      moyens_titre: "💳 Moyens de paiement",
+      sans_iban: "Les coordonnées de paiement vous seront communiquées séparément.",
+      reference_a_venir: "elle figurera sur votre facture",
+      twint: "disponible sur demande",
+    },
   },
   // Un suivi après la journée d'essai, avec le lien d'avis Google quand il est
   // réglé (décision de Sabrina, 29.09.2026).
@@ -287,6 +344,9 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
     titre: "Bonjour {prenom},",
     intro: "{nom_chien} a passé sa journée d'essai chez nous aujourd'hui. Nous espérons qu'il est bien rentré.",
     message_final: "À bientôt,",
+    blocs: {
+      disponibilite: "Nous restons à votre disposition pour toute question ou tout renseignement complémentaire.",
+    },
   },
   // Un compte rendu, pas une offre.
   essai_valide: {
@@ -294,24 +354,53 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
     titre: "Bonjour {prenom},",
     intro: "La journée d'essai s'est bien passée : <strong>{nom_chien}</strong> est accepté à la pension.",
     message_final: "Toute l'équipe se réjouit de le revoir !",
+    blocs: {
+      reserver_libre: "Vous pouvez réserver ses journées et ses séjours depuis votre espace client.",
+      adhesion_ajoutee: "L'adhésion annuelle de <strong>{montant}</strong> est ajoutée à la première réservation.",
+      bouton_espace: "Ouvrir mon espace client",
+    },
   },
   essai_seconde_journee: {
     sujet: "Une seconde journée d'essai pour {nom_chien}",
     titre: "Bonjour {prenom} ! 🐶",
     intro: "<strong>{nom_chien}</strong> a besoin d'un peu plus de temps pour se sentir à l'aise chez nous. Nous vous proposons une seconde journée d'essai.",
     message_final: "N'hésitez pas à nous appeler si vous avez la moindre question — nous en discutons volontiers. 🐾",
+    blocs: {
+      seconde_reserve: "Cette seconde journée se réserve depuis votre espace client, au tarif d'une journée de garderie.",
+      adhesion_non_due: "L'adhésion n'est pas due tant que la journée d'essai n'est pas concluante.",
+      bouton_seconde: "Réserver la seconde journée",
+    },
   },
   rappel_veille: {
     sujet: "Rappel — votre chien arrive demain !",
     titre: "Bonjour {prenom} ! 🐶",
     intro: "Petit rappel — <strong>{nom_chien}</strong> arrive <strong>demain</strong> à La Dogosphère !",
     message_final: "En cas d'imprévu, contactez-nous au plus vite. À demain ! 🐾",
+    blocs: {
+      recap_titre: "📋 Votre réservation",
+      oubliez_titre: "🎒 N'oubliez pas :",
+      oubliez_lignes: [
+        "✔ Sa nourriture habituelle (quantités pour toute la durée du séjour)",
+        "✔ Son carnet de vaccination à jour",
+        "✔ Un jouet ou une couverture pour le rassurer",
+        "✔ Tout médicament en cours avec les instructions",
+      ],
+      horaires_titre: "⏰ Horaires d'arrivée",
+    },
+  },
+  ticket_boutique: {
+    sujet: "Votre ticket {numero} — La Dogosphère",
+    titre: "Merci de votre visite",
+    intro: "Voici le ticket de votre achat à la boutique, en pièce jointe.",
+    message_final: "À bientôt à la Dogosphère.",
+    blocs: {},
   },
   facture_emise: {
     sujet: "Votre facture {numero} — La Dogosphère",
     titre: "Bonjour {prenom},",
     intro: "Voici votre facture <strong>{numero}</strong> du {date}, d'un montant de <strong>{montant}</strong>, payable jusqu'au <strong>{echeance}</strong>.",
     message_final: "Le PDF est joint à ce message ; il est aussi disponible dans votre espace client. Merci de votre confiance ! 🐾",
+    blocs: { bouton_factures: "Voir mes factures" },
   },
   /*
    * APP 28 (C-05) : quelqu'un s'est inscrit avec une adresse qui a déjà un compte.
@@ -339,12 +428,38 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
     titre: "Bonjour {prenom} ! ⭐",
     intro: "Votre adhésion membre La Dogosphère est échue depuis le <strong>{date_fin}</strong>.",
     message_final: "Merci pour votre fidélité ! Nous espérons vous accueillir encore longtemps. 🐶",
+    blocs: {
+      adhesion_titre: "⭐ Votre adhésion",
+      statut_echue: "⏳ Adhésion échue",
+      avantages_titre: "🐾 Avantages membres",
+      // APP 53 — trois lignes, et trois seulement : chacune est vérifiable dans
+      // le code. « Priorité lors des périodes chargées » en a été retirée,
+      // parce qu'aucune règle de l'application ne l'appliquait.
+      avantages_lignes: [
+        "✔ Accès aux réservations de séjours et de garderie",
+        "✔ Accès aux réservations d'urgence",
+        "✔ Remise membre sur certains rayons de la boutique",
+      ],
+      renouveler_titre: "🏦 Comment renouveler ?",
+      virement_intro: "Effectuez un virement bancaire avec les informations suivantes :",
+      sans_iban: "Coordonnées bancaires communiquées séparément.",
+    },
   },
   relance_paiement: {
     sujet: "Rappel : règlement de votre séjour à La Dogosphère",
     titre: "Bonjour {prenom},",
     intro: "Nous revenons vers vous au sujet du séjour de votre compagnon : son règlement de {montant} ne nous est pas encore parvenu.",
     message_final: "Si le paiement a été effectué très récemment, merci de ne pas tenir compte de ce message. Un grand merci !",
+    // Le même encadré de moyens de paiement que « paiement » : les deux
+    // e-mails le partagent, et chacun garde SES textes — on peut vouloir
+    // durcir le ton d'une relance sans toucher à la première demande.
+    blocs: {
+      recap_titre: "📋 Votre séjour",
+      moyens_titre: "💳 Moyens de paiement",
+      sans_iban: "Les coordonnées de paiement vous seront communiquées séparément.",
+      reference_a_venir: "elle figurera sur votre facture",
+      twint: "disponible sur demande",
+    },
   },
   rappel_paiement_1: {
     sujet: "1er rappel — règlement en attente",
@@ -361,6 +476,90 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
 };
 
 // Libelles lisibles + variables proposees (pour l'ecran d'administration)
+/**
+ * APP 60 — le libellé français de chaque bloc, pour l'écran des réglages.
+ *
+ * Une clé sans libellé NE S'AFFICHE PAS : le champ n'apparaîtrait qu'avec son
+ * nom de code, et personne ne saurait ce qu'il change. Un test vérifie que
+ * chaque bloc déclaré dans `DEFAUTS_MODELES` a le sien — c'est la seule façon
+ * de ne pas laisser dériver les deux listes.
+ */
+export const LIBELLES_BLOCS: Record<string, Record<string, string>> = {
+  confirmation_demande: {
+    recap_titre: "Titre de l'encadré récapitulatif",
+    attente: "Phrase sur le délai de réponse",
+  },
+  reservation_validee: {
+    recap_titre: "Titre de l'encadré des détails",
+    pratiques_titre: "Titre de l'encadré des informations pratiques",
+  },
+  reservation_annulee: {
+    recap_titre: "Titre de l'encadré récapitulatif",
+    contact: "Phrase invitant à nous contacter",
+  },
+  reservation_refusee: {
+    recap_titre: "Titre de l'encadré récapitulatif",
+    alternative: "Phrase proposant d'autres dates",
+  },
+  paiement: {
+    recap_titre: "Titre de l'encadré du séjour",
+    moyens_titre: "Titre de l'encadré des moyens de paiement",
+    sans_iban: "Phrase quand l'IBAN n'est pas encore connu",
+    reference_a_venir: "Référence, quand le numéro de facture manque",
+    twint: "Ce qui est dit de Twint",
+  },
+  relance_paiement: {
+    recap_titre: "Titre de l'encadré du séjour",
+    moyens_titre: "Titre de l'encadré des moyens de paiement",
+    sans_iban: "Phrase quand l'IBAN n'est pas encore connu",
+    reference_a_venir: "Référence, quand le numéro de facture manque",
+    twint: "Ce qui est dit de Twint",
+  },
+  satisfaction_essai: {
+    disponibilite: "Phrase de disponibilité",
+  },
+  essai_valide: {
+    reserver_libre: "Phrase sur la réservation des séjours",
+    adhesion_ajoutee: "Phrase sur l'adhésion ajoutée à la première réservation",
+    bouton_espace: "Texte du lien vers l'espace client",
+  },
+  essai_seconde_journee: {
+    seconde_reserve: "Phrase sur la réservation de la seconde journée",
+    adhesion_non_due: "Phrase sur l'adhésion non due",
+    bouton_seconde: "Texte du bouton de réservation",
+  },
+  rappel_veille: {
+    recap_titre: "Titre de l'encadré récapitulatif",
+    oubliez_titre: "Titre de la liste à ne pas oublier",
+    oubliez_lignes: "Lignes de la liste à ne pas oublier",
+    horaires_titre: "Titre de l'encadré des horaires",
+  },
+  rappel_cotisation: {
+    adhesion_titre: "Titre de l'encadré de l'adhésion",
+    statut_echue: "Mention du statut échu",
+    avantages_titre: "Titre de l'encadré des avantages",
+    avantages_lignes: "Lignes des avantages membres",
+    renouveler_titre: "Titre de l'encadré du renouvellement",
+    virement_intro: "Phrase d'introduction du virement",
+    sans_iban: "Phrase quand l'IBAN n'est pas connu",
+  },
+  facture_emise: {
+    bouton_factures: "Texte du bouton vers les factures",
+  },
+  commande_confirmee: {
+    reglement_retrait: "Phrase quand le règlement se fait au retrait",
+    facture_jointe: "Phrase quand la facture est jointe",
+    facture_suit: "Phrase quand la facture suit par un second e-mail",
+  },
+  retour_en_stock: {
+    bouton_article: "Texte du bouton vers l'article",
+    pourquoi_ligne1: "Pourquoi cet e-mail — première ligne",
+    pourquoi_ligne2: "Pourquoi cet e-mail — seconde ligne",
+    lien_desinscription: "Texte du lien pour ne plus être prévenu",
+    desinscription_note: "Précision après ce lien",
+  },
+};
+
 export const MODELES_META: { type: string; label: string; variables: string[] }[] = [
   { type: "confirmation_demande", label: "Demande reçue", variables: ["prenom", "date_debut", "date_fin"] },
   { type: "reservation_validee", label: "Réservation confirmée", variables: ["prenom", "date_debut", "date_fin"] },
@@ -377,6 +576,7 @@ export const MODELES_META: { type: string; label: string; variables: string[] }[
   /* Aucune variable : cet e-mail ne dit rien de la personne, pas même son
      prénom. Le connaître supposerait de lire la fiche, et l'écrire le
      confirmerait à qui aurait détourné la boîte. */
+  { type: "ticket_boutique", label: "Ticket de caisse", variables: ["prenom", "numero"] },
   { type: "compte_existe_deja", label: "Inscription sur un compte existant", variables: [] },
   { ...META_RETOUR_EN_STOCK, variables: [...META_RETOUR_EN_STOCK.variables] },
   { type: "relance_paiement", label: "Relance paiement", variables: ["prenom", "montant", "date_debut", "date_fin"] },
@@ -395,13 +595,13 @@ function interpoler(texte: string, vars: Record<string, string | number | undefi
 async function modeleEmail(
   type: string,
   vars: Record<string, string | number | undefined | null>
-): Promise<ChampsModele> {
+): Promise<ModeleRendu> {
   const def = DEFAUTS_MODELES[type];
-  let row: Partial<ChampsModele> | null = null;
+  let row: (Partial<ChampsModele> & { blocs?: BlocsModele }) | null = null;
   try {
     const { data } = await supabaseAdmin
       .from("modeles_email")
-      .select("sujet, titre, intro, message_final")
+      .select("sujet, titre, intro, message_final, blocs")
       .eq("type", type)
       .maybeSingle();
     row = data;
@@ -412,11 +612,19 @@ async function modeleEmail(
     const base = perso && perso.trim() !== "" ? perso : defaut;
     return interpoler(base, vars);
   };
+  /**
+   * APP 60 — les blocs suivent la même règle que les quatre champs : la base
+   * si elle dit quelque chose, le défaut sinon, puis les variables. À une
+   * différence près, et elle est délibérée : un bloc est ÉCHAPPÉ, et seule la
+   * balise `<strong>` en ressort. Les quatre champs, eux, restent bruts —
+   * leurs défauts en contiennent, et les resserrer casserait l'existant.
+   */
   return {
     sujet: choisir(row?.sujet, def.sujet),
     titre: choisir(row?.titre, def.titre),
     intro: choisir(row?.intro, def.intro),
     message_final: choisir(row?.message_final, def.message_final),
+    ...accesBlocs(row?.blocs, def.blocs ?? {}, vars),
   };
 }
 
@@ -553,7 +761,7 @@ export async function envoyerEmailConfirmationDemande({
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
       <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
-        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Récapitulatif</h3>
+        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">${m.b("recap_titre")}</h3>
         <table cellpadding="0" cellspacing="0" style="width:100%;">
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Type</td>
@@ -572,7 +780,7 @@ export async function envoyerEmailConfirmationDemande({
 
       <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">
         <p style="margin:0; color:#1B5E4F; font-size:14px;">
-          ⏳ Notre équipe va traiter votre demande et vous confirmera sous <strong>24 heures</strong>.
+          ${m.b("attente")}
         </p>
       </div>
 
@@ -603,7 +811,7 @@ export async function envoyerEmailReservationValidee({
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
       <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
-        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Détails de votre séjour</h3>
+        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">${m.b("recap_titre")}</h3>
         <table cellpadding="0" cellspacing="0" style="width:100%;">
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Type</td>
@@ -626,7 +834,7 @@ export async function envoyerEmailReservationValidee({
       </div>
 
       <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">
-        <p style="margin:0 0 8px 0; color:#1B5E4F; font-size:14px; font-weight:bold;">📍 Informations pratiques</p>
+        <p style="margin:0 0 8px 0; color:#1B5E4F; font-size:14px; font-weight:bold;">${m.b("pratiques_titre")}</p>
         <p style="margin:0; color:#1B5E4F; font-size:13px;">
           Arrivée journée : ${formatHoraire(horaires.journeeArrivee)}<br/>
           Départ journée : ${formatHoraire(horaires.journeeDepart)}<br/>
@@ -658,7 +866,7 @@ export async function envoyerEmailReservationAnnulee({
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
       <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
-        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Réservation annulée</h3>
+        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">${m.b("recap_titre")}</h3>
         <table cellpadding="0" cellspacing="0" style="width:100%;">
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Type</td>
@@ -677,7 +885,7 @@ export async function envoyerEmailReservationAnnulee({
 
       <div style="background-color:#FEF2F2; border-left:4px solid #E8847A; border-radius:8px; padding:16px; margin:0 0 24px 0;">
         <p style="margin:0; color:#7F1D1D; font-size:14px;">
-          Si vous n'êtes pas à l'origine de cette annulation ou si vous souhaitez faire une nouvelle réservation, contactez-nous directement.
+          ${m.b("contact")}
         </p>
       </div>
 
@@ -705,7 +913,7 @@ export async function envoyerEmailReservationRefusee({
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
       <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
-        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Votre demande</h3>
+        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">${m.b("recap_titre")}</h3>
         <table cellpadding="0" cellspacing="0" style="width:100%;">
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Type</td>
@@ -724,7 +932,7 @@ export async function envoyerEmailReservationRefusee({
 
       <div style="background-color:#FEF2F2; border-left:4px solid #E8847A; border-radius:8px; padding:16px; margin:0 0 24px 0;">
         <p style="margin:0; color:#7F1D1D; font-size:14px;">
-          Vos dates ne sont peut-être plus disponibles, mais nous ferons notre possible pour trouver une solution. Contactez-nous ou proposez-nous d'autres dates.
+          ${m.b("alternative")}
         </p>
       </div>
 
@@ -757,7 +965,7 @@ export async function envoyerEmailPaiement({
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
       <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
-        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Votre séjour</h3>
+        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">${m.b("recap_titre")}</h3>
         <table cellpadding="0" cellspacing="0" style="width:100%;">
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Type</td>
@@ -779,20 +987,20 @@ export async function envoyerEmailPaiement({
       </div>
 
       <div style="background-color:#FFF8E1; border-left:4px solid #C9A84C; border-radius:8px; padding:16px; margin:0 0 24px 0;">
-        <p style="margin:0 0 8px 0; color:#7A5C00; font-size:14px; font-weight:bold;">💳 Moyens de paiement</p>
+        <p style="margin:0 0 8px 0; color:#7A5C00; font-size:14px; font-weight:bold;">${m.b("moyens_titre")}</p>
         ${iban ? `
         <p style="margin:0 0 6px 0; color:#7A5C00; font-size:13px;">
           <strong>Virement bancaire :</strong> IBAN ${iban}<br/>
           <strong>Titulaire :</strong> ${titulaire}<br/>
           ${numeroFacture
             ? `<strong>Référence :</strong> ${numeroFacture}`
-            : `<strong>Référence :</strong> elle figurera sur votre facture`}
+            : `<strong>Référence :</strong> ${m.b("reference_a_venir")}`}
         </p>` : `
         <p style="margin:0 0 6px 0; color:#7A5C00; font-size:13px;">
-          Les coordonnées de paiement vous seront communiquées séparément.
+          ${m.b("sans_iban")}
         </p>`}
         <p style="margin:8px 0 0 0; color:#7A5C00; font-size:13px;">
-          <strong>Twint :</strong> disponible sur demande
+          <strong>Twint :</strong> ${m.b("twint")}
         </p>
       </div>
 
@@ -827,7 +1035,7 @@ export async function envoyerEmailRelancePaiement({
       <p style="color:#6B7280; margin:0 0 24px 0;">${m.intro}</p>
 
       <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
-        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Votre séjour</h3>
+        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">${m.b("recap_titre")}</h3>
         <table cellpadding="0" cellspacing="0" style="width:100%;">
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Type</td>
@@ -849,20 +1057,20 @@ export async function envoyerEmailRelancePaiement({
       </div>
 
       <div style="background-color:#FFF8E1; border-left:4px solid #C9A84C; border-radius:8px; padding:16px; margin:0 0 24px 0;">
-        <p style="margin:0 0 8px 0; color:#7A5C00; font-size:14px; font-weight:bold;">💳 Moyens de paiement</p>
+        <p style="margin:0 0 8px 0; color:#7A5C00; font-size:14px; font-weight:bold;">${m.b("moyens_titre")}</p>
         ${iban ? `
         <p style="margin:0 0 6px 0; color:#7A5C00; font-size:13px;">
           <strong>Virement bancaire :</strong> IBAN ${iban}<br/>
           <strong>Titulaire :</strong> ${titulaire}<br/>
           ${numeroFacture
             ? `<strong>Référence :</strong> ${numeroFacture}`
-            : `<strong>Référence :</strong> elle figurera sur votre facture`}
+            : `<strong>Référence :</strong> ${m.b("reference_a_venir")}`}
         </p>` : `
         <p style="margin:0 0 6px 0; color:#7A5C00; font-size:13px;">
-          Les coordonnées de paiement vous seront communiquées séparément.
+          ${m.b("sans_iban")}
         </p>`}
         <p style="margin:8px 0 0 0; color:#7A5C00; font-size:13px;">
-          <strong>Twint :</strong> disponible sur demande
+          <strong>Twint :</strong> ${m.b("twint")}
         </p>
       </div>
 
@@ -904,7 +1112,7 @@ export async function envoyerEmailSatisfactionEssai({
       </p>
 
       <p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">
-        Nous restons à votre disposition pour toute question ou tout renseignement complémentaire.
+        ${m.b("disponibilite")}
       </p>
 
       ${blocAvis}
@@ -951,23 +1159,23 @@ export async function envoyerEmailResultatEssai({
   const bloc = resultat === "valide"
     ? `
       <p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">
-        Vous pouvez réserver ses journées et ses séjours depuis votre espace client.
-        L'adhésion annuelle de <strong>${formatPrixFacture(montant)}</strong> est ajoutée à la première réservation.
+        ${m.b("reserver_libre")}
+        ${m.b("adhesion_ajoutee")}
       </p>`
     : `
       <div style="background-color:#FFF8E1; border-left:4px solid #C9A84C; border-radius:8px; padding:16px; margin:0 0 24px 0;">
         <p style="margin:0 0 8px 0; color:#7A5C00; font-size:14px;">
-          Cette seconde journée se réserve depuis votre espace client, au tarif d'une journée de garderie.
+          ${m.b("seconde_reserve")}
         </p>
         <p style="margin:0; color:#7A5C00; font-size:14px;">
-          L'adhésion n'est pas due tant que la journée d'essai n'est pas concluante.
+          ${m.b("adhesion_non_due")}
         </p>
       </div>`;
 
   const appel = resultat === "valide"
     ? `
       <p style="margin:0 0 24px 0; font-size:14px;">
-        <a href="${lienReserver}" style="color:#4AAEA0; text-decoration:none;">Ouvrir mon espace client</a>
+        <a href="${lienReserver}" style="color:#4AAEA0; text-decoration:none;">${m.b("bouton_espace")}</a>
       </p>`
     : `
       <table cellpadding="0" cellspacing="0" style="margin:0 0 24px 0;">
@@ -975,7 +1183,7 @@ export async function envoyerEmailResultatEssai({
           <td style="background-color:#4AAEA0; border-radius:12px;">
             <a href="${lienReserver}"
               style="display:inline-block; padding:14px 28px; color:#ffffff; font-size:15px; font-weight:bold; text-decoration:none;">
-              Réserver la seconde journée
+              ${m.b("bouton_seconde")}
             </a>
           </td>
         </tr>
@@ -1046,7 +1254,7 @@ export async function envoyerEmailRappelVeille({
       </p>
 
       <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
-        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">📋 Votre réservation</h3>
+        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">${m.b("recap_titre")}</h3>
         <table cellpadding="0" cellspacing="0" style="width:100%;">
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Type</td>
@@ -1060,17 +1268,14 @@ export async function envoyerEmailRappelVeille({
       </div>
 
       <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">
-        <p style="margin:0 0 8px 0; color:#1B5E4F; font-size:14px; font-weight:bold;">🎒 N'oubliez pas :</p>
+        <p style="margin:0 0 8px 0; color:#1B5E4F; font-size:14px; font-weight:bold;">${m.b("oubliez_titre")}</p>
         <p style="margin:0; color:#1B5E4F; font-size:13px;">
-          ✔ Sa nourriture habituelle (quantités pour toute la durée du séjour)<br/>
-          ✔ Son carnet de vaccination à jour<br/>
-          ✔ Un jouet ou une couverture pour le rassurer<br/>
-          ✔ Tout médicament en cours avec les instructions
+          ${m.l("oubliez_lignes").join("<br/>\n          ")}
         </p>
       </div>
 
       <div style="background-color:#FFF8E1; border-left:4px solid #C9A84C; border-radius:8px; padding:16px; margin:0 0 24px 0;">
-        <p style="margin:0 0 4px 0; color:#7A5C00; font-size:14px; font-weight:bold;">⏰ Horaires d'arrivée</p>
+        <p style="margin:0 0 4px 0; color:#7A5C00; font-size:14px; font-weight:bold;">${m.b("horaires_titre")}</p>
         <p style="margin:0; color:#7A5C00; font-size:13px;">
           Journée : ${formatHoraire(horaires.journeeArrivee)}<br/>
           Séjour : ${formatHoraire(horaires.sejour)}
@@ -1156,11 +1361,11 @@ export async function envoyerEmailRappelCotisation({
       </p>
 
       <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
-        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">⭐ Votre adhésion</h3>
+        <h3 style="color:#1B2B5E; margin:0 0 16px 0; font-size:15px; text-transform:uppercase; letter-spacing:0.5px;">${m.b("adhesion_titre")}</h3>
         <table cellpadding="0" cellspacing="0" style="width:100%;">
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px; width:40%;">Statut actuel</td>
-            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">⏳ Adhésion échue</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${m.b("statut_echue")}</td>
           </tr>
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px;">Échue le</td>
@@ -1174,18 +1379,16 @@ export async function envoyerEmailRappelCotisation({
       </div>
 
       <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">
-        <p style="margin:0 0 8px 0; color:#1B5E4F; font-size:14px; font-weight:bold;">🐾 Avantages membres</p>
+        <p style="margin:0 0 8px 0; color:#1B5E4F; font-size:14px; font-weight:bold;">${m.b("avantages_titre")}</p>
         <p style="margin:0; color:#1B5E4F; font-size:13px;">
-          ✔ Accès aux réservations de séjours et de garderie<br/>
-          ✔ Accès aux réservations d'urgence<br/>
-          ✔ Remise membre sur certains rayons de la boutique
+          ${m.l("avantages_lignes").join("<br/>\n          ")}
         </p>
       </div>
 
       <div style="background-color:#FFF8E1; border-left:4px solid #C9A84C; border-radius:8px; padding:16px; margin:0 0 24px 0;">
-        <p style="margin:0 0 12px 0; color:#7A5C00; font-size:14px; font-weight:bold;">🏦 Comment renouveler ?</p>
+        <p style="margin:0 0 12px 0; color:#7A5C00; font-size:14px; font-weight:bold;">${m.b("renouveler_titre")}</p>
         <p style="margin:0 0 8px 0; color:#7A5C00; font-size:13px;">
-          Effectuez un virement bancaire avec les informations suivantes :
+          ${m.b("virement_intro")}
         </p>
         <table cellpadding="0" cellspacing="0" style="width:100%;">
           ${iban ? `
@@ -1198,7 +1401,7 @@ export async function envoyerEmailRappelCotisation({
             <td style="padding:4px 0; color:#7A5C00; font-weight:bold; font-size:13px;">${titulaire}</td>
           </tr>` : `
           <tr>
-            <td colspan="2" style="padding:4px 0; color:#7A5C00; font-size:13px;">Coordonnées bancaires communiquées séparément.</td>
+            <td colspan="2" style="padding:4px 0; color:#7A5C00; font-size:13px;">${m.b("sans_iban")}</td>
           </tr>`}
           <tr>
             <td style="padding:4px 0; color:#7A5C00; font-size:13px;">Montant</td>
@@ -1275,7 +1478,7 @@ export async function envoyerEmailFactureEmise(p: {
         <a href="${SITE_URL}/mon-compte/factures"
            style="display:inline-block; background-color:#1B2B5E; color:white; text-decoration:none;
                   padding:12px 24px; border-radius:12px; font-weight:bold; font-size:14px;">
-          Voir mes factures
+          ${m.b("bouton_factures")}
         </a>
       </p>
 
@@ -1296,15 +1499,19 @@ export async function envoyerEmailTicketBoutique(p: {
   montant: number;
   pdf: Buffer;
 }) {
+  const m = await modeleEmail("ticket_boutique", {
+    prenom: p.prenom,
+    numero: p.numero,
+  });
   await envoyerEmail({
     destinataire: p.email,
     type: "ticket_boutique",
-    sujet: `Votre ticket ${p.numero} — La Dogosphère`,
+    sujet: m.sujet,
     piecesJointes: [{ filename: `${p.numero}.pdf`, content: p.pdf }],
     html: await emailTemplate(`
-      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">Merci de votre visite</h2>
+      <h2 style="color:#1B2B5E; margin:0 0 8px 0;">${m.titre}</h2>
       <p style="color:#6B7280; margin:0 0 24px 0;">
-        Voici le ticket de votre achat à la boutique, en pièce jointe.
+        ${m.intro}
       </p>
 
       <div style="background-color:#F5F0E8; border-radius:12px; padding:20px; margin:0 0 24px 0;">
@@ -1324,7 +1531,7 @@ export async function envoyerEmailTicketBoutique(p: {
         </table>
       </div>
 
-      <p style="color:#6B7280; font-size:14px; margin:0;">À bientôt à la Dogosphère.</p>
+      <p style="color:#6B7280; font-size:14px; margin:0;">${m.message_final}</p>
     `),
   });
 }
@@ -1470,6 +1677,7 @@ export async function envoyerEmailCommandeConfirmee(
   const m = await modeleEmail("commande_confirmee", {
     prenom: client.prenom ?? "",
     numero: cmd.numero ?? "",
+    numero_facture: facture?.numero ?? "",
   });
 
   const lignesCommande = (lignes ?? []) as {
@@ -1533,10 +1741,10 @@ export async function envoyerEmailCommandeConfirmee(
       </div>
 
       ${cmd.mode_paiement !== "facture"
-        ? '<p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">Vous réglerez votre commande au retrait.</p>'
+        ? `<p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">${m.b("reglement_retrait")}</p>`
         : pdfJoint
-          ? `<p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">Votre facture n° ${echapper(facture!.numero)} est jointe ; vous la retrouvez aussi dans votre espace client.</p>`
-          : '<p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">Votre facture vous parvient par un second e-mail, avec son bulletin de versement QR.</p>'}
+          ? `<p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">${m.b("facture_jointe")}</p>`
+          : `<p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">${m.b("facture_suit")}</p>`}
 
       <p style="color:#6B7280; font-size:14px; margin:0;">${m.message_final}</p>
     `,
@@ -1665,7 +1873,7 @@ export async function envoyerEmailRetourEnStock(p: {
                style="display:inline-block; background-color:#1F6E5B; color:#FFFFFF;
                       padding:14px 24px; border-radius:12px; text-decoration:none;
                       font-weight:bold; font-size:15px;">
-              Voir l'article
+              ${m.b("bouton_article")}
             </a>
           </td>
         </tr>
@@ -1682,14 +1890,14 @@ export async function envoyerEmailRetourEnStock(p: {
         <tr>
           <td style="padding-top:16px;">
             <p style="margin:0 0 4px 0; color:#9CA3AF; font-size:12px; line-height:1.6;">
-              Vous recevez cet e-mail parce que vous avez demandé à être prévenu du retour
-              de cet article. Il ne s'agit pas d'une lettre d'information.
+              ${m.b("pourquoi_ligne1")}
+              ${m.b("pourquoi_ligne2")}
             </p>
             <p style="margin:0; font-size:12px;">
               <a href="${lienDesinscription}" style="color:#9CA3AF; text-decoration:underline;">
-                Ne plus être prévenu pour cet article
+                ${m.b("lien_desinscription")}
               </a>
-              <span style="color:#9CA3AF;"> — cela n'affecte aucun autre e-mail.</span>
+              <span style="color:#9CA3AF;"> ${m.b("desinscription_note")}</span>
             </p>
           </td>
         </tr>

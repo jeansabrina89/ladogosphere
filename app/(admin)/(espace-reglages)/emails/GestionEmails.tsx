@@ -11,6 +11,7 @@ import {
   signatureHtml,
   type Signature,
 } from "@/src/lib/signatureEmail";
+import type { ValeurBloc } from "@/src/lib/blocsEmail";
 import { usePathname, useRouter } from "next/navigation";
 import { ONGLETS_EMAILS, requeteOnglet, type OngletEmails } from "@/src/lib/ongletsEmails";
 
@@ -35,6 +36,13 @@ type EmailModele = {
   variables: string[];
   defaut: Champs;
   perso: Partial<Champs> | null;
+  /**
+   * APP 60 — les AUTRES textes de cet e-mail : les valeurs d'origine, les
+   * libellés français, et ce qui a été réellement changé en base.
+   */
+  blocsDefaut: Record<string, ValeurBloc>;
+  libellesBlocs: Record<string, string>;
+  blocsPerso: Record<string, ValeurBloc> | null;
 };
 
 const EXEMPLES: Record<string, string> = {
@@ -74,6 +82,11 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
+const boutonDiscret: React.CSSProperties = {
+  background: "transparent", border: "none", color: "#2E8B7E",
+  fontSize: "12px", fontWeight: 600, cursor: "pointer", padding: 0, textAlign: "left",
+};
+
 const labelStyle: React.CSSProperties = {
   display: "block",
   fontSize: "13px",
@@ -87,11 +100,24 @@ function CarteEmail({ email }: { email: EmailModele }) {
   const [titre, setTitre] = useState(email.perso?.titre ?? "");
   const [intro, setIntro] = useState(email.perso?.intro ?? "");
   const [messageFinal, setMessageFinal] = useState(email.perso?.message_final ?? "");
+  /**
+   * APP 60 — un état par bloc, initialisé à ce qui est en base (donc vide si
+   * rien n'a été changé). Le champ montre alors le texte d'origine en gris,
+   * comme les quatre champs du dessus.
+   */
+  const [blocs, setBlocs] = useState<Record<string, ValeurBloc>>(() => ({ ...(email.blocsPerso ?? {}) }));
   const [apercu, setApercu] = useState(false);
   const [etat, setEtat] = useState<"" | "enregistrement" | "ok" | "erreur">("");
   const [copie, setCopie] = useState<string | null>(null);
 
   const valeurOuDefaut = (v: string, d: string) => (v.trim() !== "" ? v : d);
+
+  /**
+   * Les blocs affichés : ceux qui ont un libellé français, et eux seuls. Une
+   * clé sans libellé ne se montre pas — elle n'apparaîtrait qu'avec son nom de
+   * code, et personne ne saurait ce qu'elle change.
+   */
+  const clesBlocs = Object.keys(email.blocsDefaut).filter((c) => email.libellesBlocs[c]);
 
   const rendu = useMemo(() => ({
     sujet: interpoler(valeurOuDefaut(sujet, email.defaut.sujet)),
@@ -109,6 +135,7 @@ function CarteEmail({ email }: { email: EmailModele }) {
         body: JSON.stringify({
           type: email.type,
           sujet, titre, intro, message_final: messageFinal,
+          blocs,
         }),
       });
       setEtat(res.ok ? "ok" : "erreur");
@@ -184,6 +211,94 @@ function CarteEmail({ email }: { email: EmailModele }) {
         Laissez un champ vide pour garder le texte par défaut (affiché en gris).
       </p>
 
+      {/*
+        APP 60 — les autres textes de l'e-mail.
+        Un champ par bloc, avec son libellé en français : jamais la clé
+        technique, que personne ne saurait interpréter. « Revenir au texte
+        d'origine » n'écrit rien — il EFFACE la clé, et le défaut reprend.
+      */}
+      {clesBlocs.length > 0 && (
+        <div style={{ borderTop: "1px solid #E2E8F0", paddingTop: "14px" }}>
+          <p style={{ margin: "0 0 4px 0", color: "#1B2B5E", fontSize: "14px", fontWeight: 700 }}>
+            Autres textes de cet e-mail
+          </p>
+          <p style={{ margin: "0 0 12px 0", fontSize: "12px", color: "#9CA3AF" }}>
+            Les montants, dates, numéros et horaires ne sont pas ici : ils sont calculés.
+          </p>
+
+          <div style={{ display: "grid", gap: "14px" }}>
+            {clesBlocs.map((cle) => {
+              const defaut = email.blocsDefaut[cle];
+              const libelle = email.libellesBlocs[cle] ?? cle;
+              const modifie = blocs[cle] !== undefined;
+
+              if (Array.isArray(defaut)) {
+                const lignes = (Array.isArray(blocs[cle]) ? blocs[cle] as string[] : defaut);
+                return (
+                  <div key={cle}>
+                    <label style={labelStyle}>{libelle}</label>
+                    <div style={{ display: "grid", gap: "6px" }}>
+                      {lignes.map((ligne, i) => (
+                        <div key={i} style={{ display: "flex", gap: "6px" }}>
+                          <input
+                            style={inputStyle}
+                            value={ligne}
+                            onChange={(e) => {
+                              const suite = [...lignes];
+                              suite[i] = e.target.value;
+                              setBlocs({ ...blocs, [cle]: suite });
+                            }}
+                          />
+                          <button
+                            type="button"
+                            aria-label={`Retirer la ligne ${i + 1}`}
+                            onClick={() => setBlocs({ ...blocs, [cle]: lignes.filter((_, j) => j !== i) })}
+                            style={{ border: "1px solid #E2E8F0", borderRadius: "10px", background: "#FFFFFF", color: "#8A1F1F", minWidth: 40, cursor: "pointer" }}
+                          >
+                            −
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: "10px", marginTop: "6px", flexWrap: "wrap" }}>
+                      <button type="button"
+                        onClick={() => setBlocs({ ...blocs, [cle]: [...lignes, ""] })}
+                        style={boutonDiscret}>+ Ajouter une ligne</button>
+                      {modifie && (
+                        <button type="button" onClick={() => {
+                          const suite = { ...blocs };
+                          delete suite[cle];
+                          setBlocs(suite);
+                        }} style={boutonDiscret}>Revenir au texte d&apos;origine</button>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div key={cle}>
+                  <label style={labelStyle}>{libelle}</label>
+                  <textarea
+                    style={{ ...inputStyle, minHeight: "60px", resize: "vertical" }}
+                    value={typeof blocs[cle] === "string" ? blocs[cle] as string : ""}
+                    placeholder={String(defaut ?? "")}
+                    onChange={(e) => setBlocs({ ...blocs, [cle]: e.target.value })}
+                  />
+                  {modifie && (
+                    <button type="button" onClick={() => {
+                      const suite = { ...blocs };
+                      delete suite[cle];
+                      setBlocs(suite);
+                    }} style={boutonDiscret}>Revenir au texte d&apos;origine</button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {apercu && (
         <div style={{ background: "#F5F0E8", borderRadius: "12px", padding: "16px" }}>
           <p style={{ margin: "0 0 10px 0", fontSize: "12px", color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.5px" }}>
@@ -200,6 +315,16 @@ function CarteEmail({ email }: { email: EmailModele }) {
             <div style={{ background: "#EDE8DF", borderRadius: "8px", padding: "10px 12px", margin: "0 0 12px 0", fontSize: "12px", color: "#9CA3AF", textAlign: "center" }}>
               — bloc récapitulatif automatique (dates, montant, coordonnées…) —
             </div>
+            {/* APP 60 — les autres textes, tels qu'ils partiront. */}
+            {clesBlocs.map((cle) => {
+              const v = blocs[cle] ?? email.blocsDefaut[cle];
+              const lignes = Array.isArray(v) ? v : [String(v ?? "")];
+              return lignes.filter((l) => l.trim() !== "").map((ligne, i) => (
+                <p key={`${cle}-${i}`} style={{ margin: "0 0 8px 0", color: "#6B7280", fontSize: "13px" }}>
+                  {interpoler(ligne)}
+                </p>
+              ));
+            })}
             <p style={{ margin: 0, color: "#6B7280", fontSize: "14px" }}
               dangerouslySetInnerHTML={{ __html: rendu.message_final }} />
           </div>

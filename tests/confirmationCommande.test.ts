@@ -123,14 +123,24 @@ describe("l’e-mail et l’action", () => {
 
   it("l’e-mail joint le PDF et le dit en une phrase", () => {
     expect(corps).toContain("piecesJointes: [{ filename:");
-    expect(corps).toContain(
-      "Votre facture n° ${echapper(facture!.numero)} est jointe ; vous la retrouvez aussi dans votre espace client."
+    /**
+     * APP 60 — la phrase est devenue un BLOC, et le numéro de facture une
+     * VARIABLE du modèle ({numero_facture}) : un `.replace` après coup arrivait
+     * trop tard, l'interpolation avait déjà vidé l'accolade. Le gabarit porte
+     * la clé, le texte vit dans DEFAUTS_MODELES.
+     */
+    expect(corps).toContain('${m.b("facture_jointe")}');
+    expect(lire("src", "lib", "email.ts")).toContain(
+      'facture_jointe: "Votre facture n° {numero_facture} est jointe ; vous la retrouvez aussi dans votre espace client."'
     );
   });
 
   it("sans PDF, il annonce la facture pour plus tard ; au retrait, il n’en parle pas", () => {
-    expect(corps).toContain("Votre facture vous parvient par un second e-mail");
-    expect(corps).toContain("Vous réglerez votre commande au retrait.");
+    expect(corps).toContain('${m.b("facture_suit")}');
+    expect(corps).toContain('${m.b("reglement_retrait")}');
+    const source = lire("src", "lib", "email.ts");
+    expect(source).toContain('facture_suit: "Votre facture vous parvient par un second e-mail');
+    expect(source).toContain('reglement_retrait: "Vous réglerez votre commande au retrait."');
   });
 
   it("l’action de commande n’envoie plus la confirmation que par ce chemin", () => {
