@@ -221,6 +221,63 @@ deux fois (mesuré).
 Deux occurrences réelles ne s'effacent pas parce qu'on n'a pas su les
 reproduire. Celle-ci, on l'a.
 
+### Le 29 septembre 2026 : les deux « Test timed out » sont clos
+
+Deux autres tests expiraient de temps à autre, toujours en suite complète,
+toujours avec `Test timed out in 15000ms` :
+
+- `tests/reseauEcransSuite.test.tsx > Export Excel des statistiques` ;
+- `tests/prixClientPension.test.tsx > « Avoir » et « À régler »`.
+
+**La cause, mesurée.** Chacun des deux chargeait sa page par un `await import`
+DANS le corps du test. Sur une machine au repos :
+
+| | test le plus lent du fichier | dont `await import` |
+|---|---|---|
+| `Statistiques` | 515 à 586 ms | 474 à 528 ms |
+| `mon-compte/page` | 771 à 807 ms | 825 à 856 ms |
+
+Le second chiffre dépasse le premier parce qu'il a été pris séparément : c'est
+le même travail. Autrement dit, **le test ne mesurait pas ce qu'il vérifie, il
+mesurait la compilation de la page.** Les imports suivants du même module
+coûtaient 0 ms — le registre les tenait déjà : c'est donc le PREMIER test de
+chaque describe qui payait, et c'est exactement celui qui échouait.
+
+Il suffisait alors du facteur trois à six déjà constaté sur les exécutions
+lentes pour franchir les 15 secondes. Et l'échec disait « Test timed out », qui
+ne nomme ni la page, ni le montant, ni rien de ce qu'on cherchait — on croyait
+donc à une course, et on la cherchait dans le composant.
+
+**La correction.** Les pages se chargent une fois dans un `beforeAll`, avec un
+délai à lui de 60 000 ms passé en second argument. Ni `testTimeout` (15 000) ni
+l'attente de rendu (4 s) n'ont bougé, ni aucune assertion.
+
+| | avant | après |
+|---|---|---|
+| `reseauEcransSuite`, test le plus lent | 515 à 586 ms | 184 à 218 ms |
+| `prixClientPension`, test le plus lent | 771 à 807 ms | 154 à 173 ms |
+| `prixClientPension`, fichier entier | 1 504 à 1 558 ms | 412 à 444 ms |
+
+Cinq exécutions de chaque fichier seul avant et après, puis trois suites
+complètes : 184 fichiers, 3 064 tests, vertes, 23,3 à 23,5 s.
+
+Deux vérifications qui n'allaient pas de soi, et qui ont été faites :
+`Statistiques` n'importe `xlsx` qu'au clic, donc le précharger ne charge pas
+`xlsx` et le `vi.doMock("xlsx")` reste efficace — le test continue de voir sa
+phrase d'erreur, ce qui prouve que le mock est bien levé. Et les mocks de
+`prixClientPension` lisent leur décor À L'APPEL, au rendu, pas à l'import :
+précharger la page ne fige donc aucune donnée.
+
+**Une page ou un gros composant importé dynamiquement se charge dans un
+`beforeAll`, pas dans le corps du test.** Le délai du `beforeAll` lui est
+propre : la compilation a de la marge, et le test garde son délai entier pour
+ce qu'il prouve. Un test qui compile son écran mesure la machine autant que le
+logiciel, et c'est la machine qui le fait tomber.
+
+Cela ne clôt pas le sujet ouvert plus haut : les deux échecs des 22 et
+24 septembre n'ont pas été nommés, on ne peut donc pas leur attribuer cette
+cause — seulement observer qu'elle en a la forme.
+
 # Un lot de sécurité ouvre le suivi, et le referme
 
 Tout lot de sécurité ouvre `docs/SUIVI-AUDIT-2026-09-22.md` au début et le met

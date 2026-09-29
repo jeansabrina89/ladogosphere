@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { render, screen, cleanup } from "@testing-library/react";
@@ -136,6 +136,37 @@ function lu(): string {
   return (document.body.textContent ?? "").replace(/\s+/g, " ");
 }
 
+/**
+ * ── LES TROIS PAGES SE CHARGENT UNE FOIS, HORS DU CHRONO DU TEST ──────────
+ *
+ * Le premier `await import` du tableau de bord coûtait 825 à 856 ms sur une
+ * machine au repos — pour un test qui durait 771 à 807 ms en tout. Autrement
+ * dit, le test ne mesurait pas ce qu'il vérifie : il mesurait la compilation
+ * de la page. Les imports suivants, eux, coûtaient 0 ms, le module étant déjà
+ * au registre : c'est donc le PREMIER test de chaque describe qui payait, et
+ * c'est bien lui qui échouait.
+ *
+ * Sur une machine chargée, cette compilation se multiplie par trois à six et
+ * emportait le délai de 15 secondes. L'échec disait alors « Test timed out »,
+ * qui ne nomme ni la page, ni le montant, ni rien de ce qu'on cherchait.
+ *
+ * Les 60 secondes sont celles du `beforeAll`, pas du test : la compilation a
+ * de la marge, le test garde ses 15 secondes pour ce qu'il prouve.
+ *
+ * Précharger ne dérange aucun mock : les `vi.mock` ci-dessus sont hoistés,
+ * donc déjà posés, et leurs fabriques lisent `H` À L'APPEL — au rendu, pas à
+ * l'import. Chaque `rendre()` remplit donc `H` comme avant.
+ */
+let PageReservations: (typeof import("@/app/(client)/mon-compte/reservations/page"))["default"];
+let PageTableauDeBord: (typeof import("@/app/(client)/mon-compte/page"))["default"];
+let PageFactures: (typeof import("@/app/(client)/mon-compte/factures/page"))["default"];
+
+beforeAll(async () => {
+  PageReservations = (await import("@/app/(client)/mon-compte/reservations/page")).default;
+  PageTableauDeBord = (await import("@/app/(client)/mon-compte/page")).default;
+  PageFactures = (await import("@/app/(client)/mon-compte/factures/page")).default;
+}, 60_000);
+
 describe("les réservations : le format de la vitrine", () => {
   /**
    * Trois montants d'un coup : 226.50 avec centimes, 89.– rond, et un reste de
@@ -158,8 +189,7 @@ describe("les réservations : le format de la vitrine", () => {
         reservation_chiens: [{ chiens: { nom: "Pixel", doit_etre_isole: false } }],
       },
     ];
-    const { default: Page } = await import("@/app/(client)/mon-compte/reservations/page");
-    render(await Page({ searchParams: Promise.resolve({}) }));
+    render(await PageReservations({ searchParams: Promise.resolve({}) }));
   }
 
   it("le TOTAL du séjour est à la suisse, le payé et le reste au format pièce", async () => {
@@ -248,8 +278,7 @@ describe("le tableau de bord : les deux tuiles viennent des factures", () => {
         reservation_chiens: [{ chiens: { nom: "Pixel" } }],
       },
     ];
-    const { default: Page } = await import("@/app/(client)/mon-compte/page");
-    render(await Page());
+    render(await PageTableauDeBord());
   }
 
   it("« Avoir » et « À régler » s'écrivent « 200.00 CHF »", async () => {
@@ -305,8 +334,7 @@ describe("le tableau de bord : les deux tuiles viennent des factures", () => {
         reservation_chiens: [{ chiens: { nom: "Pixel" } }],
       },
     ];
-    const { default: Page } = await import("@/app/(client)/mon-compte/page");
-    render(await Page());
+    render(await PageTableauDeBord());
     const texte = lu();
     expect(texte).toContain("340.–");
     expect(texte).not.toContain("340.00 CHF");
@@ -327,8 +355,7 @@ describe("les factures : le format de la pièce, inchangé", () => {
         montant_restant: 226.5,
       },
     ];
-    const { default: Page } = await import("@/app/(client)/mon-compte/factures/page");
-    render(await Page());
+    render(await PageFactures());
   }
 
   it("écrit « 226.50 CHF », comme le PDF que la cliente ouvre à côté", async () => {
@@ -356,8 +383,7 @@ describe("les factures : le format de la pièce, inchangé", () => {
         montant_total: 200, montant_restant: 200,
       },
     ];
-    const { default: Page } = await import("@/app/(client)/mon-compte/factures/page");
-    render(await Page());
+    render(await PageFactures());
     const texte = lu();
     expect(texte).toContain("200.00 CHF");
     expect(texte).not.toContain("200.–");

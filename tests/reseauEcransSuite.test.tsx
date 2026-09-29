@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor, fireEvent, cleanup } from "@testing-library/react";
 import "./setup/attenteJsdom"; // quatre secondes d'attente, pas une
 
@@ -151,11 +151,34 @@ describe("Créer une réservation", () => {
 // ── L'export Excel : c'est le MODULE qui manque, pas le serveur ─────────────
 
 describe("Export Excel des statistiques", () => {
+  /**
+   * L'écran se charge UNE fois, hors du chrono du test.
+   *
+   * `Statistiques` est un gros composant : son premier `await import` coûte
+   * environ 500 ms sur une machine au repos — c'est-à-dire la quasi-totalité
+   * des 515 à 586 ms que durait ce test. Sur une machine chargée, où la suite
+   * entière compile en parallèle, cette compilation se multiplie par trois à
+   * six et emportait le délai de 15 secondes : le test échouait sur
+   * « Test timed out », qui ne nomme rien de ce qu'il vérifie.
+   *
+   * Le délai de 60 secondes est celui du `beforeAll`, pas celui du test : la
+   * compilation a de la marge, et le test garde ses 15 secondes entières pour
+   * ce qu'il a à prouver.
+   *
+   * Le mock d'`xlsx` n'est PAS concerné : `Statistiques` ne l'importe qu'au
+   * clic (`await import("xlsx")` dans son gestionnaire), donc le précharger ne
+   * charge pas `xlsx`. Le `vi.doMock` reste posé dans le test, avant le clic.
+   */
+  let Statistiques: React.ComponentType<never>;
+
+  beforeAll(async () => {
+    Statistiques = (await import(
+      "@/app/(admin)/(espace-comptabilite)/comptabilite/Statistiques"
+    )).default as React.ComponentType<never>;
+  }, 60_000);
+
   it("le module ne se charge pas : phrase dédiée, bouton de nouveau cliquable", async () => {
     vi.doMock("xlsx", () => { throw new Error("chunk indisponible"); });
-    const { default: Statistiques } = await import(
-      "@/app/(admin)/(espace-comptabilite)/comptabilite/Statistiques"
-    );
 
     render(
       <Statistiques
