@@ -1,6 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import {
+  AVERTISSEMENT_SANS_IBAN,
+  NON_RENSEIGNE,
+  ibanMasque,
+} from "@/src/lib/ibanMasque";
 import { useRouter } from "next/navigation";
 
 type Tarif = {
@@ -32,66 +37,37 @@ const GROUPES = [
   { label: "🚨 Urgence (membres uniquement)", prefix: "urgence" },
 ];
 
-function ibanValide(raw: string): boolean {
-  const iban = (raw || "").replace(/\s+/g, "").toUpperCase();
-  if (!/^[A-Z]{2}[0-9A-Z]{13,32}$/.test(iban)) return false;
-  const rearranged = iban.slice(4) + iban.slice(0, 4);
-  let remainder = 0;
-  for (const ch of rearranged) {
-    const code = ch >= "A" && ch <= "Z" ? (ch.charCodeAt(0) - 55).toString() : ch;
-    for (const d of code) {
-      remainder = (remainder * 10 + (d.charCodeAt(0) - 48)) % 97;
-    }
-  }
-  return remainder === 1;
-}
-
-function estQrIban(raw: string): boolean {
-  const iban = (raw || "").replace(/\s+/g, "").toUpperCase();
-  if (!iban.startsWith("CH") && !iban.startsWith("LI")) return false;
-  const iid = parseInt(iban.slice(4, 9), 10);
-  return iid >= 30000 && iid <= 31999;
-}
+/*
+ * APP 63 — `ibanValide` et `estQrIban` vivaient ici pour valider les champs
+ * que cet écran portait. Ces champs sont partis avec eux : l'identité de
+ * paiement se règle dans Réglages → Entreprise, et cet écran ne fait plus que
+ * la lire, masquée.
+ */
 
 export default function GestionTarifs({
-  tarifs, annee, anneesDisponibles, cotisationMontant, ibanInitial,
-  titulaireInitial, adresseRueInitial, adresseNumeroInitial, adresseNpaInitial,
-  adresseVilleInitial, adressePaysInitial,
+  tarifs, annee, anneesDisponibles, cotisationMontant, identite,
 }: {
   tarifs: Tarif[];
   annee: number;
   anneesDisponibles: number[];
   cotisationMontant: number;
-  ibanInitial: string;
-  titulaireInitial: string;
-  adresseRueInitial: string;
-  adresseNumeroInitial: string;
-  adresseNpaInitial: string;
-  adresseVilleInitial: string;
-  adressePaysInitial: string;
+  /**
+   * APP 63 — l'identité de paiement en LECTURE SEULE. Elle vit sur
+   * `entites_juridiques` et se règle dans Réglages → Entreprise.
+   */
+  identite: { raisonSociale: string; iban: string | null; qrIban: string | null };
 }) {
   const router = useRouter();
   const [tarifsLocaux, setTarifsLocaux] = useState<Record<string, number>>(
     Object.fromEntries(tarifs.map(t => [`${t.categorie}_${t.membre}`, parseFloat(t.prix)]))
   );
   const [cotisation, setCotisation] = useState(cotisationMontant);
-  const [iban, setIban] = useState(ibanInitial);
-  const [titulaire, setTitulaire] = useState(titulaireInitial);
-  const [adrRue, setAdrRue] = useState(adresseRueInitial);
-  const [adrNumero, setAdrNumero] = useState(adresseNumeroInitial);
-  const [adrNpa, setAdrNpa] = useState(adresseNpaInitial);
-  const [adrVille, setAdrVille] = useState(adresseVilleInitial);
-  const [adrPays, setAdrPays] = useState(adressePaysInitial || "CH");
   const [nouvelleAnnee, setNouvelleAnnee] = useState(annee + 1);
   const [loading, setLoading] = useState(false);
   const [succes, setSucces] = useState("");
 
   const getKey = (categorie: string, membre: boolean) => `${categorie}_${membre}`;
 
-  const ibanRempli = iban.trim().length > 0;
-  const ibanOk = ibanValide(iban);
-  const qrIban = estQrIban(iban);
-  const adresseComplete = !!(titulaire.trim() && adrRue.trim() && adrNpa.trim() && adrVille.trim() && adrPays.trim());
 
   const sauvegarderTarifs = async () => {
     setLoading(true);
@@ -102,31 +78,22 @@ export default function GestionTarifs({
       prix: tarifsLocaux[getKey(t.categorie, t.membre)] ?? parseFloat(t.prix),
     }));
 
-    // Deux portes : les prix, et l'identité de paiement de l'entreprise.
+    /**
+     * UNE SEULE porte : les prix et le montant d'adhésion.
+     *
+     * Cet écran appelait aussi `/api/entite/coordonnees` avec l'IBAN, le
+     * titulaire et l'adresse relus d'anciens réglages. Enregistrer un TARIF
+     * réécrivait donc l'identité de l'entreprise : le 29.09.2026 à 20:45 UTC,
+     * l'IBAN en vigueur est passé à null et la raison sociale a changé. Cet
+     * écran ne touche plus jamais `entites_juridiques`.
+     */
     const res = await fetch("/api/tarifs", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ updates, cotisation }),
     });
-    const resEntite = res.ok
-      ? await fetch("/api/entite/coordonnees", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            iban,
-            coordonnees: {
-              titulaire,
-              adresse_rue: adrRue,
-              adresse_numero: adrNumero,
-              adresse_npa: adrNpa,
-              adresse_ville: adrVille,
-              adresse_pays: adrPays,
-            },
-          }),
-        })
-      : res;
 
-    if (res.ok && resEntite.ok) {
+    if (res.ok) {
       setSucces("✅ Paramètres sauvegardés !");
       router.refresh();
     }
@@ -205,93 +172,52 @@ export default function GestionTarifs({
         </div>
       </div>
 
-      {/* Coordonnées de paiement (QR-facture) */}
+      {/*
+        APP 63 — l'identité de paiement se LIT ici, elle ne s'y règle plus.
+
+        Cet écran portait des champs IBAN, titulaire et adresse, remplis depuis
+        d'anciens réglages de `parametres`. Chaque sauvegarde des PRIX les
+        renvoyait à l'entité juridique : le 29.09.2026 à 20:45 UTC, enregistrer
+        un tarif a mis l'IBAN en vigueur à null et changé la raison sociale.
+
+        L'IBAN est masqué : on vient vérifier qu'il est bien réglé, pas le lire.
+        Il se lit en clair là où il se règle.
+      */}
       <div className="bg-white rounded-xl p-6 shadow-sm">
         <h2 className="text-xl font-bold mb-1" style={{ color: "#1B2B5E" }}>
           🏦 Coordonnées de paiement
         </h2>
         <p className="text-xs text-gray-400 mb-4">
-          Servent aux emails de paiement et au bulletin QR sur les factures.
-          Le QR s&apos;affiche dès que l&apos;IBAN est valide et l&apos;adresse complète.
+          Servent aux e-mails de paiement et au bulletin QR sur les factures.
+          Elles se modifient dans Réglages → Entreprise.
         </p>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>Titulaire du compte</label>
-            <input type="text" value={titulaire}
-              onChange={e => setTitulaire(e.target.value)}
-              placeholder={titulaireInitial || "Raison sociale"}
-              className="border rounded-xl p-3 w-full text-sm" style={{ color: "#1B2B5E" }} />
+        <dl className="text-sm space-y-2" style={{ color: "#1B2B5E" }}>
+          <div className="flex gap-2 flex-wrap">
+            <dt className="font-semibold">Raison sociale :</dt>
+            <dd>{identite.raisonSociale || NON_RENSEIGNE}</dd>
           </div>
+          <div className="flex gap-2 flex-wrap">
+            <dt className="font-semibold">IBAN :</dt>
+            <dd className="font-mono">{ibanMasque(identite.iban) || NON_RENSEIGNE}</dd>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <dt className="font-semibold">QR-IBAN :</dt>
+            <dd className="font-mono">{ibanMasque(identite.qrIban) || NON_RENSEIGNE}</dd>
+          </div>
+        </dl>
 
-          <div>
-            <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>IBAN / QR-IBAN</label>
-            <input type="text" value={iban}
-              onChange={e => setIban(e.target.value)}
-              className="border rounded-xl p-3 w-full font-mono text-sm"
-              placeholder="CH00 0000 0000 0000 0000 0"
-              style={{ color: "#1B2B5E" }} />
-            {ibanRempli && (
-              <p className="text-xs mt-1" style={{ color: ibanOk ? "#1F6E5B" : "#A8453A" }}>
-                {ibanOk
-                  ? (qrIban
-                      ? "✅ QR-IBAN valide — référence QRR automatique sur la facture."
-                      : "✅ IBAN valide (IBAN normal — pas de référence structurée).")
-                  : "⚠️ IBAN invalide — vérifie la saisie."}
-              </p>
-            )}
-          </div>
+        {!identite.iban && !identite.qrIban && (
+          <p role="alert" className="rounded-xl p-3 text-xs mt-4"
+             style={{ backgroundColor: "#FDECEC", color: "#8A1F1F" }}>
+            {AVERTISSEMENT_SANS_IBAN}
+          </p>
+        )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>Rue</label>
-              <input type="text" value={adrRue}
-                onChange={e => setAdrRue(e.target.value)}
-                placeholder="Rue de l'Exemple"
-                className="border rounded-xl p-3 w-full text-sm" style={{ color: "#1B2B5E" }} />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>N°</label>
-              <input type="text" value={adrNumero}
-                onChange={e => setAdrNumero(e.target.value)}
-                placeholder="12"
-                className="border rounded-xl p-3 w-full text-sm" style={{ color: "#1B2B5E" }} />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>NPA</label>
-              <input type="text" value={adrNpa}
-                onChange={e => setAdrNpa(e.target.value)}
-                placeholder="1950"
-                className="border rounded-xl p-3 w-full text-sm" style={{ color: "#1B2B5E" }} />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>Ville</label>
-              <input type="text" value={adrVille}
-                onChange={e => setAdrVille(e.target.value)}
-                placeholder="Sion"
-                className="border rounded-xl p-3 w-full text-sm" style={{ color: "#1B2B5E" }} />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold mb-1" style={{ color: "#1B2B5E" }}>Pays</label>
-              <input type="text" value={adrPays}
-                onChange={e => setAdrPays(e.target.value.toUpperCase().slice(0, 2))}
-                placeholder="CH" maxLength={2}
-                className="border rounded-xl p-3 w-full text-sm uppercase" style={{ color: "#1B2B5E" }} />
-            </div>
-          </div>
-
-          <div className="rounded-xl p-3 text-xs" style={{
-            backgroundColor: ibanOk && adresseComplete ? "#DCEEE9" : "#EAF0F6",
-            color: ibanOk && adresseComplete ? "#1F6E5B" : "#1B2B5E",
-          }}>
-            {ibanOk && adresseComplete
-              ? "✅ Bulletin QR actif sur les factures."
-              : "ℹ️ Bulletin QR inactif tant que l'IBAN n'est pas valide et l'adresse complète (titulaire, rue, NPA, ville, pays)."}
-          </div>
-        </div>
+        <a href="/reglages/entreprise" className="inline-block text-sm font-semibold mt-4"
+           style={{ color: "#1F6E5B", textDecoration: "underline" }}>
+          Modifier dans Réglages → Entreprise
+        </a>
       </div>
 
       {/* Tableaux de tarifs par groupe */}

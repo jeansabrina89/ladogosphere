@@ -22,6 +22,11 @@ const champ: React.CSSProperties = {
   width: "100%", minHeight: CIBLE, padding: "8px 10px",
   border: "1px solid rgba(27,43,94,.2)", borderRadius: 12, fontSize: 14,
 };
+/** L aide sous un champ : plus petite, plus discrete que l etiquette. */
+const aide: React.CSSProperties = {
+  fontSize: 12.5, color: "rgba(27,43,94,0.6)", margin: "4px 0 0", lineHeight: 1.45,
+};
+
 const label: React.CSSProperties = {
   display: "block", fontSize: 13, fontWeight: 600, color: MARINE, marginBottom: 4,
 };
@@ -101,11 +106,23 @@ function Champs({ e, prefixe }: { e?: EntiteJuridique; prefixe: string }) {
         <div>
           <label style={label} htmlFor={id("iban")}>IBAN</label>
           <input id={id("iban")} name="iban" defaultValue={e?.iban ?? ""} style={champ} />
+          {/*
+            APP 63 — deux champs, deux comptes possibles, et on les confondait.
+            L'écran Tarifs portait un seul champ « IBAN / QR-IBAN », ce qui
+            laissait croire qu'il n'y en avait qu'un. C'est ici, et seulement
+            ici, que les deux se règlent.
+          */}
+          <p style={aide}>Compte bancaire ordinaire (virements).</p>
         </div>
         <div>
           <label style={label} htmlFor={id("qriban")}>QR-IBAN</label>
           <input id={id("qriban")} name="qr_iban" defaultValue={e?.qrIban ?? ""}
             placeholder="— si la banque en fournit un —" style={champ} />
+          <p style={aide}>
+            Seulement si votre banque vous a fourni un QR-IBAN (il commence par CH
+            et son 5<sup>e</sup> chiffre est 3). Sinon, laissez vide : le bulletin QR
+            utilisera l&apos;IBAN.
+          </p>
         </div>
         <div>
           <label style={label} htmlFor={id("email")}>E-mail</label>

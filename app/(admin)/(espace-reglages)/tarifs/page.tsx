@@ -1,6 +1,7 @@
 import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { createClient } from "@/src/utils/supabase/server";
 import GestionTarifs from "./GestionTarifs";
+import { entiteCourante } from "@/src/lib/entiteJuridique";
 
 export default async function TarifsPage({
   searchParams,
@@ -23,11 +24,12 @@ export default async function TarifsPage({
   const { data: parametres } = await supabase
     .from("parametres")
     .select("cle, valeur")
-    .in("cle", [
-      "cotisation_montant", "iban", "titulaire",
-      "adresse_rue", "adresse_numero", "adresse_npa", "adresse_ville", "adresse_pays",
-      // Les paramètres de TVA ont leur écran et leur table : Réglages → TVA.
-    ]);
+    // APP 63 — plus que le montant d'adhésion. L'IBAN, le titulaire et
+    // l'adresse vivaient ici en doublon de `entites_juridiques`, et chaque
+    // sauvegarde des prix les y renvoyait : le 29.09.2026 à 20:45 UTC, cela a
+    // mis l'IBAN de l'entité à null et changé sa raison sociale.
+    // Les paramètres de TVA ont leur écran et leur table : Réglages → TVA.
+    .in("cle", ["cotisation_montant"]);
 
   const { data: anneesDispo } = await supabase
     .from("tarifs")
@@ -39,13 +41,9 @@ export default async function TarifsPage({
   const val = (cle: string, def = "") => parametres?.find(p => p.cle === cle)?.valeur ?? def;
 
   const cotisationMontant = parseFloat(val("cotisation_montant", "200"));
-  const iban = val("iban");
-  const titulaire = val("titulaire");
-  const adresseRue = val("adresse_rue");
-  const adresseNumero = val("adresse_numero");
-  const adresseNpa = val("adresse_npa");
-  const adresseVille = val("adresse_ville");
-  const adressePays = val("adresse_pays", "CH");
+
+  // L'identité de paiement se LIT ici, elle ne s'y règle pas.
+  const entite = await entiteCourante();
 
 
   return (
@@ -59,13 +57,11 @@ export default async function TarifsPage({
           annee={annee}
           anneesDisponibles={anneesUniques}
           cotisationMontant={cotisationMontant}
-          ibanInitial={iban}
-          titulaireInitial={titulaire}
-          adresseRueInitial={adresseRue}
-          adresseNumeroInitial={adresseNumero}
-          adresseNpaInitial={adresseNpa}
-          adresseVilleInitial={adresseVille}
-          adressePaysInitial={adressePays}
+          identite={{
+            raisonSociale: entite?.raisonSociale ?? "",
+            iban: entite?.iban ?? null,
+            qrIban: entite?.qrIban ?? null,
+          }}
         />
       </div>
     </main>

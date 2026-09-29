@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
@@ -18,6 +18,8 @@ import { verifierCron } from "@/src/lib/cron";
 import { PERMISSIONS_PERSONNEL } from "@/src/lib/permissionsCatalogue";
 
 const lire = (...p: string[]) => readFileSync(join(process.cwd(), ...p), "utf8");
+/** APP 63 — pour prouver qu une route a bien disparu. */
+const existe = (...p: string[]) => existsSync(join(process.cwd(), ...p));
 
 const appelant = (
   role: string | null,
@@ -154,11 +156,25 @@ describe("les quatre portes fermées", () => {
     expect(lire("src", "lib", "ficheInterne.ts").trimStart().startsWith('"use server"')).toBe(false);
   });
 
-  it("l'identité de paiement a sa route, réservée à l'admin ; les tarifs n'y touchent plus", () => {
-    const entite = lire("app", "api", "entite", "coordonnees", "route.ts");
-    expect(entite).toContain('exigerAdmin("coordonnees_entite")');
-    expect(entite).toContain('from("entites_juridiques")');
-    expect(entite).toContain("tracerEvenement");
+  it("L'IDENTITÉ DE PAIEMENT NE SE RÈGLE PLUS PAR UNE ROUTE", () => {
+    /**
+     * APP 63 — la route `/api/entite/coordonnees` est SUPPRIMÉE.
+     *
+     * Elle n'avait qu'un appelant : l'écran Tarifs, qui lui renvoyait l'IBAN,
+     * le titulaire et l'adresse relus d'anciens réglages à CHAQUE sauvegarde
+     * des prix. Le 29.09.2026 à 20:45 UTC, enregistrer un tarif a donc mis
+     * l'IBAN de l'entité en vigueur à null et changé sa raison sociale.
+     *
+     * L'identité se règle désormais au seul endroit qui la porte : l'action
+     * serveur de Réglages → Entreprise, sous `exigerAdminPage`. Une route de
+     * moins est une porte de moins à garder.
+     */
+    expect(existe("app", "api", "entite", "coordonnees", "route.ts"), "la route est supprimée").toBe(false);
+    const actions = lire("app", "(admin)", "(espace-reglages)", "reglages", "entreprise", "actions.ts");
+    expect(actions).toContain("exigerAdminPage()");
+    expect(actions).toContain('from("entites_juridiques")');
+    expect(actions).toContain("tracerEvenement");
+
     const tarifs = lire("app", "api", "tarifs", "route.ts");
     expect(tarifs).toContain('exigerAdmin("tarifs")');
     expect(tarifs).not.toContain("entites_juridiques");
