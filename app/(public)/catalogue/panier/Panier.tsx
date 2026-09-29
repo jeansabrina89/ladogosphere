@@ -16,6 +16,7 @@ import {
   panierMixte,
   PHRASE_PANIER_MIXTE,
   adresseComplete,
+  MENTION_ZONE_LIVRAISON,
   type Adresse,
   type LignePanier,
   type ModePaiement,
@@ -131,6 +132,7 @@ export default function Panier({
   const refus = refusConfirmation({
     lignes, mode, contexte, modePaiement: paiement,
     adresseComplete: mode === "postal" ? adresseComplete(adresse) : true,
+    npa: adresse.npa,
   });
 
   async function agir(action: Promise<{ error?: string }>) {
@@ -303,6 +305,11 @@ export default function Panier({
             <h3 style={{ color: MARINE, fontSize: 16, fontWeight: 700, margin: 0 }}>
               Adresse de livraison
             </h3>
+            {/* Dite AVANT les champs : découvrir la zone après avoir tout tapé
+                serait la découvrir trop tard. */}
+            <p style={{ color: SOUS, fontSize: 13.5, margin: "0 0 10px" }}>
+              {MENTION_ZONE_LIVRAISON}
+            </p>
             {([
               ["nom", "Nom et prénom"],
               ["rue", "Rue et numéro"],
@@ -318,6 +325,11 @@ export default function Panier({
                   onChange={(e) => setAdresse({ ...adresse, [cle]: e.target.value })}
                   style={champ}
                   autoComplete={cle === "npa" ? "postal-code" : cle === "localite" ? "address-level2" : "street-address"}
+                  {...(cle === "npa"
+                    // Le pavé numérique s'ouvre tout seul, et quatre chiffres
+                    // suffisent : un NPA suisse n'en a jamais cinq.
+                    ? { inputMode: "numeric" as const, maxLength: 4 }
+                    : {})}
                 />
               </div>
             ))}

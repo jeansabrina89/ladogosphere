@@ -20,6 +20,7 @@ import {
 } from "@/src/lib/venteEnLigne";
 import {
   adresseComplete,
+  paysDuNpa,
   optionRemise,
   refusConfirmation,
   totalCommande,
@@ -274,6 +275,24 @@ export type EntreeConfirmation = {
  * L'idempotence est portée par la même RPC : un double clic ne crée pas deux
  * commandes.
  */
+/**
+ * L'adresse telle qu'elle est ENREGISTRÉE (APP 51).
+ *
+ * Le pays n'est pas repris de la requête : il se déduit du NPA. Une requête
+ * forgée peut annoncer « France » — elle sera enregistrée « Suisse » ou
+ * « Liechtenstein », et rien d'autre. Le NPA perd ses espaces au passage :
+ * « 1 950 » et « 1950 » sont le même endroit, et un bon d'envoi ne doit pas
+ * dépendre de la façon dont on l'a tapé.
+ *
+ * La zone a déjà été refusée par `refusConfirmation` : ceci n'est pas une
+ * seconde garde, c'est la mise en forme de ce qui a été accepté.
+ */
+function adresseLivrable(a: Partial<Adresse> | null | undefined): Record<string, unknown> | null {
+  if (!a) return null;
+  const npa = String(a.npa ?? "").replace(/\s/g, "");
+  return { ...a, npa, pays: paysDuNpa(npa) };
+}
+
 export async function confirmerCommande(entree: EntreeConfirmation): Promise<Retour> {
   const client = await moi();
   if (!client) return { error: "Connectez-vous pour commander." };
@@ -311,6 +330,7 @@ export async function confirmerCommande(entree: EntreeConfirmation): Promise<Ret
     contexte,
     modePaiement: entree.mode_paiement,
     adresseComplete: entree.mode_remise === "postal" ? adresseComplete(entree.adresse) : true,
+    npa: entree.adresse?.npa ?? null,
   });
   if (refus) return { error: refus };
 
@@ -349,7 +369,7 @@ export async function confirmerCommande(entree: EntreeConfirmation): Promise<Ret
     p_commande_id: panier.id,
     p_mode_remise: entree.mode_remise,
     p_reservation_id: reservationId,
-    p_adresse: entree.mode_remise === "postal" ? entree.adresse ?? null : null,
+    p_adresse: entree.mode_remise === "postal" ? adresseLivrable(entree.adresse) : null,
     p_frais_port: total.port,
     p_remise_membre: total.remise,
     p_montant_total: total.aPayer,

@@ -647,6 +647,8 @@ export function refusConfirmation(p: {
   contexte: ContexteRemise;
   modePaiement: ModePaiement | null;
   adresseComplete?: boolean;
+  /** APP 51 : le NPA, pour la zone de livraison. */
+  npa?: string | null;
 }): string | null {
   if (p.lignes.length === 0) return "Votre panier est vide.";
   if (!p.mode) return "Choisissez comment vous voulez recevoir votre commande.";
@@ -656,6 +658,16 @@ export function refusConfirmation(p: {
 
   if (p.mode === "postal" && p.adresseComplete === false) {
     return "Indiquez l'adresse de livraison.";
+  }
+  /*
+   * APP 51 — la zone de livraison, APRÈS l'adresse complète.
+   *
+   * Dans cet ordre : dire « vérifiez le NPA » à qui n'a rien rempli serait
+   * pointer un champ au hasard parmi quatre vides. On demande d'abord
+   * l'adresse, on discute du NPA ensuite.
+   */
+  if (p.mode === "postal" && !npaLivrable(p.npa)) {
+    return REFUS_ZONE_LIVRAISON;
   }
   if (!p.modePaiement) return "Choisissez comment vous voulez payer.";
 
@@ -832,6 +844,37 @@ export type Adresse = {
   localite: string;
   pays?: string | null;
 };
+
+/**
+ * Envoi en Suisse et au Liechtenstein uniquement (décision de Sabrina,
+ * 29.09.2026). La Poste traite le Liechtenstein comme la Suisse : mêmes NPA à
+ * 4 chiffres, même tarif.
+ *
+ * C'est pour cela que le pays ne se SAISIT pas : il se déduit du NPA. Un champ
+ * « pays » ouvert aurait laissé entrer la France, dont le colis serait parti au
+ * tarif suisse — et l'erreur ne se serait vue qu'au guichet.
+ */
+export function npaLivrable(npa: string | null | undefined): boolean {
+  const n = String(npa ?? "").replace(/\s/g, "");
+  if (!/^\d{4}$/.test(n)) return false;
+  const v = Number(n);
+  return v >= 1000 && v <= 9699;
+}
+
+/** Le pays d'un NPA livrable. Les 9485–9498 sont la principauté. */
+export function paysDuNpa(npa: string | null | undefined): string {
+  const n = String(npa ?? "").replace(/\s/g, "");
+  const v = Number(n);
+  return v >= 9485 && v <= 9498 ? "Liechtenstein" : "Suisse";
+}
+
+/** Ce qu'on dit quand le NPA sort de la zone. La même phrase des deux côtés. */
+export const REFUS_ZONE_LIVRAISON =
+  "Nous livrons en Suisse et au Liechtenstein uniquement. Vérifiez le NPA (4 chiffres).";
+
+/** La ligne posée sous « Adresse de livraison », dans le panier. */
+export const MENTION_ZONE_LIVRAISON =
+  "Envoi par La Poste, en Suisse et au Liechtenstein uniquement.";
 
 export function adresseComplete(a: Partial<Adresse> | null | undefined): boolean {
   if (!a) return false;
