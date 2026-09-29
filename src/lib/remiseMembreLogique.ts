@@ -54,10 +54,19 @@ export function refusPourcentageRemise(brut: unknown): string | null {
  * elle exclut une catégorie.
  */
 export const TEXTES_PUBLICS_REMISE_MEMBRE: { ou: string; texte: string }[] = [
-  {
-    ou: "Boutique en ligne, en tête du catalogue et du panier",
-    texte: "Membres : −10 % sur la boutique",
-  },
+  /*
+   * APP 43 — celui de l'application a QUITTÉ cette liste.
+   *
+   * Il disait « Membres : −10 % sur la boutique », et ses deux moitiés
+   * pouvaient mentir : le taux se règle rayon par rayon depuis APP 27, et
+   * « la boutique » cesse d'être vraie dès qu'un rayon est exclu. Il se
+   * construit maintenant à partir des rayons réellement remisés
+   * (`mentionRemiseMembre`) et suit donc cet écran tout seul.
+   *
+   * Les deux qui restent sont des DOCUMENTS — une page du site vitrine, des
+   * conditions remises au client. Ils ne se corrigent pas par effet de bord :
+   * on les rappelle pour que Sabrina sache ce qu'il faudra reprendre à la main.
+   */
   {
     ou: "Site vitrine, page Adhésion",
     texte: "10 % de remise sur toute la boutique",

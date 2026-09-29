@@ -5,6 +5,7 @@ import {
   POURCENTAGE_PAR_DEFAUT,
   type LigneRemiseCategorie,
 } from "@/src/lib/remiseMembreLogique";
+import type { RemiseRayon } from "@/src/lib/venteEnLigneLogique";
 
 /**
  * La remise d'adhésion par catégorie — couche base.
@@ -93,4 +94,36 @@ export async function enregistrerRemiseCategorie(p: {
   });
 
   return {};
+}
+
+/**
+ * Les rayons remisés, sans compter les articles — pour la MENTION (APP 43).
+ *
+ * `lireRemisesCategories` compte aussi les articles de chaque rayon : c'est ce
+ * qu'il faut à l'écran des réglages, et c'est un balayage de toute la table sur
+ * des pages publiques que chaque visiteur ouvre. Celle-ci ne lit que le
+ * réglage.
+ *
+ * Un rayon sans ligne vaut le régime par défaut — actif, 10 % — comme partout
+ * ailleurs : un rayon ajouté hier ne doit pas disparaître de la mention en
+ * attendant qu'on lui écrive sa ligne.
+ */
+export async function lireRayonsRemises(): Promise<RemiseRayon[]> {
+  const { data } = await supabaseAdmin
+    .from("remise_membre_categories")
+    .select("categorie, pourcentage, actif");
+
+  const parCategorie = new Map(
+    ((data ?? []) as { categorie: string; pourcentage: number | string; actif: boolean }[])
+      .map((r) => [r.categorie, r]),
+  );
+
+  return CATEGORIES_ARTICLE.map((c) => {
+    const r = parCategorie.get(c.valeur);
+    return {
+      categorie: c.valeur as string,
+      pourcentage: r ? Number(r.pourcentage) : POURCENTAGE_PAR_DEFAUT,
+      actif: r ? r.actif === true : true,
+    };
+  });
 }

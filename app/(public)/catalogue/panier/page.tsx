@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { lireRayonsRemises } from "@/src/lib/remiseMembre";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { aujourdhuiISO } from "@/src/lib/dates";
@@ -64,6 +65,11 @@ export default async function PanierPage() {
     options: libellesConfiguration(choix.get(lignesDb[i]?.id ?? "")),
   }));
 
+  // APP 43 : la mention nomme les rayons remisés. Calculée une fois : deux
+  // appels rendaient la même phrase, et rien ne garantissait qu'ils la
+  // rendraient toujours.
+  const mentionMembre = mentionRemiseMembre(await lireRayonsRemises());
+
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-3xl mx-auto">
@@ -78,10 +84,10 @@ export default async function PanierPage() {
 
         {/* Un client connecté SANS adhésion : on lui dit ce qu'elle vaut, sans
             la lui appliquer. Les remises de ligne, elles, sont déjà dedans. */}
-        {!membre && mentionRemiseMembre(params.remisePourcent) && (
+        {!membre && mentionMembre && (
           <Carte>
             <p style={{ color: "#6E5410", fontSize: 15, fontWeight: 600, margin: 0 }}>
-              🎫 {mentionRemiseMembre(params.remisePourcent)}
+              🎫 {mentionMembre}
             </p>
           </Carte>
         )}
@@ -119,10 +125,7 @@ export default async function PanierPage() {
  * articles. Les prix affichés viennent d'ici, de la base, jamais du navigateur.
  */
 async function PanierSansCompte() {
-  const [catalogue, params] = await Promise.all([
-    catalogueVitrine(),
-    lireParametresEnLigne(),
-  ]);
+  const catalogue = await catalogueVitrine();
 
   const articles: ArticlePanier[] = catalogue.map((a) => ({
     id: a.id,
@@ -133,7 +136,7 @@ async function PanierSansCompte() {
     en_stock: a.en_stock,
   }));
 
-  const mentionMembre = mentionRemiseMembre(params.remisePourcent);
+  const mentionMembre = mentionRemiseMembre(await lireRayonsRemises());
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>

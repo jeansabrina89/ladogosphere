@@ -121,7 +121,16 @@ describe("les refus de saisie", () => {
 
 describe("les textes que les clients lisent", () => {
   it("sont nommés avec l’endroit où ils vivent", () => {
-    expect(TEXTES_PUBLICS_REMISE_MEMBRE).toHaveLength(3);
+    /*
+     * DEUX depuis APP 43, et non plus trois : celui de l'application en est
+     * sorti. Il disait « Membres : −10 % sur la boutique » et se construit
+     * maintenant à partir des rayons réellement remisés — il suit donc cet
+     * écran tout seul, et n'a plus à être rappelé comme un texte à corriger.
+     *
+     * Les deux qui restent sont des DOCUMENTS : une page du site vitrine, des
+     * conditions remises au client. Eux ne se corrigent pas par effet de bord.
+     */
+    expect(TEXTES_PUBLICS_REMISE_MEMBRE).toHaveLength(2);
     expect(TEXTES_PUBLICS_REMISE_MEMBRE.map((t) => t.ou)).toContain("Site vitrine, page Adhésion");
     expect(TEXTES_PUBLICS_REMISE_MEMBRE.map((t) => t.ou))
       .toContain("Conditions d'adhésion remises au client");

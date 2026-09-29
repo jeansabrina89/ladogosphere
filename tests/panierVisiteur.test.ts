@@ -173,7 +173,19 @@ describe("ce qu’un visiteur reçoit", () => {
   });
 
   it("mentionne la remise membre sans jamais l’appliquer", () => {
-    expect(mentionRemiseMembre(10)).toBe("Membres : −10 % sur la boutique");
-    expect(mentionRemiseMembre(0)).toBeNull();
+    /**
+     * APP 43 — la mention ne chiffre plus rien et nomme les rayons remisés.
+     * Le taux se règle rayon par rayon depuis APP 27 : « −10 % sur la
+     * boutique » pouvait mentir des deux côtés à la fois.
+     *
+     * Ce que ce test garde n'a pas changé : une mention existe quand il y a de
+     * quoi la faire, et aucune quand il n'y en a pas. On ne l'APPLIQUE jamais
+     * au visiteur — la promesse retirée au paiement serait une trahison.
+     */
+    expect(mentionRemiseMembre([{ categorie: "litiere", pourcentage: 10, actif: true }]))
+      .toBe("Membres : remise sur la litière");
+    expect(mentionRemiseMembre([{ categorie: "litiere", pourcentage: 0, actif: true }]))
+      .toBeNull();
+    expect(mentionRemiseMembre([])).toBeNull();
   });
 });

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { lireRayonsRemises } from "@/src/lib/remiseMembre";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { articleEnLigne, nombreArticlesPanier } from "@/src/lib/venteEnLigne";
 import { lireCatalogueOptions } from "@/src/lib/personnalisation";
@@ -6,14 +7,13 @@ import { urlPhotoArticle, libelleCategorieArticle } from "@/src/lib/boutiqueLogi
 import {
   disponibilite,
   disponibiliteVitrine,
-  mentionRemiseMembre,
+  mentionRemiseMembreArticle,
   phraseDelaiCommande,
   TEXTE_NON_EXPEDIABLE,
   type ArticleSurCommande,
 } from "@/src/lib/venteEnLigneLogique";
 import { formatPrixClient } from "@/src/lib/prixClient";
 import { articleVitrine } from "@/src/lib/vitrine";
-import { lireParametresEnLigne } from "@/src/lib/venteEnLigne";
 import FusionPanier from "../FusionPanier";
 import { alerteProposable, normaliserEmail } from "@/src/lib/alertesStockLogique";
 import { alerteEnCours } from "@/src/lib/alertesStock";
@@ -84,7 +84,6 @@ export default async function ArticlePage({
   // sur la fiche, et non au moment de valider son panier.
   const delaiCommande = dispo.etat === "sur_commande" ? phraseDelaiCommande(surCommande) : null;
   const url = urlPhotoArticle(article.photo_path);
-  const params2 = await lireParametresEnLigne();
 
   // Le prix vient de la fonction unique — la même qu'à la caisse, au panier et
   // à la facture. Un article exclu de la remise membre n'en montre AUCUNE
@@ -92,9 +91,9 @@ export default async function ArticlePage({
   const ctx = await contextePrix();
   const membre = clientId ? await estMembreActif(supabaseAdmin, clientId) : false;
   const prix = prixDe(ctx, article, { estMembre: membre });
-  const mentionMembre = article.remise_membre_exclue === true
-    ? null
-    : mentionRemiseMembre(params2.remisePourcent);
+  // APP 43 : sur une fiche, la mention ne parle que de CET article — et
+  // seulement si son rayon est remisé. Nommer les autres serait du bruit.
+  const mentionMembre = mentionRemiseMembreArticle(article, await lireRayonsRemises());
 
   // L'alerte ne se propose que là où elle a un sens : un article à stock,
   // vendu en ligne, et réellement épuisé. Un article sur mesure se fabrique —

@@ -12,6 +12,9 @@
  * ventilation viendra en APP 14.
  */
 
+// L'ordre du magasin et la liste des rayons : une seule source (APP 43).
+import { CATEGORIES_ARTICLE } from "@/src/lib/boutiqueLogique";
+
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 const nb = (v: unknown): number | null => {
@@ -871,15 +874,134 @@ export function disponibiliteVitrine(
 }
 
 /**
+ * Les rayons d'alimentation, groupés sous un seul mot.
+ *
+ * Trois rayons distincts en magasin — sèche, humide, complète — mais un seul
+ * mot dans la bouche d'une cliente. « Remise sur l'alimentation sèche,
+ * l'alimentation humide et l'alimentation complète » est exact et illisible.
+ */
+const RAYONS_ALIMENTATION = [
+  "alimentation_seche",
+  "alimentation_humide",
+  "alimentation_complete",
+] as const;
+
+/**
+ * Chaque rayon avec son article défini, écrit à la main.
+ *
+ * Pas dérivé du libellé : le français ne se devine pas. « Litière » est
+ * féminin singulier, « Colliers » masculin pluriel, et aucune règle mécanique
+ * ne distingue les deux à partir du mot seul. « Soins et hygiène » demande même
+ * un second article — « les soins et l'hygiène » — qu'aucune règle ne poserait.
+ *
+ * Un rayon neuf sans sa forme est attrapé par un test : mieux vaut une liste
+ * qu'on complète qu'une phrase qui se casse chez la cliente.
+ */
+const RAYON_DEFINI: Record<string, string> = {
+  alimentation_seche: "l'alimentation sèche",
+  alimentation_humide: "l'alimentation humide",
+  alimentation_complete: "l'alimentation complète",
+  friandises: "les friandises et snacks",
+  mastication: "la mastication",
+  complements: "les compléments alimentaires",
+  litiere: "la litière",
+  colliers: "les colliers",
+  laisses: "les laisses",
+  harnais: "les harnais",
+  muselieres: "les muselières",
+  longes: "les longes",
+  jouets: "les jouets",
+  peluches: "les peluches",
+  griffoirs: "les griffoirs",
+  couchages: "les couchages, coussins et paniers",
+  gamelles: "les gamelles",
+  mangeoires: "les mangeoires",
+  cages_enclos: "les cages et enclos",
+  soins: "les soins et l'hygiène",
+  medaillons_accessoires: "les médaillons et accessoires",
+  divers: "les articles divers",
+};
+
+/** Le mot unique des trois rayons d'alimentation. */
+const ALIMENTATION_GROUPEE = "l'alimentation";
+
+/** Un rayon tel que le réglage le décrit. */
+export type RemiseRayon = {
+  categorie: string;
+  pourcentage: number | string | null | undefined;
+  /** Absent : actif. C'est le défaut d'un rayon qui n'a pas encore de ligne. */
+  actif?: boolean | null;
+};
+
+/** Ce rayon donne-t-il droit à la remise ? Actif ET plus de zéro. */
+export function rayonRemise(r: RemiseRayon): boolean {
+  const p = Number(r.pourcentage ?? 0);
+  return r.actif !== false && Number.isFinite(p) && p > 0;
+}
+
+/** « a, b et c ». Rien d'autre : ni « ou », ni virgule avant « et ». */
+function enumerer(morceaux: string[]): string {
+  if (morceaux.length <= 1) return morceaux[0] ?? "";
+  return `${morceaux.slice(0, -1).join(", ")} et ${morceaux[morceaux.length - 1]}`;
+}
+
+/**
  * La mention faite au visiteur à propos de la remise membre.
  *
- * On ne lui applique PAS la remise — il n'est pas membre, et la lui montrer
- * puis la retirer à la validation serait une petite trahison. On dit ce qui
- * est vrai : elle existe, elle vaut tant, et voilà une raison d'adhérer.
+ * ── SANS POURCENTAGE, ET C'EST VOULU ──────────────────────────────────────
+ *
+ * Elle disait « −10 % sur la boutique ». Les deux moitiés pouvaient mentir : le
+ * taux se règle rayon par rayon depuis APP 27, et « la boutique » cesse d'être
+ * vraie dès qu'un rayon est exclu. Une promesse faite au visiteur puis retirée
+ * à la validation est une petite trahison — on nomme donc ce qui est remisé,
+ * sans chiffrer ce qui varie d'un rayon à l'autre.
+ *
+ * On n'applique PAS la remise au visiteur : il n'est pas membre. On lui dit
+ * qu'elle existe, et où elle porte.
  */
-export function mentionRemiseMembre(remisePourcent: number | string | null | undefined): string | null {
-  const p = Number(remisePourcent ?? 0);
-  if (!Number.isFinite(p) || p <= 0) return null;
-  const propre = Math.round(p * 10) / 10;
-  return `Membres : −${String(propre).replace(".", ",")} % sur la boutique`;
+export function mentionRemiseMembre(rayons: readonly RemiseRayon[]): string | null {
+  const actifs = rayons.filter(rayonRemise).map((r) => r.categorie);
+  if (actifs.length === 0) return null;
+
+  // Tous les rayons du magasin : la phrase courte dit mieux la même chose.
+  const tous = CATEGORIES_ARTICLE.map((c) => c.valeur as string);
+  if (tous.every((c) => actifs.includes(c))) {
+    return "Membres : remise sur toute la boutique";
+  }
+
+  const morceaux: string[] = [];
+  let alimentationDite = false;
+  // L'ordre du MAGASIN, comme partout : ni l'alphabet, ni celui du réglage.
+  for (const categorie of tous) {
+    if (!actifs.includes(categorie)) continue;
+    if ((RAYONS_ALIMENTATION as readonly string[]).includes(categorie)) {
+      // Un seul mot pour les trois, dès que l'un d'eux est remisé.
+      if (alimentationDite) continue;
+      alimentationDite = true;
+      morceaux.push(ALIMENTATION_GROUPEE);
+      continue;
+    }
+    const defini = RAYON_DEFINI[categorie];
+    if (defini) morceaux.push(defini);
+  }
+
+  if (morceaux.length === 0) return null;
+  return `Membres : remise sur ${enumerer(morceaux)}`;
+}
+
+/**
+ * La mention sur la fiche d'UN article.
+ *
+ * Elle ne parle que de lui : nommer les autres rayons sur une fiche produit
+ * serait du bruit, et dire « remise sur la boutique » devant un article qui en
+ * est exclu serait faux au pire endroit — celui où l'on décide d'acheter.
+ */
+export function mentionRemiseMembreArticle(
+  article: { categorie?: string | null; remise_membre_exclue?: boolean | null },
+  rayons: readonly RemiseRayon[],
+): string | null {
+  if (article.remise_membre_exclue === true) return null;
+  const rayon = rayons.find((r) => r.categorie === (article.categorie ?? ""));
+  if (!rayon || !rayonRemise(rayon)) return null;
+  return "Membres : remise sur cet article";
 }

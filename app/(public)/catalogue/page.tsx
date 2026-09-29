@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { lireRayonsRemises } from "@/src/lib/remiseMembre";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { catalogueEnLigne, nombreArticlesPanier } from "@/src/lib/venteEnLigne";
 import EnTete from "@/app/components/ui/EnTete";
@@ -8,7 +9,6 @@ import CatalogueBoutique, { type ArticleVitrine, type RubriqueAffichee } from ".
 import BarrePanier from "./BarrePanier";
 import FusionPanier from "./FusionPanier";
 import { catalogueVitrine } from "@/src/lib/vitrine";
-import { lireParametresEnLigne } from "@/src/lib/venteEnLigne";
 import { mentionRemiseMembre } from "@/src/lib/venteEnLigneLogique";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { estMembreActif } from "@/src/lib/membre";
@@ -46,10 +46,9 @@ export default async function BoutiqueClientPage() {
   // Un VISITEUR ne lit que la vitrine : ni prix d'achat, ni marge, ni
   // fournisseur, ni stock chiffré — ces colonnes n'existent pas dans la vue.
   // Un client connecté garde le catalogue complet, avec son « Plus que 2 ».
-  const [articles, nombre, params, ctx, membre] = await Promise.all([
+  const [articles, nombre, ctx, membre] = await Promise.all([
     clientId ? catalogueEnLigne() : catalogueVitrine(),
     clientId ? nombreArticlesPanier(clientId) : Promise.resolve(0),
-    lireParametresEnLigne(),
     contextePrix(),
     clientId ? estMembreActif(supabaseAdmin, clientId) : Promise.resolve(false),
   ]);
@@ -141,7 +140,9 @@ export default async function BoutiqueClientPage() {
     articles: r.articles,
   }));
 
-  const mentionMembre = mentionRemiseMembre(params.remisePourcent);
+  // APP 43 : la mention nomme les rayons remisés, sans chiffrer un taux qui
+  // varie de l'un à l'autre depuis APP 27.
+  const mentionMembre = mentionRemiseMembre(await lireRayonsRemises());
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8", paddingBottom: 96 }}>

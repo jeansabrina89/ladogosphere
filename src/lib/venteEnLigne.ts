@@ -90,7 +90,19 @@ export type ParametresEnLigne = {
   poidsMaxGrammes: number;
   /** Seuil de livraison offerte, en francs d'articles. Null : jamais. */
   francoPortDes: number | null;
-  remisePourcent: number;
+  /*
+   * APP 43 — `remise_membre_pourcent` N'EST PLUS LU.
+   *
+   * Il ne servait plus qu'à écrire « −10 % sur la boutique ». Le CALCUL, lui,
+   * n'en dépendait déjà plus : il lit `remise_membre_categories` rayon par
+   * rayon depuis APP 27, et l'exclusion posée sur l'article. Un paramètre lu
+   * pour une phrase que le calcul contredit est un mensonge qui attend son
+   * heure.
+   *
+   * La clé RESTE en base : elle est dans l'historique du journal des gestes, et
+   * l'effacer rendrait ces traces illisibles. Elle n'est simplement plus
+   * interrogée.
+   */
   delaiPreparationJours: number;
 };
 
@@ -100,7 +112,7 @@ export async function lireParametresEnLigne(): Promise<ParametresEnLigne> {
     .select("cle, valeur")
     .in("cle", [
       "frais_port_grille", "poids_max_colis_grammes",
-      "remise_membre_pourcent", "delai_preparation_jours",
+      "delai_preparation_jours",
       "franco_port_des",
     ]);
 
@@ -116,7 +128,6 @@ export async function lireParametresEnLigne(): Promise<ParametresEnLigne> {
     grillePort: lireGrillePort(map.get("frais_port_grille")),
     poidsMaxGrammes: entier("poids_max_colis_grammes", 10000),
     francoPortDes: lireFrancoPort(map.get("franco_port_des")),
-    remisePourcent: entier("remise_membre_pourcent", 10),
     delaiPreparationJours: entier("delai_preparation_jours", 2),
   };
 }
