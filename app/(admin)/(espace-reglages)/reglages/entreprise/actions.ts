@@ -18,6 +18,12 @@ import {
   dateOuvertureUtilisable,
   dateOuvertureValide,
 } from "@/src/lib/ouvertureLogique";
+import {
+  CLES_HORAIRES,
+  LIBELLES_HORAIRES,
+  refusHoraire,
+  type Horaires,
+} from "@/src/lib/horaires";
 
 type Resultat = { error?: string; ok?: boolean };
 
@@ -268,6 +274,62 @@ export async function enregistrerDateOuverture(formData: FormData): Promise<Resu
   revalidatePath("/mon-compte/reservations/nouvelle");
   revalidatePath("/catalogue/panier");
   revalidatePath("/reservations/nouvelle");
+
+  return { ok: true };
+}
+
+/**
+ * APP 59 — les horaires d'accueil.
+ *
+ * Cinq réglages posés ensemble : ils se lisent ensemble, ils se corrigent
+ * ensemble. En enregistrer trois puis refuser le quatrième laisserait des
+ * horaires à moitié changés, et les e-mails annonceraient un mélange des deux.
+ * La validation passe donc AVANT toute écriture.
+ */
+export async function enregistrerHoraires(
+  formData: FormData,
+): Promise<Resultat & { champ?: string }> {
+  const acces = await exigerAdminPage();
+
+  const saisie = {} as Record<keyof Horaires, string>;
+  for (const { cle, libelle } of LIBELLES_HORAIRES) {
+    const valeur = String(formData.get(cle) ?? "").trim();
+    const refus = refusHoraire(valeur);
+    if (refus) return { error: `${libelle} : ${refus}`, champ: cle };
+    saisie[cle] = valeur;
+  }
+
+  for (const { cle } of LIBELLES_HORAIRES) {
+    const cleBase = CLES_HORAIRES[cle];
+    const { data: avant } = await supabaseAdmin
+      .from("parametres").select("valeur").eq("cle", cleBase).maybeSingle();
+
+    const { data: ligne, error } = await supabaseAdmin
+      .from("parametres")
+      .upsert({ cle: cleBase, valeur: saisie[cle], updated_at: new Date().toISOString() },
+              { onConflict: "cle" })
+      .select("id")
+      .single();
+    if (error || !ligne) return { error: error?.message ?? "Enregistrement impossible." };
+
+    const ancienne = (avant?.valeur as string | null) ?? "";
+    if (ancienne !== saisie[cle]) {
+      await tracerEvenement({
+        entite: "parametre",
+        entiteId: ligne.id as string,
+        evenement: cleBase,
+        avant: { valeur: ancienne },
+        apres: { valeur: saisie[cle] },
+        userId: acces.userId ?? null,
+      });
+    }
+  }
+
+  // Tout ce qui lit les horaires : les e-mails partent à la demande, mais les
+  // écrans se rendent une fois.
+  revalidatePath("/reglages/entreprise");
+  revalidatePath("/reservations/nouvelle");
+  revalidatePath("/mon-compte/reservations/nouvelle");
 
   return { ok: true };
 }

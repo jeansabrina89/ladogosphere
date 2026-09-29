@@ -243,6 +243,14 @@ const LIBELLES: Record<string, string> = {
   regime_tva: "Régime de TVA modifié",
   franco_port_des: "Seuil de livraison offerte modifié",
   date_ouverture: "Date d'ouverture modifiée",
+  // APP 44, resté sans libellé jusqu'à APP 59 : il s'affichait en clé technique.
+  avis_google_url: "Lien d'avis Google",
+  // APP 59 — les horaires d'accueil, un libellé par créneau réglable.
+  horaires_journee_arrivee: "Horaires : arrivée en garderie",
+  horaires_journee_depart: "Horaires : départ de garderie",
+  horaires_sejour: "Horaires : arrivée et départ d'un séjour",
+  horaires_essai_arrivee: "Horaires : arrivée d'une journée d'essai",
+  horaires_essai_depart: "Horaires : départ d'une journée d'essai",
   // APP 58 — six clés, six libellés : le journal dit LAQUELLE a bougé. Un seul
   // libellé « Signature modifiée » aurait obligé à ouvrir l'avant/après pour
   // savoir si c'était le nom ou le numéro de téléphone.

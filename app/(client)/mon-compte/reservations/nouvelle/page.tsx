@@ -8,6 +8,7 @@ import { etatAdhesionReservation } from "@/src/lib/membre";
 import { statutEssaiDe } from "@/src/lib/journeeEssai";
 import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { lireDateOuverture } from "@/src/lib/ouverture";
+import { lireHoraires } from "@/src/lib/horairesServeur";
 
 export default async function NouvelleDemandeReservationPage() {
   const supabase = await createClient();
@@ -123,6 +124,7 @@ export default async function NouvelleDemandeReservationPage() {
   // APP 56 — avant l'ouverture, aucune date antérieure n'est proposable.
   // Réglage vide : chaîne vide, et le tunnel se comporte comme avant.
   const dateOuverture = await lireDateOuverture();
+  const horaires = await lireHoraires();
 
   return (
     <main style={{ minHeight: "100vh", backgroundColor: "#F5F0E8", padding: "32px 16px" }}>
@@ -142,6 +144,7 @@ export default async function NouvelleDemandeReservationPage() {
           montantCotisation={montantCotisation}
           estInterne={!!(client as { interne?: boolean }).interne}
           dateOuverture={dateOuverture}
+          horaires={horaires}
         />
       </div>
     </main>

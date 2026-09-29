@@ -4,6 +4,7 @@ import { clientsMembresAJour } from "@/src/lib/membre";
 import { clientsSansConditionsPension } from "@/src/lib/acceptationsConditions";
 import FormReservation from "./FormReservation";
 import { lireDateOuverture } from "@/src/lib/ouverture";
+import { lireHoraires } from "@/src/lib/horairesServeur";
 
 export default async function NouvelleReservationLoader() {
   const supabase = supabaseAdmin;
@@ -44,6 +45,7 @@ export default async function NouvelleReservationLoader() {
 
   // APP 56 — le personnel n'est PAS bloqué, mais il est prévenu.
   const dateOuverture = await lireDateOuverture();
+  const horaires = await lireHoraires();
 
   return (
     <FormReservation
@@ -53,6 +55,7 @@ export default async function NouvelleReservationLoader() {
       peutUrgence={perms.perm_tarifs_urgence}
       estAdmin={perms.isAdmin}
       dateOuverture={dateOuverture}
+      horaires={horaires}
     />
   );
 }

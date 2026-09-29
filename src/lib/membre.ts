@@ -1,13 +1,29 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatJJMMAAAA } from "@/src/lib/cotisationPeriode";
+import { formatPrixClient } from "@/src/lib/prixClient";
 
 /**
- * Message unique renvoyé côté serveur ET affiché côté UI quand l'adhésion
- * est requise pour réserver. (Le montant reste géré via parametres.cotisation_montant ;
- * ce libellé de blocage cite la valeur courante de 200.-.)
+ * Message unique renvoyé côté serveur ET affiché côté UI quand l'adhésion est
+ * requise pour réserver.
+ *
+ * ── LE MONTANT VIENT DU RÉGLAGE (APP 59) ──────────────────────────────────
+ *
+ * Il citait « 200.- » en dur, et dans un format qui n'est celui de nulle part
+ * ailleurs : le reste de l'application écrit « 200.– ». Le jour où la
+ * cotisation changerait, ce message aurait annoncé l'ancien prix à quelqu'un
+ * à qui l'on demande de payer le nouveau.
+ *
+ * La constante reste exportée pour les appels qui n'ont pas de montant sous la
+ * main ; elle porte alors la valeur de repli, celle de `cotisation_montant`
+ * par défaut.
  */
-export const MESSAGE_ADHESION_REQUISE =
-  "Adhésion requise : l'adhésion annuelle (200.-) doit être réglée avant de pouvoir réserver.";
+export function messageAdhesionRequise(montant: number): string {
+  return `Adhésion requise : l'adhésion annuelle (${formatPrixClient(montant)})`
+    + " doit être réglée avant de pouvoir réserver.";
+}
+
+/** Le même message, au montant de repli. */
+export const MESSAGE_ADHESION_REQUISE = messageAdhesionRequise(200);
 
 /**
  * Règle métier (pure, testable) : un client peut créer une réservation si et
@@ -174,4 +190,22 @@ export function ligneAdhesionFiche({
     membre: false,
     texte: "Pas d'adhésion en cours — à encaisser depuis la fiche client.",
   };
+}
+
+/**
+ * Le montant de l'adhésion réglé dans `parametres`, ou 200 à défaut.
+ *
+ * Une lecture qui échoue rend le repli plutôt qu'une erreur : le message
+ * d'adhésion requise sert à REFUSER une réservation, et un refus qui ne
+ * s'affiche pas laisserait passer ce qu'il devait arrêter.
+ */
+export async function lireMontantCotisation(supabase: SupabaseClient): Promise<number> {
+  try {
+    const { data } = await supabase
+      .from("parametres").select("valeur").eq("cle", "cotisation_montant").maybeSingle();
+    const n = parseFloat(String(data?.valeur ?? ""));
+    return Number.isFinite(n) && n > 0 ? n : 200;
+  } catch {
+    return 200;
+  }
 }

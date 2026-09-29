@@ -6,6 +6,8 @@ import { manquantsEntite } from "@/src/lib/entiteJuridiqueLogique";
 import FormEntreprise from "./FormEntreprise";
 import FormDateOuverture from "./FormDateOuverture";
 import { lireDateOuverture } from "@/src/lib/ouverture";
+import FormHoraires from "./FormHoraires";
+import { lireHoraires } from "@/src/lib/horairesServeur";
 
 export const dynamic = "force-dynamic";
 
@@ -29,10 +31,11 @@ const SOUS = "rgba(27,43,94,0.6)";
 export default async function EntreprisePage() {
   await exigerAdminPage();
 
-  const [courante, historique, dateOuverture] = await Promise.all([
+  const [courante, historique, dateOuverture, horaires] = await Promise.all([
     entiteCourante(),
     historiqueEntites(),
     lireDateOuverture(),
+    lireHoraires(),
   ]);
 
   const jour = aujourdhuiISO();
@@ -71,6 +74,12 @@ export default async function EntreprisePage() {
           pas un paramètre de vente.
         */}
         <FormDateOuverture valeur={dateOuverture} />
+
+        {/*
+          APP 59 — les horaires sont ici, avec la date d'ouverture : ce sont les
+          deux réglages qui disent QUAND la pension accueille.
+        */}
+        <FormHoraires valeur={horaires} />
 
         <p style={{ color: SOUS, fontSize: 12, marginTop: 20 }}>
           Une pièce émise garde l&apos;identité de sa date d&apos;émission, pour toujours. Un avoir

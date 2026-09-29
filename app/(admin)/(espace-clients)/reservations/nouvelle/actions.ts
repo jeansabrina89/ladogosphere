@@ -3,7 +3,12 @@
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
-import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "@/src/lib/membre";
+import {
+  estMembreActif,
+  reservationAutorisee,
+  lireMontantCotisation,
+  messageAdhesionRequise,
+} from "@/src/lib/membre";
 import { verifierChiensPourReservation, marquerChiensEssaiProgramme } from "@/src/lib/essaiReservation";
 import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
 import { assurerMontantCalcule } from "@/src/lib/prixReservation";
@@ -91,7 +96,7 @@ export async function creerReservation(formData: FormData) {
       estExempte: !!clientRow?.cotisation_exemptee || !!clientRow?.locataire_box,
       typeReservation: type_reservation,
     })) {
-      throw new Error(MESSAGE_ADHESION_REQUISE);
+      throw new Error(messageAdhesionRequise(await lireMontantCotisation(supabaseAdmin)));
     }
   }
 

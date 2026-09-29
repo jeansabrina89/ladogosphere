@@ -3,6 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { dateAvantOuverture, avertissementPersonnel } from "@/src/lib/ouvertureLogique";
+import {
+  HORAIRES_DEFAUT,
+  formatHoraire,
+  formatHoraireCourt,
+  formatHoraireTiret,
+  heureDansPlage,
+  type Horaires,
+} from "@/src/lib/horaires";
 import { appelerApi } from "@/src/lib/reseau";
 import { useState, useEffect, useRef } from "react";
 import { formatBoxLabel } from "@/src/lib/boxes";
@@ -43,6 +51,7 @@ export default function FormReservation({
   peutUrgence,
   estAdmin = false,
   dateOuverture = "",
+  horaires = HORAIRES_DEFAUT,
 }: {
   clients: Client[];
   chiens: Chien[];
@@ -56,6 +65,11 @@ export default function FormReservation({
    * dire, ce que l'écran ne montrait pas.
    */
   dateOuverture?: string;
+  /**
+   * Horaires d'accueil réglés (APP 59). Le repli sur les valeurs de départ
+   * vaut aussi bien pour un écran monté sans la prop que pour une base muette.
+   */
+  horaires?: Horaires;
 }) {
   const router = useRouter();
   const [type, setType] = useState("journee");
@@ -331,30 +345,44 @@ export default function FormReservation({
     return () => clearTimeout(timeout);
   }, [chiensSelectionnes, dateDebut, dateFin, heureArrivee, heureDepart, type]);
 
+  /**
+   * APP 59 — la RÈGLE et le TEXTE sortent du même réglage.
+   *
+   * Avant, les bornes étaient écrites deux fois : une fois dans la
+   * comparaison, une fois dans la phrase de l'avertissement. Changer l'une
+   * sans l'autre donnait un avertissement qui annonçait des heures
+   * différentes de celles qu'il refusait — et c'est l'avertissement qu'on
+   * aurait cru.
+   */
   const verifierHoraires = (): boolean => {
+    const demander = (ligne: string) =>
+      confirm(`⚠️ Horaire hors plage habituelle !\n${ligne}\n\nConfirmer quand même ?`);
+
     if (type === "journee") {
-      const arriveeOk = !heureArrivee || (heureArrivee >= "07:35" && heureArrivee <= "10:00");
-      const departOk = !heureDepart || (heureDepart >= "17:00" && heureDepart <= "18:00");
+      const arriveeOk = !heureArrivee || heureDansPlage(heureArrivee, horaires.journeeArrivee);
+      const departOk = !heureDepart || heureDansPlage(heureDepart, horaires.journeeDepart);
       if (!arriveeOk || !departOk) {
-        return confirm("⚠️ Horaire hors plage habituelle !\nJournée : arrivée 7h35–10h00 · départ 17h00–18h00\n\nConfirmer quand même ?");
+        return demander(
+          `Journée : arrivée ${formatHoraireTiret(horaires.journeeArrivee)}`
+          + ` · départ ${formatHoraireTiret(horaires.journeeDepart)}`,
+        );
       }
     }
     if (type === "essai") {
-      const arriveeOk = !heureArrivee || heureArrivee === "10:00";
-      const departOk = !heureDepart || (heureDepart >= "17:00" && heureDepart <= "18:00");
+      const arriveeOk = !heureArrivee || heureDansPlage(heureArrivee, horaires.essaiArrivee);
+      const departOk = !heureDepart || heureDansPlage(heureDepart, horaires.essaiDepart);
       if (!arriveeOk || !departOk) {
-        return confirm("⚠️ Horaire hors plage habituelle !\nJournée d'essai : arrivée 10h00 · départ 17h00–18h00\n\nConfirmer quand même ?");
+        return demander(
+          `Journée d'essai : arrivée ${formatHoraireTiret(horaires.essaiArrivee)}`
+          + ` · départ ${formatHoraireTiret(horaires.essaiDepart)}`,
+        );
       }
     }
     if (type === "sejour") {
-      const arriveeOk = !heureArrivee ||
-        (heureArrivee >= "09:00" && heureArrivee <= "10:00") ||
-        (heureArrivee >= "17:00" && heureArrivee <= "18:00");
-      const departOk = !heureDepart ||
-        (heureDepart >= "09:00" && heureDepart <= "10:00") ||
-        (heureDepart >= "17:00" && heureDepart <= "18:00");
+      const arriveeOk = !heureArrivee || heureDansPlage(heureArrivee, horaires.sejour);
+      const departOk = !heureDepart || heureDansPlage(heureDepart, horaires.sejour);
       if (!arriveeOk || !departOk) {
-        return confirm("⚠️ Horaire hors plage habituelle !\nSéjour : arrivée/départ entre 9h00–10h00 ou 17h00–18h00\n\nConfirmer quand même ?");
+        return demander(`Séjour : arrivée/départ entre ${formatHoraireTiret(horaires.sejour)}`);
       }
     }
     return true;
@@ -644,7 +672,7 @@ export default function FormReservation({
                 </select>
                 {type === "essai" && (
                   <p className="text-xs text-gray-500 mt-1">
-                    ℹ️ Tarif journée membre. Arrivée à 10h00 · Départ 17h–18h.
+                    ℹ️ Tarif journée membre. Arrivée à {formatHoraire(horaires.essaiArrivee)} · Départ {formatHoraireCourt(horaires.essaiDepart)}.
                   </p>
                 )}
               </>

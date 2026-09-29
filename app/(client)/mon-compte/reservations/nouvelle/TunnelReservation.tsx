@@ -11,6 +11,16 @@ import {
 } from "@/app/(client)/mon-compte/reservations/actions";
 import { calculerMontant } from "@/src/lib/calculTarif";
 import { premiereDateReservable, bandeauReservation } from "@/src/lib/ouvertureLogique";
+import {
+  HORAIRES_DEFAUT,
+  bornes,
+  creneauxProposes,
+  formatHoraire,
+  formatHoraireCourt,
+  creneauTexte,
+  heureCourte,
+  type Horaires,
+} from "@/src/lib/horaires";
 import { MESSAGE_ADHESION_A_REGLER } from "@/src/lib/adhesionReservation";
 import { statutEssaiDe, chienReservablePour, messageRefusChien } from "@/src/lib/journeeEssai";
 import {
@@ -69,22 +79,11 @@ const ETAPE_LABELS: Record<EtapeId, string> = {
 
 // ─── Créneaux horaires ────────────────────────────────────────────────────────
 
-function genCreneaux(debut: string, fin: string): string[] {
-  const res: string[] = [];
-  let [h, m] = debut.split(":").map(Number);
-  const [fH, fM] = fin.split(":").map(Number);
-  while (h < fH || (h === fH && m <= fM)) {
-    res.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-    m += 15;
-    if (m >= 60) { m -= 60; h++; }
-  }
-  return res;
-}
 
-const CR_ARR_JOURNEE = ["07:35", "07:45", "08:00", "08:15", "08:30", "08:45", "09:00", "09:15", "09:30", "09:45", "10:00"];
-const CR_ARR_SEJOUR  = genCreneaux("09:00", "10:00");
-const CR_DEP_STD     = genCreneaux("17:00", "18:00");
-const CR_DEP_SEJOUR  = [...genCreneaux("09:00", "10:00"), ...genCreneaux("17:00", "18:00")];
+// APP 59 — les créneaux viennent du réglage. `genCreneaux` a disparu : il
+// faisait le même travail que `creneauxProposes`, à un détail près — le
+// premier créneau de la garderie est 7h35, et les suivants retombent sur le
+// quart d'heure. Ce détail est maintenant dans le module, éprouvé à part.
 
 const JOURS_LV = [
   { v: 1, l: "Lundi" }, { v: 2, l: "Mardi" }, { v: 3, l: "Mercredi" },
@@ -355,6 +354,7 @@ export default function TunnelReservation({
   montantCotisation,
   estInterne = false,
   dateOuverture = "",
+  horaires = HORAIRES_DEFAUT,
 }: {
   chiens: ChienTunnel[];
   tarifs: TarifLite[];
@@ -371,6 +371,8 @@ export default function TunnelReservation({
    * constante : elle a déjà changé une fois.
    */
   dateOuverture?: string;
+  /** Horaires d'accueil réglés (APP 59), avec repli sur ceux d'hier. */
+  horaires?: Horaires;
 }) {
 
   // Navigation
@@ -446,6 +448,13 @@ export default function TunnelReservation({
    * trois champs de date — sinon l'un d'eux resterait en arrière, et c'est
    * toujours celui qu'on n'ouvre pas en vérifiant.
    */
+  // APP 59 — les créneaux proposés viennent du réglage, comme les mentions.
+  const crArrJournee = creneauxProposes(horaires.journeeArrivee);
+  const crArrSejour = creneauxProposes(creneauTexte(horaires.sejour, 0));
+  const crDepStd = creneauxProposes(horaires.journeeDepart);
+  const crDepSejour = creneauxProposes(horaires.sejour);
+  const crDepEssai = creneauxProposes(horaires.essaiDepart);
+
   const aujourdhui = new Date().toISOString().split("T")[0];
   const demain = premiereDateReservable(aujourdhui, dateOuverture);
 
@@ -534,8 +543,14 @@ export default function TunnelReservation({
   // Fiche du personnel, garderie à la journée : le chien vient et repart avec
   // l'employée, il n'y a pas d'horaire à saisir. Les séjours gardent les leurs.
   const heuresMasquees = estInterne && formule === "journee";
-  const HEURE_ARRIVEE_PERSONNEL = "07:35";
-  const HEURE_DEPART_PERSONNEL = "18:00";
+  /**
+   * La journée du personnel va d'un bout à l'autre de l'accueil : ouverture de
+   * la garderie, fermeture du soir. Ces deux heures suivent donc le réglage
+   * (APP 59) — sans quoi, le jour où la pension ouvrirait plus tôt, les fiches
+   * du personnel seraient les seules à rester à 7h35.
+   */
+  const HEURE_ARRIVEE_PERSONNEL = bornes(horaires.journeeArrivee)?.debut ?? "07:35";
+  const HEURE_DEPART_PERSONNEL = bornes(horaires.journeeDepart)?.fin ?? "18:00";
   const heureArriveeEnvoyee = heuresMasquees ? HEURE_ARRIVEE_PERSONNEL : (heureArrivee || null);
   const heureDepartEnvoyee = heuresMasquees ? HEURE_DEPART_PERSONNEL : (heureDepart || null);
 
@@ -962,13 +977,13 @@ export default function TunnelReservation({
               <select style={{ ...S.input, appearance: "none" as const }} value={heureDepartEssai}
                 onChange={e => setHeureDepartEssai(e.target.value)}>
                 <option value="">— Choisir —</option>
-                {CR_DEP_STD.map(h => <option key={h} value={h}>{h}</option>)}
+                {crDepEssai.map(h => <option key={h} value={h}>{h}</option>)}
               </select>
             </div>
           </div>
 
           <div style={S.info}>
-            🧪 Arrivée à 10h00 • Départ entre 17h et 18h<br />
+            🧪 Arrivée à {formatHoraire(horaires.essaiArrivee)} • Départ entre {heureCourte(bornes(horaires.essaiDepart)!.debut)} et {heureCourte(bornes(horaires.essaiDepart)!.fin)}<br />
             Votre demande sera confirmée sous 24 heures.
           </div>
         </div>
@@ -1012,8 +1027,8 @@ export default function TunnelReservation({
   // ─── Étape complète : dates + heures ─────────────────────────────────────────
 
   function renderDates() {
-    const crArrivee = formule === "journee" ? CR_ARR_JOURNEE : CR_ARR_SEJOUR;
-    const crDepart  = formule === "sejour"  ? CR_DEP_SEJOUR  : CR_DEP_STD;
+    const crArrivee = formule === "journee" ? crArrJournee : crArrSejour;
+    const crDepart  = formule === "sejour"  ? crDepSejour  : crDepStd;
 
     return (
       <>
@@ -1056,7 +1071,7 @@ export default function TunnelReservation({
               <label style={S.label}>
                 Heure d&apos;arrivée *
                 <span style={{ fontWeight: 400, fontSize: 11, color: "rgba(27,43,94,0.4)", marginLeft: 4 }}>
-                  {formule === "journee" ? "(7h35–10h)" : "(9h–10h)"}
+                  ({formatHoraireCourt(formule === "journee" ? horaires.journeeArrivee : creneauTexte(horaires.sejour, 0))})
                 </span>
               </label>
               <select style={{ ...S.input, appearance: "none" as const }} value={heureArrivee}

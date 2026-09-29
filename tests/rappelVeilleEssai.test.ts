@@ -106,6 +106,17 @@ describe("le cron et le modèle", () => {
     expect(corps).toContain("phrasesRappelVeilleEssai(nom_chien, heure_arrivee)");
     // Le séjour garde sa liste et ses horaires, intacts.
     expect(corps).toContain("Sa nourriture habituelle (quantités pour toute la durée du séjour)");
-    expect(corps).toContain("Séjour : 9h00 – 10h00 ou 17h00 – 18h00");
+    /**
+     * APP 59 — les heures ne sont plus écrites dans ce fichier : elles
+     * viennent du réglage `horaires_sejour`. Ce test gardait le littéral
+     * « Séjour : 9h00 – 10h00 ou 17h00 – 18h00 » ; il garde désormais que
+     * l'encadré est bien alimenté par le réglage.
+     *
+     * Que le texte RENDU soit identique à celui d'hier avec les valeurs de
+     * départ est éprouvé dans `tests/horaires.test.ts`, sur un e-mail
+     * réellement produit — ce qu'une lecture de source ne peut pas faire.
+     */
+    expect(corps).toContain("Séjour : ${formatHoraire(horaires.sejour)}");
+    expect(corps).toContain("const horaires = await lireHoraires();");
   });
 });

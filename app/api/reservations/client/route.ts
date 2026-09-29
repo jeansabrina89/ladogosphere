@@ -3,7 +3,12 @@ import { lireCorpsFormulaire } from "@/src/lib/corpsRequete";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { envoyerEmailConfirmationDemande } from "@/src/lib/email";
-import { estMembreActif, reservationAutorisee, MESSAGE_ADHESION_REQUISE } from "@/src/lib/membre";
+import {
+  estMembreActif,
+  reservationAutorisee,
+  lireMontantCotisation,
+  messageAdhesionRequise,
+} from "@/src/lib/membre";
 import { verifierSelectionChiens } from "@/src/lib/journeeEssai";
 import { champsTypeSejour } from "@/src/lib/typeSejour";
 import { typeAutorisePourPersonnel } from "@/src/lib/personnel";
@@ -131,7 +136,8 @@ export async function POST(req: NextRequest) {
       estExempte: !!(fiche as { cotisation_exemptee?: boolean }).cotisation_exemptee,
       typeReservation: type_reservation,
     })) {
-      return NextResponse.json({ error: MESSAGE_ADHESION_REQUISE }, { status: 400 });
+      const montant = await lireMontantCotisation(supabaseAdmin);
+      return NextResponse.json({ error: messageAdhesionRequise(montant) }, { status: 400 });
     }
   }
 

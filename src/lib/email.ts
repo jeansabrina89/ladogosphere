@@ -13,6 +13,8 @@ import { ajouterJoursISO } from "@/src/lib/cotisationPeriode";
 import { phrasesRappelVeilleEssai } from "@/src/lib/rappelVeilleLogique";
 import { CLE_AVIS_GOOGLE, blocAvisGoogleCorps, ligneAvisGooglePiedDePage } from "@/src/lib/avisGoogle";
 import { texteDepuisHtml } from "@/src/lib/emailTexte";
+import { formatHoraire } from "@/src/lib/horaires";
+import { lireHoraires } from "@/src/lib/horairesServeur";
 import {
   CLES_SIGNATURE,
   SIGNATURE_DEFAUT,
@@ -587,6 +589,8 @@ export async function envoyerEmailReservationValidee({
   email: string; prenom: string; date_debut: string; date_fin: string;
   type: string; box_label?: string; heure_arrivee?: string; heure_depart?: string;
 }) {
+  // APP 59 — les horaires viennent du réglage, plus du code.
+  const horaires = await lireHoraires();
   const m = await modeleEmail("reservation_validee", {
     prenom, date_debut: formatDate(date_debut), date_fin: formatDate(date_fin),
   });
@@ -624,9 +628,9 @@ export async function envoyerEmailReservationValidee({
       <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">
         <p style="margin:0 0 8px 0; color:#1B5E4F; font-size:14px; font-weight:bold;">📍 Informations pratiques</p>
         <p style="margin:0; color:#1B5E4F; font-size:13px;">
-          Arrivée journée : 7h35 – 10h00<br/>
-          Départ journée : 17h00 – 18h00<br/>
-          Arrivée/départ séjour : 9h00 – 10h00 ou 17h00 – 18h00
+          Arrivée journée : ${formatHoraire(horaires.journeeArrivee)}<br/>
+          Départ journée : ${formatHoraire(horaires.journeeDepart)}<br/>
+          Arrivée/départ séjour : ${formatHoraire(horaires.sejour)}
         </p>
       </div>
 
@@ -1004,6 +1008,7 @@ export async function envoyerEmailRappelVeille({
   email: string; prenom: string; nom_chien: string;
   date_debut: string; heure_arrivee?: string; type: string;
 }) {
+  const horaires = await lireHoraires();
   const m = await modeleEmail("rappel_veille", {
     prenom, nom_chien, date_debut: formatDate(date_debut),
   });
@@ -1067,8 +1072,8 @@ export async function envoyerEmailRappelVeille({
       <div style="background-color:#FFF8E1; border-left:4px solid #C9A84C; border-radius:8px; padding:16px; margin:0 0 24px 0;">
         <p style="margin:0 0 4px 0; color:#7A5C00; font-size:14px; font-weight:bold;">⏰ Horaires d'arrivée</p>
         <p style="margin:0; color:#7A5C00; font-size:13px;">
-          Journée : 7h35 – 10h00<br/>
-          Séjour : 9h00 – 10h00 ou 17h00 – 18h00
+          Journée : ${formatHoraire(horaires.journeeArrivee)}<br/>
+          Séjour : ${formatHoraire(horaires.sejour)}
         </p>
       </div>
 
