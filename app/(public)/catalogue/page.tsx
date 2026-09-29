@@ -6,6 +6,12 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import EtatVide from "@/app/components/ui/EtatVide";
 import CatalogueBoutique, { type ArticleVitrine, type RubriqueAffichee } from "./CatalogueBoutique";
+import { EncadresAnimaux, EncadresRayons, FilAriane, ChampRecherche } from "./EncadresCatalogue";
+import {
+  animauxServis, choisirNiveau, encadresAnimaux, encadresRayons, filAriane, lienCatalogue,
+} from "@/src/lib/niveauxCatalogue";
+import { depuisParams, nombreFiltresActifs } from "@/src/lib/filtresCatalogueLogique";
+import { libelleValeur } from "@/src/lib/etiquettesArticles";
 import BarrePanier from "./BarrePanier";
 import FusionPanier from "./FusionPanier";
 import { catalogueVitrine } from "@/src/lib/vitrine";
@@ -32,7 +38,16 @@ export const metadata = { robots: { index: false, follow: false } };
  * c'est déjà le cas de la vue articles_vitrine. Il doit se connecter pour
  * commander, et le panier qu'il aura commencé à garnir l'attend après.
  */
-export default async function BoutiqueClientPage() {
+export default async function BoutiqueClientPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const texte = (cle: string) => {
+    const v = params[cle];
+    return typeof v === "string" ? v : null;
+  };
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -144,6 +159,31 @@ export default async function BoutiqueClientPage() {
   // varie de l'un à l'autre depuis APP 27.
   const mentionMembre = mentionRemiseMembre(await lireRayonsRemises());
 
+  /*
+   * APP 49 — QUEL NIVEAU MONTRER.
+   *
+   * Le calcul part de `liste`, celle-là même que la grille affichera : c'est ce
+   * qui garantit qu'un encadré « 12 articles » en montre douze, et non onze
+   * parce qu'un animal a été fermé entre-temps (APP 48).
+   *
+   * Les filtres d'étiquettes sont comptés par le module qui les possède : les
+   * recompter ici aurait créé une seconde définition de « un filtre est actif ».
+   */
+  const nbFiltres = nombreFiltresActifs(depuisParams(new URLSearchParams(
+    Object.entries(params).flatMap(([k, v]) =>
+      typeof v === "string" ? [[k, v] as [string, string]] : [],
+    ),
+  )));
+  const choix = choisirNiveau(
+    { animal: texte("animal"), categorie: texte("categorie"), q: texte("q"), tout: texte("tout"), nbFiltres },
+    liste,
+  );
+  const servis = animauxServis(liste);
+  const miettes = filAriane({
+    animal: choix.animal, categorie: choix.categorie, q: choix.q,
+    unSeulAnimal: servis.length === 1,
+  });
+
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8", paddingBottom: 96 }}>
       <div className="max-w-5xl mx-auto">
@@ -196,8 +236,39 @@ export default async function BoutiqueClientPage() {
               message="Les articles apparaîtront ici dès qu'ils seront proposés à la vente en ligne."
             />
           </Carte>
+        ) : choix.niveau === 1 ? (
+          <>
+            <ChampRecherche q={choix.q} />
+            <EncadresAnimaux encadres={encadresAnimaux(liste)} />
+            {/* Le raccourci pour qui sait déjà ce qu'il cherche. Discret : il ne
+                doit pas concurrencer les encadrés, qui sont le chemin normal. */}
+            <p style={{ margin: "16px 0 0", textAlign: "center" }}>
+              <Link href={lienCatalogue({ tout: true })} style={{ color: "#1F6E5B", fontWeight: 600 }}>
+                Voir tous les articles
+              </Link>
+            </p>
+          </>
+        ) : choix.niveau === 2 && choix.animal ? (
+          <>
+            <FilAriane miettes={miettes} />
+            <ChampRecherche q={choix.q} animal={choix.animal} />
+            <EncadresRayons encadres={encadresRayons(liste, choix.animal)} />
+            <p style={{ margin: "16px 0 0", textAlign: "center" }}>
+              <Link
+                href={lienCatalogue({ animal: choix.animal, tout: true })}
+                style={{ color: "#1F6E5B", fontWeight: 600 }}
+              >
+                Tous les articles pour {libelleValeur("animaux", choix.animal)}
+              </Link>
+            </p>
+          </>
         ) : (
-          <CatalogueBoutique articles={liste} rubriques={rubriques} connecte={!!clientId} />
+          <>
+            {/* Le fil REMPLACE les onglets : deux façons de dire où l'on est
+                en diraient deux choses le jour où elles divergeraient. */}
+            <FilAriane miettes={miettes} />
+            <CatalogueBoutique articles={liste} rubriques={rubriques} connecte={!!clientId} />
+          </>
         )}
       </div>
 

@@ -263,13 +263,21 @@ describe("l'onglet actif est ramené sous les yeux à l'ouverture", () => {
     expect(src).toContain("scrollIntoView");
   });
 
-  it("l'écran du catalogue délègue la rangée au composant", () => {
+  it("APP 49 : il n'y a plus de rangée du tout dans le catalogue client", () => {
+    /**
+     * Ce test gardait que la rangée d'onglets ne se redessinait pas à deux
+     * endroits. Elle ne se dessine plus nulle part : la boutique se parcourt
+     * par ENCADRÉS — un par animal, puis un par rayon — et le fil d'Ariane dit
+     * où l'on est.
+     *
+     * L'assertion qui comptait est CONSERVÉE, en plus fort : l'écran ne
+     * redessine pas la rangée, et il n'en reçoit plus non plus.
+     */
     const src = readFileSync(
       join(__dirname, "..", "app/(public)/catalogue/CatalogueBoutique.tsx"),
       "utf8",
     );
-    expect(src).toContain("<OngletsAnimaux");
-    // La rangée ne se redessine plus à deux endroits.
+    expect(src).not.toContain("<OngletsAnimaux");
     expect(src).not.toContain('aria-label="Choisir un animal"');
   });
 });

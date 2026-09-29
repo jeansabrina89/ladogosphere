@@ -9,14 +9,12 @@ import {
   filtrer,
   filtresAffiches,
   nombreFiltresActifs,
-  ongletsAnimaux,
   ongletRetenu,
   versParams,
   type ArticleFiltrable,
   type Filtres,
 } from "@/src/lib/filtresCatalogueLogique";
 import FiltresCatalogue from "./FiltresCatalogue";
-import OngletsAnimaux from "./OngletsAnimaux";
 import {
   disponibilite,
   disponibiliteVitrine,
@@ -125,7 +123,7 @@ export default function CatalogueBoutique({
   connecte: boolean;
 }) {
   const router = useRouter();
-  const [recherche, setRecherche] = useState("");
+
   const [enCours, setEnCours] = useState<string | null>(null);
   const [avis, setAvis] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -137,11 +135,31 @@ export default function CatalogueBoutique({
    * Next le reconnaît et `useSearchParams` suit.
    */
   const params = useSearchParams();
+  /*
+   * APP 49 — la recherche vit dans l'ADRESSE, sous « q » (comme le site, SITE 38).
+   *
+   * Elle vivait dans l'état du navigateur : le lien d'une recherche ne se
+   * partageait pas, et le retour arrière la perdait. L'état local subsiste pour
+   * que la frappe reste vive ; l'adresse, elle, est la vérité — c'est d'elle
+   * qu'on repart à chaque chargement.
+   */
+  const [recherche, setRecherche] = useState(params.get("q") ?? "");
   const demandes = useMemo(() => depuisParams(params), [params]);
 
+  /*
+   * Appliquer un filtre ne doit RIEN perdre de l'adresse.
+   *
+   * « q » et « animal » disent où l'on est ; les effacer en cochant une couleur
+   * renverrait la cliente au niveau 1 sans qu'elle ait rien demandé. « tout »,
+   * lui, s'efface : dès qu'un filtre est posé on est au niveau 3 de toute
+   * façon, et le garder ferait deux adresses pour une même page.
+   */
   function appliquer(suivants: Filtres) {
-    const qs = versParams(suivants).toString();
-    window.history.pushState(null, "", qs ? `?${qs}` : window.location.pathname);
+    const qs = versParams(suivants);
+    const q = params.get("q");
+    if (q && q.trim() !== "") qs.set("q", q);
+    const chaine = qs.toString();
+    window.history.pushState(null, "", chaine ? `?${chaine}` : window.location.pathname);
   }
 
   // Le filtrage se fait sur la liste DÉJÀ chargée : elle tient en une page,
@@ -172,7 +190,6 @@ export default function CatalogueBoutique({
    * aucun onglet allumé, et ne sait plus où elle est. Passer l'onglet demandé
    * n'allumait rien du tout : c'est un test d'écran qui l'a relevé.
    */
-  const onglets = ongletsAnimaux(filtrables, filtres.animal);
 
   const retenus = filtrer(filtrables, filtres) as unknown as ArticleVitrine[];
   const affiches = filtresAffiches(filtrables, filtres);
@@ -364,12 +381,12 @@ export default function CatalogueBoutique({
         * son recentrage vivent dans « OngletsAnimaux » ; ici on décide seulement
         * QUELS onglets existent.
         */}
-      {onglets.length > 0 && (
-        <OngletsAnimaux
-          onglets={onglets}
-          surChoix={(animal) => appliquer({ ...filtres, animal })}
-        />
-      )}
+      {/*
+        * APP 49 — LES ONGLETS ONT DISPARU.
+        *
+        * Le fil d'Ariane de la page les remplace : deux façons de dire où l'on
+        * est en diraient deux choses le jour où elles divergeraient.
+        */}
 
       {/* Le panneau à gauche sur écran large, un bouton plein écran sur
           téléphone — c'est le composant qui s'en charge. */}
