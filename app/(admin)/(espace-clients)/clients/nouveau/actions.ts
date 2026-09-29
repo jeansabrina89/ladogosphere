@@ -87,7 +87,10 @@ export async function creerClient(
       email: email || null,
       telephone: formData.get("telephone") as string || null,
       adresse: formData.get("adresse") as string || null,
-      membre: formData.get("membre") === "on",
+      // APP 57 — `membre` n'est PAS envoyé : la colonne a pour défaut `false`
+      // en base, et c'est l'encaissement de l'adhésion qui la passe à vrai.
+      // Ne pas l'écrire ici est ce qui rend une requête forgée sans effet :
+      // il n'y a plus de champ à forger.
       actif: true,
       auth_user_id,
       interne: decision.ficheInterne,

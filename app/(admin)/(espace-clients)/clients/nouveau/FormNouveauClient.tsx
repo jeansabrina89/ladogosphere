@@ -62,14 +62,6 @@ export default function FormNouveauClient() {
         </label>
       </div>
 
-      <div className="border-t pt-4">
-        <label htmlFor="membre" className="flex items-center gap-2 font-semibold">
-          <input type="checkbox" name="membre" id="membre"
-                 defaultChecked={caseCochee(v, "membre", false)} />
-          ⭐ Membre
-        </label>
-      </div>
-
       <div className="flex gap-3 pt-4 border-t">
         <button type="submit"
           className="px-6 py-3 rounded-xl font-semibold text-white"

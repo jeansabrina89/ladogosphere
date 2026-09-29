@@ -65,7 +65,9 @@ export async function modifierClient(
     email,
     telephone: formData.get("telephone") as string || null,
     adresse: formData.get("adresse") as string || null,
-    membre: formData.get("membre") === "on",
+    // APP 57 — `membre` n'est plus dans l'update, donc jamais modifié par ce
+    // formulaire. Une requête forgée avec `membre=on` ne change rien : le
+    // champ n'est pas lu. Le statut suit l'encaissement de l'adhésion.
     contact_urgence_prenom: formData.get("contact_urgence_prenom") as string || null,
     contact_urgence_nom: formData.get("contact_urgence_nom") as string || null,
     contact_urgence_telephone: formData.get("contact_urgence_telephone") as string || null,

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { modifierClient } from "./actions";
 import { LIBELLE_ACCORD_PHOTOS } from "@/src/lib/accordPhotos";
+import { ligneAdhesionFiche } from "@/src/lib/membre";
 import AlerteFormulaire, { marqueChampClasse } from "@/app/components/AlerteFormulaire";
 import {
   ETAT_FORMULAIRE_VIDE,
@@ -18,9 +19,15 @@ const CHAMP = "w-full border rounded-xl p-3";
 export default function FormModifierClient({
   client,
   estAdmin,
+  finAdhesion,
 }: {
   client: ClientFiche;
   estAdmin: boolean;
+  /**
+   * APP 57 — `date_fin` de la cotisation payée valable aujourd'hui, ou null.
+   * Calculée par la page, avec la même fonction que la fiche client.
+   */
+  finAdhesion: string | null;
 }) {
   const [etat, action] = useActionState<EtatFormulaire, FormData>(
     modifierClient.bind(null, client.id),
@@ -29,6 +36,13 @@ export default function FormModifierClient({
   const v = etat.valeurs;
 
   const texte = (nom: string) => valeurChamp(v, nom, (client[nom] as string | null) ?? "");
+
+  // La phrase est fabriquée par une fonction pure, éprouvée à part : l'écran
+  // ne rejuge pas ce que la fiche a déjà calculé.
+  const adhesion = ligneAdhesionFiche({
+    finAdhesion,
+    exempte: !!client.cotisation_exemptee,
+  });
 
   return (
     <form action={action} className="space-y-4">
@@ -74,12 +88,22 @@ export default function FormModifierClient({
         </label>
       </div>
 
-      <div className="flex items-center gap-2">
-        <input type="checkbox" name="membre" id="membre"
-               defaultChecked={caseCochee(v, "membre", !!client.membre)} />
-        <label htmlFor="membre" className="font-semibold">
-          ⭐ Membre
-        </label>
+      {/*
+        APP 57 — le statut membre se LIT, il ne se coche plus (décision de
+        Sabrina, 29.09.2026). Il suit l'encaissement de l'adhésion, depuis
+        « 💳 Encaisser l'adhésion » sur la fiche client.
+
+        Une case cochée à la main créait un membre SANS cotisation : la fiche
+        disait « membre », aucune période ne le justifiait, et l'écart ne se
+        voyait qu'en cherchant pourquoi aucun renouvellement n'était réclamé.
+      */}
+      <div className="rounded-xl border p-3"
+           style={{ backgroundColor: adhesion.membre ? "#DBEFEA" : "#F5F0E8",
+                    borderColor: adhesion.membre ? "#4AAEA0" : "rgba(27,43,94,0.14)" }}>
+        <p className="font-semibold m-0"
+           style={{ color: adhesion.membre ? "#1F6E5B" : "rgba(27,43,94,0.7)" }}>
+          {adhesion.texte}
+        </p>
       </div>
 
       {/* Exemption de cotisation — admin uniquement */}

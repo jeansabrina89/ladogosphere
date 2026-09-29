@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { formatJJMMAAAA } from "@/src/lib/cotisationPeriode";
 
 /**
  * Message unique renvoyé côté serveur ET affiché côté UI quand l'adhésion
@@ -130,4 +131,47 @@ export async function clientsMembresAJour(
     .lte("date_debut", d)
     .gte("date_fin", d);
   return new Set(((data ?? []) as { client_id: string }[]).map((r) => r.client_id));
+}
+
+/**
+ * APP 57 — la ligne d'adhésion affichée sur la fiche de modification.
+ *
+ * ── POURQUOI UNE LIGNE, ET PLUS UNE CASE ──────────────────────────────────
+ *
+ * L'équipe voyait une case « ⭐ Membre » et pouvait la cocher (décision de
+ * Sabrina, 29.09.2026 : elle ne le peut plus). Le statut se met à jour tout
+ * seul à l'encaissement de l'adhésion. Une case cochée à la main créait un
+ * membre SANS cotisation : la fiche affichait « membre », aucune période ne
+ * le justifiait, et l'écart ne se voyait qu'en cherchant pourquoi un
+ * renouvellement n'était jamais réclamé.
+ *
+ * La fonction est PURE : elle ne décide rien, elle met en phrase ce que la
+ * fiche client a déjà calculé. Le calcul, lui, reste unique — `cotisationActive`,
+ * la même que la fiche.
+ *
+ * L'ordre compte : une adhésion payée passe AVANT l'exemption, parce qu'elle
+ * porte une date. Dire « exempté » à quelqu'un qui a payé lui cacherait
+ * jusqu'à quand il est couvert.
+ */
+export function ligneAdhesionFiche({
+  finAdhesion,
+  exempte,
+}: {
+  /** `date_fin` de la cotisation payée valable aujourd'hui, ou null. */
+  finAdhesion: string | null | undefined;
+  exempte: boolean;
+}): { membre: boolean; texte: string } {
+  if (finAdhesion) {
+    return {
+      membre: true,
+      texte: `⭐ Membre — adhésion valable jusqu'au ${formatJJMMAAAA(finAdhesion)}`,
+    };
+  }
+  if (exempte) {
+    return { membre: true, texte: "⭐ Membre — exempté d'adhésion" };
+  }
+  return {
+    membre: false,
+    texte: "Pas d'adhésion en cours — à encaisser depuis la fiche client.",
+  };
 }
