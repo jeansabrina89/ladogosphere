@@ -1,13 +1,9 @@
-// @vitest-environment jsdom
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
-import "./setup/attenteJsdom";
+import { describe, it, expect } from "vitest";
 import {
   FILTRES_VIDES,
   filtresAffiches,
-  ongletsAnimaux,
   type ArticleFiltrable,
   type Filtres,
 } from "@/src/lib/filtresCatalogueLogique";
@@ -150,119 +146,9 @@ describe("« Tout effacer » efface les filtres, pas la navigation", () => {
   });
 });
 
-// ── La rangée d'onglets ────────────────────────────────────────────────────
+// ── Ce qui reste de la rangée : rien, et c'est gardé ───────────────────────
 
-const OngletsAnimaux = (await import("@/app/(public)/catalogue/OngletsAnimaux")).default;
-
-afterEach(cleanup);
-
-describe("l'onglet actif est ramené sous les yeux à l'ouverture", () => {
-  /**
-   * jsdom ne met rien en page et n'implémente pas `scrollIntoView` : on ne peut
-   * pas mesurer un défilement ici. Ce qui se vérifie, c'est l'APPEL et ses
-   * options — et ce sont elles qui portent tout le sens du geste.
-   *
-   * La vérification visuelle à 375 px reste à faire dans un navigateur.
-   */
-  function rendre(actif: string | null, reduit = false) {
-    const appels: Array<Record<string, unknown>> = [];
-    const boutons: HTMLElement[] = [];
-    vi.stubGlobal("matchMedia", (requete: string) => ({
-      matches: reduit && requete.includes("prefers-reduced-motion"),
-      media: requete,
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    }));
-    // Le stub retient QUI a été recentré : sans cela, on saurait qu'on a appelé
-    // mais pas sur le bon onglet — et c'est justement le défaut qu'on corrige.
-    Element.prototype.scrollIntoView = function (o: unknown) {
-      boutons.push(this as HTMLElement);
-      appels.push(o as Record<string, unknown>);
-    } as never;
-
-    const articles = [CROQUETTES, FOIN_LAPIN];
-    render(
-      <OngletsAnimaux
-        onglets={ongletsAnimaux(articles, actif)}
-        surChoix={() => {}}
-      />,
-    );
-    return { appels, boutons };
-  }
-
-  it("le recentrage porte sur l'onglet ACTIF, et sur lui seul", () => {
-    const { appels, boutons } = rendre("rongeur");
-    expect(appels).toHaveLength(1);
-    expect(boutons[0].textContent).toContain("Rongeurs");
-    expect(boutons[0].getAttribute("aria-pressed")).toBe("true");
-  });
-
-  it("l'axe VERTICAL ne bouge pas : la page ne saute pas sous les yeux", () => {
-    // `block: "nearest"` ne fait rien tant que la rangée est déjà à l'écran.
-    // C'est ce qui distingue « ramener l'onglet » de « sauter à la rangée ».
-    const { appels } = rendre("rongeur");
-    expect(appels[0].block).toBe("nearest");
-  });
-
-  it("l'axe horizontal déplace du MINIMUM : aucun effet si tout tient", () => {
-    /**
-     * `inline: "nearest"` et non `"center"` : sur un ordinateur où les trois
-     * onglets tiennent, l'onglet actif est déjà visible et rien ne bouge.
-     * « center » aurait recentré la rangée même quand il n'y avait rien à voir.
-     */
-    const { appels } = rendre("rongeur");
-    expect(appels[0].inline).toBe("nearest");
-    expect(appels[0].inline).not.toBe("center");
-  });
-
-  it("« moins de mouvement » retire l'animation, sans retirer le recentrage", () => {
-    // Un défilement animé peut déclencher un vertige. On arrive quand même au
-    // bon endroit — c'est le trajet qu'on supprime, pas la destination.
-    expect(rendre("rongeur", false).appels[0].behavior).toBe("smooth");
-    expect(rendre("rongeur", true).appels[0].behavior).toBe("auto");
-  });
-
-  it("« Tous » actif : le recentrage a lieu aussi, sur le premier onglet", () => {
-    const { appels, boutons } = rendre(null);
-    expect(appels).toHaveLength(1);
-    expect(boutons[0].textContent).toContain("Tous");
-  });
-
-  it("aucun plantage si le navigateur ne sait pas recentrer", () => {
-    /**
-     * `scrollIntoView` manque dans jsdom et dans de vieux navigateurs. Une
-     * rangée qui ne se recentre pas reste utilisable ; une page qui plante, non.
-     */
-    const original = Element.prototype.scrollIntoView;
-    // @ts-expect-error — on retire volontairement la méthode.
-    delete Element.prototype.scrollIntoView;
-    vi.stubGlobal("matchMedia", undefined);
-    expect(() =>
-      render(
-        <OngletsAnimaux
-          onglets={ongletsAnimaux([CROQUETTES, FOIN_LAPIN], "rongeur")}
-          surChoix={() => {}}
-        />,
-      ),
-    ).not.toThrow();
-    expect(screen.getByText(/Rongeurs/)).toBeTruthy();
-    Element.prototype.scrollIntoView = original;
-  });
-
-  it("le recentrage n'a lieu qu'À L'OUVERTURE, pas à chaque clic", () => {
-    /**
-     * Au clic, le doigt est déjà sur l'onglet choisi : le faire glisser sous le
-     * doigt serait une surprise désagréable. Le tableau de dépendances vide dit
-     * exactement cela, et c'est lui qu'on garde.
-     */
-    const src = readFileSync(
-      join(__dirname, "..", "app/(public)/catalogue/OngletsAnimaux.tsx"),
-      "utf8",
-    );
-    expect(src).toContain("}, []);");
-    expect(src).toContain("scrollIntoView");
-  });
-
+describe("APP 50 : la barre d'onglets n'existe plus", () => {
   it("APP 49 : il n'y a plus de rangée du tout dans le catalogue client", () => {
     /**
      * Ce test gardait que la rangée d'onglets ne se redessinait pas à deux

@@ -375,13 +375,6 @@ export default function CatalogueBoutique({
       />
 
       {/*
-        * Les onglets d'animal. Sur téléphone ils DÉFILENT horizontalement :
-        * six onglets plus « Tous » ne tiennent pas sur 375 px, et les replier
-        * sur deux lignes ferait sauter la grille d'un demi-écran. La rangée et
-        * son recentrage vivent dans « OngletsAnimaux » ; ici on décide seulement
-        * QUELS onglets existent.
-        */}
-      {/*
         * APP 49 — LES ONGLETS ONT DISPARU.
         *
         * Le fil d'Ariane de la page les remplace : deux façons de dire où l'on
