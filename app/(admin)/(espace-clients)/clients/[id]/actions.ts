@@ -14,6 +14,10 @@ import { synchroniserProduitAbonnement } from "@/src/lib/abonnementCompta";
 import { encaisser } from "@/app/(admin)/(espace-comptabilite)/factures/actions";
 import { creerAvoir } from "@/app/(admin)/(espace-comptabilite)/factures/actionsCreation";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { enregistrerAcceptation } from "@/src/lib/acceptationsConditions";
+import { formatVersion } from "@/src/lib/acceptationsConditionsLogique";
+import { VERSION_CONDITIONS_PENSION } from "@/src/lib/liensLegaux";
+import { aujourdhuiISO } from "@/src/lib/dates";
 import { idUtilisateurCourant } from "@/src/lib/permissions";
 import { exigerAdmin } from "@/src/lib/garde";
 import { synchroniserComptaAvoir, contrePasserComptaAvoir } from "@/src/lib/comptaAvoir";
@@ -669,4 +673,53 @@ export async function annulerAbonnementParAvoir(
   revalidatePath(`/clients/${abo.client_id}`);
   revalidatePath("/factures");
   return { ok: true, numero: avoir.numero };
+}
+
+/**
+ * « Conditions de la pension signées sur papier » (APP 42).
+ *
+ * L'accueil fait signer une feuille : cette action en garde la trace, datée du
+ * jour de la SIGNATURE et non de la saisie — on saisit parfois le lendemain, et
+ * c'est la signature qui fait foi.
+ *
+ * Sous `perm_clients_modifier` : c'est la permission qui couvre déjà les fiches
+ * clients et chiens, et faire signer un papier fait partie de l'accueil. Une
+ * permission de plus aurait été une case à cocher pour chaque employée, et
+ * personne ne l'aurait cochée.
+ *
+ * La version enregistrée est la version COURANTE : `enregistrerAcceptation` la
+ * lit à la source, aucun écran ne peut en inventer une.
+ */
+export async function enregistrerConditionsPapier(
+  formData: FormData,
+): Promise<{ error?: string; message?: string }> {
+  const verif = await verifierPermission("perm_clients_modifier");
+  if (verif.error) return verif;
+
+  const client_id = String(formData.get("client_id") ?? "");
+  const signee_le = String(formData.get("signee_le") ?? "").slice(0, 10);
+  if (!client_id) return { error: "Client introuvable." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(signee_le)) return { error: "Indiquez la date de signature." };
+  // Une signature ne se date pas dans l'avenir.
+  if (signee_le > aujourdhuiISO()) return { error: "La date de signature ne peut pas être dans le futur." };
+
+  const trace = await enregistrerAcceptation({
+    clientId: client_id,
+    document: "pension",
+    mode: "papier",
+    saisiePar: verif.userId ?? null,
+    // Midi : la date compte, l'heure non, et midi ne bascule pas de jour selon
+    // le fuseau comme le ferait minuit.
+    accepteeLe: `${signee_le}T12:00:00`,
+  });
+  if (!trace.ok) return { error: trace.message };
+
+  await tracerEvenement({
+    entite: "client", entiteId: client_id, evenement: "conditions_signees_papier",
+    apres: { document: "pension", version: VERSION_CONDITIONS_PENSION, signee_le },
+    userId: verif.userId ?? null,
+  });
+
+  revalidatePath(`/clients/${client_id}`);
+  return { message: `Conditions de la pension : signature du ${formatVersion(signee_le)} enregistrée.` };
 }

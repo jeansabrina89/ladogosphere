@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { formatDateFR } from "@/src/lib/dates";
+import { LIEN_CONDITIONS_PENSION, LIEN_EXTERNE, STYLE_LIEN_LEGAL } from "@/src/lib/liensLegaux";
+import { LIEN_CASE_PENSION } from "@/src/lib/acceptationsConditionsLogique";
 import { tenterReseau } from "@/src/lib/reseau";
 import {
   creerDemandeReservation,
@@ -394,6 +396,13 @@ export default function TunnelReservation({
 
   // Commun
   const [commentaire, setCommentaire] = useState("");
+  /*
+   * APP 42 — les conditions de la pension, NON cochées par défaut.
+   *
+   * Pré-cocher aurait vidé le geste de son sens : une acceptation qu'on n'a
+   * pas faite ne prouve rien, et c'est une preuve qu'on cherche à garder.
+   */
+  const [conditionsOk, setConditionsOk] = useState(false);
   const [erreur, setErreur] = useState("");
   const [chargement, setChargement] = useState(false);
 
@@ -682,6 +691,7 @@ export default function TunnelReservation({
         heure_arrivee: "10:00",
         heure_depart: heureDepartEssai,
         commentaire_client: commentaire || null,
+        conditions_acceptees: conditionsOk,
       };
     } else {
       const occurrences: Occurrence[] =
@@ -696,6 +706,7 @@ export default function TunnelReservation({
         heure_arrivee: heureArriveeEnvoyee,
         heure_depart: heureDepartEnvoyee,
         commentaire_client: commentaire || null,
+        conditions_acceptees: conditionsOk,
       };
     }
 
@@ -1334,7 +1345,29 @@ export default function TunnelReservation({
                 </p>
               </div>
             )}
-            {renderNavFooter(() => { void soumettre(); }, sendLabel, chargement)}
+            {/*
+              La case se tient JUSTE AVANT le bouton : c'est là qu'on décide,
+              et une case en haut de page serait oubliée avant d'y arriver.
+            */}
+            <label style={{
+              display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer",
+              margin: "0 0 14px",
+            }}>
+              <input
+                type="checkbox"
+                checked={conditionsOk}
+                onChange={e => setConditionsOk(e.target.checked)}
+                style={{ marginTop: 2, width: 20, height: 20, flexShrink: 0, accentColor: "#4AAEA0" }}
+              />
+              <span style={{ color: "#1B2B5E", fontSize: 14, lineHeight: 1.45 }}>
+                J&apos;ai lu et j&apos;accepte les{" "}
+                <a href={LIEN_CONDITIONS_PENSION} {...LIEN_EXTERNE} style={STYLE_LIEN_LEGAL}>
+                  {LIEN_CASE_PENSION}
+                </a>
+                .
+              </span>
+            </label>
+            {renderNavFooter(() => { void soumettre(); }, sendLabel, chargement || !conditionsOk)}
           </>
         )}
       </>

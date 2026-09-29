@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
+import { acceptationsDuClient } from "@/src/lib/acceptationsConditions";
+import { repereConditions } from "@/src/lib/acceptationsConditionsLogique";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { factureEmisePourReservation } from "@/src/lib/factureResa";
 import BoutonAnnuler from "./BoutonAnnuler";
@@ -114,6 +116,18 @@ export default async function ReservationPage({
   const est_membre = res.clients?.id ? await estMembreActif(supabaseAdmin, res.clients.id, res.date_debut) : false;
   const client_id = res.clients?.id;
 
+  /*
+   * APP 42 — le repère des conditions. AUCUN BLOCAGE.
+   *
+   * Sabrina prend une réservation au téléphone pendant qu'un chien aboie :
+   * lui refuser l'enregistrement l'obligerait à contourner l'outil, et la
+   * trace serait perdue pour de bon. On l'avertit, elle fait signer à
+   * l'arrivée. Une version périmée se signale aussi, et ne barre pas plus.
+   */
+  const repereCond = client_id
+    ? repereConditions(await acceptationsDuClient(client_id), "pension")
+    : null;
+
   const authUserIdClient = (res.clients as any)?.auth_user_id;
   let clientEstEmploye = false;
   if (authUserIdClient) {
@@ -140,6 +154,16 @@ export default async function ReservationPage({
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-4xl mx-auto bg-white rounded-xl p-8 shadow-sm">
+
+        {repereCond && (
+          <p style={{
+            backgroundColor: "#F4EAC9", border: "1px solid #C9A84C", borderRadius: 10,
+            padding: "10px 14px", margin: "0 0 16px", color: "#6E5410",
+            fontSize: 14.5, fontWeight: 600,
+          }}>
+            ⚠️ {repereCond}
+          </p>
+        )}
 
         <div className="flex justify-between items-start mb-6">
           <div>

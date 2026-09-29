@@ -27,11 +27,15 @@ import BadgeStatut from "@/app/components/ui/BadgeStatut";
 import BadgeFacture from "@/app/(admin)/(espace-comptabilite)/factures/BadgeFacture";
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
+import BlocConditions from "./BlocConditions";
+import { acceptationsDuClient } from "@/src/lib/acceptationsConditions";
 
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   await exigerAccesAdmin();
   const perms = await getProfilePerms();
+  // Les acceptations du client : lues UNE fois, servies au bloc et aux repères.
+  const acceptations = await acceptationsDuClient(id);
   const supabase = supabaseAdmin;
 
   const { data: client } = await supabase
@@ -155,6 +159,18 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                 </span>
               )}
             </div>
+          </Carte>
+        </section>
+
+        {/* APP 42 — la preuve que les conditions ont été acceptées. */}
+        <section style={{ marginBottom: 28 }}>
+          <Carte>
+            <BlocConditions
+              clientId={id}
+              acceptations={acceptations}
+              aujourdhui={aujourdhuiISO()}
+              peutSaisir={perms.perm_clients_modifier === true}
+            />
           </Carte>
         </section>
 

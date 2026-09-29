@@ -31,7 +31,6 @@ import {
   STYLE_LIEN_LEGAL,
   MENTION_DONNEES_AVANT,
   MENTION_DONNEES_LIEN,
-  MENTION_COMMANDE_AVANT,
   MENTION_COMMANDE_LIEN,
 } from "@/src/lib/liensLegaux";
 import OptionsChoisies from "@/app/components/OptionsChoisies";
@@ -100,7 +99,14 @@ export default function Panier({
   const [resa, setResa] = useState(reservations[0]?.id ?? "");
   const [paiement, setPaiement] = useState<ModePaiement | null>(null);
   const [adresse, setAdresse] = useState<Partial<Adresse>>(adresseClient ?? {});
-  const [enCours, setEnCours] = useState(false);
+  const [enCours, setEnCours] = useState(false);
+  /*
+   * APP 42 — la case des conditions de vente, NON cochée par défaut.
+   *
+   * Pré-cocher aurait vidé le geste de son sens : une acceptation qu'on n'a
+   * pas faite ne prouve rien, et c'est une preuve qu'on cherche à garder.
+   */
+  const [conditionsOk, setConditionsOk] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   // Une clé par visite du panier : le double clic tombe sur la même.
   const [cle] = useState(() => `panier-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
@@ -414,7 +420,7 @@ export default function Panier({
         <div style={{ flex: 1 }}>
           <button
             type="button"
-            disabled={!!refus || enCours}
+            disabled={!!refus || enCours || !conditionsOk}
             onClick={async () => {
               setEnCours(true);
               const res = await confirmerCommande({
@@ -423,6 +429,7 @@ export default function Panier({
                 adresse: mode === "postal" ? adresse : null,
                 mode_paiement: paiement!,
                 cle_idempotence: cle,
+                conditions_acceptees: conditionsOk,
               });
               setEnCours(false);
               if (res.error) {
@@ -436,9 +443,9 @@ export default function Panier({
             }}
             style={{
               width: "100%", minHeight: CIBLE + 8, borderRadius: 14, border: "none",
-              backgroundColor: !refus && !enCours ? VERT : "#B9CFC9", color: "#FFFFFF",
+              backgroundColor: !refus && !enCours && conditionsOk ? VERT : "#B9CFC9", color: "#FFFFFF",
               fontSize: 17, fontWeight: 700, fontFamily: "inherit",
-              cursor: !refus && !enCours ? "pointer" : "not-allowed",
+              cursor: !refus && !enCours && conditionsOk ? "pointer" : "not-allowed",
             }}
           >
             {enCours ? "Enregistrement…" : "Valider ma commande"}
@@ -449,17 +456,34 @@ export default function Panier({
             </p>
           )}
           {/*
-            APP 36 n'avait posé que la seconde phrase : l'app n'avait aucune
-            condition de vente à citer — ni page, ni lien. Celles de la PENSION
-            existaient, mais garder un chien et vendre un sac de croquettes
-            n'obéissent pas aux mêmes règles. La page est née au lot SITE 34.
+            APP 42 — la phrase d'APP 37 devient une CASE.
+            Lire « vous acceptez » sous un bouton n'est pas accepter : il n'en
+            restait aucune trace, et le jour d'un désaccord il n'y aurait eu que
+            la parole de chacun. La case, elle, s'enregistre avec sa version.
+            La phrase sur les données, elle, ne change pas : on n'a pas à
+            demander l'accord de quelqu'un pour traiter ce qu'il nous confie
+            afin de le servir — on le lui DIT.
           */}
-          <p style={{ color: SOUS, fontSize: 12.5, margin: "8px 0 0", textAlign: "center" }}>
-            {MENTION_COMMANDE_AVANT}
-            <a href={LIEN_CONDITIONS_VENTE} {...LIEN_EXTERNE} style={STYLE_LIEN_LEGAL}>
-              {MENTION_COMMANDE_LIEN}
-            </a>
-            . {MENTION_DONNEES_AVANT}
+          <label style={{
+            display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer",
+            margin: "10px 0 0", textAlign: "left",
+          }}>
+            <input
+              type="checkbox"
+              checked={conditionsOk}
+              onChange={(e) => setConditionsOk(e.target.checked)}
+              style={{ marginTop: 2, width: 20, height: 20, flexShrink: 0, accentColor: "#4AAEA0" }}
+            />
+            <span style={{ color: MARINE, fontSize: 13.5, lineHeight: 1.45 }}>
+              J&apos;ai lu et j&apos;accepte les{" "}
+              <a href={LIEN_CONDITIONS_VENTE} {...LIEN_EXTERNE} style={STYLE_LIEN_LEGAL}>
+                {MENTION_COMMANDE_LIEN}
+              </a>
+              .
+            </span>
+          </label>
+          <p style={{ color: SOUS, fontSize: 12.5, margin: "6px 0 0", textAlign: "center" }}>
+            {MENTION_DONNEES_AVANT}
             <a href={LIEN_CONFIDENTIALITE} {...LIEN_EXTERNE} style={STYLE_LIEN_LEGAL}>
               {MENTION_DONNEES_LIEN}
             </a>

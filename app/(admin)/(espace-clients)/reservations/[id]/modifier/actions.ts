@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { refusHeuresSejour } from "@/src/lib/heuresSejour";
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { getAvoirAppliqueReservation } from "@/src/lib/avoirs";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
@@ -35,9 +36,19 @@ export async function modifierReservation(id: string, formData: FormData) {
   // trace au journal.
   const { data: avant } = await supabaseAdmin
     .from("reservations")
-    .select("type_sejour, numero, statut, box_id, commentaire_admin, heure_arrivee, heure_depart, date_debut, date_fin")
+    .select("type_sejour, type_reservation, numero, statut, box_id, commentaire_admin, heure_arrivee, heure_depart, date_debut, date_fin")
     .eq("id", id)
     .maybeSingle();
+
+  /*
+   * APP 42 — un séjour sans ses deux heures perd une journée au décompte, en
+   * silence. Le type vient de la réservation elle-même : on ne le modifie pas
+   * ici, et le formulaire ne le renvoie donc pas.
+   */
+  const refusHeures = refusHeuresSejour(
+    avant?.type_reservation as string | undefined, heure_arrivee, heure_depart,
+  );
+  if (refusHeures) throw new Error(refusHeures);
 
   const typeAvant = typeSejour(avant?.type_sejour as string | undefined);
   const typeApres = typeSejour(formData.get("type_sejour") as string);

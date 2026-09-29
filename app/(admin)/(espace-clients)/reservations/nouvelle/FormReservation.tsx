@@ -7,6 +7,7 @@ import { useState, useEffect, useRef } from "react";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { formatDateFR } from "@/src/lib/dates";
 import SelectHeure from "@/app/components/SelectHeure";
+import { ALERTE_JAMAIS_SIGNEES } from "@/src/lib/acceptationsConditionsLogique";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import { statutEssaiDe, chienReservablePour, messageRefusChien } from "@/src/lib/journeeEssai";
 import {
@@ -18,7 +19,9 @@ import {
 } from "@/src/lib/typeSejour";
 
 type EtatJourneeEssai = { disponible: boolean; heuresPrises: string[]; creneauxLibres: string[] };
-type Client = { id: string; prenom: string; nom: string; membre: boolean; aJour: boolean; cotisation_exemptee?: boolean; interne?: boolean };
+type Client = { id: string; prenom: string; nom: string; membre: boolean; aJour: boolean; cotisation_exemptee?: boolean; interne?: boolean;
+  /** APP 42 : ce client n'a jamais accepté les conditions de la pension. */
+  conditionsManquantes?: boolean };
 type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string; statut_essai: string | null };
 type Box = { id: string; numero: number; nom?: string | null };
 
@@ -476,6 +479,15 @@ export default function FormReservation({
                   onClick={() => { setClientEditMode(true); setClientSearch(""); setClientListOpen(true); }}
                   className="font-medium text-left flex-1 hover:underline">
                   {clientSelectionne.prenom} {clientSelectionne.nom}<BadgeMembre membre={clientSelectionne.membre} aJour={clientSelectionne.aJour} compact />
+                  {clientSelectionne.conditionsManquantes && (
+                    <span style={{
+                      display: "block", marginTop: 6, padding: "6px 10px", borderRadius: 8,
+                      backgroundColor: "#F4EAC9", color: "#6E5410",
+                      fontSize: 13, fontWeight: 600, lineHeight: 1.4,
+                    }}>
+                      ⚠️ {ALERTE_JAMAIS_SIGNEES}
+                    </span>
+                  )}
                 </button>
                 <button type="button" onClick={handleClientClear}
                   className="text-gray-400 hover:text-red-500 ml-3 font-bold text-lg leading-none">
@@ -844,6 +856,7 @@ export default function FormReservation({
               </label>
               <SelectHeure
                 name="heure_arrivee"
+                required={type === "sejour"}
                 value={heureArrivee}
                 onChange={setHeureArrivee}
                 className="w-full border rounded-xl p-3"
@@ -856,6 +869,7 @@ export default function FormReservation({
               </label>
               <SelectHeure
                 name="heure_depart"
+                required={type === "sejour"}
                 value={heureDepart}
                 onChange={setHeureDepart}
                 className="w-full border rounded-xl p-3"

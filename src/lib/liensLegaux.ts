@@ -28,6 +28,23 @@ export const LIEN_CONDITIONS_PENSION = "https://ladogosphere.ch/conditions-pensi
 export const LIEN_CONDITIONS_VENTE = "https://ladogosphere.ch/conditions-vente";
 
 /**
+ * La VERSION de chaque document : la date de « Dernière mise à jour » affichée
+ * en bas de la page correspondante, en ISO court.
+ *
+ * À METTRE À JOUR À CHAQUE MODIFICATION DE LA PAGE CORRESPONDANTE SUR LE SITE.
+ *
+ * C'est elle qui est enregistrée avec chaque acceptation (APP 42). L'oublier ne
+ * casse rien tout de suite : les clients continuent d'accepter, mais sous
+ * l'ancien numéro — et l'on croira qu'ils ont lu un texte qu'ils n'ont pas vu.
+ * C'est une erreur silencieuse, et c'est pourquoi elle est écrite ici, à côté
+ * des adresses, plutôt que dans un coin de code.
+ *
+ * Relevées sur le site le 29.09.2026.
+ */
+export const VERSION_CONDITIONS_PENSION = "2026-09-29";
+export const VERSION_CONDITIONS_VENTE = "2026-09-28";
+
+/**
  * Ce que tout lien sortant doit porter.
  *
  * `noopener` coupe l'accès de la page ouverte à celle qui l'a ouverte ;

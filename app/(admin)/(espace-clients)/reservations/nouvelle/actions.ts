@@ -8,6 +8,7 @@ import { verifierChiensPourReservation, marquerChiensEssaiProgramme } from "@/sr
 import { assurerLignesCheckin } from "@/src/lib/lignesCheckin";
 import { assurerMontantCalcule } from "@/src/lib/prixReservation";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { refusHeuresSejour } from "@/src/lib/heuresSejour";
 import {
   champsTypeSejour,
   infoTypeSejour,
@@ -33,6 +34,10 @@ export async function creerReservation(formData: FormData) {
   const statut = formData.get("statut") as string;
   const commentaire_admin = formData.get("commentaire_admin") as string || null;
   const chien_ids = formData.getAll("chien_ids") as string[];
+
+  // APP 42 : un séjour sans ses deux heures perd une journée au décompte.
+  const refusHeures = refusHeuresSejour(type_reservation, heure_arrivee, heure_depart);
+  if (refusHeures) throw new Error(refusHeures);
 
   // « Urgence » et « Abandon » sortent du chiffre d'affaires : on ne s'y
   // qualifie pas soi-même sans la permission des tarifs d'urgence.

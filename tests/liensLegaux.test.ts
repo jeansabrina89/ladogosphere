@@ -78,9 +78,16 @@ describe("les écrans qui collectent des données renvoient à la politique", ()
      * encore. Elle existe depuis SITE 34, et la moitié manquante est la seule
      * qui engage la cliente sur autre chose que ses données.
      */
+    /**
+     * APP 42 : la phrase est devenue une CASE, et `MENTION_COMMANDE_AVANT` —
+     * « En commandant, vous acceptez nos » — n'a plus lieu d'être : on ne
+     * constate plus une acceptation, on la demande. Ce que ce test garde n'a
+     * pas changé — le panier cite les conditions de vente, et les cite AVANT la
+     * phrase sur les données.
+     */
     const source = lire("app/(public)/catalogue/panier/Panier.tsx");
     expect(source).toContain("LIEN_CONDITIONS_VENTE");
-    expect(source).toContain("MENTION_COMMANDE_AVANT");
+    expect(source).toContain("MENTION_COMMANDE_LIEN");
     // Les deux liens, dans cet ordre : on accepte AVANT d'être informée.
     expect(source.indexOf("LIEN_CONDITIONS_VENTE")).toBeLessThan(
       source.lastIndexOf("LIEN_CONFIDENTIALITE"),
@@ -157,14 +164,27 @@ describe("rien n'a été ajouté aux écrans du personnel", () => {
     return trouves;
   }
 
-  it("aucun écran d'administration ne cite la politique", () => {
+  it("aucun écran d'administration ne cite la politique de confidentialité", () => {
     /**
      * Ces pages sont vues par Sabrina et ses employées, pas par des clientes :
      * une mention de confidentialité y serait du bruit, et le bruit finit par
      * faire ignorer le reste.
+     *
+     * LA GARDE A ÉTÉ RESSERRÉE AU LOT APP 42, et il faut le dire. Elle refusait
+     * toute mention du module `liensLegaux` sur un écran d'administration —
+     * c'était trop large. La fiche client y cite désormais les CONDITIONS, avec
+     * la date à laquelle le client les a acceptées : c'est une information de
+     * travail, pas une mention légale adressée à une cliente.
+     *
+     * Ce que la garde protégeait — la politique de CONFIDENTIALITÉ hors des
+     * écrans du personnel — est gardé exactement pareil, et le test le vérifie
+     * maintenant en nommant la chose plutôt que le fichier qui la contient.
      */
     const fautifs = fichiers(join(process.cwd(), "app", "(admin)"))
-      .filter((f) => /liensLegaux|ladogosphere\.ch\/confidentialite/.test(readFileSync(f, "utf8")))
+      .filter((f) => {
+        const src = readFileSync(f, "utf8");
+        return /LIEN_CONFIDENTIALITE|ladogosphere\.ch\/confidentialite/.test(src);
+      })
       .map((f) => f.slice(process.cwd().length + 1));
     expect(fautifs).toEqual([]);
   });

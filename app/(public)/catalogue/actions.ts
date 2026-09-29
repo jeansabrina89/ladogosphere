@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { enregistrerAcceptation } from "@/src/lib/acceptationsConditions";
+import { REFUS_CONDITIONS_VENTE } from "@/src/lib/acceptationsConditionsLogique";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { aujourdhuiISO } from "@/src/lib/dates";
@@ -260,6 +262,8 @@ export type EntreeConfirmation = {
   adresse?: Partial<Adresse> | null;
   mode_paiement: ModePaiement;
   cle_idempotence: string;
+  /** APP 42 : la case des conditions de vente, cochée par la cliente. */
+  conditions_acceptees?: boolean;
 };
 
 /**
@@ -314,6 +318,17 @@ export async function confirmerCommande(entree: EntreeConfirmation): Promise<Ret
     return { error: "Le paiement en ligne n'est pas encore disponible." };
   }
 
+  /*
+   * APP 42 — le serveur revérifie l'acceptation.
+   *
+   * Le bouton grisé ne suffit pas : une requête forgée arriverait ici sans la
+   * case, et la commande partirait sans preuve. La phrase est la MÊME que celle
+   * lue à l'écran.
+   */
+  if (entree.conditions_acceptees !== true) {
+    return { error: REFUS_CONDITIONS_VENTE };
+  }
+
   // Le séjour rattaché doit être un des siens : on ne prend pas l'identifiant
   // du formulaire pour argent comptant.
   let reservationId: string | null = null;
@@ -345,6 +360,32 @@ export async function confirmerCommande(entree: EntreeConfirmation): Promise<Ret
   if (error) return { error: messageConfirmation(error.message) };
 
   const res = data as { id: string; numero: string; deja: boolean };
+
+  /*
+   * L'acceptation est écrite JUSTE APRÈS la commande, et son échec est visible.
+   *
+   * Elle ne peut pas entrer dans la transaction de `confirmer_commande` : la
+   * RPC est en base et ne connaît ni la version du document, ni la case cochée.
+   * Une commande enregistrée sans sa preuve n'est pas une catastrophe — la
+   * commande, elle, tient — mais on le DIT, plutôt que de laisser croire que
+   * tout est en ordre.
+   */
+  if (!res.deja) {
+    const trace = await enregistrerAcceptation({
+      clientId: client.id,
+      document: "vente",
+      mode: "en_ligne",
+      commandeId: res.id,
+    });
+    if (!trace.ok) {
+      rafraichir();
+      return {
+        id: res.id, numero: res.numero,
+        error: `Commande ${res.numero} enregistrée, mais ${trace.message.toLowerCase()}`,
+      };
+    }
+  }
+
   if (res.deja) {
     rafraichir();
     return { id: res.id, numero: res.numero, message: "Cette commande était déjà enregistrée." };

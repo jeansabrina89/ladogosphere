@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { clientsMembresAJour } from "@/src/lib/membre";
+import { clientsSansConditionsPension } from "@/src/lib/acceptationsConditions";
 import FormReservation from "./FormReservation";
 
 export default async function NouvelleReservationLoader() {
@@ -14,7 +15,19 @@ export default async function NouvelleReservationLoader() {
     .order("nom");
 
   const setAJour = await clientsMembresAJour(supabase, (clients ?? []).map((c) => c.id));
-  const clientsAvecStatut = (clients ?? []).map((c) => ({ ...c, aJour: setAJour.has(c.id) }));
+  /*
+   * APP 42 — qui n'a jamais accepté les conditions de la pension.
+   *
+   * Une seule requête pour toute la liste : l'écran propose tous les clients
+   * actifs, et un aller-retour par client serait des centaines d'allers-retours
+   * pour une pastille. AUCUN BLOCAGE — c'est un avertissement.
+   */
+  const sansConditions = await clientsSansConditionsPension((clients ?? []).map((c) => c.id));
+  const clientsAvecStatut = (clients ?? []).map((c) => ({
+    ...c,
+    aJour: setAJour.has(c.id),
+    conditionsManquantes: sansConditions.has(c.id),
+  }));
 
   const { data: chiens } = await supabase
     .from("chiens")

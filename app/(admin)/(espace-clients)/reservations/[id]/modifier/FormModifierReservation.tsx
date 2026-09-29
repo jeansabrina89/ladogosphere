@@ -210,6 +210,7 @@ export default function FormModifierReservation({ id }: { id: string }) {
               </label>
               <SelectHeure
                 name="heure_arrivee"
+                required={res.type_reservation === "sejour"}
                 defaultValue={res.heure_arrivee || ""}
                 className="w-full border rounded-xl p-3"
               />
@@ -221,6 +222,7 @@ export default function FormModifierReservation({ id }: { id: string }) {
               </label>
               <SelectHeure
                 name="heure_depart"
+                required={res.type_reservation === "sejour"}
                 defaultValue={res.heure_depart || ""}
                 className="w-full border rounded-xl p-3"
               />

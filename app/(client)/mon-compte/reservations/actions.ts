@@ -16,6 +16,9 @@ import { verifierPlaceDisponible } from "@/src/lib/suggestionBox";
 import { selectionMixteRefusee, estPrivatifPourSelection } from "@/src/lib/cohabitation";
 import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { creerReservationsPersonnel, annulerReservationPersonnel } from "@/src/lib/reservationPersonnel";
+import { enregistrerAcceptation } from "@/src/lib/acceptationsConditions";
+import { REFUS_CONDITIONS_PENSION } from "@/src/lib/acceptationsConditionsLogique";
+import { refusHeuresSejour } from "@/src/lib/heuresSejour";
 import { calculerPeriodeCotisation, formatPeriodeCotisation } from "@/src/lib/cotisationPeriode";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { peutReserverPension, MESSAGE_ESSAI_REQUIS, MESSAGE_ADHESION_A_REGLER } from "@/src/lib/adhesionReservation";
@@ -51,6 +54,8 @@ export type InputDemandeReservation = {
   heure_arrivee: string | null;
   heure_depart: string | null;
   commentaire_client: string | null;
+  /** APP 42 : la case des conditions de la pension, cochée par le client. */
+  conditions_acceptees?: boolean;
 };
 
 export type ResultatDemande =
@@ -61,6 +66,27 @@ export type ResultatDemande =
 // Server Action principale
 // ---------------------------------------------------------------------------
 
+/**
+ * L'acceptation, écrite JUSTE APRÈS la réservation, et son échec est visible.
+ *
+ * Elle ne peut pas entrer dans la même transaction : les réservations sont
+ * créées par plusieurs chemins, dont une fonction dédiée au personnel. Une
+ * réservation enregistrée sans sa preuve n'est pas une catastrophe — la
+ * réservation tient — mais on le DIT plutôt que de laisser croire que tout
+ * est en ordre. Rend le message d'erreur, ou null si tout va bien.
+ */
+async function tracerAcceptationPension(
+  clientId: string,
+  reservationId: string | null,
+): Promise<string | null> {
+  const trace = await enregistrerAcceptation({
+    clientId,
+    document: "pension",
+    mode: "en_ligne",
+    reservationId,
+  });
+  return trace.ok ? null : trace.message;
+}
 export async function creerDemandeReservation(
   input: InputDemandeReservation
 ): Promise<ResultatDemande> {
@@ -113,6 +139,29 @@ export async function creerDemandeReservation(
     return { ok: false, erreur: "Chien(s) invalide(s)." };
   }
 
+  /*
+   * 4ter. APP 42 — LES CONDITIONS DE LA PENSION.
+   *
+   * Le bouton grisé ne suffit pas : une requête forgée arriverait ici sans la
+   * case. Le refus vient AVANT toute écriture — une réservation créée puis une
+   * acceptation refusée laisserait une réservation sans preuve.
+   *
+   * La fiche INTERNE y passe aussi : c'est un client comme un autre, et son
+   * tunnel affiche la même case.
+   */
+  if (input.conditions_acceptees !== true) {
+    return { ok: false, erreur: REFUS_CONDITIONS_PENSION };
+  }
+
+  /*
+   * APP 42 — un séjour sans ses deux heures perd une journée au décompte, en
+   * silence. Le refus est ici, avant toute écriture.
+   */
+  const refusHeures = refusHeuresSejour(
+    input.type_reservation, input.heure_arrivee, input.heure_depart,
+  );
+  if (refusHeures) return { ok: false, erreur: refusHeures };
+
   // 4bis. FICHE INTERNE (personnel) : chemin court et distinct — réservation
   //       gratuite, validée d'office, box attribué tout de suite, sans facture,
   //       sans adhésion, sans e-mail. Aucune journée d'essai n'est exigée : les
@@ -132,6 +181,8 @@ export async function creerDemandeReservation(
       auteur: user.id,
     });
     if (!res.ok) return res;
+    const trace = await tracerAcceptationPension(fiche.id, res.ids[0] ?? null);
+    if (trace) return { ok: false, erreur: trace };
     revalidatePath("/mon-compte");
     revalidatePath("/mon-compte/reservations");
     return { ok: true, ids: res.ids };
@@ -364,6 +415,8 @@ export async function creerDemandeReservation(
     console.error("Erreur envoi email confirmation:", e);
   }
 
+  const trace = await tracerAcceptationPension(fiche.id, reservationIds[0] ?? null);
+  if (trace) return { ok: false, erreur: trace };
   return { ok: true, ids: reservationIds };
 }
 

@@ -2,6 +2,9 @@ import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { createClient } from "@/src/utils/supabase/server";
 import { modifierProfil } from "./actions";
 import { LIBELLE_ACCORD_PHOTOS, PRECISION_RETRAIT_ACCORD_PHOTOS } from "@/src/lib/accordPhotos";
+import { acceptationsDuClient } from "@/src/lib/acceptationsConditions";
+import { ligneAcceptationClient } from "@/src/lib/acceptationsConditionsLogique";
+import { LIEN_CONDITIONS_PENSION, LIEN_CONDITIONS_VENTE } from "@/src/lib/liensLegaux";
 import {
   LIEN_CONFIDENTIALITE,
   LIEN_EXTERNE,
@@ -27,6 +30,21 @@ export default async function MonProfilPage() {
     .single();
 
   if (!client) return <div style={{ padding: 24 }}>Profil introuvable</div>;
+
+  /*
+   * APP 42 — ce que ce client a accepté, et quand.
+   *
+   * Rien ne s'affiche s'il n'a jamais rien accepté : une ligne « jamais »
+   * serait un reproche adressé à quelqu'un qui n'a encore rien commandé.
+   */
+  const acceptations = await acceptationsDuClient(client.id as string);
+  const lignesConditions = ([
+    ["pension", LIEN_CONDITIONS_PENSION],
+    ["vente", LIEN_CONDITIONS_VENTE],
+  ] as const)
+    .map(([document, lien]) => ({ texte: ligneAcceptationClient(acceptations, document), lien }))
+    .filter((l) => l.texte !== null)
+    .map((l) => ({ texte: l.texte as string, lien: l.lien as string }));
 
   const actionModifier = modifierProfil.bind(null, client.id);
 
@@ -79,6 +97,19 @@ export default async function MonProfilPage() {
                 </div>
               </div>
             </Carte>
+
+            {/* APP 42 — la preuve, du côté du client : ce qu'il a accepté. */}
+            {lignesConditions.length > 0 && (
+              <Carte>
+                <h2 style={titreSection}>📄 Conditions</h2>
+                {lignesConditions.map((l) => (
+                  <p key={l.texte} style={{ ...muted, marginTop: 6 }}>
+                    {l.texte}{" "}
+                    <a href={l.lien} {...LIEN_EXTERNE} style={STYLE_LIEN_LEGAL}>Les relire</a>
+                  </p>
+                ))}
+              </Carte>
+            )}
 
             {/* Photos */}
             <Carte>

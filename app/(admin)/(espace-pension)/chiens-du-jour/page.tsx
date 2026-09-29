@@ -6,6 +6,8 @@ import BoutonsCheckinDashboard from "@/app/components/BoutonsCheckinDashboard";
 import NavDatesChiensDuJour from "./NavDatesChiensDuJour";
 import BadgeCommandeARemettre from "@/app/components/BadgeCommandeARemettre";
 import { clientsAvecCommandeARemettre } from "@/src/lib/venteEnLigne";
+import { clientsSansConditionsPension } from "@/src/lib/acceptationsConditions";
+import { ALERTE_JAMAIS_SIGNEES } from "@/src/lib/acceptationsConditionsLogique";
 import NomClientLien from "@/app/components/NomClientLien";
 import NomChienLien from "@/app/components/NomChienLien";
 import BadgePhotos from "@/app/components/BadgePhotos";
@@ -92,6 +94,15 @@ export default async function ChiensDuJourPage({
   )];
   const colis = await clientsAvecCommandeARemettre(clientsDuJour);
 
+  /*
+   * APP 42 — les clients qui n'ont JAMAIS accepté les conditions.
+   *
+   * Le repère se pose ici parce que c'est ici qu'on croise le client : à
+   * l'arrivée, avec le chien devant soi et un stylo à portée. Le rappeler
+   * ailleurs reviendrait à le rappeler quand on ne peut rien faire.
+   */
+  const sansConditions = await clientsSansConditionsPension(clientsDuJour);
+
   // Qui a pointé l'arrivée et le départ, et à quelle heure.
   const gestes = await lireGestesCheckin(
     [...(arrivees ?? []), ...(presents ?? []), ...(departs ?? [])]
@@ -137,6 +148,15 @@ export default async function ChiensDuJourPage({
                           {badge(cc.statut)}
                           <BadgePhotos photos_ok={cc.reservations?.clients?.photos_ok} taille="petite" />
                           <BadgeCommandeARemettre nombre={colis.get(cc.reservations?.clients?.id) ?? 0} taille="petite" />
+                          {sansConditions.has(cc.reservations?.clients?.id ?? "") && (
+                            <span title={ALERTE_JAMAIS_SIGNEES} style={{
+                              marginLeft: 6, padding: "1px 8px", borderRadius: 999,
+                              backgroundColor: "#F4EAC9", color: "#6E5410",
+                              fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap",
+                            }}>
+                              ✍️ Conditions à signer
+                            </span>
+                          )}
                         </div>
                         <p className="text-sm text-gray-500 truncate">
                           <NomClientLien id={cc.reservations?.clients?.id} prenom={cc.reservations?.clients?.prenom} nom={cc.reservations?.clients?.nom} />
@@ -187,6 +207,15 @@ export default async function ChiensDuJourPage({
                           {badge(cc.statut)}
                           <BadgePhotos photos_ok={cc.reservations?.clients?.photos_ok} taille="petite" />
                           <BadgeCommandeARemettre nombre={colis.get(cc.reservations?.clients?.id) ?? 0} taille="petite" />
+                          {sansConditions.has(cc.reservations?.clients?.id ?? "") && (
+                            <span title={ALERTE_JAMAIS_SIGNEES} style={{
+                              marginLeft: 6, padding: "1px 8px", borderRadius: 999,
+                              backgroundColor: "#F4EAC9", color: "#6E5410",
+                              fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap",
+                            }}>
+                              ✍️ Conditions à signer
+                            </span>
+                          )}
                         </div>
                         <p className="text-sm text-gray-500 truncate">
                           <NomClientLien id={cc.reservations?.clients?.id} prenom={cc.reservations?.clients?.prenom} nom={cc.reservations?.clients?.nom} />
@@ -239,6 +268,15 @@ export default async function ChiensDuJourPage({
                           {badge(cc.statut)}
                           <BadgePhotos photos_ok={cc.reservations?.clients?.photos_ok} taille="petite" />
                           <BadgeCommandeARemettre nombre={colis.get(cc.reservations?.clients?.id) ?? 0} taille="petite" />
+                          {sansConditions.has(cc.reservations?.clients?.id ?? "") && (
+                            <span title={ALERTE_JAMAIS_SIGNEES} style={{
+                              marginLeft: 6, padding: "1px 8px", borderRadius: 999,
+                              backgroundColor: "#F4EAC9", color: "#6E5410",
+                              fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap",
+                            }}>
+                              ✍️ Conditions à signer
+                            </span>
+                          )}
                         </div>
                         <p className="text-sm text-gray-500 truncate">
                           <NomClientLien id={cc.reservations?.clients?.id} prenom={cc.reservations?.clients?.prenom} nom={cc.reservations?.clients?.nom} />
