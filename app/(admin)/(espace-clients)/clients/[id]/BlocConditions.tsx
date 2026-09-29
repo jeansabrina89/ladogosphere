@@ -5,7 +5,9 @@ import { enregistrerConditionsPapier } from "./actions";
 import {
   repereConditions,
   resumeAcceptationPersonnel,
+  VERSIONS_CONDITIONS_DEFAUT,
   type Acceptation,
+  type VersionsConditions,
 } from "@/src/lib/acceptationsConditionsLogique";
 import {
   LIEN_CONDITIONS_PENSION,
@@ -38,6 +40,7 @@ export default function BlocConditions({
   acceptations,
   aujourdhui,
   peutSaisir,
+  versions = VERSIONS_CONDITIONS_DEFAUT,
 }: {
   clientId: string;
   acceptations: Acceptation[];
@@ -45,6 +48,11 @@ export default function BlocConditions({
   aujourdhui: string;
   /** `perm_clients_modifier` : faire signer un papier fait partie de l'accueil. */
   peutSaisir: boolean;
+  /**
+   * Les versions en vigueur, réglées dans Réglages → Entreprise (APP 59).
+   * Le repli sur les valeurs de départ vaut pour un écran monté sans la prop.
+   */
+  versions?: VersionsConditions;
 }) {
   const [ouvert, setOuvert] = useState(false);
   const [etat, envoyer, enCours] = useActionState<Retour, FormData>(
@@ -52,7 +60,7 @@ export default function BlocConditions({
     ETAT_VIDE,
   );
 
-  const repere = repereConditions(acceptations, "pension");
+  const repere = repereConditions(acceptations, "pension", versions);
 
   return (
     <div style={{ display: "grid", gap: 10 }}>

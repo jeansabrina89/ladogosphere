@@ -16,7 +16,7 @@ import { creerAvoir } from "@/app/(admin)/(espace-comptabilite)/factures/actions
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { enregistrerAcceptation } from "@/src/lib/acceptationsConditions";
 import { formatVersion } from "@/src/lib/acceptationsConditionsLogique";
-import { VERSION_CONDITIONS_PENSION } from "@/src/lib/liensLegaux";
+import { lireVersionsConditions } from "@/src/lib/conditionsVersions";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { idUtilisateurCourant } from "@/src/lib/permissions";
 import { exigerAdmin } from "@/src/lib/garde";
@@ -716,7 +716,7 @@ export async function enregistrerConditionsPapier(
 
   await tracerEvenement({
     entite: "client", entiteId: client_id, evenement: "conditions_signees_papier",
-    apres: { document: "pension", version: VERSION_CONDITIONS_PENSION, signee_le },
+    apres: { document: "pension", version: (await lireVersionsConditions()).pension, signee_le },
     userId: verif.userId ?? null,
   });
 

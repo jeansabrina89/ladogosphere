@@ -14,6 +14,7 @@ import GestionAbonnement from "./GestionAbonnement";
 import GestionAvoir from "./GestionAvoir";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { estMembreActif } from "@/src/lib/membre";
+import { lireVersionsConditions } from "@/src/lib/conditionsVersions";
 import { etatAdhesion, cotisationActive, cotisationEnAttente } from "@/src/lib/cotisation";
 import { formatPeriodeCotisation, cotisationEstActive } from "@/src/lib/cotisationPeriode";
 import BadgeMembre from "@/app/components/BadgeMembre";
@@ -170,6 +171,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
               acceptations={acceptations}
               aujourdhui={aujourdhuiISO()}
               peutSaisir={perms.perm_clients_modifier === true}
+              versions={await lireVersionsConditions()}
             />
           </Carte>
         </section>

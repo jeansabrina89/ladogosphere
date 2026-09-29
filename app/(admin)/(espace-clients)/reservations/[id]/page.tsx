@@ -2,6 +2,7 @@ import Link from "next/link";
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { acceptationsDuClient } from "@/src/lib/acceptationsConditions";
 import { repereConditions } from "@/src/lib/acceptationsConditionsLogique";
+import { lireVersionsConditions } from "@/src/lib/conditionsVersions";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { factureEmisePourReservation } from "@/src/lib/factureResa";
 import BoutonAnnuler from "./BoutonAnnuler";
@@ -125,7 +126,7 @@ export default async function ReservationPage({
    * l'arrivée. Une version périmée se signale aussi, et ne barre pas plus.
    */
   const repereCond = client_id
-    ? repereConditions(await acceptationsDuClient(client_id), "pension")
+    ? repereConditions(await acceptationsDuClient(client_id), "pension", await lireVersionsConditions())
     : null;
 
   const authUserIdClient = (res.clients as any)?.auth_user_id;

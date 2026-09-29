@@ -18,9 +18,21 @@ import {
 } from "@/src/lib/acceptationsConditionsLogique";
 import { refusHeuresSejour, REFUS_HEURES_SEJOUR } from "@/src/lib/heuresSejour";
 import {
-  VERSION_CONDITIONS_PENSION,
-  VERSION_CONDITIONS_VENTE,
-} from "@/src/lib/liensLegaux";
+  VERSIONS_CONDITIONS_DEFAUT,
+  versionsDepuisReglages,
+  refusVersionConditions,
+  CLES_VERSIONS_CONDITIONS,
+} from "@/src/lib/acceptationsConditionsLogique";
+
+/**
+ * APP 59 — les versions ont quitté `liensLegaux.ts` pour devenir des réglages
+ * (`conditions_pension_version`, `conditions_vente_version`). Ce fichier les
+ * lisait comme des constantes ; il les lit maintenant comme des valeurs de
+ * DÉPART, et vérifie en plus qu'un réglage qui avance fait bien apparaître le
+ * repère « ancienne version ».
+ */
+const VERSION_CONDITIONS_PENSION = VERSIONS_CONDITIONS_DEFAUT.pension;
+const VERSION_CONDITIONS_VENTE = VERSIONS_CONDITIONS_DEFAUT.vente;
 
 /**
  * APP 42 — la preuve datée qu'un client a accepté les conditions.
@@ -61,19 +73,57 @@ describe("les versions viennent du site, et d'un seul endroit", () => {
     expect(versionCourante("vente")).toBe(VERSION_CONDITIONS_VENTE);
   });
 
+  it("APP 59 : la version vient du RÉGLAGE, et le repli tient", () => {
+    const reglees = versionsDepuisReglages(new Map([
+      [CLES_VERSIONS_CONDITIONS.pension, "2027-01-15"],
+    ]));
+    expect(versionCourante("pension", reglees)).toBe("2027-01-15");
+    // L'autre clé manque : elle reprend sa valeur de départ.
+    expect(versionCourante("vente", reglees)).toBe(VERSION_CONDITIONS_VENTE);
+  });
+
+  it("un réglage illisible ne fait passer personne pour à jour", () => {
+    for (const mauvais of ["", "29.09.2026", "pas une date", "2026-02-31"]) {
+      const v = versionsDepuisReglages(new Map([[CLES_VERSIONS_CONDITIONS.pension, mauvais]]));
+      expect(v.pension, mauvais).toBe(VERSIONS_CONDITIONS_DEFAUT.pension);
+      expect(refusVersionConditions(mauvais), mauvais).not.toBeNull();
+    }
+    expect(refusVersionConditions("2027-01-15")).toBeNull();
+  });
+
+  it("LE REPÈRE APPARAÎT quand le réglage avance", () => {
+    /**
+     * Le geste que le lot rend possible : Sabrina met les conditions à jour sur
+     * le site, reporte la date ici, et les acceptations d'hier deviennent
+     * « ancienne version » — sans bloquer personne.
+     */
+    const acc = [A({ document: "pension", version: "2026-09-29" })];
+    expect(repereConditions(acc, "pension", { pension: "2026-09-29", vente: "2026-09-29" })).toBeNull();
+    expect(repereConditions(acc, "pension", { pension: "2027-01-15", vente: "2026-09-29" }))
+      .toBe("Conditions acceptées dans une ancienne version (du 29.09.2026).");
+  });
+
   it("elles se lisent à la française", () => {
     expect(formatVersion("2026-09-29")).toBe("29.09.2026");
     expect(formatVersion("")).toBe("");
   });
 
-  it("le fichier DIT qu'il faut les mettre à jour", () => {
+  it("L'ÉCRAN dit quand et comment les mettre à jour", () => {
     /**
      * L'oublier ne casse rien tout de suite : les clients continuent
      * d'accepter, mais sous l'ancien numéro — et l'on croira qu'ils ont lu un
      * texte qu'ils n'ont pas vu. C'est une erreur silencieuse.
      */
-    const src = readFileSync(join(process.cwd(), "src/lib/liensLegaux.ts"), "utf8");
-    expect(src).toMatch(/À METTRE À JOUR À CHAQUE MODIFICATION DE LA PAGE/i);
+    const src = readFileSync(
+      join(process.cwd(), "app/(admin)/(espace-reglages)/reglages/entreprise/FormVersionsConditions.tsx"),
+      "utf8",
+    );
+    expect(src).toContain("Quand vous modifiez ces conditions sur le site, reportez ici la date");
+    expect(src).toContain("verront un repère, sans être bloqués.");
+    // Et les constantes ont bien quitté le code.
+    const legaux = readFileSync(join(process.cwd(), "src/lib/liensLegaux.ts"), "utf8");
+    expect(legaux).not.toContain("export const VERSION_CONDITIONS_PENSION");
+    expect(legaux).not.toContain("export const VERSION_CONDITIONS_VENTE");
   });
 });
 
@@ -314,7 +364,7 @@ describe("le personnel est AVERTI, jamais bloqué", () => {
 
   it("la fiche de la réservation porte le même repère", () => {
     expect(lire("app/(admin)/(espace-clients)/reservations/[id]/page.tsx"))
-      .toMatch(/repereConditions\(await acceptationsDuClient\(client_id\), "pension"\)/);
+      .toMatch(/repereConditions\(await acceptationsDuClient\(client_id\), "pension", await lireVersionsConditions\(\)\)/);
   });
 
   it("l'écran des arrivées le porte aussi", () => {
@@ -357,7 +407,7 @@ describe("le personnel est AVERTI, jamais bloqué", () => {
      * inventer une, ni enregistrer une acceptation sous une version périmée.
      */
     const src = lire("src/lib/acceptationsConditions.ts");
-    expect(src).toMatch(/version: versionCourante\(e\.document\)/);
+    expect(src).toMatch(/version: versionCourante\(e\.document, await lireVersionsConditions\(\)\)/);
     expect(src).not.toMatch(/version: e\.version/);
   });
 });

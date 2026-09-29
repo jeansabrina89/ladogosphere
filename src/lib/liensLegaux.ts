@@ -28,21 +28,16 @@ export const LIEN_CONDITIONS_PENSION = "https://ladogosphere.ch/conditions-pensi
 export const LIEN_CONDITIONS_VENTE = "https://ladogosphere.ch/conditions-vente";
 
 /**
- * La VERSION de chaque document : la date de « Dernière mise à jour » affichée
- * en bas de la page correspondante, en ISO court.
+ * La VERSION de chaque document a quitté ce fichier au lot APP 59 : elle se
+ * règle désormais dans Réglages → Entreprise, sous les clés
+ * `conditions_pension_version` et `conditions_vente_version`.
  *
- * À METTRE À JOUR À CHAQUE MODIFICATION DE LA PAGE CORRESPONDANTE SUR LE SITE.
+ * Elle était ici, et il fallait un lot pour reporter une date — alors que
+ * Sabrina modifie les conditions sur le site quand elle veut. Entre les deux,
+ * les clientes acceptaient sous l'ancien numéro, et rien ne le disait.
  *
- * C'est elle qui est enregistrée avec chaque acceptation (APP 42). L'oublier ne
- * casse rien tout de suite : les clients continuent d'accepter, mais sous
- * l'ancien numéro — et l'on croira qu'ils ont lu un texte qu'ils n'ont pas vu.
- * C'est une erreur silencieuse, et c'est pourquoi elle est écrite ici, à côté
- * des adresses, plutôt que dans un coin de code.
- *
- * Relevées sur le site le 29.09.2026.
+ * Les ADRESSES, elles, restent du code : elles ne changent qu'avec le site.
  */
-export const VERSION_CONDITIONS_PENSION = "2026-09-29";
-export const VERSION_CONDITIONS_VENTE = "2026-09-29";
 
 /**
  * Ce que tout lien sortant doit porter.

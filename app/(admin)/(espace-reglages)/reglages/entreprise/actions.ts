@@ -24,6 +24,10 @@ import {
   refusHoraire,
   type Horaires,
 } from "@/src/lib/horaires";
+import {
+  CLES_VERSIONS_CONDITIONS,
+  refusVersionConditions,
+} from "@/src/lib/acceptationsConditionsLogique";
 
 type Resultat = { error?: string; ok?: boolean };
 
@@ -331,5 +335,51 @@ export async function enregistrerHoraires(
   revalidatePath("/reservations/nouvelle");
   revalidatePath("/mon-compte/reservations/nouvelle");
 
+  return { ok: true };
+}
+
+/**
+ * APP 59 — les versions des conditions.
+ *
+ * Deux dates, posées ensemble et validées avant toute écriture : enregistrer
+ * l'une puis refuser l'autre laisserait les deux documents en désaccord, et
+ * c'est précisément le désaccord que ce réglage sert à éviter.
+ */
+export async function enregistrerVersionsConditions(formData: FormData): Promise<Resultat> {
+  const acces = await exigerAdminPage();
+
+  const saisie: Record<string, string> = {};
+  for (const [champ, cle] of Object.entries(CLES_VERSIONS_CONDITIONS)) {
+    const valeur = String(formData.get(cle) ?? "").trim();
+    const refus = refusVersionConditions(valeur);
+    if (refus) return { error: `${champ === "pension" ? "Conditions de la pension" : "Conditions de vente"} : ${refus}` };
+    saisie[cle] = valeur;
+  }
+
+  for (const cle of Object.values(CLES_VERSIONS_CONDITIONS)) {
+    const { data: avant } = await supabaseAdmin
+      .from("parametres").select("valeur").eq("cle", cle).maybeSingle();
+
+    const { data: ligne, error } = await supabaseAdmin
+      .from("parametres")
+      .upsert({ cle, valeur: saisie[cle], updated_at: new Date().toISOString() }, { onConflict: "cle" })
+      .select("id")
+      .single();
+    if (error || !ligne) return { error: error?.message ?? "Enregistrement impossible." };
+
+    const ancienne = (avant?.valeur as string | null) ?? "";
+    if (ancienne !== saisie[cle]) {
+      await tracerEvenement({
+        entite: "parametre",
+        entiteId: ligne.id as string,
+        evenement: cle,
+        avant: { valeur: ancienne },
+        apres: { valeur: saisie[cle] },
+        userId: acces.userId ?? null,
+      });
+    }
+  }
+
+  revalidatePath("/reglages/entreprise");
   return { ok: true };
 }

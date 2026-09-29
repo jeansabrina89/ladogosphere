@@ -1,8 +1,3 @@
-import {
-  VERSION_CONDITIONS_PENSION,
-  VERSION_CONDITIONS_VENTE,
-} from "@/src/lib/liensLegaux";
-
 /**
  * L'acceptation des conditions : les règles, sans la base (APP 42).
  *
@@ -34,9 +29,65 @@ export type Acceptation = {
   saisiePar?: string | null;
 };
 
-/** La version en vigueur d'un document. Une seule source : liensLegaux. */
-export function versionCourante(document: DocumentConditions): string {
-  return document === "pension" ? VERSION_CONDITIONS_PENSION : VERSION_CONDITIONS_VENTE;
+/**
+ * Les versions en vigueur, réglées dans Réglages → Entreprise (APP 59).
+ *
+ * Elles étaient deux constantes de `liensLegaux.ts`, et il fallait un lot pour
+ * reporter une date que Sabrina change sur le site quand elle veut. Entre les
+ * deux, les clientes acceptaient sous l'ancien numéro sans que rien ne le dise.
+ *
+ * Elles sont PASSÉES EN ARGUMENT plutôt que lues ici : ce module est pur, et
+ * c'est ce qui permet de l'éprouver sans base. L'appelant les lit une fois.
+ */
+export type VersionsConditions = { pension: string; vente: string };
+
+export const CLES_VERSIONS_CONDITIONS = {
+  pension: "conditions_pension_version",
+  vente: "conditions_vente_version",
+} as const;
+
+/** Les versions relevées sur le site le 29.09.2026. */
+export const VERSIONS_CONDITIONS_DEFAUT: VersionsConditions = {
+  pension: "2026-09-29",
+  vente: "2026-09-29",
+};
+
+const VERSION_ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Une date ISO, ou "" : une version illisible ne vaut pas mieux qu'aucune. */
+export function versionUtilisable(valeur: string | null | undefined): string {
+  const t = String(valeur ?? "").trim().slice(0, 10);
+  if (!VERSION_ISO.test(t)) return "";
+  const d = new Date(t + "T12:00:00Z");
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === t ? t : "";
+}
+
+/** La saisie est-elle acceptable ? Le vide ne l'est pas : une version se dit. */
+export function refusVersionConditions(valeur: string | null | undefined): string | null {
+  if (String(valeur ?? "").trim() === "") return "Indiquez la date de dernière mise à jour.";
+  return versionUtilisable(valeur) === "" ? "Indiquez une date valide (JJ.MM.AAAA)." : null;
+}
+
+/**
+ * Les versions telles qu'elles vivent en base, avec repli.
+ *
+ * Une clé absente OU illisible reprend la valeur de départ : une base muette
+ * ne doit pas faire passer tout le monde pour « à jour », ni l'inverse.
+ */
+export function versionsDepuisReglages(valeurs: Map<string, string>): VersionsConditions {
+  const lire = (cle: string, defaut: string) => versionUtilisable(valeurs.get(cle)) || defaut;
+  return {
+    pension: lire(CLES_VERSIONS_CONDITIONS.pension, VERSIONS_CONDITIONS_DEFAUT.pension),
+    vente: lire(CLES_VERSIONS_CONDITIONS.vente, VERSIONS_CONDITIONS_DEFAUT.vente),
+  };
+}
+
+/** La version en vigueur d'un document. */
+export function versionCourante(
+  document: DocumentConditions,
+  versions: VersionsConditions = VERSIONS_CONDITIONS_DEFAUT,
+): string {
+  return document === "pension" ? versions.pension : versions.vente;
 }
 
 // ── Les textes, écrits une fois ────────────────────────────────────────────
@@ -82,6 +133,7 @@ export type EtatConditions =
 export function etatConditions(
   acceptations: readonly Acceptation[],
   document: DocumentConditions,
+  versions: VersionsConditions = VERSIONS_CONDITIONS_DEFAUT,
 ): EtatConditions {
   const pourCeDocument = acceptations
     .filter((a) => a.document === document)
@@ -89,7 +141,7 @@ export function etatConditions(
 
   const derniere = pourCeDocument[0];
   if (!derniere) return { etat: "jamais" };
-  return derniere.version === versionCourante(document)
+  return derniere.version === versionCourante(document, versions)
     ? { etat: "a_jour", acceptation: derniere }
     : { etat: "ancienne", acceptation: derniere };
 }
@@ -98,8 +150,9 @@ export function etatConditions(
 export function repereConditions(
   acceptations: readonly Acceptation[],
   document: DocumentConditions = "pension",
+  versions: VersionsConditions = VERSIONS_CONDITIONS_DEFAUT,
 ): string | null {
-  const e = etatConditions(acceptations, document);
+  const e = etatConditions(acceptations, document, versions);
   if (e.etat === "jamais") return ALERTE_JAMAIS_SIGNEES;
   if (e.etat === "ancienne") return alerteAncienneVersion(e.acceptation.version);
   return null;

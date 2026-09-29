@@ -4,6 +4,7 @@ import {
   type Acceptation,
   type DocumentConditions,
 } from "@/src/lib/acceptationsConditionsLogique";
+import { lireVersionsConditions } from "@/src/lib/conditionsVersions";
 import { lireAuteurs } from "@/src/lib/auteursDb";
 import { initialesDe } from "@/src/lib/auteur";
 
@@ -38,7 +39,7 @@ export async function enregistrerAcceptation(
   const { error } = await supabaseAdmin.from("acceptations_conditions").insert({
     client_id: e.clientId,
     document: e.document,
-    version: versionCourante(e.document),
+    version: versionCourante(e.document, await lireVersionsConditions()),
     mode: e.mode,
     reservation_id: e.reservationId ?? null,
     commande_id: e.commandeId ?? null,
