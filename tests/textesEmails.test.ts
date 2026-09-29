@@ -110,13 +110,38 @@ describe("la maison dit « adhésion », jamais « cotisation »", () => {
 });
 
 describe("les deux e-mails de la journée d’essai sont transactionnels", () => {
-  it("le suivi ne sollicite plus rien et ne porte aucun lien", () => {
+  it("le suivi n'énumère plus les ennuis possibles", () => {
+    /**
+     * APP 53 — ce test gardait la phrase « Si quelque chose vous a interpellée
+     * à son retour — fatigue, appétit, comportement — … », et il gardait aussi
+     * qu'aucun lien ne figurait dans le corps.
+     *
+     * Les deux ont changé, et pour la même raison : le message était écrit
+     * comme si un passage à la pension pouvait avoir laissé des traces. Il
+     * énumérait trois ennuis à quelqu'un qui n'en avait signalé aucun. La
+     * porte reste ouverte — « Nous restons à votre disposition » — mais sans
+     * la liste.
+     *
+     * Ce que ce test garde encore : l'encadré et le gros appel à l'action ne
+     * reviennent pas. Le lien d'avis, lui, est désormais permis, et c'est
+     * `tests/avisGoogle.test.ts` qui dit à quelles conditions.
+     */
+    /**
+     * On lit le GABARIT, pas la fonction entière : le commentaire qui explique
+     * pourquoi la phrase a été retirée la cite forcément, et il ne part dans
+     * aucun e-mail. Un test qui confond le code et ce qu'on en dit refuse la
+     * seule trace écrite de la décision.
+     */
     const debut = SOURCE.indexOf("export async function envoyerEmailSatisfactionEssai");
-    const corps = SOURCE.slice(debut, SOURCE.indexOf("\n}", SOURCE.indexOf("emailTemplate(", debut)));
+    const ouverture = SOURCE.indexOf("emailTemplate(", debut);
+    const corps = SOURCE.slice(ouverture, SOURCE.indexOf("\n}", ouverture));
     expect(corps).not.toContain("Votre avis nous tient à cœur");
     expect(corps).not.toContain("#E8F5F4");
-    expect(corps).not.toContain("<a href");
-    expect(corps).toContain("répondez simplement à cet e-mail ou appelez-nous");
+    expect(corps).not.toContain("interpellée");
+    expect(corps).not.toContain("répondez simplement à cet e-mail ou appelez-nous");
+    expect(corps).toContain(
+      "Nous restons à votre disposition pour toute question ou tout renseignement complémentaire.",
+    );
   });
 
   it("son objet, son titre et sa clôture sont ceux voulus", () => {

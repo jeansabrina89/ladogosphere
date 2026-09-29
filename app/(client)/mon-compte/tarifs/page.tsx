@@ -185,8 +185,8 @@ export default async function TarifsClientPage() {
               <span style={{ fontSize: 20 }}>★</span>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#1F6E5B" }}>
                 {cotisationEnCours
-                  ? `Membre jusqu'au ${formatDateLong(cotisationEnCours.date_fin)} — les tarifs membres s'appliquent à tes réservations.`
-                  : "Tu es membre — les tarifs membres s'appliquent à tes réservations."}
+                  ? `Membre jusqu'au ${formatDateLong(cotisationEnCours.date_fin)} — tu peux réserver séjours et garderie.`
+                  : "Tu es membre — tu peux réserver séjours et garderie."}
               </p>
             </div>
           )}
@@ -290,7 +290,7 @@ export default async function TarifsClientPage() {
               <p style={{ ...sSecTitre, margin: "0 0 6px" }}>★ Adhésion membre</p>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <p style={{ margin: 0, fontSize: 14, color: "rgba(27,43,94,0.7)", maxWidth: 380 }}>
-                  L&apos;adhésion annuelle donne accès aux tarifs membres sur toutes les formules.
+                  L&apos;adhésion annuelle est nécessaire pour réserver séjours et garderie (la journée d&apos;essai n&apos;en demande pas).
                 </p>
                 <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: 20, fontWeight: 700, color: "#6E5410", whiteSpace: "nowrap", marginLeft: 12 }}>
                   {formatPrixClient(cotisation)} / an

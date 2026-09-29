@@ -259,8 +259,8 @@ export default async function MonComptePage() {
               </p>
               <p style={{ fontSize: 13, color: "rgba(27,43,94,0.6)", margin: "0 0 4px" }}>
                 {estRenouvellement
-                  ? `Ton adhésion prend fin le ${formatDateLong(cotisationEnCours!.date_fin)}. L'adhésion annuelle de ${formatPrixClient(montantCotisation)} te donne accès aux tarifs membres sur toutes tes réservations.`
-                  : `L'adhésion annuelle de ${formatPrixClient(montantCotisation)} te donne accès aux tarifs membres sur toutes tes réservations.`}
+                  ? `Ton adhésion prend fin le ${formatDateLong(cotisationEnCours!.date_fin)}. L'adhésion annuelle de ${formatPrixClient(montantCotisation)} te donne accès aux réservations de séjours et de garderie.`
+                  : `L'adhésion annuelle de ${formatPrixClient(montantCotisation)} te donne accès aux réservations de séjours et de garderie.`}
               </p>
               <BoutonDemanderAdhesion montant={montantCotisation} renouvellement={estRenouvellement} />
             </Carte>

@@ -66,3 +66,34 @@ export function ligneAvisGooglePiedDePage(url: string | null | undefined): strin
     `${LIBELLE_AVIS_GOOGLE}</a></p>`
   );
 }
+
+/**
+ * Le même lien, mais DANS le corps de l'e-mail : une invitation, pas une ligne
+ * de pied de page.
+ *
+ * ── POURQUOI ICI, ET PAS DANS `email.ts` ──────────────────────────────────
+ *
+ * Pour que l'échappement d'attribut reste écrit UNE fois. Un second
+ * échappement, même identique le jour où on l'écrit, se corrige un jour d'un
+ * seul côté — et c'est l'autre qui laisse passer le guillemet. La validation
+ * est refaite pour la même raison que dans le pied de page : une valeur posée
+ * à la main en base ne doit pas devenir un lien.
+ *
+ * `#2E8B7E` en gras, et non le `#4AAEA0` sans relief du pied : ici le lien est
+ * ce qu'on propose de faire, pas une mention de bas de page.
+ *
+ * Réservé au suivi après la journée d'essai (APP 53). Les autres e-mails
+ * gardent la ligne de pied de page, et elle seule.
+ */
+export function blocAvisGoogleCorps(url: string | null | undefined): string {
+  const validation = validerLienAvisGoogle(url);
+  if (!validation.ok || validation.valeur === "") return "";
+  return (
+    `<p style="color:#6B7280; font-size:14px; margin:0 0 8px 0;">` +
+    `Si vous avez un moment, votre avis nous aide beaucoup à faire connaître la pension&nbsp;:` +
+    `</p>` +
+    `<p style="margin:0 0 24px 0; font-size:15px;">` +
+    `<a href="${echapperAttribut(validation.valeur)}" style="color:#2E8B7E; font-weight:bold; text-decoration:none;">` +
+    `${LIBELLE_AVIS_GOOGLE}</a></p>`
+  );
+}

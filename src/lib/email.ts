@@ -11,7 +11,7 @@ import {
 } from "@/src/lib/alertesStockLogique";
 import { ajouterJoursISO } from "@/src/lib/cotisationPeriode";
 import { phrasesRappelVeilleEssai } from "@/src/lib/rappelVeilleLogique";
-import { CLE_AVIS_GOOGLE, ligneAvisGooglePiedDePage } from "@/src/lib/avisGoogle";
+import { CLE_AVIS_GOOGLE, blocAvisGoogleCorps, ligneAvisGooglePiedDePage } from "@/src/lib/avisGoogle";
 import { mentionPortCommande } from "@/src/lib/venteEnLigneLogique";
 import { formatPrixClient, formatPrixFacture } from "@/src/lib/prixClient";
 import { choixDesLignes } from "@/src/lib/personnalisation";
@@ -86,10 +86,16 @@ export const piedLiensLegaux = (avecConditionsVente: boolean): string => `
  * `conditionsVente` : réservé aux e-mails qui accompagnent un ACHAT. Une
  * confirmation de réservation ou un rappel de vaccin n'en relève pas, et un
  * pied qui cite tout ne se lit plus.
+ *
+ * `avisGoogleDansLeCorps` : l'e-mail porte DÉJÀ le lien d'avis dans son
+ * contenu, le pied de page ne le répète donc pas. Un seul e-mail est dans ce
+ * cas — le suivi après la journée d'essai (APP 53). Deux fois le même lien à
+ * dix lignes d'écart se lirait comme une insistance, ce que ce message n'est
+ * pas. Tous les autres e-mails gardent leur pied de page inchangé.
  */
 const emailTemplate = async (
   contenu: string,
-  options: { conditionsVente?: boolean } = {},
+  options: { conditionsVente?: boolean; avisGoogleDansLeCorps?: boolean } = {},
 ) => `
 <!DOCTYPE html>
 <html lang="fr">
@@ -133,7 +139,9 @@ const emailTemplate = async (
                     <p style="margin:0; font-size:13px;">
                       <a href="https://ladogosphere.ch" style="color:#4AAEA0; text-decoration:none;">🌐 ladogosphere.ch</a>
                     </p>
-                    ${piedLiensLegaux(options.conditionsVente === true)}${ligneAvisGooglePiedDePage(await lienAvisGoogle())}
+                    ${piedLiensLegaux(options.conditionsVente === true)}${
+                      options.avisGoogleDansLeCorps === true ? "" : ligneAvisGooglePiedDePage(await lienAvisGoogle())
+                    }
                   </td>
                   <td style="text-align:right; vertical-align:top;">
                     <img src="${SITE_URL}/logo-mail.png" alt="Logo" width="50" height="50" style="height:50px; width:50px; opacity:0.3;" />
@@ -214,7 +222,7 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
     sujet: "Votre réservation est confirmée !",
     titre: "Bonjour {prenom} ! 🎉",
     intro: "Excellente nouvelle ! Votre réservation a été <strong style=\"color:#4AAEA0;\">confirmée</strong> par notre équipe.",
-    message_final: "Nous sommes impatients d'accueillir votre compagnon ! 🐶",
+    message_final: "Nous sommes ravis d'accueillir votre compagnon ! 🐶",
   },
   reservation_annulee: {
     sujet: "Votre réservation a été annulée",
@@ -234,8 +242,8 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
     intro: "Voici le récapitulatif de votre séjour et les informations de paiement.",
     message_final: "Merci de procéder au règlement dans les meilleurs délais. N'hésitez pas à nous contacter pour toute question. 🐾",
   },
-  // Un suivi, pas une sollicitation : on prend des nouvelles du chien, on ne
-  // demande rien. Ni bouton, ni lien dans le corps.
+  // Un suivi après la journée d'essai, avec le lien d'avis Google quand il est
+  // réglé (décision de Sabrina, 29.09.2026).
   satisfaction_essai: {
     sujet: "Journée d'essai de {nom_chien}",
     titre: "Bonjour {prenom},",
@@ -247,7 +255,7 @@ export const DEFAUTS_MODELES: Record<string, ChampsModele> = {
     sujet: "Tout s'est bien passé pour {nom_chien}",
     titre: "Bonjour {prenom},",
     intro: "La journée d'essai s'est bien passée : <strong>{nom_chien}</strong> est accepté à la pension.",
-    message_final: "Toute l'équipe s'est réjouie de le rencontrer, et se réjouit déjà de le revoir !",
+    message_final: "Toute l'équipe se réjouit de le revoir !",
   },
   essai_seconde_journee: {
     sujet: "Une seconde journée d'essai pour {nom_chien}",
@@ -823,6 +831,20 @@ export async function envoyerEmailSatisfactionEssai({
   email: string; prenom: string; nom_chien: string;
 }) {
   const m = await modeleEmail("satisfaction_essai", { prenom, nom_chien });
+
+  /**
+   * Le paragraphe « Si quelque chose vous a interpellée à son retour — fatigue,
+   * appétit, comportement — … » a été RETIRÉ (décision de Sabrina, 29.09.2026).
+   * Il énumérait des ennuis possibles à quelqu'un qui n'en avait signalé aucun,
+   * et laissait donc entendre qu'un passage à la pension peut poser problème.
+   * La porte reste ouverte, mais sans la liste : « Nous restons à votre
+   * disposition ».
+   *
+   * Le lien d'avis ne paraît QUE s'il est réglé. Sans réglage, `blocAvis` est
+   * vide et cet e-mail est exactement celui d'avant, moins le paragraphe retiré.
+   */
+  const blocAvis = blocAvisGoogleCorps(await lienAvisGoogle());
+
   await envoyerEmail({
     destinataire: email,
     type: "satisfaction_essai",
@@ -834,14 +856,15 @@ export async function envoyerEmailSatisfactionEssai({
       </p>
 
       <p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">
-        Si quelque chose vous a interpellée à son retour — fatigue, appétit, comportement —
-        répondez simplement à cet e-mail ou appelez-nous, nous en discutons volontiers.
+        Nous restons à votre disposition pour toute question ou tout renseignement complémentaire.
       </p>
+
+      ${blocAvis}
 
       <p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">
         ${m.message_final}
       </p>
-    `),
+    `, { avisGoogleDansLeCorps: blocAvis !== "" }),
   });
 }
 
@@ -1017,19 +1040,36 @@ export async function envoyerEmailRappelVeille({
  * - "echue"  : envoyé le lendemain de la date de fin ;
  * - "rappel" : envoyé 30 jours après la date de fin.
  * Seuls le titre et la première phrase changent.
+ *
+ * ── CE QUE L'ADHÉSION DONNE, ET CE QU'ELLE NE DONNE PAS (APP 53) ──────────
+ *
+ * Les deux variantes promettaient des « tarifs membres ». C'était faux :
+ * `resoudrePrixUnitaire` ne regarde PLUS `est_membre`, toute réservation est
+ * facturée au tarif membre et les tarifs non-membres sont désactivés en base.
+ * L'adhésion ne fait pas baisser un prix — elle ouvre le droit de réserver
+ * (`reservationAutorisee`, `MESSAGE_ADHESION_REQUISE`). Promettre une remise
+ * qui n'existe pas, à quelqu'un à qui l'on demande de payer, est la seule
+ * chose que ce message ne pouvait pas se permettre.
+ *
+ * L'encadré des avantages a été corrigé de la même façon. « Priorité lors des
+ * périodes chargées » en est retiré : aucune règle de l'application ne
+ * l'applique, et rien ne l'appliquait le jour où la phrase a été écrite. Les
+ * deux avantages qui restent sont vérifiables dans le code — l'accès aux
+ * réservations (adhésion requise, urgence comprise) et la remise membre de la
+ * boutique (`remise_membre_categories`, APP 43).
  */
 const VARIANTES_RAPPEL_COTISATION = {
   echue: {
     titre: "Bonjour {prenom} ! ⭐",
     intro:
       "Votre adhésion membre La Dogosphère est arrivée à échéance le <strong>{date_fin}</strong>. " +
-      "Renouvelez-la pour continuer à profiter des tarifs membres.",
+      "Renouvelez-la pour continuer à réserver les séjours et la garderie de votre compagnon.",
   },
   rappel: {
     titre: "Bonjour {prenom}, petit rappel ⭐",
     intro:
       "Votre adhésion membre La Dogosphère est échue depuis un mois (échéance le <strong>{date_fin}</strong>). " +
-      "Sans renouvellement, les tarifs membres ne s'appliquent plus à vos réservations.",
+      "Sans renouvellement, vous n'avez plus accès aux réservations.",
   },
 } as const;
 
@@ -1087,9 +1127,9 @@ export async function envoyerEmailRappelCotisation({
       <div style="background-color:#E8F5F4; border-left:4px solid #4AAEA0; border-radius:8px; padding:16px; margin:0 0 24px 0;">
         <p style="margin:0 0 8px 0; color:#1B5E4F; font-size:14px; font-weight:bold;">🐾 Avantages membres</p>
         <p style="margin:0; color:#1B5E4F; font-size:13px;">
-          ✔ Tarifs préférentiels sur toutes les réservations<br/>
+          ✔ Accès aux réservations de séjours et de garderie<br/>
           ✔ Accès aux réservations d'urgence<br/>
-          ✔ Priorité lors des périodes chargées
+          ✔ Remise membre sur certains rayons de la boutique
         </p>
       </div>
 

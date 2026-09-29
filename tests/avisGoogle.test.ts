@@ -51,11 +51,34 @@ vi.mock("@/src/lib/entiteJuridique", () => ({ entiteA: async () => ({}) }));
 vi.mock("@/src/lib/entiteJuridiqueLogique", () => ({ raisonSocialeAffichee: () => "La Dogosphère" }));
 vi.mock("@sentry/nextjs", () => ({ captureException: () => {} }));
 
-import { envoyerEmailSatisfactionEssai } from "@/src/lib/email";
+import { envoyerEmailSatisfactionEssai, envoyerEmailReservationValidee } from "@/src/lib/email";
 
-async function rendre(): Promise<string> {
+/**
+ * Le suivi après la journée d'essai — le SEUL e-mail qui porte le lien dans
+ * son corps (APP 53), et donc le seul dont le pied de page ne le répète pas.
+ */
+async function rendreSuivi(): Promise<string> {
   H.html = [];
   await envoyerEmailSatisfactionEssai({ email: "client@exemple.ch", prenom: "Camille", nom_chien: "Pixel" });
+  expect(H.html).toHaveLength(1);
+  return H.html[0];
+}
+
+/**
+ * Un e-mail ordinaire, pour éprouver le PIED DE PAGE commun.
+ *
+ * Ces tests passaient par le suivi d'essai, qui était alors un e-mail comme
+ * les autres. Il ne l'est plus : le garder ici aurait fait croire que le pied
+ * de page avait changé pour tout le monde. La confirmation de réservation ne
+ * porte aucun lien d'avis dans son contenu — c'est ce qu'il faut pour regarder
+ * le pied, et rien d'autre.
+ */
+async function rendreConfirmation(): Promise<string> {
+  H.html = [];
+  await envoyerEmailReservationValidee({
+    email: "client@exemple.ch", prenom: "Camille",
+    date_debut: "2026-10-05", date_fin: "2026-10-09", type: "sejour",
+  });
   expect(H.html).toHaveLength(1);
   return H.html[0];
 }
@@ -65,6 +88,8 @@ beforeEach(() => {
 });
 
 describe("le pied de page de tous les e-mails", () => {
+  const rendre = rendreConfirmation;
+
   it("réglage vide : aucune mention d’avis, nulle part", async () => {
     const html = await rendre();
     expect(html).toContain("🌐 ladogosphere.ch");
@@ -96,6 +121,71 @@ describe("le pied de page de tous les e-mails", () => {
       const html = await rendre();
       expect(html, valeur).not.toContain(LIBELLE_AVIS_GOOGLE);
     }
+  });
+});
+
+// ── APP 53 : le suivi après la journée d'essai ─────────────────────────────
+
+describe("le suivi après essai porte le lien dans son corps", () => {
+  it("sans réglage : le message d’avant, moins la liste des ennuis", async () => {
+    const html = await rendreSuivi();
+
+    // Ce qui a été retiré : on n'énumère plus ce qui aurait pu mal se passer.
+    expect(html).not.toContain("interpellée");
+    expect(html).not.toContain("fatigue, appétit, comportement");
+    // Ce qui le remplace.
+    expect(html).toContain(
+      "Nous restons à votre disposition pour toute question ou tout renseignement complémentaire.",
+    );
+    // Aucun lien d'avis nulle part, ni corps ni pied : le réglage est vide.
+    expect(html).not.toContain(LIBELLE_AVIS_GOOGLE);
+    expect(html).not.toContain("Google");
+    // Et le pied de page reste celui de tout le monde.
+    expect(html).toContain("🌐 ladogosphere.ch");
+    expect(html).toContain("Confidentialité");
+  });
+
+  it("avec réglage : UNE seule fois, dans le corps, et le pied ne le répète pas", async () => {
+    /**
+     * Le cœur du lot. Deux fois le même lien à dix lignes d'écart se lirait
+     * comme une insistance — or ce message n'en est pas une.
+     */
+    H.avis = "https://g.page/r/CabcDEF/review";
+    const html = await rendreSuivi();
+
+    expect(html.split(LIBELLE_AVIS_GOOGLE), "une seule occurrence").toHaveLength(2);
+    // Dans le CORPS : donc AVANT la signature, pas sous l'adresse du site.
+    expect(html.indexOf(LIBELLE_AVIS_GOOGLE)).toBeLessThan(html.indexOf("🌐 ladogosphere.ch"));
+    // La phrase qui l'introduit, et le lien bien visible.
+    expect(html).toContain("Si vous avez un moment, votre avis nous aide beaucoup à faire connaître la pension&nbsp;:");
+    expect(html).toContain('style="color:#2E8B7E; font-weight:bold; text-decoration:none;"');
+    expect(html).toContain('href="https://g.page/r/CabcDEF/review"');
+    // Le reste du pied de page n'a pas bougé pour autant.
+    expect(html).toContain("Confidentialité");
+  });
+
+  it("un réglage douteux ne met de lien NI dans le corps NI au pied", async () => {
+    for (const valeur of ["http://g.page/r/x", "javascript:alert(1)", "pas un lien"]) {
+      H.avis = valeur;
+      const html = await rendreSuivi();
+      expect(html, valeur).not.toContain(LIBELLE_AVIS_GOOGLE);
+      expect(html, valeur).not.toContain("votre avis nous aide beaucoup");
+    }
+  });
+
+  it("LES AUTRES E-MAILS GARDENT LEUR PIED DE PAGE", async () => {
+    /**
+     * L'assertion inverse, et la plus importante : la suppression du pied vaut
+     * pour CET e-mail seulement. Sans cela, on aurait retiré le lien d'avis de
+     * toute la correspondance en croyant corriger une répétition.
+     */
+    H.avis = "https://g.page/r/CabcDEF/review";
+    const html = await rendreConfirmation();
+
+    expect(html).toContain(LIBELLE_AVIS_GOOGLE);
+    // Au pied : APRÈS l'adresse du site, et pas dans le corps.
+    expect(html.indexOf(LIBELLE_AVIS_GOOGLE)).toBeGreaterThan(html.indexOf("🌐 ladogosphere.ch"));
+    expect(html).not.toContain("votre avis nous aide beaucoup");
   });
 });
 
