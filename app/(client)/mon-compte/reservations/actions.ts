@@ -15,6 +15,8 @@ import { verifierDateEssaiLibre } from "@/src/lib/essaiReservation";
 import { verifierPlaceDisponible } from "@/src/lib/suggestionBox";
 import { selectionMixteRefusee, estPrivatifPourSelection } from "@/src/lib/cohabitation";
 import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
+import { lireDateOuverture } from "@/src/lib/ouverture";
+import { dateAvantOuverture, refusDateAvantOuverture } from "@/src/lib/ouvertureLogique";
 import { creerReservationsPersonnel, annulerReservationPersonnel } from "@/src/lib/reservationPersonnel";
 import { enregistrerAcceptation } from "@/src/lib/acceptationsConditions";
 import { REFUS_CONDITIONS_PENSION } from "@/src/lib/acceptationsConditionsLogique";
@@ -186,6 +188,24 @@ export async function creerDemandeReservation(
     revalidatePath("/mon-compte");
     revalidatePath("/mon-compte/reservations");
     return { ok: true, ids: res.ids };
+  }
+
+  /**
+   * APP 56 — rien avant l'ouverture, côté SERVEUR.
+   *
+   * Placée APRÈS le chemin du personnel, qui doit pouvoir saisir un cas
+   * particulier : une fiche interne n'arrive jamais ici. Le contrôle porte sur
+   * CHAQUE occurrence — une série ou un abonnement dont un seul rendez-vous
+   * tomberait avant l'ouverture serait refusé en entier, faute de quoi la
+   * première date serait vérifiée et les onze suivantes non.
+   *
+   * Réglage vide : `dateAvantOuverture` rend faux partout, et rien ne change.
+   */
+  const dateOuverture = await lireDateOuverture();
+  for (const occ of input.occurrences) {
+    if (dateAvantOuverture(occ.date_debut, dateOuverture)) {
+      return { ok: false, erreur: refusDateAvantOuverture(dateOuverture) };
+    }
   }
 
   // 5. Gate essai, CHIEN PAR CHIEN (cf. src/lib/journeeEssai.ts) :

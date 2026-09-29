@@ -172,7 +172,11 @@ export function donneesExemple(maintenant: Date): DonneesExemple {
     echeance: isoPlusJours(maintenant, 30),
     numeroTicket: "TIC-0000-TEST",
     numeroCommande: "CMD-0000-TEST",
-    article: "Collier en cuir cousu main",
+    // Les colliers ne sont pas cousus main : ils sont fabriqués à la pension
+    // et personnalisés — couleur, taille, quincaillerie, gravure. L'exemple
+    // part dans un vrai e-mail de test : il ne doit pas décrire un savoir-faire
+    // que la maison n'annonce pas.
+    article: "Collier en cuir sur mesure",
     prixArticle: 68,
     recapitulatif: ["Couleur : Bleu nuit", "Taille : 45 cm", "Gravure : Pixel"],
     sujetMessageLibre: "Test d'envoi — La Dogosphère",

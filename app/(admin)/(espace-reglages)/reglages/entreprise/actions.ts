@@ -13,6 +13,11 @@ import {
   refusRaisonSociale,
   veille,
 } from "@/src/lib/entiteJuridiqueLogique";
+import {
+  CLE_DATE_OUVERTURE,
+  dateOuvertureUtilisable,
+  dateOuvertureValide,
+} from "@/src/lib/ouvertureLogique";
 
 type Resultat = { error?: string; ok?: boolean };
 
@@ -208,5 +213,61 @@ export async function annulerChangement(entiteId: string): Promise<Resultat> {
   });
 
   revalidatePath("/reglages/entreprise");
+  return { ok: true };
+}
+
+/**
+ * APP 56 — la date d'ouverture de la pension et de la boutique en ligne.
+ *
+ * Elle vit dans `parametres`, sous `date_ouverture`, et nulle part ailleurs :
+ * elle a déjà changé une fois (15 octobre 2026 → 1er mars 2027), et écrite en
+ * dur elle se serait retrouvée dans un bandeau, un refus serveur, un
+ * avertissement et un panier — quatre endroits à retrouver, dont un resterait
+ * en arrière sans que rien ne le dise.
+ *
+ * Elle est ici, dans l'écran Entreprise, parce que c'est une décision de la
+ * maison, pas un réglage de boutique : elle ferme AUSSI les réservations.
+ *
+ * Vider le champ est le geste normal du jour de l'ouverture : la valeur vide
+ * veut dire « aucune restriction », et tout redevient normal sans toucher au
+ * code. La table n'accepte pas de valeur nulle : on écrit la chaîne vide.
+ */
+export async function enregistrerDateOuverture(formData: FormData): Promise<Resultat> {
+  const acces = await exigerAdminPage();
+
+  const saisie = String(formData.get("date_ouverture") ?? "").trim();
+  if (!dateOuvertureValide(saisie)) {
+    return { error: "Indiquez une date valide (JJ.MM.AAAA), ou laissez vide." };
+  }
+  const valeur = saisie === "" ? "" : dateOuvertureUtilisable(saisie);
+
+  const { data: avant } = await supabaseAdmin
+    .from("parametres").select("valeur").eq("cle", CLE_DATE_OUVERTURE).maybeSingle();
+
+  const { data: ligne, error } = await supabaseAdmin
+    .from("parametres")
+    .upsert(
+      { cle: CLE_DATE_OUVERTURE, valeur, updated_at: new Date().toISOString() },
+      { onConflict: "cle" },
+    )
+    .select("id")
+    .single();
+  if (error || !ligne) return { error: error?.message ?? "Enregistrement impossible." };
+
+  await tracerEvenement({
+    entite: "parametre",
+    entiteId: ligne.id as string,
+    evenement: "date_ouverture",
+    avant: { valeur: (avant?.valeur as string | null) ?? "" },
+    apres: { valeur },
+    userId: acces.userId ?? null,
+  });
+
+  // Tout ce qui lit la date : le tunnel, le panier, le formulaire du personnel.
+  revalidatePath("/reglages/entreprise");
+  revalidatePath("/mon-compte/reservations/nouvelle");
+  revalidatePath("/catalogue/panier");
+  revalidatePath("/reservations/nouvelle");
+
   return { ok: true };
 }

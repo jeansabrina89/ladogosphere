@@ -4,6 +4,8 @@ import { aujourdhuiISO } from "@/src/lib/dates";
 import { entiteCourante, historiqueEntites } from "@/src/lib/entiteJuridique";
 import { manquantsEntite } from "@/src/lib/entiteJuridiqueLogique";
 import FormEntreprise from "./FormEntreprise";
+import FormDateOuverture from "./FormDateOuverture";
+import { lireDateOuverture } from "@/src/lib/ouverture";
 
 export const dynamic = "force-dynamic";
 
@@ -27,9 +29,10 @@ const SOUS = "rgba(27,43,94,0.6)";
 export default async function EntreprisePage() {
   await exigerAdminPage();
 
-  const [courante, historique] = await Promise.all([
+  const [courante, historique, dateOuverture] = await Promise.all([
     entiteCourante(),
     historiqueEntites(),
+    lireDateOuverture(),
   ]);
 
   const jour = aujourdhuiISO();
@@ -61,6 +64,13 @@ export default async function EntreprisePage() {
           prochainPremierJanvier={prochainPremierJanvier}
           manquants={courante ? manquantsEntite(courante) : []}
         />
+
+        {/*
+          APP 56 — la date d'ouverture est ici, et non dans Réglages → Boutique :
+          elle ferme AUSSI les réservations. C'est une décision de la maison,
+          pas un paramètre de vente.
+        */}
+        <FormDateOuverture valeur={dateOuverture} />
 
         <p style={{ color: SOUS, fontSize: 12, marginTop: 20 }}>
           Une pièce émise garde l&apos;identité de sa date d&apos;émission, pour toujours. Un avoir

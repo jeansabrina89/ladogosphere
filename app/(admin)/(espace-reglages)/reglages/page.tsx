@@ -35,6 +35,17 @@ export default async function ReglagesPage() {
             titre="✉️ Modèles d'e-mails"
             note="Les textes envoyés aux clients, et les campagnes. Un message à une personne s'envoie depuis sa fiche."
           />
+          {/*
+              APP 56. Cet écran existait sans porte : on y arrivait par l'adresse,
+              ou pas du tout. C'est là que se règle la date d'ouverture, donc là
+              qu'on ira le jour où l'on veut l'effacer — autant que ce jour-là on
+              la trouve.
+          */}
+          <Raccourci
+            href="/reglages/entreprise"
+            titre="🏛️ Entreprise"
+            note="Raison sociale, forme, IDE et IBAN portés sur les pièces, et la date d'ouverture : avant elle, les clients ne peuvent ni réserver ni commander en ligne."
+          />
           <Raccourci
             href="/reglages/boutique"
             titre="🛍️ Boutique"

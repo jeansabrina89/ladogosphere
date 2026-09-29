@@ -11,6 +11,8 @@ import { verifierDateEssaiLibre } from "@/src/lib/essaiReservation";
 import { verifierPlaceDisponible } from "@/src/lib/suggestionBox";
 import { selectionMixteRefusee, estPrivatifPourSelection } from "@/src/lib/cohabitation";
 import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
+import { lireDateOuverture } from "@/src/lib/ouverture";
+import { dateAvantOuverture, refusDateAvantOuverture } from "@/src/lib/ouvertureLogique";
 import { creerReservationsPersonnel } from "@/src/lib/reservationPersonnel";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 
@@ -85,6 +87,15 @@ export async function POST(req: NextRequest) {
     });
     if (!res.ok) return NextResponse.json({ error: res.erreur }, { status: 400 });
     return NextResponse.json({ id: res.ids[0], ids: res.ids });
+  }
+
+  /**
+   * APP 56 — rien avant l'ouverture. Placée après le chemin du personnel, qui
+   * n'est pas concerné : l'équipe doit pouvoir saisir un cas particulier.
+   */
+  const dateOuverture = await lireDateOuverture();
+  if (dateAvantOuverture(date_debut, dateOuverture)) {
+    return NextResponse.json({ error: refusDateAvantOuverture(dateOuverture) }, { status: 400 });
   }
 
   // Règle de la journée d'essai, CHIEN PAR CHIEN (cf. src/lib/journeeEssai.ts).

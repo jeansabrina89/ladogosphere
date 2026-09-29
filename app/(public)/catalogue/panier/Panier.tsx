@@ -78,6 +78,7 @@ const rond: React.CSSProperties = {
  * Les frais de port sont chiffrés AVANT la validation, jamais découverts après.
  */
 export default function Panier({
+  avisOuverture,
   lignes,
   grillePort,
   poidsMaxGrammes,
@@ -86,6 +87,12 @@ export default function Panier({
   reservations,
   adresseClient,
 }: {
+  /**
+   * APP 56 — la phrase d'attente de l'ouverture, ou `null` si la boutique est
+   * ouverte. Elle vient du réglage `date_ouverture`, calculée côté serveur :
+   * l'horloge du navigateur ne décide pas de l'ouverture d'un commerce.
+   */
+  avisOuverture: string | null;
   lignes: LigneAffichee[];
   grillePort: PalierPort[];
   poidsMaxGrammes: number;
@@ -156,6 +163,19 @@ export default function Panier({
 
   return (
     <div style={{ display: "grid", gap: 20, paddingBottom: 150 }}>
+      {/*
+        APP 56 — on le dit AVANT les articles, pas au moment du clic. Laisser
+        composer un panier entier pour refuser à la dernière étape serait une
+        perte de temps qu'on aurait pu éviter d'un mot.
+      */}
+      {avisOuverture && (
+        <p role="status" style={{
+          backgroundColor: "#FDF6E3", color: "#6E5410", border: "1px solid #C9A84C",
+          borderRadius: 12, padding: "10px 12px", fontSize: 15, fontWeight: 600, margin: 0,
+        }}>
+          📅 {avisOuverture}
+        </p>
+      )}
       {erreur && (
         <p role="alert" style={{
           backgroundColor: "#FDECEC", color: GRENAT, border: "1px solid #F0C2C2",
@@ -432,7 +452,7 @@ export default function Panier({
         <div style={{ flex: 1 }}>
           <button
             type="button"
-            disabled={!!refus || enCours || !conditionsOk}
+            disabled={!!refus || enCours || !conditionsOk || !!avisOuverture}
             onClick={async () => {
               setEnCours(true);
               const res = await confirmerCommande({

@@ -242,6 +242,7 @@ const LIBELLES: Record<string, string> = {
   retour: "Retour de caisse",
   regime_tva: "Régime de TVA modifié",
   franco_port_des: "Seuil de livraison offerte modifié",
+  date_ouverture: "Date d'ouverture modifiée",
   frais_port_grille: "Grille des frais de port modifiée",
   tva_categorie: "Taux d'une catégorie d'articles",
   decompte_tva: "Décompte TVA déclaré",

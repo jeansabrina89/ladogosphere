@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { dateAvantOuverture, avertissementPersonnel } from "@/src/lib/ouvertureLogique";
 import { appelerApi } from "@/src/lib/reseau";
 import { useState, useEffect, useRef } from "react";
 import { formatBoxLabel } from "@/src/lib/boxes";
@@ -41,6 +42,7 @@ export default function FormReservation({
   boxes,
   peutUrgence,
   estAdmin = false,
+  dateOuverture = "",
 }: {
   clients: Client[];
   chiens: Chien[];
@@ -48,6 +50,12 @@ export default function FormReservation({
   peutUrgence: boolean;
   /** Seul l'admin peut forcer une seconde journée d'essai le même jour. */
   estAdmin?: boolean;
+  /**
+   * Date d'ouverture (APP 56), ou "" si aucune restriction. Elle n'INTERDIT
+   * rien ici : l'équipe doit pouvoir saisir un cas particulier. Elle sert à le
+   * dire, ce que l'écran ne montrait pas.
+   */
+  dateOuverture?: string;
 }) {
   const router = useRouter();
   const [type, setType] = useState("journee");
@@ -205,6 +213,18 @@ export default function FormReservation({
     })();
     return () => { annule = true; };
   }, [type, dateDebut]);
+
+  /**
+   * APP 56 — la date saisie tombe-t-elle avant l'ouverture ?
+   *
+   * Les DEUX champs comptent : la date simple et celle d'une récurrence. Ne
+   * regarder que la première aurait laissé passer en silence une série de
+   * douze rendez-vous démarrant trop tôt, c'est-à-dire le cas le plus coûteux
+   * à rattraper.
+   */
+  const avantOuverture =
+    dateAvantOuverture(dateDebut, dateOuverture) ||
+    dateAvantOuverture(dateDebutRecurrence, dateOuverture);
 
   // Journée d'essai à une date déjà prise : bloquée, sauf forçage admin valide.
   const essaiDatePrise = type === "essai" && etatEssai !== null && !etatEssai.disponible;
@@ -782,6 +802,21 @@ export default function FormReservation({
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {/*
+            APP 56 — le personnel peut saisir une date avant l'ouverture : un
+            cas particulier se traite, il ne se refuse pas. Mais il doit savoir
+            ce qu'il fait. Aucun blocage, aucun bouton désactivé.
+
+            La date de récurrence compte aussi : une série qui démarre avant
+            l'ouverture est exactement le cas qu'on veut voir signalé.
+          */}
+          {avantOuverture && (
+            <div role="status" className="rounded-xl border p-3 text-sm"
+                 style={{ backgroundColor: "#FDF6E3", borderColor: "#C9A84C", color: "#6E5410" }}>
+              {avertissementPersonnel(dateOuverture)}
             </div>
           )}
 

@@ -10,6 +10,7 @@ import {
   type Occurrence,
 } from "@/app/(client)/mon-compte/reservations/actions";
 import { calculerMontant } from "@/src/lib/calculTarif";
+import { premiereDateReservable, bandeauReservation } from "@/src/lib/ouvertureLogique";
 import { MESSAGE_ADHESION_A_REGLER } from "@/src/lib/adhesionReservation";
 import { statutEssaiDe, chienReservablePour, messageRefusChien } from "@/src/lib/journeeEssai";
 import {
@@ -353,6 +354,7 @@ export default function TunnelReservation({
   adhesionEnAttenteARegler,
   montantCotisation,
   estInterne = false,
+  dateOuverture = "",
 }: {
   chiens: ChienTunnel[];
   tarifs: TarifLite[];
@@ -363,6 +365,12 @@ export default function TunnelReservation({
   montantCotisation: number;
   /** Fiche du personnel : tout est gratuit, pas d'horaires pour la garderie. */
   estInterne?: boolean;
+  /**
+   * Date d'ouverture de la pension (APP 56), au format ISO, ou "" si aucune
+   * restriction. Elle vient du réglage `date_ouverture`, jamais d'une
+   * constante : elle a déjà changé une fois.
+   */
+  dateOuverture?: string;
 }) {
 
   // Navigation
@@ -432,11 +440,17 @@ export default function TunnelReservation({
 
   // ─── Valeurs dérivées ───────────────────────────────────────────────────────
 
-  const demain = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().split("T")[0];
-  })();
+  /**
+   * Le premier jour choisissable : demain, ou l'ouverture si elle est plus
+   * tard (APP 56). Un seul point de calcul, qui alimente le calendrier ET les
+   * trois champs de date — sinon l'un d'eux resterait en arrière, et c'est
+   * toujours celui qu'on n'ouvre pas en vérifiant.
+   */
+  const aujourdhui = new Date().toISOString().split("T")[0];
+  const demain = premiereDateReservable(aujourdhui, dateOuverture);
+
+  /** Le bandeau d'ouverture, ou null si la pension est déjà ouverte. */
+  const avisOuverture = bandeauReservation(aujourdhui, dateOuverture);
 
   const estDateInvalide = useCallback((ds: string, pourEssai = false) => {
     if (!ds) return false;
@@ -1378,6 +1392,20 @@ export default function TunnelReservation({
 
   return (
     <div>
+      {/*
+        APP 56 — il vaut mieux l'annoncer que laisser buter sur un calendrier
+        qui refuse les premiers mois sans dire pourquoi. Or, pas rouge : rien
+        n'est raté, la réservation est possible, plus tard.
+      */}
+      {avisOuverture && (
+        <div role="status" style={{
+          backgroundColor: "#FDF6E3", border: "1px solid #C9A84C", borderRadius: 14,
+          padding: "12px 16px", marginBottom: 16, display: "flex", gap: 10, alignItems: "flex-start",
+        }}>
+          <span style={{ fontSize: 18, lineHeight: 1.3 }}>📅</span>
+          <p style={{ margin: 0, fontSize: 14, color: "#6E5410", lineHeight: 1.5 }}>{avisOuverture}</p>
+        </div>
+      )}
       {renderProgressBar()}
       <div style={S.card}>
         {etape === "chiens"         && renderChiens()}

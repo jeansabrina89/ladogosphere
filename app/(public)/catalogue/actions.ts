@@ -6,6 +6,8 @@ import { REFUS_CONDITIONS_VENTE } from "@/src/lib/acceptationsConditionsLogique"
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { aujourdhuiISO } from "@/src/lib/dates";
+import { lireDateOuverture } from "@/src/lib/ouverture";
+import { bandeauBoutique } from "@/src/lib/ouvertureLogique";
 import { recalculerResteFacture, synchroniserComptaFacture } from "@/src/lib/comptaFacture";
 import { finaliserEmission, marquerFactureEnvoyee, lirePdfFacture } from "@/src/lib/factureDocument";
 import { envoyerConfirmationCommande } from "@/src/lib/confirmationCommande";
@@ -296,6 +298,19 @@ function adresseLivrable(a: Partial<Adresse> | null | undefined): Record<string,
 export async function confirmerCommande(entree: EntreeConfirmation): Promise<Retour> {
   const client = await moi();
   if (!client) return { error: "Connectez-vous pour commander." };
+
+  /**
+   * APP 56 — la boutique en ligne n'ouvre pas avant la pension.
+   *
+   * Le bouton est déjà inactif dans le panier ; ce contrôle-ci est celui qui
+   * compte, car une requête forgée ne passe pas par le bouton. La phrase est
+   * la MÊME des deux côtés : quelqu'un qui aurait contourné l'écran lit
+   * exactement ce que l'écran lui disait.
+   *
+   * La vente au comptoir n'est pas concernée : elle ne passe pas par ici.
+   */
+  const fermee = bandeauBoutique(aujourdhuiISO(), await lireDateOuverture());
+  if (fermee) return { error: fermee };
 
   const panier = await panierDuClient(client.id);
   if (!panier) return { error: "Votre panier est vide." };

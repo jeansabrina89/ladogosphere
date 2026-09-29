@@ -21,6 +21,8 @@ import Bouton from "@/app/components/ui/Bouton";
 import Panier, { type LigneAffichee } from "./Panier";
 import PanierVisiteur, { type ArticlePanier } from "../PanierVisiteur";
 import FusionPanier from "../FusionPanier";
+import { lireDateOuverture } from "@/src/lib/ouverture";
+import { bandeauBoutique } from "@/src/lib/ouvertureLogique";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +50,10 @@ export default async function PanierPage() {
 
   const clientId = fiche.id as string;
   const panier = await panierDuClient(clientId);
+
+  // APP 56 — avant l'ouverture, le catalogue reste consultable mais le panier
+  // ne se confirme pas. Null une fois la boutique ouverte, ou sans réglage.
+  const avisOuverture = bandeauBoutique(aujourdhuiISO(), await lireDateOuverture());
 
   const [lignesBrutes, lignesDb, params, membre, resas] = await Promise.all([
     panier ? lignesPanier(panier.id) : Promise.resolve([]),
@@ -94,6 +100,7 @@ export default async function PanierPage() {
 
         <Carte>
           <Panier
+            avisOuverture={avisOuverture}
             lignes={lignes}
             grillePort={params.grillePort}
             poidsMaxGrammes={params.poidsMaxGrammes}

@@ -228,8 +228,21 @@ describe("les cases, non cochées, et leurs refus", () => {
   });
 
   it("le bouton attend la case", () => {
-    expect(lire("app/(public)/catalogue/panier/Panier.tsx"))
-      .toMatch(/disabled=\{!!refus \|\| enCours \|\| !conditionsOk\}/);
+    /**
+     * Ce test figeait la condition ENTIÈRE du bouton, au caractère près. APP 56
+     * lui a ajouté un terme — la boutique fermée avant l'ouverture — et il est
+     * tombé alors que rien de ce qu'il garde n'avait bougé.
+     *
+     * Il garde donc maintenant son intention, et elle seule : la case des
+     * conditions figure dans ce qui désactive le bouton. Les autres raisons de
+     * le désactiver ont leurs propres tests et n'ont pas à être recopiées ici,
+     * faute de quoi ce fichier tombera à chaque raison nouvelle.
+     */
+    const panier = lire("app/(public)/catalogue/panier/Panier.tsx");
+    const condition = panier.match(/disabled=\{[^}]*conditionsOk[^}]*\}/)?.[0] ?? "";
+    expect(condition, "le bouton de confirmation dépend de la case").toContain("!conditionsOk");
+    expect(condition).toContain("!!refus");
+
     expect(lire("app/(client)/mon-compte/reservations/nouvelle/TunnelReservation.tsx"))
       .toMatch(/chargement \|\| !conditionsOk/);
   });
