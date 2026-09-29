@@ -41,8 +41,16 @@ export function validerLienAvisGoogle(brut: unknown): ValidationLienAvis {
   return { ok: true, valeur: url.toString() };
 }
 
-/** Un attribut HTML ne laisse jamais passer un guillemet ni un chevron. */
-function echapperAttribut(texte: string): string {
+/**
+ * Ni un attribut ni un texte HTML ne laissent passer un guillemet ou un
+ * chevron.
+ *
+ * Exportée depuis APP 58 : la signature des e-mails, elle aussi, écrit dans le
+ * modèle ce que quelqu'un a saisi dans un réglage. Un SECOND échappement,
+ * même identique le jour où on l'écrit, se corrige un jour d'un seul côté —
+ * et c'est l'autre qui laisse passer le chevron.
+ */
+export function echapperHtml(texte: string): string {
   return texte
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")
@@ -62,7 +70,7 @@ export function ligneAvisGooglePiedDePage(url: string | null | undefined): strin
   if (!validation.ok || validation.valeur === "") return "";
   return (
     `<p style="margin:4px 0 0 0; font-size:13px;">` +
-    `<a href="${echapperAttribut(validation.valeur)}" style="color:#4AAEA0; text-decoration:none;">` +
+    `<a href="${echapperHtml(validation.valeur)}" style="color:#4AAEA0; text-decoration:none;">` +
     `${LIBELLE_AVIS_GOOGLE}</a></p>`
   );
 }
@@ -100,7 +108,7 @@ export function blocAvisGoogleCorps(url: string | null | undefined): string {
   return (
     `<p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">` +
     `Si vous avez un moment, vous pouvez aussi ` +
-    `<a href="${echapperAttribut(validation.valeur)}" style="color:#2E8B7E; text-decoration:underline;">` +
+    `<a href="${echapperHtml(validation.valeur)}" style="color:#2E8B7E; text-decoration:underline;">` +
     `nous laisser un avis sur Google</a>.` +
     `</p>`
   );

@@ -243,6 +243,15 @@ const LIBELLES: Record<string, string> = {
   regime_tva: "Régime de TVA modifié",
   franco_port_des: "Seuil de livraison offerte modifié",
   date_ouverture: "Date d'ouverture modifiée",
+  // APP 58 — six clés, six libellés : le journal dit LAQUELLE a bougé. Un seul
+  // libellé « Signature modifiée » aurait obligé à ouvrir l'avant/après pour
+  // savoir si c'était le nom ou le numéro de téléphone.
+  signature_nom: "Signature des e-mails : nom",
+  signature_fonction: "Signature des e-mails : fonction",
+  signature_adresse: "Signature des e-mails : adresse",
+  signature_email: "Signature des e-mails : e-mail affiché",
+  signature_telephone: "Signature des e-mails : téléphone",
+  signature_site: "Signature des e-mails : site internet",
   frais_port_grille: "Grille des frais de port modifiée",
   tva_categorie: "Taux d'une catégorie d'articles",
   decompte_tva: "Décompte TVA déclaré",

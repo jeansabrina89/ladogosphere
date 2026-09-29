@@ -13,6 +13,13 @@ import { ajouterJoursISO } from "@/src/lib/cotisationPeriode";
 import { phrasesRappelVeilleEssai } from "@/src/lib/rappelVeilleLogique";
 import { CLE_AVIS_GOOGLE, blocAvisGoogleCorps, ligneAvisGooglePiedDePage } from "@/src/lib/avisGoogle";
 import { texteDepuisHtml } from "@/src/lib/emailTexte";
+import {
+  CLES_SIGNATURE,
+  SIGNATURE_DEFAUT,
+  signatureDepuisReglages,
+  signatureHtml,
+  type Signature,
+} from "@/src/lib/signatureEmail";
 import { mentionPortCommande } from "@/src/lib/venteEnLigneLogique";
 import { formatPrixClient, formatPrixFacture } from "@/src/lib/prixClient";
 import { choixDesLignes } from "@/src/lib/personnalisation";
@@ -49,6 +56,31 @@ async function raisonSocialeDuJour(): Promise<string> {
   const { entiteA } = await import("@/src/lib/entiteJuridique");
   const { raisonSocialeAffichee } = await import("@/src/lib/entiteJuridiqueLogique");
   return raisonSocialeAffichee(await entiteA());
+}
+
+/**
+ * La signature réglée dans Réglages → E-mails (APP 58).
+ *
+ * UNE SEULE lecture par e-mail, pour les six clés à la fois : six requêtes
+ * pour six lignes de pied de page seraient six occasions d'échouer.
+ *
+ * Et comme pour le lien d'avis : une lecture qui échoue ne doit JAMAIS
+ * empêcher un e-mail de partir. On rend alors la signature d'avant ce lot,
+ * c'est-à-dire exactement ce que la maison envoyait hier.
+ */
+async function signatureDuJour(): Promise<Signature> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("parametres")
+      .select("cle, valeur")
+      .in("cle", Object.values(CLES_SIGNATURE));
+    const map = new Map<string, string>(
+      (data ?? []).map((l: { cle: string; valeur: string | null }) => [l.cle, l.valeur ?? ""]),
+    );
+    return signatureDepuisReglages(map);
+  } catch {
+    return SIGNATURE_DEFAUT;
+  }
 }
 
 /**
@@ -142,15 +174,7 @@ const emailTemplate = async (
               <table cellpadding="0" cellspacing="0" style="border-top:2px solid #F5F0E8; padding-top:20px; width:100%;">
                 <tr>
                   <td>
-                    <p style="margin:0 0 4px 0; font-weight:bold; color:#1B2B5E; font-size:14px;">Sabrina Jean</p>
-                    <p style="margin:0 0 4px 0; color:#6B7280; font-size:13px;">${await raisonSocialeDuJour()} — Responsable</p>
-                    <p style="margin:0 0 4px 0; color:#6B7280; font-size:13px;">📍 Sion, Valais, Suisse</p>
-                    <p style="margin:0 0 4px 0; font-size:13px;">
-                      <a href="mailto:ladogosphere@gmail.com" style="color:#4AAEA0; text-decoration:none;">✉️ ladogosphere@gmail.com</a>
-                    </p>
-                    <p style="margin:0; font-size:13px;">
-                      <a href="https://ladogosphere.ch" style="color:#4AAEA0; text-decoration:none;">🌐 ladogosphere.ch</a>
-                    </p>
+                    ${signatureHtml(await signatureDuJour(), await raisonSocialeDuJour())}
                     ${piedLiensLegaux(options.conditionsVente === true)}${
                       options.avisGoogleDansLeCorps === true ? "" : ligneAvisGooglePiedDePage(await lienAvisGoogle())
                     }

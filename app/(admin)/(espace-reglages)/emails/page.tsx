@@ -2,6 +2,9 @@ import { exigerAdminPage } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { MODELES_META, DEFAUTS_MODELES } from "@/src/lib/email";
 import { CLE_AVIS_GOOGLE } from "@/src/lib/avisGoogle";
+import { CLES_SIGNATURE, signatureDepuisReglages } from "@/src/lib/signatureEmail";
+import { entiteA } from "@/src/lib/entiteJuridique";
+import { raisonSocialeAffichee } from "@/src/lib/entiteJuridiqueLogique";
 import GestionEmails from "./GestionEmails";
 import { ongletEmails } from "@/src/lib/ongletsEmails";
 
@@ -39,12 +42,22 @@ export default async function EmailsPage({
   const { data: avis } = await supabaseAdmin
     .from("parametres").select("valeur").eq("cle", CLE_AVIS_GOOGLE).maybeSingle();
 
+  // APP 58 — la signature, lue en UNE fois, avec le même repli que les e-mails.
+  const { data: reglagesSignature } = await supabaseAdmin
+    .from("parametres").select("cle, valeur").in("cle", Object.values(CLES_SIGNATURE));
+  const signature = signatureDepuisReglages(
+    new Map((reglagesSignature ?? []).map((l) => [l.cle as string, (l.valeur as string | null) ?? ""])),
+  );
+  const raisonSociale = raisonSocialeAffichee(await entiteA());
+
   return (
     <GestionEmails
       emails={emails}
       campagnes={campagnes ?? []}
       emailAdmin={acces.email ?? ""}
       avisGoogleUrl={(avis?.valeur as string | null) ?? ""}
+      signature={signature}
+      raisonSociale={raisonSociale}
       ongletInitial={ongletEmails(onglet)}
     />
   );

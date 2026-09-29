@@ -6,6 +6,11 @@ import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import { TYPES_EMAIL_TEST } from "@/src/lib/emailsDeTest";
 import { LIBELLE_AVIS_GOOGLE } from "@/src/lib/avisGoogle";
+import {
+  CLES_SIGNATURE,
+  signatureHtml,
+  type Signature,
+} from "@/src/lib/signatureEmail";
 import { usePathname, useRouter } from "next/navigation";
 import { ONGLETS_EMAILS, requeteOnglet, type OngletEmails } from "@/src/lib/ongletsEmails";
 
@@ -631,11 +636,156 @@ function LienAvisGoogle({ valeurInitiale }: { valeurInitiale: string }) {
   );
 }
 
+/**
+ * La signature au pied de chaque e-mail (APP 58).
+ *
+ * Les valeurs de départ sont la signature d'avant le lot : au premier
+ * affichage, l'aperçu montre donc exactement ce que les clientes reçoivent
+ * déjà. On ne demande à personne de retaper ce qui marchait.
+ *
+ * La raison sociale n'est PAS ici : elle vient de Réglages → Entreprise, et
+ * elle est datée. La recopier en ferait une seconde source, qui finirait par
+ * dire autre chose que les factures.
+ */
+function SignatureEmails({
+  valeurInitiale,
+  raisonSociale,
+}: {
+  valeurInitiale: Signature;
+  raisonSociale: string;
+}) {
+  const [s, setS] = useState<Signature>(valeurInitiale);
+  const [enregistre, setEnregistre] = useState<Signature>(valeurInitiale);
+  const [etat, setEtat] = useState<"" | "enregistrement" | "ok">("");
+  const [erreur, setErreur] = useState("");
+  const [champFautif, setChampFautif] = useState<string | null>(null);
+
+  const modifie = JSON.stringify(s) !== JSON.stringify(enregistre);
+
+  async function enregistrer() {
+    setErreur("");
+    setChampFautif(null);
+    setEtat("enregistrement");
+    try {
+      const res = await fetch("/api/emails/reglages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          [CLES_SIGNATURE.nom]: s.nom,
+          [CLES_SIGNATURE.fonction]: s.fonction,
+          [CLES_SIGNATURE.adresse]: s.adresse,
+          [CLES_SIGNATURE.email]: s.email,
+          [CLES_SIGNATURE.telephone]: s.telephone,
+          [CLES_SIGNATURE.site]: s.site,
+        }),
+      });
+      const corps = await res.json();
+      if (!res.ok) {
+        setErreur(corps?.error ?? "Enregistrement impossible.");
+        setChampFautif(corps?.champ ?? null);
+        setEtat("");
+        return;
+      }
+      setS(corps.signature);
+      setEnregistre(corps.signature);
+      setEtat("ok");
+      setTimeout(() => setEtat(""), 2500);
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : String(e));
+      setEtat("");
+    }
+  }
+
+  const CHAMPS: { cle: keyof Signature; libelle: string; type?: string; aide?: string }[] = [
+    { cle: "nom", libelle: "Nom" },
+    { cle: "fonction", libelle: "Fonction" },
+    { cle: "adresse", libelle: "Adresse" },
+    {
+      cle: "email",
+      libelle: "E-mail affiché",
+      type: "email",
+      aide: "Les réponses des clients arrivent toujours sur info@ladogosphere.ch, quel que soit l'e-mail affiché ici.",
+    },
+    { cle: "telephone", libelle: "Téléphone", type: "tel" },
+    { cle: "site", libelle: "Site internet", type: "url" },
+  ];
+
+  return (
+    <div style={{ margin: "0 0 20px 0" }}>
+      <Carte>
+        <p style={{ ...labelStyle, fontSize: 14, color: "#1B2B5E" }}>Signature des e-mails</p>
+        <p style={{ fontSize: 13, color: "#6B7280", margin: "0 0 12px" }}>
+          La raison sociale se modifie dans Réglages → Entreprise.
+        </p>
+
+        <div style={{ display: "grid", gap: 12 }}>
+          {CHAMPS.map(({ cle, libelle, type, aide }) => (
+            <div key={cle}>
+              <label htmlFor={`signature-${cle}`} style={labelStyle}>{libelle}</label>
+              <input
+                id={`signature-${cle}`}
+                type={type ?? "text"}
+                style={{
+                  ...inputStyle,
+                  ...(champFautif === cle ? { borderColor: "#A8453A", borderWidth: 2 } : {}),
+                }}
+                value={s[cle]}
+                onChange={(e) => setS({ ...s, [cle]: e.target.value })}
+              />
+              {aide && (
+                <p style={{ fontSize: 12, color: "#6B7280", margin: "6px 0 0" }}>{aide}</p>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 14 }}>
+          <Bouton
+            variante="principal"
+            onClick={enregistrer}
+            disabled={etat === "enregistrement" || !modifie}
+          >
+            {etat === "enregistrement" ? "Enregistrement…" : "Enregistrer"}
+          </Bouton>
+          {etat === "ok" && (
+            <span style={{ color: "#2E8B7E", fontSize: 13, fontWeight: 600 }}>
+              ✅ Signature enregistrée
+            </span>
+          )}
+        </div>
+
+        {erreur && (
+          <p role="alert" style={{ color: "#A8453A", fontSize: 14, fontWeight: 600, margin: "10px 0 0" }}>
+            {erreur}
+          </p>
+        )}
+
+        {/*
+          L'aperçu est le MÊME rendu que l'e-mail : `signatureHtml`, la fonction
+          qu'`emailTemplate` appelle. Un aperçu redessiné à la main aurait fini
+          par montrer autre chose que ce qui part — et c'est précisément quand
+          on croit avoir vérifié qu'on ne vérifie plus rien.
+        */}
+        <p style={{ ...labelStyle, marginTop: 18 }}>Aperçu</p>
+        <div
+          style={{
+            border: "1px solid #E2E8F0", borderRadius: 10, padding: 14,
+            backgroundColor: "#FFFFFF", borderTop: "2px solid #F5F0E8",
+          }}
+          dangerouslySetInnerHTML={{ __html: signatureHtml(s, raisonSociale) }}
+        />
+      </Carte>
+    </div>
+  );
+}
+
 export default function GestionEmails({
   emails,
   campagnes = [],
   emailAdmin = "",
   avisGoogleUrl = "",
+  signature,
+  raisonSociale,
   ongletInitial = "modeles",
 }: {
   emails: EmailModele[];
@@ -644,6 +794,10 @@ export default function GestionEmails({
   emailAdmin?: string;
   /** Lien d'avis Google enregistré, vide s'il n'y en a pas. */
   avisGoogleUrl?: string;
+  /** La signature enregistrée, avec repli sur les valeurs de départ. */
+  signature: Signature;
+  /** Raison sociale du jour, lue dans Réglages → Entreprise. */
+  raisonSociale: string;
   /** L'onglet lu dans l'adresse (?onglet=…). */
   ongletInitial?: OngletEmails;
 }) {
@@ -688,6 +842,7 @@ export default function GestionEmails({
 
       {onglet === "modeles" && (
         <div role="tabpanel">
+          <SignatureEmails valeurInitiale={signature} raisonSociale={raisonSociale} />
           <LienAvisGoogle valeurInitiale={avisGoogleUrl} />
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
             {emails.map((email) => (
