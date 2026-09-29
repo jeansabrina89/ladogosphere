@@ -126,6 +126,9 @@ describe("le pied de page de tous les e-mails", () => {
 
 // ── APP 53 : le suivi après la journée d'essai ─────────────────────────────
 
+/** Le lien tel qu'il se lit dans la phrase, depuis APP 55. */
+const LIEN_CORPS = "nous laisser un avis sur Google";
+
 describe("le suivi après essai porte le lien dans son corps", () => {
   it("sans réglage : le message d’avant, moins la liste des ennuis", async () => {
     const html = await rendreSuivi();
@@ -149,19 +152,41 @@ describe("le suivi après essai porte le lien dans son corps", () => {
     /**
      * Le cœur du lot. Deux fois le même lien à dix lignes d'écart se lirait
      * comme une insistance — or ce message n'en est pas une.
+     *
+     * APP 55 — la forme a changé : le lien tenait une ligne à lui, avec étoile
+     * et gras ; il est redescendu DANS la phrase. Ce test visait
+     * `LIBELLE_AVIS_GOOGLE`, qui ne sert plus qu'au pied de page ; il vise
+     * désormais le membre de phrase.
      */
     H.avis = "https://g.page/r/CabcDEF/review";
     const html = await rendreSuivi();
 
-    expect(html.split(LIBELLE_AVIS_GOOGLE), "une seule occurrence").toHaveLength(2);
+    expect(html.split(LIEN_CORPS), "une seule occurrence").toHaveLength(2);
     // Dans le CORPS : donc AVANT la signature, pas sous l'adresse du site.
-    expect(html.indexOf(LIBELLE_AVIS_GOOGLE)).toBeLessThan(html.indexOf("🌐 ladogosphere.ch"));
-    // La phrase qui l'introduit, et le lien bien visible.
-    expect(html).toContain("Si vous avez un moment, votre avis nous aide beaucoup à faire connaître la pension&nbsp;:");
-    expect(html).toContain('style="color:#2E8B7E; font-weight:bold; text-decoration:none;"');
-    expect(html).toContain('href="https://g.page/r/CabcDEF/review"');
+    expect(html.indexOf(LIEN_CORPS)).toBeLessThan(html.indexOf("🌐 ladogosphere.ch"));
+    // La phrase exacte, lien compris.
+    expect(html).toContain(
+      'Si vous avez un moment, vous pouvez aussi <a href="https://g.page/r/CabcDEF/review"' +
+      ' style="color:#2E8B7E; text-decoration:underline;">nous laisser un avis sur Google</a>.',
+    );
     // Le reste du pied de page n'a pas bougé pour autant.
     expect(html).toContain("Confidentialité");
+  });
+
+  it("SOBRE : ni étoile, ni gras, ni ligne à part", async () => {
+    /**
+     * APP 55. Dans un message qui prend des nouvelles d'un chien, un lien mis
+     * en avant se lit comme une demande. Ces trois absences sont la décision.
+     */
+    H.avis = "https://g.page/r/CabcDEF/review";
+    const html = await rendreSuivi();
+
+    expect(html, "pas d'étoile dans le corps").not.toContain("★");
+    expect(html, "le libellé du pied ne sert pas de membre de phrase").not.toContain(LIBELLE_AVIS_GOOGLE);
+    expect(html).not.toContain("<strong");
+    expect(html).not.toContain("font-weight:bold; text-decoration:none;\">nous laisser");
+    // Le lien est DANS la phrase : du texte le précède sur la même ligne.
+    expect(html).toMatch(/vous pouvez aussi <a\b/);
   });
 
   it("un réglage douteux ne met de lien NI dans le corps NI au pied", async () => {
@@ -169,7 +194,8 @@ describe("le suivi après essai porte le lien dans son corps", () => {
       H.avis = valeur;
       const html = await rendreSuivi();
       expect(html, valeur).not.toContain(LIBELLE_AVIS_GOOGLE);
-      expect(html, valeur).not.toContain("votre avis nous aide beaucoup");
+      expect(html, valeur).not.toContain(LIEN_CORPS);
+      expect(html, valeur).not.toContain("Si vous avez un moment");
     }
   });
 
@@ -185,7 +211,7 @@ describe("le suivi après essai porte le lien dans son corps", () => {
     expect(html).toContain(LIBELLE_AVIS_GOOGLE);
     // Au pied : APRÈS l'adresse du site, et pas dans le corps.
     expect(html.indexOf(LIBELLE_AVIS_GOOGLE)).toBeGreaterThan(html.indexOf("🌐 ladogosphere.ch"));
-    expect(html).not.toContain("votre avis nous aide beaucoup");
+    expect(html).not.toContain(LIEN_CORPS);
   });
 });
 

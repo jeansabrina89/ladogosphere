@@ -79,8 +79,17 @@ export function ligneAvisGooglePiedDePage(url: string | null | undefined): strin
  * est refaite pour la même raison que dans le pied de page : une valeur posée
  * à la main en base ne doit pas devenir un lien.
  *
- * `#2E8B7E` en gras, et non le `#4AAEA0` sans relief du pied : ici le lien est
- * ce qu'on propose de faire, pas une mention de bas de page.
+ * ── UNE PHRASE, PAS UNE RÉCLAME (APP 55) ─────────────────────────────────
+ *
+ * La première forme donnait au lien une ligne à lui, une étoile et du gras.
+ * Dans un message qui prend des nouvelles d'un chien, cela se voyait comme une
+ * demande — exactement ce que ce suivi n'est pas. Le lien est redescendu DANS
+ * la phrase, au même style que les paragraphes voisins (#6B7280, 14px) ; seul
+ * le lien lui-même se distingue, en #2E8B7E souligné, poids normal.
+ *
+ * Le libellé du pied de page (`LIBELLE_AVIS_GOOGLE`, avec son étoile) n'est
+ * donc PAS repris ici : il nomme une ligne de signature, pas un membre de
+ * phrase.
  *
  * Réservé au suivi après la journée d'essai (APP 53). Les autres e-mails
  * gardent la ligne de pied de page, et elle seule.
@@ -89,11 +98,10 @@ export function blocAvisGoogleCorps(url: string | null | undefined): string {
   const validation = validerLienAvisGoogle(url);
   if (!validation.ok || validation.valeur === "") return "";
   return (
-    `<p style="color:#6B7280; font-size:14px; margin:0 0 8px 0;">` +
-    `Si vous avez un moment, votre avis nous aide beaucoup à faire connaître la pension&nbsp;:` +
-    `</p>` +
-    `<p style="margin:0 0 24px 0; font-size:15px;">` +
-    `<a href="${echapperAttribut(validation.valeur)}" style="color:#2E8B7E; font-weight:bold; text-decoration:none;">` +
-    `${LIBELLE_AVIS_GOOGLE}</a></p>`
+    `<p style="color:#6B7280; font-size:14px; margin:0 0 24px 0;">` +
+    `Si vous avez un moment, vous pouvez aussi ` +
+    `<a href="${echapperAttribut(validation.valeur)}" style="color:#2E8B7E; text-decoration:underline;">` +
+    `nous laisser un avis sur Google</a>.` +
+    `</p>`
   );
 }

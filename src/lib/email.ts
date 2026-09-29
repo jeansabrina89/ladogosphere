@@ -12,6 +12,7 @@ import {
 import { ajouterJoursISO } from "@/src/lib/cotisationPeriode";
 import { phrasesRappelVeilleEssai } from "@/src/lib/rappelVeilleLogique";
 import { CLE_AVIS_GOOGLE, blocAvisGoogleCorps, ligneAvisGooglePiedDePage } from "@/src/lib/avisGoogle";
+import { texteDepuisHtml } from "@/src/lib/emailTexte";
 import { mentionPortCommande } from "@/src/lib/venteEnLigneLogique";
 import { formatPrixClient, formatPrixFacture } from "@/src/lib/prixClient";
 import { choixDesLignes } from "@/src/lib/personnalisation";
@@ -20,6 +21,17 @@ import { libelleConfiguration } from "@/src/lib/personnalisationLogique";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const FROM = "La Dogosphère <noreply@ladogosphere.ch>";
+
+/**
+ * Les réponses des clients arrivent sur la boîte Infomaniak (transférée vers
+ * Gmail). noreply@ reste l'expéditeur technique. Décision de Sabrina,
+ * 29.09.2026.
+ *
+ * Sans cette adresse, répondre à un e-mail de la pension revenait à écrire à
+ * noreply@ — une boîte que personne ne relève. La réponse partait, l'expéditeur
+ * la croyait lue, et elle n'arrivait nulle part.
+ */
+const REPONDRE_A = "info@ladogosphere.ch";
 
 // Base des URL absolues utilisees dans les emails (les images doivent etre
 // accessibles publiquement depuis le client de messagerie). Repli sur le
@@ -412,9 +424,17 @@ async function envoyerEmail(p: {
 }) {
   const { data, error } = await resend.emails.send({
     from: FROM,
+    // `replyTo` est le nom du champ dans le SDK installé (resend 6.12.4,
+    // `CreateEmailBaseOptions`) ; c'est lui qui devient `reply_to` dans le
+    // corps envoyé à l'API. Les `reply_to` qu'on lit ailleurs dans les types
+    // sont les RÉPONSES de l'API, pas ce qu'on lui adresse.
+    replyTo: REPONDRE_A,
     to: p.destinataire,
     subject: p.sujet,
     html: p.html,
+    // La partie texte n'est pas facultative : sans elle, Resend n'en fabrique
+    // aucune (vérifié dans le SDK), et le message part en HTML seul.
+    text: texteDepuisHtml(p.html),
     ...(p.piecesJointes && p.piecesJointes.length > 0
       ? { attachments: p.piecesJointes.map((f) => ({ filename: f.filename, content: f.content })) }
       : {}),
