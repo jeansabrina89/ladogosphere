@@ -14,6 +14,7 @@ import {
   unitePrestation,
 } from "@/src/lib/prestationsLogique";
 import { datesDe } from "@/src/lib/prestationsLogique";
+import { refusLoyerRefacture, sorteDemandee } from "@/src/lib/boxPriveLogique";
 import { chercherClientsLocation, gardeQuiChevauche, regenererAbonnement } from "@/src/lib/prestationsDb";
 
 /**
@@ -131,7 +132,7 @@ export async function ajouterPrestation(formData: FormData): Promise<Resultat> {
   const heure = String(formData.get("heure_prevue") ?? "") || null;
   const commentaire = String(formData.get("commentaire") ?? "").trim() || null;
 
-  if (!clientId || !prestationId) return { error: "Choisissez le locataire et la prestation." };
+  if (!clientId || !prestationId) return { error: "Choisissez le client box privé et la prestation." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateDebut)) return { error: "Date invalide." };
   if (dateFin < dateDebut) return { error: "La date de fin précède la date de début." };
 
@@ -140,7 +141,7 @@ export async function ajouterPrestation(formData: FormData): Promise<Resultat> {
     supabaseAdmin.from("prestations").select("id, unite, prix, taux_tva, motif_tva, actif").eq("id", prestationId).maybeSingle(),
   ]);
   if (!client || !catalogueVisible(client)) {
-    return { error: "Les prestations sont réservées aux locataires de box." };
+    return { error: "Les prestations sont réservées aux clients box privé." };
   }
   if (!prestation?.actif) return { error: "Cette prestation n'est plus au catalogue." };
 
@@ -152,7 +153,7 @@ export async function ajouterPrestation(formData: FormData): Promise<Resultat> {
     const { data: chien } = await supabaseAdmin
       .from("chiens").select("id, client_id").eq("id", chienId).maybeSingle();
     if (!chien || chien.client_id !== clientId) {
-      return { error: "Ce chien n'appartient pas à ce locataire." };
+      return { error: "Ce chien n'appartient pas à ce client." };
     }
   }
 
@@ -241,7 +242,7 @@ export async function attribuerFormule(formData: FormData): Promise<Resultat> {
     supabaseAdmin.from("formules").select("id, prix_mensuel, actif").eq("id", formuleId).maybeSingle(),
   ]);
   if (!client || !catalogueVisible(client)) {
-    return { error: "Les formules sont réservées aux locataires de box." };
+    return { error: "Les formules sont réservées aux clients box privé." };
   }
   if (!formule?.actif) return { error: "Cette formule est désactivée." };
 
@@ -324,13 +325,33 @@ export async function enregistrerLocataire(formData: FormData): Promise<Resultat
   if (verif.error) return verif;
 
   const clientId = String(formData.get("client_id") ?? "");
-  const loyerBrut = String(formData.get("loyer_refacture") ?? "").trim();
+
+  /**
+   * APP 61 — la SORTE décide si un loyer s'écrit, et le formulaire seul ne
+   * suffit pas.
+   *
+   * · « privé » : `loyer_refacture` est mis à null, quoi que la requête
+   *   envoie. Un champ absent de l'écran se rajoute dans une requête forgée ;
+   *   un champ que l'action n'écrit jamais, non.
+   * · « refacturé » : le loyer est OBLIGATOIRE et strictement positif. Un box
+   *   refacturé sans loyer basculerait en « client box privé » au premier
+   *   affichage, et personne ne comprendrait pourquoi il a changé de section.
+   *
+   * Sorte absente : on se replie sur « privé », celle qui n'écrit rien. Mieux
+   * vaut un loyer non enregistré qu'un loyer inventé.
+   */
+  const sorte = sorteDemandee(formData.get("sorte"));
+  if (sorte === "refacture") {
+    const refus = refusLoyerRefacture(formData.get("loyer_refacture"));
+    if (refus) return { error: refus };
+  }
+  const loyerBrut = String(formData.get("loyer_refacture") ?? "").trim().replace(",", ".");
 
   const champs = {
     locataire_box: formData.get("locataire_box") === "on",
     box_loue: String(formData.get("box_loue") ?? "").trim() || null,
     // Laissé à null tant que Sabrina ne l'a pas saisi : aucun montant deviné.
-    loyer_refacture: loyerBrut === "" ? null : Number(loyerBrut),
+    loyer_refacture: sorte === "prive" ? null : Number(loyerBrut),
     locataire_depuis: String(formData.get("locataire_depuis") ?? "") || null,
     locataire_jusqu_au: String(formData.get("locataire_jusqu_au") ?? "") || null,
   };

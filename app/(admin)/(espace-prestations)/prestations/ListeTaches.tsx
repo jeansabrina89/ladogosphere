@@ -59,7 +59,7 @@ export default function ListeTaches({
   if (taches.length === 0) {
     return (
       <p style={{ color: SOUS, fontSize: 15, margin: "12px 0" }}>
-        Rien à faire chez les locataires.
+        Rien à faire chez les clients box privé.
       </p>
     );
   }
@@ -188,7 +188,7 @@ export default function ListeTaches({
                           id={`motif-${t.id}`}
                           value={motif}
                           onChange={(e) => setMotif(e.target.value)}
-                          placeholder="Locataire présent, chien absent…"
+                          placeholder="Client présent, chien absent…"
                           style={{
                             width: "100%", minHeight: CIBLE, padding: "8px 10px",
                             border: "1px solid rgba(27,43,94,.2)", borderRadius: 12, fontSize: 14,

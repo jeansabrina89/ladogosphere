@@ -395,3 +395,55 @@ export async function gardeQuiChevauche(
   const l = (data ?? [])[0] as { groupe_id: string | null; date: string } | undefined;
   return l ?? null;
 }
+
+/**
+ * APP 61 — la DERNIÈRE facture mensuelle de chaque box refacturé.
+ *
+ * On passe par le journal des gestes, comme `facturesLocatairesDuMois` : c'est
+ * lui qui sait qu'une facture est une facture mensuelle de prestations
+ * (`apres->>type = 'prestations_locataire'`), la table `factures` ne le dit
+ * pas. Sans ce détour, on compterait les factures de boutique du même client.
+ *
+ * Rend { client_id → « mois · numéro » }. Un box jamais facturé n'y figure pas :
+ * l'écran affiche alors un tiret, ce qui est l'information utile.
+ */
+export async function derniereFactureMensuelleParClient(
+  clientIds: readonly string[],
+): Promise<Map<string, string>> {
+  const resultat = new Map<string, string>();
+  if (clientIds.length === 0) return resultat;
+
+  const { data: traces } = await supabaseAdmin
+    .from("journal_evenements")
+    .select("entite_id, apres, created_at")
+    .eq("entite", "facture")
+    .eq("evenement", "creation")
+    .eq("apres->>type", "prestations_locataire")
+    .order("created_at", { ascending: false });
+
+  const lignes = (traces ?? []) as { entite_id: string; apres: Record<string, unknown> | null }[];
+  if (lignes.length === 0) return resultat;
+
+  const { data: factures } = await supabaseAdmin
+    .from("factures")
+    .select("id, numero, client_id")
+    .in("id", [...new Set(lignes.map((l) => l.entite_id))])
+    .not("numero", "is", null)
+    .not("statut", "in", "(annulee,annulee_par_avoir)");
+
+  const parId = new Map(
+    ((factures ?? []) as { id: string; numero: string; client_id: string }[])
+      .map((f) => [f.id, f]),
+  );
+
+  // Les traces sont triées du plus récent au plus ancien : la PREMIÈRE trouvée
+  // pour un client est la dernière facture émise.
+  for (const ligne of lignes) {
+    const facture = parId.get(ligne.entite_id);
+    if (!facture || !clientIds.includes(facture.client_id)) continue;
+    if (resultat.has(facture.client_id)) continue;
+    const mois = String(ligne.apres?.mois ?? "").trim();
+    resultat.set(facture.client_id, mois ? `${mois} · ${facture.numero}` : facture.numero);
+  }
+  return resultat;
+}

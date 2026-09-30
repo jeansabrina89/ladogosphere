@@ -147,7 +147,7 @@ export const ESPACES: Espace[] = [
     accueil: { href: "/prestations", label: "✅ Aujourd’hui", exigence: perm("perm_prestations"), exact: true },
     ecrans: [
       { href: "/prestations/planning", label: "🗂️ Planning", exigence: perm("perm_prestations") },
-      { href: "/prestations/locataires", label: "🏠 Locataires", exigence: perm("perm_prestations") },
+      { href: "/prestations/locataires", label: "🏠 Clients box privé", exigence: perm("perm_prestations") },
       { href: "/prestations/formules", label: "📋 Formules", exigence: ADMIN },
       { href: "/prestations/catalogue", label: "🔖 Catalogue", exigence: ADMIN },
       { href: "/prestations/facturer", label: "🧾 Facturer le mois", exigence: perm("perm_factures") },

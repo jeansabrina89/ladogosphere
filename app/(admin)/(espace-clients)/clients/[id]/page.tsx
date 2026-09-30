@@ -393,7 +393,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
             <Bouton variante="secondaire" href={`/prestations/locataires/${client.id}`}>
               {client.locataire_box ? (
                 <>
-                  🏠 Fiche de locataire
+                  🏠 Fiche box privé
                   <span style={{
                     marginLeft: 8, fontSize: 12, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
                     background: "#E4E7F0", color: "#1B2B5E",
@@ -402,7 +402,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                   </span>
                 </>
               ) : (
-                "🏠 Locataire de box"
+                "🏠 Client box privé"
               )}
             </Bouton>
           )}

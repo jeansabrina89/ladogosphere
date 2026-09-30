@@ -36,10 +36,10 @@ export function catalogueVisible(fiche: FicheLocataire | null | undefined): bool
 }
 
 export const MESSAGE_RESERVE_LOCATAIRES =
-  "Les prestations sont réservées aux locataires de box.";
+  "Les prestations sont réservées aux clients box privé.";
 
 /**
- * Un locataire de box ne paie AUCUNE adhésion.
+ * Un client box privé ne paie AUCUNE adhésion.
  *
  * Il n'utilise ni la journée d'essai, ni la validation du chien, ni les
  * réservations : lui facturer une adhésion serait un péage sans contrepartie.
@@ -70,7 +70,7 @@ export const UNITES_PRESTATION: {
     valeur: "journee",
     libelle: "Journée de garde",
     aide:
-      "La prise en charge complète pendant l'absence du locataire. Le chien reste " +
+      "La prise en charge complète pendant l'absence du client. Le chien reste " +
       "dans SON box : ce n'est ni un séjour en pension, ni une simple sortie.",
     garde: true,
   },

@@ -42,15 +42,15 @@ describe("le formulaire propose exactement le catalogue", () => {
     expect(new Set(noms).size).toBe(noms.length);
   });
 
-  it("« Prestations locataires » est là, dans le groupe Pension, avec son aide", () => {
+  it("« Prestations box privé » est là, dans le groupe Pension, avec son aide", () => {
     const pension = DOMAINES.find((d) => d.nom === "Pension")!;
     const entree = pension.entrees.find((e) => e.cle === "perm_prestations");
-    expect(entree?.court).toBe("Prestations locataires");
+    expect(entree?.court).toBe("Prestations box privé");
     expect(entree?.aide).toBe(
-      "Voir et cocher les tâches du jour des locataires de box (repas, passages, nettoyages). Pas la facturation."
+      "Voir et cocher les tâches du jour des clients box privé (repas, passages, nettoyages). Pas la facturation."
     );
     const html = renderToStaticMarkup(createElement(CasesPermissions, { valeurs: {} }));
-    expect(html).toContain("Prestations locataires");
+    expect(html).toContain("Prestations box privé");
     expect(html).toContain("Pas la facturation.");
   });
 

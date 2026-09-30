@@ -134,7 +134,7 @@ export async function proposerFactureMois(
   let blocage: string | null = null;
   if (facture.lignes.length === 0) blocage = "Rien à facturer ce mois-ci.";
   else if (!(client.adresse ?? "").trim()) {
-    blocage = "Ce locataire n'a pas d'adresse : complétez sa fiche avant de facturer.";
+    blocage = "Ce client n'a pas d'adresse : complétez sa fiche avant de facturer.";
   }
 
   return { clientId, client: nom, mois, facture, blocage };
@@ -164,7 +164,7 @@ export async function emettreFactureMois({
   lignesLibres?: LigneLibreSaisie[];
 }): Promise<{ error?: string; factureId?: string }> {
   const proposition = await proposerFactureMois(clientId, mois);
-  if (!proposition) return { error: "Ce client n'est pas locataire de box." };
+  if (!proposition) return { error: "Ce client n'a pas de box." };
   if (proposition.blocage) return { error: proposition.blocage };
 
   const { data: facture, error } = await supabaseAdmin

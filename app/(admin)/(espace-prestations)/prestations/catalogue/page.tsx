@@ -31,7 +31,7 @@ export default async function CataloguePage() {
       <div style={{ maxWidth: 900, margin: "0 auto", minWidth: 0 }}>
         <EnTete
           titre="🔖 Catalogue des prestations"
-          sousTitre="Les services vendus aux locataires de box. Ni stock, ni boutique."
+          sousTitre="Les services vendus aux clients box privé. Ni stock, ni boutique."
         />
         <GestionCatalogue prestations={prestations} />
       </div>

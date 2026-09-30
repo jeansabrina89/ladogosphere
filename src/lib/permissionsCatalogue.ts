@@ -80,8 +80,8 @@ export const DOMAINES: DomainePermissions[] = [
         aide: "Valider ou invalider une journée d'essai.",
       },
       {
-        cle: "perm_prestations", court: "Prestations locataires",
-        aide: "Voir et cocher les tâches du jour des locataires de box (repas, passages, nettoyages). Pas la facturation.",
+        cle: "perm_prestations", court: "Prestations box privé",
+        aide: "Voir et cocher les tâches du jour des clients box privé (repas, passages, nettoyages). Pas la facturation.",
       },
       { cle: "perm_reservations_creer", court: "Créer résa" },
       { cle: "perm_reservations_modifier", court: "Modifier résa" },
@@ -240,7 +240,7 @@ export const POSTES: Poste[] = [
     cle: "soigneuse",
     bouton: "🐾 Soigneuse",
     cases: SOIGNEUSE,
-    aide: "Check-in, planning, box, journées d'essai, tâches des locataires, créer et modifier réservations, chiens et clients.",
+    aide: "Check-in, planning, box, journées d'essai, tâches box privé, créer et modifier réservations, chiens et clients.",
   },
   {
     cle: "vendeuse",

@@ -393,7 +393,10 @@ describe("l'espace Prestations", () => {
     const terrain = droits({ perm_prestations: true });
     expect(cles(terrain)).toContain("prestations");
     expect(labels("prestations", terrain)).toEqual([
-      "✅ Aujourd’hui", "🗂️ Planning", "🏠 Locataires",
+      // APP 61 — « Locataires » disait deux choses à la fois. L'entrée mène
+      // désormais aux clients box privé, les box refacturés étant une section
+      // du même écran.
+      "✅ Aujourd’hui", "🗂️ Planning", "🏠 Clients box privé",
     ]);
   });
 

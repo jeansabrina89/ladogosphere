@@ -254,9 +254,9 @@ export default async function AujourdhuiPage() {
 
         {peutPrestations && (
           <Bloc
-            titre="🧹 Prestations chez les locataires"
+            titre="🧹 Prestations box privé"
             nombre={prestationsAFaire.length}
-            vide="Rien à faire chez les locataires."
+            vide="Rien à faire chez les clients box privé."
           >
             {prestationsAFaire.map((t) => (
               <li key={t.id} style={{

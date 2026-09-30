@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { chercherClientsPourLocation } from "../actions";
+import type { SorteBox } from "@/src/lib/boxPriveLogique";
 
 const MARINE = "#1B2B5E";
 const SOUS = "rgba(27,43,94,0.55)";
@@ -12,14 +13,29 @@ const CIBLE = 52;
 type Trouve = { id: string; nom: string; email: string | null; locataire: boolean; box: string | null };
 
 /**
- * « + Ajouter un locataire » : on cherche le client — comme à la caisse, un
- * champ en haut et de grandes lignes touchables — et on ouvre sa fiche de
- * locataire. La case, c'est Sabrina qui la coche, là-bas.
+ * « + Client box privé » ou « + Box refacturé » : on cherche le client — comme à
+ * la caisse, un champ en haut et de grandes lignes touchables — et on ouvre sa
+ * fiche. La case, c'est Sabrina qui la coche, là-bas.
+ *
+ * ── DEUX BOUTONS, DEUX FORMULAIRES (APP 61) ───────────────────────────────
+ *
+ * La SORTE voyage dans l'adresse (`?sorte=refacture`) jusqu'à la fiche, qui
+ * montre ou cache le champ loyer. Un client box privé ne doit pas voir ce
+ * champ : Sabrina ne lui refacture rien, et un champ qu'on ne devrait pas
+ * remplir finit par l'être.
  */
-export default function AjouterLocataire() {
+export default function AjouterLocataire({ sorte = "prive" }: { sorte?: SorteBox }) {
   const [ouvert, setOuvert] = useState(false);
   const [recherche, setRecherche] = useState("");
   const [resultats, setResultats] = useState<Trouve[]>([]);
+
+  const refacture = sorte === "refacture";
+  const libelle = refacture ? "+ Box refacturé" : "+ Client box privé";
+  const question = refacture
+    ? "Quel client a son loyer de box refacturé ?"
+    : "Quel client loue un box au chenil ?";
+  const lien = (id: string) =>
+    refacture ? `/prestations/locataires/${id}?sorte=refacture` : `/prestations/locataires/${id}`;
 
   async function chercher(q: string) {
     setRecherche(q);
@@ -31,9 +47,10 @@ export default function AjouterLocataire() {
     return (
       <button type="button" onClick={() => setOuvert(true)} style={{
         minHeight: 44, padding: "0 16px", borderRadius: 12, border: "none",
-        background: "#4AAEA0", color: "#FFF", fontWeight: 700, fontSize: 14, cursor: "pointer",
+        background: refacture ? "#1F6E5B" : "#4AAEA0",
+        color: "#FFF", fontWeight: 700, fontSize: 14, cursor: "pointer",
       }}>
-        + Ajouter un locataire
+        {libelle}
       </button>
     );
   }
@@ -42,11 +59,11 @@ export default function AjouterLocataire() {
     <div style={{
       background: "#FFF", border: BORDURE, borderRadius: 16, padding: 14, marginBottom: 16, minWidth: 0,
     }}>
-      <label htmlFor="recherche-locataire" style={{ display: "block", fontSize: 13, fontWeight: 600, color: MARINE, marginBottom: 6 }}>
-        Quel client loue un box ?
+      <label htmlFor={`recherche-${sorte}`} style={{ display: "block", fontSize: 13, fontWeight: 600, color: MARINE, marginBottom: 6 }}>
+        {question}
       </label>
       <input
-        id="recherche-locataire"
+        id={`recherche-${sorte}`}
         type="search"
         autoFocus
         value={recherche}
@@ -63,7 +80,7 @@ export default function AjouterLocataire() {
       <ul style={{ listStyle: "none", margin: "10px 0 0", padding: 0, display: "grid", gap: 8 }}>
         {resultats.map((c) => (
           <li key={c.id}>
-            <Link href={`/prestations/locataires/${c.id}`} style={{
+            <Link href={lien(c.id)} style={{
               display: "flex", alignItems: "center", gap: 10, minHeight: CIBLE, padding: "8px 12px",
               border: BORDURE, borderRadius: 14, textDecoration: "none", color: MARINE, minWidth: 0,
             }}>
@@ -76,7 +93,7 @@ export default function AjouterLocataire() {
                   marginLeft: "auto", fontSize: 12, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
                   background: "#E4E7F0", color: MARINE, whiteSpace: "nowrap",
                 }}>
-                  déjà locataire · Box {c.box ?? "—"}
+                  déjà ouvert · Box {c.box ?? "—"}
                 </span>
               )}
             </Link>

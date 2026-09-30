@@ -66,7 +66,7 @@ export default async function FacturerPage({
       <div style={{ maxWidth: 900, margin: "0 auto", minWidth: 0 }}>
         <EnTete
           titre="🧾 Facturer les prestations"
-          sousTitre={`${libelleMois(mois)} — ${propositions.length} locataire(s), ${total.toFixed(2)} CHF`}
+          sousTitre={`${libelleMois(mois)} — ${propositions.length} box refacturé(s), ${total.toFixed(2)} CHF`}
           action={
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <Bouton href={`/prestations/facturer?mois=${moisPrecedent(mois)}`} variante="secondaire">
@@ -85,7 +85,7 @@ export default async function FacturerPage({
           Réglages en vigueur : forfait{" "}
           <strong>{reglages.forfaitEcheance === "avance" ? "payé d'avance" : "à terme échu"}</strong>,
           absences <strong>{reglages.absenceDeduite ? "déduites" : "non déduites"}</strong>,
-          commande par le locataire{" "}
+          commande par le client{" "}
           <strong>{reglages.commandeLocataire ? "autorisée" : "fermée"}</strong>.
         </p>
 

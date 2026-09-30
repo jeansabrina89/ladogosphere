@@ -46,7 +46,8 @@ describe("la fiche de locataire d'un client qui ne l'est pas encore", () => {
     const html = renderToStaticMarkup(element);
     expect(H.notFound).toBe(0);
     expect(html).toContain("Léa Rossier");
-    expect(html).toContain("pas encore locataire de box");
+    // APP 61 — la fiche s'appelle « box privé », et le box « pas encore ouvert ».
+    expect(html).toContain("box pas encore ouvert");
     const caseLocataire = html.match(/<input[^>]*name="locataire_box"[^>]*>/)?.[0] ?? "";
     expect(caseLocataire).not.toBe("");
     expect(caseLocataire).not.toMatch(/checked/);
@@ -66,16 +67,26 @@ describe("les portes", () => {
   it("la fiche client mène à la fiche de locataire, avec le box si le client l'est déjà", () => {
     const fiche = lire("app/(admin)/(espace-clients)/clients/[id]/page.tsx");
     expect(fiche).toMatch(/perms\.perm_prestations && \(\s*<Bouton variante="secondaire" href=\{`\/prestations\/locataires\/\$\{client\.id\}`\}>/);
-    expect(fiche).toContain("🏠 Fiche de locataire");
+    expect(fiche).toContain("🏠 Fiche box privé");
     expect(fiche).toContain("Box {client.box_loue ?? \"—\"}");
-    expect(fiche).toContain("\"🏠 Locataire de box\"");
+    expect(fiche).toContain("\"🏠 Client box privé\"");
   });
 
-  it("la liste des locataires propose d'en ajouter un, par une recherche de client", () => {
-    expect(lire("app/(admin)/(espace-prestations)/prestations/locataires/page.tsx")).toContain("<AjouterLocataire />");
+  it("DEUX boutons d'ajout, et chacun ouvre son formulaire", () => {
+    /**
+     * APP 61 — un seul bouton ouvrait un seul formulaire, qui portait le champ
+     * loyer pour tout le monde. Il y en a deux : « + Client box privé » (sans
+     * loyer) et « + Box refacturé » (loyer obligatoire). La sorte voyage dans
+     * l'adresse jusqu'à la fiche, qui montre ou cache le champ.
+     */
+    const liste = lire("app/(admin)/(espace-prestations)/prestations/locataires/page.tsx");
+    expect(liste).toContain('<AjouterLocataire sorte="prive" />');
+    expect(liste).toContain('<AjouterLocataire sorte="refacture" />');
+
     const ajout = lire("app/(admin)/(espace-prestations)/prestations/locataires/AjouterLocataire.tsx");
-    expect(ajout).toContain("+ Ajouter un locataire");
-    expect(ajout).toMatch(/href=\{`\/prestations\/locataires\/\$\{c\.id\}`\}/);
+    expect(ajout).toContain("+ Client box privé");
+    expect(ajout).toContain("+ Box refacturé");
+    expect(ajout).toContain("?sorte=refacture");
   });
 
   it("voir demande perm_prestations ; enregistrer garde la garde de facturation", () => {

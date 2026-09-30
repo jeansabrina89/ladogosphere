@@ -63,7 +63,7 @@ export default async function PrestationsAujourdhuiPage() {
         </p>
         <p style={{ color: SOUS, fontSize: 12, margin: "6px 0 0" }}>
           <Link href="/prestations/locataires" style={{ color: MARINE, fontWeight: 600 }}>
-            Voir les locataires
+            Voir les clients box privé
           </Link>
         </p>
       </div>

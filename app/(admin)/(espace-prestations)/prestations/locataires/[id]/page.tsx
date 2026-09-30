@@ -18,6 +18,7 @@ import {
 import { bornesDuMois, libelleMois, proratLoyer } from "@/src/lib/factureLocataireLogique";
 import FicheLocataireForms, { type LignePerso } from "./FicheLocataire";
 import FormLocation from "./FormLocation";
+import { sorteDemandee } from "@/src/lib/boxPriveLogique";
 
 export const dynamic = "force-dynamic";
 
@@ -34,11 +35,19 @@ const SOUS = "rgba(27,43,94,0.6)";
  */
 export default async function FicheLocatairePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  /**
+   * APP 61 — `?sorte=refacture` vient du bouton « + Box refacturé ». Absente,
+   * la fiche s'ouvre en « client box privé » : c'est la sorte qui n'écrit aucun
+   * loyer, donc celle qu'on prend par défaut.
+   */
+  searchParams?: Promise<{ sorte?: string }>;
 }) {
   const acces = await exigerAccesAdmin("perm_prestations");
   const { id } = await params;
+  const sorte = sorteDemandee((await searchParams)?.sorte);
 
   const fiche = await ficheLocataire(id);
   if (!fiche) {
@@ -53,10 +62,10 @@ export default async function FicheLocatairePage({
         <div style={{ maxWidth: 860, margin: "0 auto", minWidth: 0 }}>
           <EnTete
             titre={`🏠 ${client.prenom ?? ""} ${client.nom ?? ""}`.trim()}
-            sousTitre="Fiche de locataire · pas encore locataire de box"
+            sousTitre="Fiche box privé · box pas encore ouvert"
           />
           <p style={{ color: SOUS, fontSize: 14, margin: "0 0 16px" }}>
-            Cochez « Locataire de box » et enregistrez pour lui ouvrir les prestations.{" "}
+            Cochez « Client box privé » et enregistrez pour lui ouvrir les prestations.{" "}
             <Link href={`/clients/${client.id}`} style={{ color: MARINE, fontWeight: 600 }}>Fiche client</Link>
           </p>
           {peutEnregistrer ? (
@@ -71,10 +80,11 @@ export default async function FicheLocatairePage({
                 locataire_jusqu_au: client.locataire_jusqu_au,
               }}
               locataire={client.locataire_box === true}
+              sorte={sorte}
             />
           ) : (
             <p style={{ color: SOUS, fontSize: 13 }}>
-              Faire d&apos;un client un locataire demande la permission des encaissements.
+              Ouvrir un box à un client demande la permission des encaissements.
             </p>
           )}
         </div>
@@ -144,7 +154,7 @@ export default async function FicheLocatairePage({
       <div style={{ maxWidth: 860, margin: "0 auto", minWidth: 0 }}>
         <EnTete
           titre={`🏠 ${client.prenom ?? ""} ${client.nom ?? ""}`.trim()}
-          sousTitre={`Box ${client.box_loue ?? "—"} · locataire de box`}
+          sousTitre={`Box ${client.box_loue ?? "—"} · client box privé`}
         />
 
         {gardeEnCours && (
@@ -198,7 +208,7 @@ export default async function FicheLocatairePage({
                 </p>
               </div>
               <div>
-                <p style={{ color: SOUS, fontSize: 12, margin: 0 }}>Refacturé au locataire (3021)</p>
+                <p style={{ color: SOUS, fontSize: 12, margin: 0 }}>Refacturé au client (3021)</p>
                 <p style={{ color: MARINE, fontSize: 18, fontWeight: 700, margin: "2px 0 0" }}>
                   {loyer === null ? "— à saisir —" : chiffre(loyerDuMois)}
                 </p>
