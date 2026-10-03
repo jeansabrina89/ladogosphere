@@ -80,8 +80,11 @@ describe("fournisseurs groupés par usage", () => {
   it("la page filtre par cette table et pose la même pastille sur chaque ligne", () => {
     const page = lire("app/(admin)/(espace-comptabilite)/comptabilite/fournisseurs/page.tsx");
     expect(page).toContain("fournisseurRetenu(f.compte_charge_defaut as string | null, coches)");
-    expect(page).toContain("infoUsage(usageDuCompte(f.compte_charge_defaut as string | null))");
+    // APP 73 — la ligne est dessinée par le composant partagé des trois espaces.
+    const table = lire("app/components/fournisseurs/TableFournisseurs.tsx");
+    expect(table).toContain("infoUsage(usageDuCompte(f.compte_charge_defaut ?? null))");
     // Un seul fichier porte la correspondance : pas de « 4200 » écrit dans la page.
     expect(page).not.toMatch(/"4200"|"4000"|"44[01]0"/);
+    expect(table).not.toMatch(/"4200"|"4000"|"44[01]0"/);
   });
 });

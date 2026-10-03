@@ -33,7 +33,9 @@ export type EntiteJournal =
   // Un refus de la garde (garde.ts) : l'entité est le compte qui a frappé.
   | "acces"
   // APP 59 : les périodes où la pension n'accueille ni ne rend aucun chien.
-  | "fermeture_pension";
+  | "fermeture_pension"
+  // APP 73 : le carnet des fournisseurs, et ses domaines.
+  | "fournisseur";
 
 export type EvenementJournal = {
   entite: EntiteJournal;
@@ -421,6 +423,13 @@ const LIBELLES_PAR_ENTITE: Record<string, Record<string, string>> = {
   },
   acces: {
     refus: "Accès refusé",
+  },
+  fournisseur: {
+    creation: "Fournisseur créé",
+    modification: "Fournisseur modifié",
+    desactivation: "Fournisseur désactivé",
+    reactivation: "Fournisseur réactivé",
+    suppression: "Fournisseur supprimé",
   },
 
   /**

@@ -107,7 +107,7 @@ describe("ce que voit chaque profil", () => {
     expect(cles(atelierSeul)).toContain("atelier");
     expect(cles(atelierSeul)).not.toContain("boutique");
     expect(labels("atelier", atelierSeul)).toEqual([
-      "🏠 Atelier", "🧵 Fournitures", "📦 Inventaire", "📥 Entrées de stock",
+      "🏠 Atelier", "🧵 Fournitures", "📦 Inventaire", "📥 Entrées de stock", "🏢 Fournisseurs",
     ]);
   });
 });
@@ -153,9 +153,13 @@ describe("une entrée de menu ne mène jamais à une redirection", () => {
     }
   });
 
-  it("mais les fournisseurs restent atteignables par la Boutique", () => {
-    const depenses = droits({ perm_depenses: true, perm_boutique_vente: true });
-    expect(labels("boutique", depenses)).toContain("🏢 Fournisseurs");
+  it("APP 73 — les fournisseurs de la Boutique suivent la GESTION, pas les dépenses", () => {
+    const gestion = droits({ perm_boutique_vente: true, perm_boutique_gestion: true });
+    expect(labels("boutique", gestion)).toContain("🏢 Fournisseurs");
+    // Une vendeuse sans gestion ne les voit pas, comme avant APP 73 —
+    // même si elle saisit des dépenses.
+    const vendeuse = droits({ perm_boutique_vente: true, perm_depenses: true });
+    expect(labels("boutique", vendeuse)).not.toContain("🏢 Fournisseurs");
   });
 
   it("l'admin, elle, entre par l'accueil de l'espace", () => {
@@ -168,7 +172,7 @@ describe("les trois déplacements décidés", () => {
   it("Tarifs, Modèles d'e-mails et TVA sont dans Réglages", () => {
     expect(labels("reglages", ADMIN)).toEqual([
       "🏠 Réglages", "🏛️ Entreprise", "💰 Tarifs", "✉️ Modèles d'e-mails", "🧾 TVA", "🎫 Remise membre",
-      "🛍️ Boutique",
+      "🛍️ Boutique", "📓 Journal des gestes",
     ]);
   });
 
@@ -192,15 +196,20 @@ describe("les trois déplacements décidés", () => {
   });
 });
 
-describe("un fournisseur, un écran, deux chemins", () => {
-  it("la même adresse apparaît dans Boutique et dans Comptabilité", () => {
+describe("APP 73 — les fournisseurs par domaine", () => {
+  it("un écran par espace : Boutique, Atelier, et Comptabilité qui les voit tous", () => {
     expect(labels("boutique", ADMIN)).toContain("🏢 Fournisseurs");
+    expect(labels("atelier", ADMIN)).toContain("🏢 Fournisseurs");
     expect(labels("comptabilite", ADMIN)).toContain("🏢 Fournisseurs");
-    const hrefs = ESPACES
-      .flatMap((e) => e.ecrans)
+    const ecrans = ESPACES
+      .flatMap((e) => e.ecrans.map((x) => ({ espace: e.cle, ...x })))
       .filter((e) => e.label === "🏢 Fournisseurs")
-      .map((e) => e.href);
-    expect(hrefs).toEqual(["/comptabilite/fournisseurs", "/comptabilite/fournisseurs"]);
+      .map((e) => [e.espace, e.href, e.exigence]);
+    expect(ecrans).toEqual([
+      ["boutique", "/boutique/fournisseurs", { type: "permission", permission: "perm_boutique_gestion" }],
+      ["atelier", "/atelier/fournisseurs", { type: "permission", permission: "perm_atelier" }],
+      ["comptabilite", "/comptabilite/fournisseurs", { type: "permission", permission: "perm_depenses" }],
+    ]);
   });
 });
 
@@ -286,7 +295,7 @@ describe("la composition corrigée", () => {
   it("la Pension a repris les réservations", () => {
     expect(labels("pension", ADMIN)).toEqual([
       "🏠 Pension", "🐾 Chiens du jour", "✅ Check-in", "📅 Réservations",
-      "🗂️ Planning", "🏠 Box", "🚫 Essais fermés",
+      "🗂️ Planning", "🏠 Box", "🔒 Fermetures", "🚫 Essais fermés",
     ]);
   });
 
@@ -301,7 +310,7 @@ describe("la composition corrigée", () => {
   it("l'Atelier a repris les modèles et le sur-mesure", () => {
     expect(labels("atelier", ADMIN)).toEqual([
       "🏠 Atelier", "🧵 Fournitures", "📦 Inventaire", "📥 Entrées de stock",
-      "🧩 Modèles", "🎁 Commandes sur mesure",
+      "🏢 Fournisseurs", "🧩 Modèles", "🎁 Commandes sur mesure",
     ]);
   });
 
@@ -406,7 +415,8 @@ describe("l'espace Prestations", () => {
       // APP 61 — « Locataires » disait deux choses à la fois. L'entrée mène
       // désormais aux clients box privé, les box refacturés étant une section
       // du même écran.
-      "✅ Aujourd’hui", "🗂️ Planning", "🏠 Clients box privé",
+      // APP 73 — « Aujourd'hui » est le nom du premier espace de la barre.
+      "✅ Prestations du jour", "🗂️ Planning", "🏠 Clients box privé",
     ]);
   });
 

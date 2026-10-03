@@ -17,13 +17,19 @@ import { urlSigneePhotoChien } from "@/src/lib/photoChien";
 import ResultatEssaiSaisi from "@/app/components/ResultatEssaiSaisi";
 import { lireAuteurs } from "@/src/lib/auteursDb";
 import { auteurAffiche } from "@/src/lib/auteur";
+import { hrefRetour } from "@/src/lib/rechercheAZ";
+import { FILTRE_ATTENTE } from "@/src/lib/chienAttente";
 
 export default async function ChienPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ retour?: string | string[] }>;
 }) {
   await exigerAccesAdmin();
+  // APP 73 — « ← Retour » ramène la liste à l'endroit où on l'a quittée.
+  const retourListe = hrefRetour("/chiens", (await searchParams).retour, [FILTRE_ATTENTE]);
   const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
   const { id } = await params;
@@ -56,7 +62,7 @@ export default async function ChienPage({
               icone="🐶"
               titre="Chien introuvable"
               message="Ce chien n'existe pas ou a été supprimé."
-              action={<Bouton variante="secondaire" href="/chiens">← Retour à la liste</Bouton>}
+              action={<Bouton variante="secondaire" href={retourListe}>← Retour à la liste</Bouton>}
             />
           </Carte>
         </div>
@@ -282,7 +288,7 @@ export default async function ChienPage({
           )}
           {perms.isAdmin && <BoutonArchiver id={chien.id} actif={chien.actif} />}
           {perms.isAdmin && <BoutonSupprimer id={chien.id} nom={chien.nom} />}
-          <Bouton variante="secondaire" href="/chiens">← Retour à la liste</Bouton>
+          <Bouton variante="secondaire" href={retourListe}>← Retour à la liste</Bouton>
         </div>
 
       </div>

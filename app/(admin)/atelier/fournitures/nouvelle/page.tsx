@@ -5,6 +5,7 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import FormArticle from "@/app/(admin)/boutique/articles/FormArticle";
+import { choixPourArticle } from "@/src/lib/domainesFournisseurs";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export default async function NouvelleFournituraPage() {
   await exigerAccesAdmin("perm_atelier");
 
   const [{ data: fournisseurs }, tauxLegaux] = await Promise.all([
-    supabaseAdmin.from("fournisseurs").select("id, nom").eq("actif", true).order("nom"),
+    supabaseAdmin.from("fournisseurs").select("id, nom, domaines").eq("actif", true).order("nom"),
     tauxLegauxEnVigueur(),
   ]);
 
@@ -37,7 +38,8 @@ export default async function NouvelleFournituraPage() {
         />
         <Carte>
           <FormArticle
-            fournisseurs={(fournisseurs ?? []) as { id: string; nom: string }[]}
+            // APP 73 — une fourniture se choisit chez les fournisseurs « atelier ».
+            fournisseurs={choixPourArticle((fournisseurs ?? []) as { id: string; nom: string; domaines?: unknown }[], "atelier")}
             tauxLegaux={tauxLegaux}
             perimetre="atelier"
           />

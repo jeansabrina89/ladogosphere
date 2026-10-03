@@ -149,6 +149,10 @@ export default async function BoutiquePage() {
             />
           )}
 
+          {/* Seule tuile de cet accueil sans entrée dans le menu de la Boutique,
+              et c'est voulu : l'écran du sur-mesure se range dans l'Atelier, où
+              on le fabrique (APP 71). Le CHIFFRE reste ici, parce que c'est au
+              comptoir qu'on promet une date à la cliente. */}
           <Tuile
             href="/boutique/commandes"
             titre="Commandes sur mesure à faire"
@@ -192,10 +196,11 @@ export default async function BoutiquePage() {
               </>
             )}
             <Raccourci href="/boutique/commandes-en-ligne" titre="🌐 Commandes en ligne" note="À préparer, à remettre, à expédier" />
-            <Raccourci href="/comptabilite/fournisseurs" titre="🏢 Fournisseurs"
-              note={acces.permissions.perm_depenses
-                ? "Carnet partagé avec les dépenses"
-                : "Demande la permission « Dépenses »"} />
+            {/* APP 73 — les fournisseurs de la boutique, sous la garde de la
+                gestion : la même que l'écran qu'il ouvre. */}
+            {gestion && (
+              <Raccourci href="/boutique/fournisseurs" titre="🏢 Fournisseurs" note="Ceux qui livrent le magasin" />
+            )}
           </div>
         </section>
       </div>

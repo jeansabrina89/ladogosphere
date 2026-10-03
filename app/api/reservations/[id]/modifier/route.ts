@@ -15,6 +15,7 @@ import { lireHoraires } from "@/src/lib/horairesServeur";
 import { ecartModificationReservation } from "@/src/lib/journalLogique";
 import { idUtilisateurCourant } from "@/src/lib/permissions";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
+import { conflitPlacement, deplacerOccupations } from "@/src/lib/placementBox";
 
 export async function POST(
   req: NextRequest,
@@ -57,7 +58,7 @@ export async function POST(
   // déclencher le recalcul de montant_calcule.
   const { data: avant } = await supabaseAdmin
     .from("reservations")
-    .select("type_reservation, date_debut, date_fin, heure_arrivee, heure_depart, type_sejour, numero, statut, box_id, commentaire_admin")
+    .select("type_reservation, date_debut, date_fin, heure_arrivee, heure_depart, type_sejour, numero, statut, box_id, commentaire_admin, box_seul")
     .eq("id", id)
     .single();
 
@@ -70,14 +71,44 @@ export async function POST(
   });
   if (refusType) return NextResponse.json({ error: refusType }, { status: 400 });
 
-  // APP 74 — « chien seul dans un box », AVANT tout le reste : ses refus
-  // (facture émise, plusieurs chiens, essai) ne laissent rien d'enregistré à
-  // moitié, et la nouvelle occupation de box, plus bas, la voit déjà — le filet
-  // en base aussi. Même chemin que la case de la fiche : journal et recalcul.
   const champBoxSeul = formData.get("box_seul");
-  if (champBoxSeul === "on" || champBoxSeul === "off") {
-    const r = await definirBoxSeul(id, champBoxSeul === "on");
+  const boxSeulAvant = avant?.box_seul === true;
+  const boxSeulApres = champBoxSeul === "on" ? true : champBoxSeul === "off" ? false : boxSeulAvant;
+
+  /*
+   * APP 73 (point 19) — TOUT OU RIEN.
+   *
+   * 1. La place d'abord, SANS RIEN ÉCRIRE : le box est-il libre pour ces dates,
+   *    avec la case « box seul » telle qu'elle sera ? Même règle que le filet
+   *    en base. Refus → la réservation reste exactement comme avant.
+   */
+  if (box_id) {
+    const conflit = await conflitPlacement({
+      reservationId: id, boxId: box_id, dateDebut: date_debut, dateFin: date_fin, boxSeul: boxSeulApres,
+    });
+    if (conflit) return NextResponse.json({ error: conflit }, { status: 409 });
+  }
+
+  // 2. APP 74 — « chien seul dans un box », avant le déplacement : le filet en
+  //    base lit la case sur la réservation. Ses refus (facture émise, plusieurs
+  //    chiens, essai) n'écrivent rien. Même chemin que la case de la fiche :
+  //    journal et recalcul.
+  if (boxSeulApres !== boxSeulAvant) {
+    const r = await definirBoxSeul(id, boxSeulApres);
     if (r.error) return NextResponse.json({ error: r.error }, { status: 400 });
+  }
+
+  // 3. Le déplacement. Si la base refuse quand même (une écriture passée entre
+  //    la vérification et maintenant), l'ancienne place est remise ligne pour
+  //    ligne, la case reprend sa valeur, et RIEN d'autre n'a été écrit.
+  if (box_id) {
+    const deplacement = await deplacerOccupations({
+      reservationId: id, boxId: box_id, dateDebut: date_debut, dateFin: date_fin,
+    });
+    if (deplacement.erreur) {
+      if (boxSeulApres !== boxSeulAvant) await definirBoxSeul(id, boxSeulAvant);
+      return NextResponse.json({ error: deplacement.erreur }, { status: 409 });
+    }
   }
 
   const { error } = await supabaseAdmin
@@ -136,35 +167,6 @@ export async function POST(
 
     if (aChange) {
       await recalculerMontantSejour(id);
-    }
-  }
-
-  if (box_id) {
-    await supabaseAdmin.from("occupation_boxes").delete().eq("reservation_id", id);
-    const { data: resChiens } = await supabaseAdmin
-      .from("reservation_chiens")
-      .select("chien_id")
-      .eq("reservation_id", id);
-
-    if (resChiens && resChiens.length > 0) {
-      const { error: errOcc } = await supabaseAdmin.from("occupation_boxes").insert(
-        resChiens.map((rc) => ({
-          box_id,
-          chien_id: rc.chien_id,
-          reservation_id: id,
-          date_debut,
-          date_fin,
-        }))
-      );
-      // Le filet en base a refusé ce box (APP 74 : box déjà pris, ou chien
-      // seul dans son box). La modification est enregistrée, la place non :
-      // on le dit, au lieu de laisser croire que le chien a un box.
-      if (errOcc) {
-        return NextResponse.json(
-          { error: `Modification enregistrée, mais le box n'a pas pu être attribué : ${errOcc.message}` },
-          { status: 409 },
-        );
-      }
     }
   }
 

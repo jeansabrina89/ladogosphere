@@ -8,6 +8,7 @@ import {
   type EtatFournisseur,
 } from "./actions";
 import { CATEGORIES_DEPENSE } from "@/src/lib/depensesLogique";
+import { DOMAINES, domainesDe, type Domaine } from "@/src/lib/domainesFournisseurs";
 
 const INITIAL: EtatFournisseur = { erreur: null };
 
@@ -52,10 +53,19 @@ export type FournisseurExistant = {
   delai_commande_min_jours: number | null;
   delai_commande_max_jours: number | null;
   actif: boolean;
+  domaines?: string[] | null;
 };
 
-export default function FormFournisseur({ fournisseur }: { fournisseur?: FournisseurExistant }) {
+export default function FormFournisseur({
+  fournisseur,
+  domainesParDefaut = ["general"],
+}: {
+  fournisseur?: FournisseurExistant;
+  /** APP 73 — à la création : le domaine de l'espace d'où l'on vient. */
+  domainesParDefaut?: Domaine[];
+}) {
   const [etat, action, enCours] = useActionState(enregistrerFournisseur, INITIAL);
+  const coches = fournisseur ? domainesDe(fournisseur) : domainesParDefaut;
 
   return (
     <form action={action} style={{ display: "grid", gap: 16 }}>
@@ -65,6 +75,27 @@ export default function FormFournisseur({ fournisseur }: { fournisseur?: Fournis
         <label htmlFor="nom" style={etiquette}>Nom</label>
         <input id="nom" name="nom" defaultValue={fournisseur?.nom ?? ""} style={champ} required />
       </div>
+
+      {/* APP 73 — où la fiche se range. Au moins une case : le serveur le
+          revérifie, et la base le refuse aussi. */}
+      <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+        <legend style={etiquette}>Domaines</legend>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {DOMAINES.map((d) => (
+            <label key={d.valeur} style={{
+              display: "inline-flex", alignItems: "center", gap: 8, minHeight: 44, padding: "0 14px",
+              border: BORDURE, borderRadius: 12, backgroundColor: "#FFFFFF", color: MARINE,
+              fontSize: 15, cursor: "pointer",
+            }}>
+              <input type="checkbox" name="domaines" value={d.valeur} defaultChecked={coches.includes(d.valeur)} />
+              {d.libelle}
+            </label>
+          ))}
+        </div>
+        <p style={{ fontSize: 12, color: "rgba(27,43,94,0.55)", marginTop: 6 }}>
+          Au moins un. Un grossiste qui livre la boutique et l&apos;atelier coche les deux.
+        </p>
+      </fieldset>
 
       <div>
         <label htmlFor="compte_charge_defaut" style={etiquette}>Catégorie habituelle</label>

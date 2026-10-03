@@ -364,7 +364,7 @@ export default function FormArticle({
           </select>
           <p style={aide}>
             Nouveau fournisseur ?{" "}
-            <Link href="/comptabilite/fournisseurs/nouveau" style={{ color: "#1F6E5B", fontWeight: 600 }}>
+            <Link href={`/comptabilite/fournisseurs/nouveau?domaine=${perimetre}`} style={{ color: "#1F6E5B", fontWeight: 600 }}>
               l&apos;ajouter au carnet
             </Link>
           </p>

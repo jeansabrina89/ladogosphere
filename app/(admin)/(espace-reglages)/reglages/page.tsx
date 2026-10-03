@@ -51,6 +51,12 @@ export default async function ReglagesPage() {
             titre="🛍️ Boutique"
             note="Livraison offerte à partir d'un montant d'articles, grille des frais de port et poids maximum d'un colis."
           />
+          {/* APP 73 — l'écran figurait au menu, pas sur cet accueil. */}
+          <Raccourci
+            href="/reglages/remise-membre"
+            titre="🎫 Remise membre"
+            note="Le pourcentage de remise accordé aux membres, catégorie par catégorie d'articles."
+          />
           <Raccourci
             href="/reglages/tva"
             titre="🧾 TVA"

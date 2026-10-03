@@ -30,6 +30,7 @@ import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 import BlocConditions from "./BlocConditions";
 import { acceptationsDuClient } from "@/src/lib/acceptationsConditions";
+import { hrefRetour } from "@/src/lib/rechercheAZ";
 
 function ficheIntrouvable() {
   return (
@@ -41,8 +42,16 @@ function ficheIntrouvable() {
   );
 }
 
-export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ClientPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ retour?: string | string[] }>;
+}) {
   const { id } = await params;
+  // APP 73 — « ← Retour » ramène la liste à l'endroit où on l'a quittée.
+  const retourListe = hrefRetour("/clients", (await searchParams).retour);
   await exigerAccesAdmin();
   const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
@@ -440,7 +449,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           )}
           {perms.isAdmin && <BoutonArchiverClient id={client.id} actif={client.actif} />}
           {perms.isAdmin && <BoutonSupprimerClient id={client.id} nom={`${client.prenom} ${client.nom}`} />}
-          <Bouton variante="secondaire" href="/clients">← Retour à la liste</Bouton>
+          <Bouton variante="secondaire" href={retourListe}>← Retour à la liste</Bouton>
         </div>
 
       </div>

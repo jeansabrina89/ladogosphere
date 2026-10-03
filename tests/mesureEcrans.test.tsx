@@ -256,7 +256,11 @@ describe("les lectures indépendantes partent ENSEMBLE (client simulé, ordre d'
     expect(m.detail[1]).toEqual(["profiles"]);
     expect([...m.detail[2]].sort()).toEqual([
       "checkin_checkout", "checkin_checkout", "commandes_personnalisees", "cotisations_membres",
-      "depenses", "factures", "pieces", "taches_prestations",
+      "depenses", "factures", "pieces",
+      // APP 73 — demandes en attente et réservations du personnel à voir,
+      // venues de l'accueil Clients : dans la MÊME étape, pas une de plus.
+      "reservations", "reservations",
+      "taches_prestations",
     ]);
   });
 

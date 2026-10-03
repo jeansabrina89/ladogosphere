@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { COMPTES_DEPENSE } from "@/src/lib/depensesLogique";
+import { domainesValides, MESSAGE_DOMAINE_REQUIS } from "@/src/lib/domainesFournisseurs";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
 
 /** Carnet de fournisseurs. Un fournisseur ne se supprime pas : il se désactive. */
 
@@ -40,6 +42,7 @@ function champs(formData: FormData) {
   const max = jours("delai_commande_max_jours");
   return {
     nom: String(formData.get("nom") ?? "").trim(),
+    domaines: domainesValides(formData.getAll("domaines").map(String)),
     adresse: texte("adresse"),
     npa: texte("npa"),
     localite: texte("localite"),
@@ -66,10 +69,21 @@ export async function enregistrerFournisseur(
   const id = (formData.get("id") as string) || null;
   const valeurs = champs(formData);
   if (!valeurs.nom) return { erreur: "Le nom du fournisseur est obligatoire.", id: id ?? undefined };
+  if (valeurs.domaines.length === 0) return { erreur: MESSAGE_DOMAINE_REQUIS, id: id ?? undefined };
 
   if (id) {
+    const { data: avant } = await supabaseAdmin
+      .from("fournisseurs").select(Object.keys(valeurs).join(", ")).eq("id", id).maybeSingle();
     const { error } = await supabaseAdmin.from("fournisseurs").update(valeurs).eq("id", id);
     if (error) return { erreur: error.message, id };
+    // APP 73 — journal des gestes : ce qui a bougé, et rien d'autre.
+    const ecart = ecartFournisseur((avant ?? null) as Record<string, unknown> | null, valeurs);
+    if (ecart) {
+      await tracerEvenement({
+        entite: "fournisseur", entiteId: id, evenement: "modification",
+        avant: ecart.avant, apres: ecart.apres, userId: g.userId ?? null,
+      });
+    }
     revalidatePath("/comptabilite/fournisseurs");
     revalidatePath(`/comptabilite/fournisseurs/${id}`);
     return { erreur: null, id };
@@ -81,6 +95,11 @@ export async function enregistrerFournisseur(
     .select("id")
     .single();
   if (error) return { erreur: error.message };
+
+  await tracerEvenement({
+    entite: "fournisseur", entiteId: data.id as string, evenement: "creation",
+    apres: { nom: valeurs.nom, domaines: valeurs.domaines }, userId: g.userId ?? null,
+  });
 
   revalidatePath("/comptabilite/fournisseurs");
   redirect(`/comptabilite/fournisseurs/${data.id as string}`);
@@ -102,6 +121,10 @@ export async function basculerActifFournisseur(
 
   const { error } = await supabaseAdmin.from("fournisseurs").update({ actif }).eq("id", id);
   if (error) return { erreur: error.message, id };
+  await tracerEvenement({
+    entite: "fournisseur", entiteId: id, evenement: actif ? "reactivation" : "desactivation",
+    avant: { actif: !actif }, apres: { actif }, userId: g.userId ?? null,
+  });
 
   revalidatePath("/comptabilite/fournisseurs");
   revalidatePath(`/comptabilite/fournisseurs/${id}`);
@@ -129,9 +152,32 @@ export async function supprimerFournisseur(
     };
   }
 
+  const { data: avantSuppression } = await supabaseAdmin
+    .from("fournisseurs").select("nom, domaines").eq("id", id).maybeSingle();
   const { error } = await supabaseAdmin.from("fournisseurs").delete().eq("id", id);
   if (error) return { erreur: error.message, id };
+  await tracerEvenement({
+    entite: "fournisseur", entiteId: id, evenement: "suppression",
+    avant: avantSuppression ?? null, userId: g.userId ?? null,
+  });
 
   revalidatePath("/comptabilite/fournisseurs");
   redirect("/comptabilite/fournisseurs");
+}
+
+/** Les champs qui ont changé, avant et après. Les tableaux se comparent par contenu. */
+function ecartFournisseur(
+  avant: Record<string, unknown> | null,
+  apres: Record<string, unknown>,
+): { avant: Record<string, unknown>; apres: Record<string, unknown> } | null {
+  const av: Record<string, unknown> = {};
+  const ap: Record<string, unknown> = {};
+  for (const [cle, valeur] of Object.entries(apres)) {
+    const ancien = avant?.[cle] ?? null;
+    if (JSON.stringify(ancien) === JSON.stringify(valeur ?? null)) continue;
+    // L'IBAN ne s'écrit pas en clair dans le journal : on dit seulement qu'il a changé.
+    av[cle] = cle === "iban" ? (ancien ? "•••" : null) : ancien;
+    ap[cle] = cle === "iban" ? (valeur ? "•••" : null) : valeur ?? null;
+  }
+  return Object.keys(ap).length > 0 ? { avant: av, apres: ap } : null;
 }

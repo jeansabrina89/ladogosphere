@@ -169,6 +169,10 @@ export const ESPACES: Espace[] = [
       { href: "/reservations", label: "📅 Réservations", exigence: PERSONNEL },
       { href: "/planning", label: "🗂️ Planning", exigence: PERSONNEL },
       { href: "/boxes", label: "🏠 Box", exigence: PERSONNEL },
+      // APP 73 — les fermetures de la PENSION, voisines de celles des ESSAIS :
+      // deux écrans, deux règles, jamais fusionnés. La garde est celle de la
+      // page (exigerAdminPage).
+      { href: "/fermetures-pension", label: "🔒 Fermetures", exigence: ADMIN },
       { href: "/calendrier-essais", label: "🚫 Essais fermés", exigence: PERSONNEL },
     ],
   },
@@ -185,7 +189,8 @@ export const ESPACES: Espace[] = [
     cle: "prestations",
     label: "🧹 Prestations",
     exigence: perm("perm_prestations"),
-    accueil: { href: "/prestations", label: "✅ Aujourd’hui", exigence: perm("perm_prestations"), exact: true },
+    // APP 73 — « Aujourd'hui » était déjà le nom du premier espace de la barre.
+    accueil: { href: "/prestations", label: "✅ Prestations du jour", exigence: perm("perm_prestations"), exact: true },
     ecrans: [
       { href: "/prestations/planning", label: "🗂️ Planning", exigence: perm("perm_prestations") },
       { href: "/prestations/locataires", label: "🏠 Clients box privé", exigence: perm("perm_prestations") },
@@ -213,10 +218,11 @@ export const ESPACES: Espace[] = [
       // Le second est une dette envers une cliente, le premier une intention.
       { href: "/boutique/a-commander", label: "📥 À commander", exigence: perm("perm_boutique_gestion") },
       { href: "/boutique/statistiques", label: "📊 Statistiques", exigence: perm("perm_boutique_gestion") },
-      // Un seul écran, deux chemins d'accès : la fiche fournisseur sert aussi
-      // bien aux dépenses qu'à la boutique. Sa garde est « Dépenses » — la
-      // barre se conforme à la garde de l'écran, pas à celle de l'espace.
-      { href: "/comptabilite/fournisseurs", label: "🏢 Fournisseurs", exigence: perm("perm_depenses") },
+      // APP 73 — les fournisseurs du domaine « boutique » (décision de Sabrina,
+      // 03.10.2026). Garde : la gestion de la boutique — une vendeuse sans
+      // gestion ne les voit pas, comme avant. La fiche, elle, reste à la
+      // Comptabilité, avec sa garde « Dépenses ».
+      { href: "/boutique/fournisseurs", label: "🏢 Fournisseurs", exigence: perm("perm_boutique_gestion") },
     ],
   },
   {
@@ -237,6 +243,8 @@ export const ESPACES: Espace[] = [
       { href: "/atelier/fournitures", label: "🧵 Fournitures", exigence: perm("perm_atelier") },
       { href: "/atelier/inventaire", label: "📦 Inventaire", exigence: perm("perm_atelier") },
       { href: "/atelier/entrees", label: "📥 Entrées de stock", exigence: perm("perm_atelier") },
+      // APP 73 — les fournisseurs du domaine « atelier ».
+      { href: "/atelier/fournisseurs", label: "🏢 Fournisseurs", exigence: perm("perm_atelier") },
       { href: "/boutique/modeles", label: "🧩 Modèles", exigence: perm("perm_boutique_gestion") },
       { href: "/boutique/commandes", label: "🎁 Commandes sur mesure", exigence: perm("perm_boutique_vente") },
     ],
@@ -258,6 +266,7 @@ export const ESPACES: Espace[] = [
       { href: "/comptabilite/a-regulariser", label: "💰 À encaisser", exigence: ADMIN },
       { href: "/comptabilite/relances", label: "🔔 Relances", exigence: perm("perm_factures") },
       { href: "/comptabilite/depenses", label: "💸 Dépenses", exigence: perm("perm_depenses") },
+      // Tous les fournisseurs, filtrables par domaine (APP 73).
       { href: "/comptabilite/fournisseurs", label: "🏢 Fournisseurs", exigence: perm("perm_depenses") },
       { href: "/comptabilite/journal", label: "📒 Journal", exigence: ADMIN },
       { href: "/comptabilite/tva", label: "🧾 Décompte TVA", exigence: ADMIN },
@@ -277,10 +286,17 @@ export const ESPACES: Espace[] = [
     exigence: ADMIN,
     accueil: { href: "/equipe", label: "🏠 Équipe", exigence: ADMIN, exact: true },
     ecrans: [
-      { href: "/employes", label: "👥 Équipe", exigence: ADMIN, exact: true },
-      { href: "/employes/planning", label: "🗓️ Planning équipe", exigence: ADMIN },
+      // APP 73 — « 👥 Équipe » était aussi le nom de l'espace : deux fois le
+      // même mot dans la même barre.
+      { href: "/employes", label: "🗂️ Fiches employées", exigence: ADMIN, exact: true },
+      // Deux plannings, et ce ne sont pas les mêmes : le premier se PRÉPARE et
+      // s'enregistre (admin), le second est la grille du mois telle que
+      // l'équipe la lit (ouverte à tout le personnel, d'où sa garde).
+      { href: "/employes/planning", label: "🗓️ Préparer le planning", exigence: ADMIN },
+      { href: "/employes/planning-equipe", label: "🗓️ Planning du mois", exigence: PERSONNEL },
       { href: "/employes/timbrage", label: "⏱️ Timbrage", exigence: ADMIN },
       { href: "/employes/vacances", label: "🌴 Vacances", exigence: ADMIN },
+      { href: "/employes/fiches-salaire", label: "📄 Fiches de salaire", exigence: ADMIN },
     ],
   },
   {
@@ -295,6 +311,8 @@ export const ESPACES: Espace[] = [
       { href: "/reglages/tva", label: "🧾 TVA", exigence: ADMIN },
       { href: "/reglages/remise-membre", label: "🎫 Remise membre", exigence: ADMIN },
       { href: "/reglages/boutique", label: "🛍️ Boutique", exigence: ADMIN },
+      // APP 73 — atteignable jusqu'ici par la seule tuile de l'accueil.
+      { href: "/reglages/journal", label: "📓 Journal des gestes", exigence: ADMIN },
     ],
   },
 ];
@@ -368,9 +386,10 @@ export function estActif(chemin: string, href: string, exact = false): boolean {
  * L'espace auquel appartient une adresse : celui dont un écran correspond le
  * plus précisément. Sert à allumer la bonne entrée de la barre latérale.
  *
- * À précision égale — un même écran rangé dans deux espaces, comme la fiche
- * fournisseur —, l'espace dont l'accueil préfixe l'adresse l'emporte :
- * /comptabilite/fournisseurs allume Comptabilité, pas Boutique. L'accueil « / »
+ * À précision égale — un même écran rangé dans deux espaces —, l'espace dont
+ * l'accueil préfixe l'adresse l'emporte : /comptabilite/... allume
+ * Comptabilité. (Depuis APP 73, Boutique et Atelier ont leurs propres écrans
+ * Fournisseurs : plus aucun écran n'est rangé deux fois.) L'accueil « / »
  * préfixe tout et ne départage donc rien.
  */
 export function espaceDuChemin(chemin: string, espaces: Espace[] = ESPACES): CleEspace | null {

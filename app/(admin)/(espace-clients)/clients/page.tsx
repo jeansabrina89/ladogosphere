@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
@@ -8,15 +7,24 @@ import EnTete from "@/app/components/ui/EnTete";
 import Bouton from "@/app/components/ui/Bouton";
 import Carte from "@/app/components/ui/Carte";
 import EtatVide from "@/app/components/ui/EtatVide";
+import RechercheAZ, { type ElementRecherche } from "@/app/components/RechercheAZ";
+import { lireEtat } from "@/src/lib/rechercheAZ";
 
-export default async function ClientsPage() {
+export default async function ClientsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await exigerAccesAdmin();
+  const etat = lireEtat(await searchParams);
   const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
 
+  // APP 73 — le nom des chiens vient dans la MÊME lecture : taper « Max »
+  // trouve le propriétaire de Max sans aucune requête de plus.
   const { data: clients } = await supabase
     .from("clients")
-    .select(`*, chiens (id)`)
+    .select(`*, chiens (id, nom)`)
     .order("nom");
 
   // Identifier les fiches liées à un compte employé/admin
@@ -24,17 +32,19 @@ export default async function ClientsPage() {
     .filter(c => c.auth_user_id)
     .map(c => c.auth_user_id as string);
 
+  // Les deux lectures qui dépendent de la liste partent ENSEMBLE (APP 70).
   const personnelIds = new Set<string>();
-  if (authUserIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, role")
-      .in("id", authUserIds)
-      .in("role", ["employe", "admin"]);
-    (profiles ?? []).forEach(p => personnelIds.add(p.id));
-  }
-
-  const idsAJour = await clientsMembresAJour(supabaseAdmin, (clients ?? []).map(c => c.id));
+  const [{ data: profiles }, idsAJour] = await Promise.all([
+    authUserIds.length > 0
+      ? supabase
+          .from("profiles")
+          .select("id, role")
+          .in("id", authUserIds)
+          .in("role", ["employe", "admin"])
+      : Promise.resolve({ data: [] as { id: string; role: string }[] }),
+    clientsMembresAJour(supabaseAdmin, (clients ?? []).map(c => c.id)),
+  ]);
+  (profiles ?? []).forEach(p => personnelIds.add(p.id));
 
   const muted: React.CSSProperties = { color: "rgba(27,43,94,0.6)", fontSize: 14, margin: 0 };
   const pill = (bg: string, color: string): React.CSSProperties => ({
@@ -56,16 +66,24 @@ export default async function ClientsPage() {
           }
         />
 
-        <p style={{ ...muted, fontWeight: 600, margin: "0 0 16px" }}>
-          Total : {clients?.length ?? 0} client(s)
-        </p>
-
         {clients?.length ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {clients.map(client => {
+          <RechercheAZ
+            base="/clients"
+            initial={etat}
+            singulier="client"
+            pluriel="clients"
+            placeholder="Nom, prénom, téléphone, e-mail ou nom d'un chien…"
+            elements={clients.map((client): ElementRecherche => {
               const isPersonnel = client.auth_user_id && personnelIds.has(client.auth_user_id);
-              return (
-                <Link key={client.id} href={`/clients/${client.id}`} style={{ textDecoration: "none" }}>
+              const chiens = (client.chiens ?? []) as { id: string; nom: string | null }[];
+              return {
+                id: client.id as string,
+                // La lettre : le NOM DE FAMILLE. Le tri : nom, puis prénom.
+                cleLettre: client.nom as string,
+                tri: `${client.nom ?? ""} ${client.prenom ?? ""}`,
+                textes: [client.nom, client.prenom, client.email, ...chiens.map((c) => c.nom)],
+                telephones: [client.telephone],
+                carte: (
                   <Carte>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
                       <div style={{ minWidth: 0 }}>
@@ -82,10 +100,10 @@ export default async function ClientsPage() {
                       </div>
                     </div>
                   </Carte>
-                </Link>
-              );
+                ),
+              };
             })}
-          </div>
+          />
         ) : (
           <Carte>
             <EtatVide icone="👤" titre="Aucun client" message="Ajoute ton premier client pour commencer." />

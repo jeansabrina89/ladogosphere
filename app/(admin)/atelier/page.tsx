@@ -158,6 +158,7 @@ export default async function AtelierPage() {
             <Raccourci href="/atelier/fournitures" titre="🧵 Fournitures" note="Catalogue, seuils et prix d'achat" />
             <Raccourci href="/atelier/inventaire" titre="📦 Inventaire" note="Comptage et écarts" />
             <Raccourci href="/atelier/entrees" titre="📥 Entrées de stock" note="D&apos;où vient ce qu&apos;il y a en réserve" />
+            <Raccourci href="/atelier/fournisseurs" titre="🏢 Fournisseurs" note="Ceux qui livrent l&apos;atelier" />
             <Raccourci href="/boutique/modeles" titre="🧩 Modèles d&apos;options" note="Les questions posées sur plusieurs articles" />
             <Raccourci href="/boutique/commandes" titre="🎁 Commandes sur mesure" note="À faire, en cours, prêtes" />
           </div>

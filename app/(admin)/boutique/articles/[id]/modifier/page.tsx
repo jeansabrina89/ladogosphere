@@ -7,6 +7,7 @@ import { lireArticle } from "@/src/lib/boutique";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
+import { choixPourArticle } from "@/src/lib/domainesFournisseurs";
 import FormArticle, { type ArticleFormulaire } from "../../FormArticle";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export default async function ModifierArticlePage({
 
   const [article, { data: fournisseurs }, tauxLegaux] = await Promise.all([
     lireArticle(id),
-    supabaseAdmin.from("fournisseurs").select("id, nom, delai_commande_min_jours, delai_commande_max_jours").eq("actif", true).order("nom"),
+    supabaseAdmin.from("fournisseurs").select("id, nom, delai_commande_min_jours, delai_commande_max_jours, domaines").eq("actif", true).order("nom"),
     tauxLegauxEnVigueur(),
   ]);
   if (!article) notFound();
@@ -44,7 +45,13 @@ export default async function ModifierArticlePage({
         <Carte>
           <FormArticle
             article={article as unknown as ArticleFormulaire}
-            fournisseurs={(fournisseurs ?? []) as { id: string; nom: string }[]}
+            // APP 73 — les fournisseurs du domaine de l'article ; celui déjà
+            // enregistré reste proposé, même s'il n'en est pas.
+            fournisseurs={choixPourArticle(
+              (fournisseurs ?? []) as { id: string; nom: string; domaines?: unknown }[],
+              perimetre,
+              (article as { fournisseur_id?: string | null }).fournisseur_id ?? null,
+            )}
             tauxLegaux={tauxLegaux}
             perimetre={perimetre}
           />

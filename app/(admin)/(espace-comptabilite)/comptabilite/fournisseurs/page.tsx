@@ -1,37 +1,35 @@
 import Link from "next/link";
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { libelleCategorie } from "@/src/lib/depensesLogique";
 import EnTete from "@/app/components/ui/EnTete";
-import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
-import EtatVide from "@/app/components/ui/EtatVide";
+import TableFournisseurs, { type LigneFournisseur } from "@/app/components/fournisseurs/TableFournisseurs";
 import {
   USAGES,
   basculerUsage,
   fournisseurRetenu,
-  infoUsage,
   lireUsages,
-  usageDuCompte,
 } from "@/src/lib/usagesFournisseurs";
+import { DOMAINES, fournisseursDuDomaine, lireDomaine } from "@/src/lib/domainesFournisseurs";
 
 export const dynamic = "force-dynamic";
-
-const chf = (n: number) => `${n.toFixed(2)} CHF`;
 
 export default async function FournisseursPage({
   searchParams,
 }: {
-  searchParams: Promise<{ usages?: string | string[] }>;
+  searchParams: Promise<{ usages?: string | string[]; domaine?: string }>;
 }) {
   await exigerAccesAdmin("perm_depenses");
+  const params = await searchParams;
   // Pastilles cochables : union des usages cochés, rien de coché = tout.
-  const coches = lireUsages((await searchParams).usages);
+  const coches = lireUsages(params.usages);
+  // APP 73 — la Comptabilité voit TOUS les fournisseurs, filtrables par domaine.
+  const domaine = lireDomaine(params.domaine);
 
   const [{ data: fournisseurs }, { data: depenses }] = await Promise.all([
     supabaseAdmin
       .from("fournisseurs")
-      .select("id, nom, localite, email, telephone, compte_charge_defaut, actif")
+      .select("id, nom, localite, email, telephone, compte_charge_defaut, actif, domaines")
       .order("actif", { ascending: false })
       .order("nom"),
     supabaseAdmin.from("depenses").select("fournisseur_id, montant, statut"),
@@ -49,17 +47,24 @@ export default async function FournisseursPage({
   }
 
   const tous = fournisseurs ?? [];
-  const liste = tous.filter((f) => fournisseurRetenu(f.compte_charge_defaut as string | null, coches));
-  const marine = "#1B2B5E";
+  const liste = fournisseursDuDomaine(tous, domaine)
+    .filter((f) => fournisseurRetenu(f.compte_charge_defaut as string | null, coches));
   const sousTexte = "rgba(27,43,94,0.55)";
-  const bordure = "1px solid rgba(27,43,94,0.12)";
+  // Les deux filtres se combinent : chacun garde l'autre dans l'adresse.
+  const adresse = (u: string, d: string | null) => {
+    const q = new URLSearchParams(u.startsWith("?") ? u.slice(1) : u);
+    if (d) q.set("domaine", d);
+    const t = q.toString().replace(/%2C/g, ",");
+    return `/comptabilite/fournisseurs${t ? `?${t}` : ""}`;
+  };
+  const usagesActuels = coches.length > 0 ? `?usages=${coches.join(",")}` : "";
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div className="max-w-4xl mx-auto">
         <EnTete
           titre="🏢 Fournisseurs"
-          sousTitre={coches.length === 0
+          sousTitre={coches.length === 0 && !domaine
             ? `${tous.length} fiche${tous.length > 1 ? "s" : ""}`
             : `${liste.length} fiche${liste.length > 1 ? "s" : ""} sur ${tous.length}`}
           action={
@@ -76,7 +81,7 @@ export default async function FournisseursPage({
             return (
               <Link
                 key={u.valeur}
-                href={`/comptabilite/fournisseurs${basculerUsage(coches, u.valeur)}`}
+                href={adresse(basculerUsage(coches, u.valeur), domaine)}
                 aria-pressed={actif}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 6, minHeight: 36, padding: "0 12px",
@@ -89,84 +94,42 @@ export default async function FournisseursPage({
               </Link>
             );
           })}
-          {coches.length > 0 && (
+          {(coches.length > 0 || domaine) && (
             <Link href="/comptabilite/fournisseurs" style={{ alignSelf: "center", fontSize: 13, color: sousTexte }}>
               Tout afficher
             </Link>
           )}
         </nav>
 
-        {tous.length > 0 && liste.length === 0 ? (
-          <Carte>
-            <EtatVide
-              icone="🏢"
-              titre="Aucun fournisseur pour cet usage"
-              message="Décochez une pastille, ou renseignez la catégorie habituelle d'un fournisseur."
-            />
-          </Carte>
-        ) : liste.length === 0 ? (
-          <Carte>
-            <EtatVide
-              icone="🏢"
-              titre="Carnet vide"
-              message="Ajoutez un fournisseur pour retrouver ses coordonnées et sa catégorie habituelle à la saisie."
-            />
-          </Carte>
-        ) : (
-          <Carte>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm" style={{ minWidth: 620 }}>
-                <thead>
-                  <tr style={{ color: sousTexte, textAlign: "left" }}>
-                    <th className="py-2 font-medium">Nom</th>
-                    <th className="py-2 font-medium">Localité</th>
-                    <th className="py-2 font-medium">Catégorie habituelle</th>
-                    <th className="py-2 font-medium text-right">Dépenses</th>
-                    <th className="py-2 font-medium text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {liste.map((f) => {
-                    const t = totaux.get(f.id as string) ?? { total: 0, nb: 0 };
-                    return (
-                      <tr key={f.id as string} style={{ borderTop: bordure, opacity: f.actif ? 1 : 0.5 }}>
-                        <td className="py-2">
-                          <Link href={`/comptabilite/fournisseurs/${f.id}`} style={{ color: marine, fontWeight: 700 }}>
-                            {f.nom as string}
-                          </Link>
-                          {!f.actif && (
-                            <span style={{ color: sousTexte, fontSize: 12 }}> — désactivé</span>
-                          )}
-                          {(() => {
-                            const u = infoUsage(usageDuCompte(f.compte_charge_defaut as string | null));
-                            return (
-                              <span style={{
-                                display: "inline-block", marginLeft: 8, fontSize: 11, fontWeight: 600,
-                                padding: "1px 8px", borderRadius: 999, backgroundColor: u.fond, color: u.texte,
-                              }}>
-                                {u.libelle}
-                              </span>
-                            );
-                          })()}
-                        </td>
-                        <td className="py-2" style={{ color: sousTexte }}>{(f.localite as string) ?? "—"}</td>
-                        <td className="py-2" style={{ color: sousTexte }}>
-                          {f.compte_charge_defaut
-                            ? `${libelleCategorie(f.compte_charge_defaut as string)} (${f.compte_charge_defaut})`
-                            : "—"}
-                        </td>
-                        <td className="py-2 text-right" style={{ color: sousTexte }}>{t.nb}</td>
-                        <td className="py-2 text-right" style={{ color: marine, fontWeight: 600, whiteSpace: "nowrap" }}>
-                          {chf(t.total)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Carte>
-        )}
+        <nav aria-label="Filtrer par domaine" style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "0 0 14px" }}>
+          {[{ valeur: null, libelle: "Tous les domaines" }, ...DOMAINES].map((d) => {
+            const actif = d.valeur === domaine;
+            return (
+              <Link
+                key={d.valeur ?? "tous"}
+                href={adresse(usagesActuels, d.valeur)}
+                aria-pressed={actif}
+                style={{
+                  display: "inline-flex", alignItems: "center", minHeight: 36, padding: "0 12px",
+                  borderRadius: 999, fontSize: 13, fontWeight: 600, textDecoration: "none",
+                  backgroundColor: actif ? "#1B2B5E" : "#FFFFFF", color: actif ? "#FFFFFF" : "#1B2B5E",
+                  border: "1px solid rgba(27,43,94,0.25)",
+                }}
+              >
+                {d.libelle}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <TableFournisseurs
+          liste={liste as unknown as LigneFournisseur[]}
+          lienFiche
+          totaux={totaux}
+          vide={tous.length === 0
+            ? { titre: "Carnet vide", message: "Ajoutez un fournisseur pour retrouver ses coordonnées et sa catégorie habituelle à la saisie." }
+            : { titre: "Aucun fournisseur pour ce filtre", message: "Décochez une pastille, ou changez de domaine." }}
+        />
       </div>
     </main>
   );

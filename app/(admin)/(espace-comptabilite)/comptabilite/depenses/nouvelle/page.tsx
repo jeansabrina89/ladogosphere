@@ -7,6 +7,7 @@ import { listerArticles } from "@/src/lib/boutique";
 import { perimetreDeArticle, accesStockAccorde } from "@/src/lib/perimetreStock";
 import type { ArticleEntree } from "@/app/components/EntreeEnStock";
 import FormDepense, { type FournisseurChoix } from "../FormDepense";
+import { ordrePourDepense } from "@/src/lib/domainesFournisseurs";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export default async function NouvelleDepensePage() {
   const [{ data: fournisseurs }, articles] = await Promise.all([
     supabaseAdmin
       .from("fournisseurs")
-      .select("id, nom, compte_charge_defaut")
+      .select("id, nom, compte_charge_defaut, domaines")
       .eq("actif", true)
       .order("nom"),
     listerArticles({ actifsSeulement: true }),
@@ -31,7 +32,8 @@ export default async function NouvelleDepensePage() {
           action={<Bouton href="/comptabilite/depenses" variante="secondaire">← Dépenses</Bouton>}
         />
         <FormDepense
-          fournisseurs={(fournisseurs ?? []) as FournisseurChoix[]}
+          // APP 73 — tous les fournisseurs, ceux des autres frais en premier.
+          fournisseurs={ordrePourDepense((fournisseurs ?? []) as (FournisseurChoix & { domaines?: unknown })[])}
           dateDuJour={aujourdhuiISO()}
           // On ne propose d'entrer en stock que ce qu'on a le droit de toucher :
           // les fournitures demandent l'atelier, les marchandises la gestion

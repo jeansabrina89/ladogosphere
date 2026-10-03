@@ -69,6 +69,12 @@ export type EntreeJournee = {
   commandes: CommandePromise[];
   depensesSansJustificatif: DepenseSansJustificatif[];
   facturesEnRetard: FactureEnRetard[];
+  /**
+   * APP 73 — les deux compteurs qui vivaient sur l'accueil Clients. Facultatifs :
+   * absents, ils valent zéro, et zéro n'écrit aucune ligne.
+   */
+  demandesEnAttente?: number;
+  reservationsPersonnelAVoir?: number;
   droits: DroitsJournee;
 };
 
@@ -130,7 +136,7 @@ export type LigneJournee = {
 export type Rappel = {
   /** Identité stable — deux rappels ne se confondent jamais. */
   cle: string;
-  categorie: "adhesion" | "commande" | "depense" | "facture";
+  categorie: "adhesion" | "commande" | "depense" | "facture" | "reservation";
   libelle: string;
   detail: string;
   href: string;
@@ -246,6 +252,32 @@ export function rappelsDeLaSemaine(entree: EntreeJournee): Rappel[] {
   const jour = entree.jourISO.slice(0, 10);
   const limite = decalerJours(jour, HORIZON_RAPPELS_JOURS);
   const rappels: Rappel[] = [];
+
+  // APP 73 — les réservations qui attendent l'équipe. Une ligne chacune, et
+  // seulement s'il y a quelque chose : « 0 demande à traiter » n'est pas un
+  // rappel. Les liens sont ceux des tuiles qu'elles remplacent.
+  const demandes = entree.demandesEnAttente ?? 0;
+  if (demandes > 0) {
+    rappels.push({
+      cle: "reservations-en-attente",
+      categorie: "reservation",
+      libelle: `${demandes} demande${demandes > 1 ? "s" : ""} de réservation à traiter`,
+      detail: "À valider ou à refuser",
+      href: "/reservations",
+      urgent: false,
+    });
+  }
+  const personnel = entree.reservationsPersonnelAVoir ?? 0;
+  if (personnel > 0) {
+    rappels.push({
+      cle: "reservations-personnel",
+      categorie: "reservation",
+      libelle: `${personnel} réservation${personnel > 1 ? "s" : ""} du personnel à voir`,
+      detail: "Pour information",
+      href: "/reservations?personnel=1",
+      urgent: false,
+    });
+  }
 
   // Adhésions arrivant à terme — le renouvellement se propose au comptoir,
   // pas par courrier trois semaines plus tard.

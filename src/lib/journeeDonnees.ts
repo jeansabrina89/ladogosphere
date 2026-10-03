@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { clientsAvecCommandeARemettre } from "@/src/lib/venteEnLigne";
+import { compterReservationsPersonnelAVoir } from "@/src/lib/reservationsPersonnelAdmin";
 import {
   calculerJournee,
   decalerJours,
@@ -95,6 +96,8 @@ export async function lireJournee(jourISO: string, droits: DroitsJournee): Promi
     depensesRes,
     facturesRes,
     piecesRes,
+    demandesRes,
+    nbResaPersonnel,
   ] = await Promise.all([
     supabaseAdmin.from("checkin_checkout").select(LIGNE)
       .gte("date_arrivee_prevue", debut).lte("date_arrivee_prevue", fin),
@@ -137,6 +140,11 @@ export async function lireJournee(jourISO: string, droits: DroitsJournee): Promi
     droits.isAdmin
       ? supabaseAdmin.from("pieces").select("entite_id").eq("entite", "depense")
       : Promise.resolve({ data: [] as any[] }),
+    // APP 73 — venus de l'accueil Clients, lus EN MÊME TEMPS que le reste :
+    // la même requête que la tuile qu'ils remplacent, aucune attente de plus.
+    supabaseAdmin.from("reservations").select("id", { count: "exact", head: true })
+      .eq("statut", "en_attente"),
+    compterReservationsPersonnelAVoir(),
   ]);
 
   const arrivees = ((arriveesBrutes ?? []) as any[]).map(enLigne);
@@ -210,6 +218,8 @@ export async function lireJournee(jourISO: string, droits: DroitsJournee): Promi
         id: f.id, numero: f.numero, date_echeance: f.date_echeance,
         montant_restant: f.montant_restant, client: client(f.clients),
       })),
+    demandesEnAttente: demandesRes.count ?? 0,
+    reservationsPersonnelAVoir: nbResaPersonnel,
     droits,
   });
 }

@@ -3,9 +3,16 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import FormFournisseur from "../FormFournisseur";
+import { lireDomaine } from "@/src/lib/domainesFournisseurs";
 
-export default async function NouveauFournisseurPage() {
+export default async function NouveauFournisseurPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ domaine?: string }>;
+}) {
   await exigerAccesAdmin("perm_depenses");
+  // APP 73 — venu de Boutique ou d'Atelier, ce domaine est coché d'office.
+  const domaine = lireDomaine((await searchParams).domaine);
 
   return (
     <main className="min-h-screen p-4 md:p-8" style={{ backgroundColor: "#F5F0E8" }}>
@@ -16,7 +23,7 @@ export default async function NouveauFournisseurPage() {
           action={<Bouton href="/comptabilite/fournisseurs" variante="secondaire">← Fournisseurs</Bouton>}
         />
         <Carte>
-          <FormFournisseur />
+          <FormFournisseur domainesParDefaut={[domaine ?? "general"]} />
         </Carte>
       </div>
     </main>

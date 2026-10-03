@@ -6,6 +6,7 @@ import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
 import FormArticle from "../FormArticle";
+import { choixPourArticle } from "@/src/lib/domainesFournisseurs";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export default async function NouvelArticlePage({
   await exigerAccesAdmin("perm_boutique_gestion");
 
   const [{ data: fournisseurs }, tauxLegaux] = await Promise.all([
-    supabaseAdmin.from("fournisseurs").select("id, nom, delai_commande_min_jours, delai_commande_max_jours").eq("actif", true).order("nom"),
+    supabaseAdmin.from("fournisseurs").select("id, nom, delai_commande_min_jours, delai_commande_max_jours, domaines").eq("actif", true).order("nom"),
     tauxLegauxEnVigueur(),
   ]);
 
@@ -43,7 +44,11 @@ export default async function NouvelArticlePage({
           action={<Bouton href="/boutique/articles" variante="secondaire">← Articles</Bouton>}
         />
         <Carte>
-          <FormArticle fournisseurs={(fournisseurs ?? []) as { id: string; nom: string }[]} tauxLegaux={tauxLegaux} />
+          <FormArticle
+            // APP 73 — un article de la boutique se choisit chez les fournisseurs « boutique ».
+            fournisseurs={choixPourArticle((fournisseurs ?? []) as { id: string; nom: string; domaines?: unknown }[], "boutique")}
+            tauxLegaux={tauxLegaux}
+          />
         </Carte>
       </div>
     </main>

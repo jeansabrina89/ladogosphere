@@ -10,6 +10,7 @@ import {
   infoTypeSejour,
 } from "@/src/lib/typeSejour";
 import { resumeParcBox, parcBox } from "@/src/lib/usageBox";
+import { compterReservationsPersonnelAVoir } from "@/src/lib/reservationsPersonnelAdmin";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export default async function PensionPage({
 }: {
   searchParams: Promise<{ jours?: string }>;
 }) {
-  await exigerAccesAdmin();
+  const acces = await exigerAccesAdmin();
 
   const params = await searchParams;
   const joursPeriode =
@@ -52,6 +53,8 @@ export default async function PensionPage({
     { data: essais },
     { data: sejoursPeriode },
     { data: tousBoxes },
+    { count: enAttente },
+    nbResaPersonnel,
   ] = await Promise.all([
     supabaseAdmin.from("boxes").select("id").eq("actif", true),
     // Un box est occupé aujourd'hui si un séjour le couvre aujourd'hui.
@@ -77,6 +80,10 @@ export default async function PensionPage({
       .gte("date_debut", debutPeriode).lte("date_debut", jour),
     // Le parc de box : combien accueillent réellement de la clientèle.
     supabaseAdmin.from("boxes").select("actif, usage_box"),
+    // APP 73 — venus de l'accueil Clients : mêmes requêtes, mêmes liens.
+    supabaseAdmin.from("reservations").select("id", { count: "exact", head: true })
+      .eq("statut", "en_attente"),
+    compterReservationsPersonnelAVoir(),
   ]);
 
   const total = (boxesActifs ?? []).length;
@@ -100,11 +107,33 @@ export default async function PensionPage({
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <Bouton href="/chiens-du-jour" variante="principal">🐾 Chiens du jour</Bouton>
               <Bouton href="/checkin" variante="secondaire">✅ Check-in</Bouton>
+              {acces.permissions.perm_reservations_creer && (
+                <Bouton href="/reservations/nouvelle" variante="secondaire">+ Réservation</Bouton>
+              )}
             </div>
           }
         />
 
         <GrilleTuiles etiquette="Les chiffres de la pension">
+          <Tuile
+            href="/reservations"
+            titre="Demandes de réservation en attente"
+            valeur={String(enAttente ?? 0)}
+            detail={(enAttente ?? 0) > 0 ? "À valider ou à refuser" : "Tout est répondu"}
+            couleur={(enAttente ?? 0) > 0 ? "#A8453A" : "#1F6E5B"}
+            alerte={(enAttente ?? 0) > 0}
+          />
+
+          {/* Les réservations du personnel sont validées d'office : elles ne
+              demandent pas une réponse, seulement un regard. */}
+          <Tuile
+            href="/reservations?personnel=1"
+            titre="Réservations du personnel à voir"
+            valeur={String(nbResaPersonnel)}
+            detail={nbResaPersonnel > 0 ? "Pour information" : "Toutes vues"}
+            couleur={nbResaPersonnel > 0 ? "#6E5410" : MARINE}
+          />
+
           <Tuile
             href="/planning"
             titre="Box occupés"

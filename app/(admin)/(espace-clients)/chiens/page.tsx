@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { exigerAccesAdmin } from "@/src/lib/accesAdmin";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
@@ -9,9 +8,17 @@ import EtatVide from "@/app/components/ui/EtatVide";
 import BadgePhotos from "@/app/components/BadgePhotos";
 import { statutEssaiDe } from "@/src/lib/journeeEssai";
 import { urlsSigneesPhotosChiens } from "@/src/lib/photoChien";
+import RechercheAZ, { type ElementRecherche } from "@/app/components/RechercheAZ";
+import { lireEtat } from "@/src/lib/rechercheAZ";
+import { FILTRE_ATTENTE, chienEnAttenteDeValidation } from "@/src/lib/chienAttente";
 
-export default async function ChiensPage() {
+export default async function ChiensPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await exigerAccesAdmin();
+  const etat = lireEtat(await searchParams, [FILTRE_ATTENTE]);
   const perms = await getProfilePerms();
   const supabase = supabaseAdmin;
 
@@ -44,20 +51,33 @@ export default async function ChiensPage() {
           }
         />
 
-        <p style={{ ...muted, fontWeight: 600, margin: "0 0 16px" }}>
-          Total : {chiens?.length ?? 0} chien(s)
-        </p>
-
         {chiens?.length ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {chiens.map((chien) => {
+          <RechercheAZ
+            base="/chiens"
+            initial={etat}
+            singulier="chien"
+            pluriel="chiens"
+            placeholder="Nom du chien, race ou propriétaire…"
+            filtre={{
+              cle: FILTRE_ATTENTE,
+              encadre: (n) => `${n} chien${n > 1 ? "s" : ""} en attente de validation`,
+              bouton: "Voir lesquels",
+              actif: "Voir tous les chiens",
+            }}
+            elements={chiens.map((chien): ElementRecherche => {
               const categorie =
                 chien.categorie_poids === "moins_15kg" ? "🟢 Petit" :
                 chien.categorie_poids === "15_30kg" ? "🟡 Moyen" :
                 chien.categorie_poids === "30_40kg" ? "🔴 Grand" : "—";
 
-              return (
-                <Link key={chien.id} href={`/chiens/${chien.id}`} style={{ textDecoration: "none" }}>
+              return {
+                id: chien.id as string,
+                cleLettre: chien.nom as string,
+                tri: chien.nom as string,
+                // La barre trouve le chien par son nom, sa race et son propriétaire.
+                textes: [chien.nom, chien.race, chien.clients?.prenom, chien.clients?.nom],
+                drapeaux: chienEnAttenteDeValidation(chien) ? [FILTRE_ATTENTE] : [],
+                carte: (
                   <Carte>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
 
@@ -109,10 +129,10 @@ export default async function ChiensPage() {
 
                     </div>
                   </Carte>
-                </Link>
-              );
+                ),
+              };
             })}
-          </div>
+          />
         ) : (
           <Carte>
             <EtatVide icone="🐶" titre="Aucun chien" message="Ajoute ton premier chien pour commencer." />

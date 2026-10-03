@@ -136,7 +136,10 @@ export default async function EquipePage() {
           </h2>
           <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", minWidth: 0 }}>
             <Raccourci href="/employes/fiches-salaire" titre="📄 Fiches de salaire" note="Établir, imprimer, certificats" />
-            <Raccourci href="/employes/planning-equipe" titre="🗓️ Planning affiché" note="La vue que voit l'équipe" />
+            <Raccourci href="/employes/planning-equipe" titre="🗓️ Planning du mois" note="La grille que voit l'équipe" />
+            {/* Pas d'entrée de menu pour celui-ci, et c'est voulu : c'est un
+                formulaire de création, pas un écran. On y vient d'ici ou des
+                fiches employées. */}
             <Raccourci href="/employes/nouveau-rh" titre="➕ Nouvelle fiche RH" note="Engager quelqu'un" />
           </div>
         </section>
