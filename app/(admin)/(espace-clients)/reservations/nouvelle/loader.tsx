@@ -32,11 +32,21 @@ export default async function NouvelleReservationLoader() {
     conditionsManquantes: sansConditions.has(c.id),
   }));
 
-  const { data: chiens } = await supabase
+  const { data: chiensBruts } = await supabase
     .from("chiens")
-    .select("id, nom, race, categorie_poids, poids, client_id, statut_essai")
+    .select("id, nom, race, categorie_poids, poids, client_id, statut_essai, doit_etre_isole, hebergement_autorise")
     .eq("actif", true)
     .order("nom");
+
+  // APP 74 — le profil de cohabitation, pour que le formulaire ne propose la
+  // case « chien seul dans un box » qu'à un chien sociable. UNE lecture des
+  // ententes « famille uniquement » pour toute la liste.
+  const { data: familles } = await supabase
+    .from("ententes_chiens")
+    .select("chien_id")
+    .eq("type", "famille_uniquement");
+  const enFamille = new Set((familles ?? []).map((f) => f.chien_id as string));
+  const chiens = (chiensBruts ?? []).map((c) => ({ ...c, famille_uniquement: enFamille.has(c.id) }));
 
   const { data: boxes } = await supabase
     .from("boxes")
@@ -52,7 +62,7 @@ export default async function NouvelleReservationLoader() {
   return (
     <FormReservation
       clients={clientsAvecStatut}
-      chiens={chiens ?? []}
+      chiens={chiens}
       boxes={boxes ?? []}
       peutUrgence={perms.perm_tarifs_urgence}
       estAdmin={perms.isAdmin}

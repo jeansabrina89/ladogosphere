@@ -13,7 +13,7 @@ import { adhesionExigee } from "@/src/lib/prestationsLogique";
 import { typeAutorisePourPersonnel } from "@/src/lib/personnel";
 import { verifierDateEssaiLibre } from "@/src/lib/essaiReservation";
 import { verifierPlaceDisponible } from "@/src/lib/suggestionBox";
-import { selectionMixteRefusee, estPrivatifPourSelection } from "@/src/lib/cohabitation";
+import { selectionMixteRefusee, estPrivatifReservation, boxSeulRetenu } from "@/src/lib/cohabitation";
 import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { lireDateOuverture } from "@/src/lib/ouverture";
 import { dateAvantOuverture, refusDateAvantOuverture } from "@/src/lib/ouvertureLogique";
@@ -60,6 +60,11 @@ export type InputDemandeReservation = {
   commentaire_client: string | null;
   /** APP 42 : la case des conditions de la pension, cochée par le client. */
   conditions_acceptees?: boolean;
+  /**
+   * APP 74 — « 🏠 Mon chien seul dans un box ». Une DEMANDE : le serveur ne la
+   * retient que pour un seul chien sociable, hors journée d'essai.
+   */
+  box_seul?: boolean;
 };
 
 export type ResultatDemande =
@@ -251,7 +256,12 @@ export async function creerDemandeReservation(
   // 5quinquies. Y a-t-il réellement un box libre ? La réservation reste
   //             en_attente sans box (l'attribution se fait à la validation),
   //             mais on ne promet pas une place qui n'existe pas.
-  const chienSeul = estPrivatifPourSelection(cohabitation);
+  //             APP 74 : la case « chien seul dans un box » demande un box
+  //             VIDE, exactement comme un chien isolé (règle unique).
+  const boxSeul = boxSeulRetenu({
+    demande: input.box_seul, type_reservation: input.type_reservation, selection: cohabitation,
+  });
+  const chienSeul = estPrivatifReservation({ box_seul: boxSeul, selection: cohabitation });
   for (const occ of input.occurrences) {
     const place = await verifierPlaceDisponible({
       chien_ids: input.chien_ids,
@@ -261,6 +271,7 @@ export async function creerDemandeReservation(
       heure_depart: input.heure_depart,
       type_reservation: input.type_reservation,
       chienSeul,
+      box_seul: boxSeul,
     });
     if (!place.ok) return { ok: false, erreur: place.message };
   }
@@ -315,6 +326,9 @@ export async function creerDemandeReservation(
     heure_depart: input.heure_depart || null,
     statut: "en_attente",
     commentaire_client: input.commentaire_client || null,
+    // La case reste sur la demande jusqu'à la validation par l'équipe, qui
+    // peut la changer depuis la fiche.
+    box_seul: boxSeul,
     // Le client ne voit pas cette notion et ne peut donc pas s'y qualifier :
     // sa demande est de la pension, et la case dérivée le dit.
     ...champsTypeSejour("pension"),
@@ -343,6 +357,7 @@ export async function creerDemandeReservation(
         client_id: fiche.id, type_reservation: input.type_reservation,
         date_debut: r.date_debut, date_fin: r.date_fin,
         chien_ids: input.chien_ids, statut: "en_attente",
+        ...(boxSeul ? { box_seul: true } : {}),
       },
       userId: user.id,
     });
@@ -445,6 +460,7 @@ export async function creerDemandeReservation(
         date_debut: premiere.date_debut,
         date_fin: derniere.date_fin,
         type: input.type_reservation,
+        box_seul: boxSeul,
       });
     }
   } catch (e) {

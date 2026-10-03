@@ -5,6 +5,7 @@ import { exigerPersonnel } from "@/src/lib/apiAuth";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { occupationEnConflit, boxCompatibleAvecIsolement, memeFamille, capaciteMaxFamille, creneauxTransition } from "@/src/lib/disponibilite-box";
 import { lireHoraires } from "@/src/lib/horairesServeur";
+import { occupationPrendLeBoxEntier, placementPrendLeBoxEntier } from "@/src/lib/suggestionBox";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -13,6 +14,14 @@ export async function POST(req: NextRequest) {
   const lecture = await lireCorpsJson(req);
   if (!lecture.ok) return lecture.reponse;
   const { chien_ids, date_debut, date_fin, reservation_id, heure_arrivee, heure_depart, type_reservation } = lecture.corps;
+  // APP 74 — « chien seul dans un box » : envoyé par le formulaire, sinon relu
+  // sur la réservation qu'on déplace.
+  let boxSeul: boolean = lecture.corps.box_seul === true;
+  if (lecture.corps.box_seul === undefined && reservation_id) {
+    const { data: resa } = await supabaseAdmin
+      .from("reservations").select("box_seul").eq("id", reservation_id).maybeSingle();
+    boxSeul = resa?.box_seul === true;
+  }
 
   if (!chien_ids || chien_ids.length === 0) {
     return NextResponse.json({ suggestions: [] });
@@ -57,7 +66,7 @@ export async function POST(req: NextRequest) {
       chien_id,
       date_debut,
       date_fin,
-      reservations (heure_arrivee, heure_depart, type_reservation),
+      reservations (heure_arrivee, heure_depart, type_reservation, box_seul),
       chiens (
         id, nom, categorie_poids, sexe, sterilise, client_id, doit_etre_isole,
         compatible_moins_15kg, compatible_15_30kg, compatible_30_40kg,
@@ -105,18 +114,22 @@ export async function POST(req: NextRequest) {
   const chiensFamilleUniquement = new Set(familleUniquement?.map(f => f.chien_id) ?? []);
 
   const chiensByBox: Record<string, any[]> = {};
+  const boxEntierPris = new Set<string>();
   occupations?.forEach(occ => {
     if (!chiensByBox[occ.box_id]) chiensByBox[occ.box_id] = [];
     if (occ.chiens) chiensByBox[occ.box_id].push(occ.chiens);
+    if (occupationPrendLeBoxEntier(occ as unknown as Parameters<typeof occupationPrendLeBoxEntier>[0])) {
+      boxEntierPris.add(occ.box_id);
+    }
   });
 
-  // Exclusivité "doit être isolé" : un box occupé par un chien isolé est
-  // indisponible pour tout le monde, et un chien isolé exige un box vide.
-  const placementIsole = chiensAplacer.some((c: any) => c.doit_etre_isole);
+  // Box entier (APP 74, règle unique) : un box occupé par un chien isolé OU par
+  // une réservation « chien seul dans un box » est indisponible pour tout le
+  // monde, et un tel placement exige un box vide.
+  const placementIsole = placementPrendLeBoxEntier(boxSeul, chiensAplacer);
   const boxesDisponibles = (boxes ?? []).filter(box => {
     const chiensPresents = chiensByBox[box.id] ?? [];
-    const occupantIsole = chiensPresents.some((c: any) => c.doit_etre_isole);
-    return boxCompatibleAvecIsolement(occupantIsole, chiensPresents.length, placementIsole);
+    return boxCompatibleAvecIsolement(boxEntierPris.has(box.id), chiensPresents.length, placementIsole);
   });
 
   const suggestions = boxesDisponibles.map(box => {

@@ -14,11 +14,12 @@ export async function POST(req: NextRequest) {
   const garde = await exigerPersonnel(supabase);
   if (garde) return garde;
 
-  const { chien_ids, date_debut, date_fin, heure_arrivee, heure_depart, type_reservation } =
+  const { chien_ids, date_debut, date_fin, heure_arrivee, heure_depart, type_reservation, box_seul } =
     await req.json();
 
   const resultat = await suggererBox({
     chien_ids, date_debut, date_fin, heure_arrivee, heure_depart, type_reservation,
+    box_seul: box_seul === true,
   });
 
   return NextResponse.json(resultat);

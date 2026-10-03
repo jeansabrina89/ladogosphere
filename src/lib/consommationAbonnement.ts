@@ -46,7 +46,7 @@ export async function consommerAbonnementResa(
   const { data: resa } = await supabaseAdmin
     .from("reservations")
     .select(`
-      id, client_id, type_reservation, statut, abonnement_id,
+      id, client_id, type_reservation, statut, abonnement_id, box_seul,
       reservation_chiens ( chien_id )
     `)
     .eq("id", reservationId)
@@ -62,7 +62,8 @@ export async function consommerAbonnementResa(
   // comptait : un chien « famille uniquement » venu seul, facturé au tarif
   // box seul, débitait une carte « 1 chien sociable ».
   const categorie = await categorieCartePourChiens(
-    ((resa.reservation_chiens ?? []) as { chien_id: string }[]).map((rc) => rc.chien_id)
+    ((resa.reservation_chiens ?? []) as { chien_id: string }[]).map((rc) => rc.chien_id),
+    (resa as { box_seul?: boolean | null }).box_seul,
   );
   if (!categorie) return { error: "Configuration de chiens non prise en charge par les cartes." };
 

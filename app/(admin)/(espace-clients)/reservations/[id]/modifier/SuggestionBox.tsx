@@ -22,6 +22,7 @@ export default function SuggestionBox({
   heure_depart,
   type_reservation,
   reservation_id,
+  box_seul,
   onSelectBox,
 }: {
   chien_ids: string[];
@@ -31,6 +32,8 @@ export default function SuggestionBox({
   heure_depart?: string | null;
   type_reservation?: string | null;
   reservation_id: string;
+  /** APP 74 — la case « chien seul dans un box » : la suggestion cherche un box vide. */
+  box_seul?: boolean;
   onSelectBox: (box_id: string) => void;
 }) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -56,6 +59,7 @@ export default function SuggestionBox({
             heure_arrivee,
             heure_depart,
             type_reservation,
+            box_seul: box_seul === true,
           }),
         });
         const data = await res.json();
@@ -72,7 +76,8 @@ export default function SuggestionBox({
     // Lancée sans être attendue, volontairement : elle traite son erreur
     // elle-même (try/catch) et ne rend rien à l'appelant.
     void chercher();
-  }, []);
+    // APP 74 — cocher « chien seul dans un box » relance la suggestion.
+  }, [box_seul]);
 
   const chargerSuggestions = async () => {
     if (chien_ids.length === 0) return;
@@ -80,7 +85,7 @@ export default function SuggestionBox({
     const response = await fetch("/api/reservations/suggerer-box", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chien_ids, date_debut, date_fin, heure_arrivee, heure_depart, type_reservation, reservation_id }),
+      body: JSON.stringify({ chien_ids, date_debut, date_fin, heure_arrivee, heure_depart, type_reservation, reservation_id, box_seul: box_seul === true }),
     });
     const data = await response.json();
     setSuggestions(data.suggestions || []);

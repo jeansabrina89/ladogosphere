@@ -11,6 +11,8 @@ import { MESSAGE_TYPE_RESERVE, champsTypeSejour, typeSejour } from "@/src/lib/ty
 import { assurerMontantCalcule } from "@/src/lib/prixReservation";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { idUtilisateurCourant } from "@/src/lib/permissions";
+import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
+import { boxSeulRetenu } from "@/src/lib/cohabitation";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -86,6 +88,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // APP 74 — « chien seul dans un box » : retenu seulement pour un chien
+  // sociable seul, hors essai. Le formulaire le sait déjà ; le serveur revérifie.
+  const box_seul = formData.get("box_seul") === "on" && boxSeulRetenu({
+    demande: "on", type_reservation, selection: await lireCohabitationChiens(chien_ids),
+  });
+
   // Créer la réservation
   const { data: reservation, error } = await supabaseAdmin
     .from("reservations")
@@ -104,6 +112,7 @@ export async function POST(req: NextRequest) {
       essai_force: forcer || !!essai_force_heure,
       essai_force_raison: forcer ? forcer_raison!.trim() : (essai_force_heure ? "Seconde journée d'essai forcée" : null),
       essai_force_heure,
+      box_seul,
     })
     .select()
     .single();
@@ -117,6 +126,7 @@ export async function POST(req: NextRequest) {
       client_id, type_reservation, type_sejour, date_debut, date_fin,
       box_id: box_id || null, chien_ids, statut,
       essai_force: forcer || !!essai_force_heure,
+      ...(box_seul ? { box_seul: true } : {}),
     },
     motif: forcer ? forcer_raison!.trim() : (essai_force_heure ? "Seconde journée d'essai forcée" : null),
     userId: auteur,
@@ -128,8 +138,9 @@ export async function POST(req: NextRequest) {
       chien_ids.map(chien_id => ({ reservation_id: reservation.id, chien_id }))
     );
 
-    // Créer les occupations de box
-    await supabaseAdmin.from("occupation_boxes").insert(
+    // Créer les occupations de box — APRÈS les chiens : le filet en base
+    // (bloquer_surbooking_box) lit leur profil « doit être isolé ».
+    const { error: errOcc } = await supabaseAdmin.from("occupation_boxes").insert(
       chien_ids.map(chien_id => ({
         box_id,
         chien_id,
@@ -138,6 +149,13 @@ export async function POST(req: NextRequest) {
         date_fin,
       }))
     );
+    // Le filet a refusé (box déjà pris, ou chien seul dans son box) : on ne
+    // laisse pas une réservation sans place derrière elle.
+    if (errOcc) {
+      await supabaseAdmin.from("reservation_chiens").delete().eq("reservation_id", reservation.id);
+      await supabaseAdmin.from("reservations").delete().eq("id", reservation.id);
+      return NextResponse.json({ error: errOcc.message }, { status: 409 });
+    }
 
     // Lignes de check-in — couche métier commune à tous les chemins.
     await assurerLignesCheckin(reservation.id);

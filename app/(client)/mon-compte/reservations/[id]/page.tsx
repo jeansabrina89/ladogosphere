@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import Link from "next/link";
 import { formatDateFR, formatHeure } from "@/src/lib/dates";
 import { formatBoxLabel } from "@/src/lib/boxes";
+import { LIBELLE_CASE_BOX_SEUL } from "@/src/lib/boxSeul";
 import { getMouvementsAvoirReservation, getSoldeAvoir } from "@/src/lib/avoirs";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { trouverAbonnementUtilisable } from "@/src/lib/consommationAbonnement";
@@ -109,7 +110,7 @@ export default async function DetailReservationClientPage({
   const regleParAbo = !!res.abonnement_id;
   // APP 72 — la carte du TARIF de cette journée, comme à la consommation.
   const categorieAbo = res.type_reservation === "journee"
-    ? await categorieCartePourChiens((res.reservation_chiens ?? []).map((rc: any) => rc.chien_id as string))
+    ? await categorieCartePourChiens((res.reservation_chiens ?? []).map((rc: any) => rc.chien_id as string), res.box_seul)
     : null;
   const aboUtilisable =
     !regleParAbo && categorieAbo && res.client_id
@@ -158,6 +159,7 @@ export default async function DetailReservationClientPage({
               <Ligne label="Horaires">{formatHeure(res.heure_arrivee) || "—"} → {formatHeure(res.heure_depart) || "—"}</Ligne>
             )}
             <Ligne label="Box">{formatBoxLabel(res.boxes)}</Ligne>
+            {res.box_seul === true && <Ligne label="Hébergement">{LIBELLE_CASE_BOX_SEUL}</Ligne>}
           </Carte>
 
           <Carte>

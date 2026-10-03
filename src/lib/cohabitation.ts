@@ -112,6 +112,59 @@ export function estPrivatifPourSelection(selection: ChienCohabitation[]): boolea
   return selection.some((c) => occupeLeBoxSeul(c, selection));
 }
 
+/**
+ * APP 74 — LA règle : une réservation occupe-t-elle un box ENTIER ?
+ *
+ * Oui si le client (ou l'équipe) a coché « mon chien seul dans un box » pour
+ * CETTE réservation (`box_seul`), OU si le profil de ses chiens le dit
+ * (`estPrivatifPourSelection` : un chien « doit être isolé », ou un chien
+ * « famille uniquement » venu sans compagnon du foyer).
+ *
+ * C'est l'unique calcul. Le prix (tarif « seul »), la carte débitée
+ * (« 1 chien seul »), la place dans un box et la ligne de facture le lisent
+ * tous ici. La même règle vit en base, dans le filet anti-surbooking
+ * (`bloquer_surbooking_box`, migration app74_reservation_box_seul).
+ */
+export function estPrivatifReservation(p: {
+  box_seul?: boolean | null;
+  selection: ChienCohabitation[];
+}): boolean {
+  return p.box_seul === true || estPrivatifPourSelection(p.selection);
+}
+
+/**
+ * APP 74 — la case « 🏠 Mon chien seul dans un box » se propose-t-elle ?
+ *
+ *  - UN seul chien : à deux chiens ou plus, ce sont les règles de famille qui
+ *    décident du box (`occupeLeBoxSeul`, entente « famille uniquement »), et ce
+ *    lot ne les change pas ;
+ *  - un chien qui n'est PAS déjà seul par son profil : il l'est toujours, la
+ *    case n'aurait rien à dire ;
+ *  - pas pour la journée d'essai, qui a son propre déroulé.
+ */
+export function boxSeulProposable(p: {
+  type_reservation: string | null | undefined;
+  selection: ChienCohabitation[];
+}): boolean {
+  if (p.type_reservation === "essai") return false;
+  if (p.selection.length !== 1) return false;
+  return !estPrivatifPourSelection(p.selection);
+}
+
+/**
+ * Le `box_seul` à enregistrer : la demande, si elle est recevable, sinon
+ * false. Une case envoyée pour deux chiens, ou pour un chien déjà isolé, ne
+ * s'écrit pas — le serveur ne croit pas le navigateur sur parole.
+ */
+export function boxSeulRetenu(p: {
+  demande: unknown;
+  type_reservation: string | null | undefined;
+  selection: ChienCohabitation[];
+}): boolean {
+  return (p.demande === true || p.demande === "true" || p.demande === "on")
+    && boxSeulProposable(p);
+}
+
 /** Chiens de la sélection qui occupent un box pour eux seuls. */
 export function chiensSeulsDansLeBox(selection: ChienCohabitation[]): ChienCohabitation[] {
   return selection.filter((c) => occupeLeBoxSeul(c, selection));

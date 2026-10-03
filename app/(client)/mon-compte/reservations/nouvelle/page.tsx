@@ -9,6 +9,7 @@ import { statutEssaiDe } from "@/src/lib/journeeEssai";
 import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { lireDateOuverture } from "@/src/lib/ouverture";
 import { lireHoraires } from "@/src/lib/horairesServeur";
+import { trouverAbonnementUtilisable } from "@/src/lib/consommationAbonnement";
 
 export default async function NouvelleDemandeReservationPage() {
   const supabase = await createClient();
@@ -125,6 +126,9 @@ export default async function NouvelleDemandeReservationPage() {
   // Réglage vide : chaîne vide, et le tunnel se comporte comme avant.
   const dateOuverture = await lireDateOuverture();
   const horaires = await lireHoraires();
+  // APP 74 — une carte « 1 chien seul » utilisable : la même recherche que
+  // celle qui la débitera, pour ne rien promettre qu'elle ne tiendrait pas.
+  const aCarteChienSeul = !!(await trouverAbonnementUtilisable(client.id, "journee_privatif"));
 
   return (
     <main style={{ minHeight: "100vh", backgroundColor: "#F5F0E8", padding: "32px 16px" }}>
@@ -145,6 +149,7 @@ export default async function NouvelleDemandeReservationPage() {
           estInterne={!!(client as { interne?: boolean }).interne}
           dateOuverture={dateOuverture}
           horaires={horaires}
+          aCarteChienSeul={aCarteChienSeul}
         />
       </div>
     </main>

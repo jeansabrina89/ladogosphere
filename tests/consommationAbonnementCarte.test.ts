@@ -20,6 +20,7 @@ const H = vi.hoisted(() => ({
   cartes: [] as { id: string; categorie: string; jours: number }[],
   debits: [] as { abonnement_id: string; delta: number }[],
   majResa: [] as Record<string, unknown>[],
+  boxSeul: false,
 }));
 
 vi.mock("server-only", () => ({}));
@@ -38,7 +39,7 @@ vi.mock("@/src/lib/supabase-admin", () => {
         data: table === "reservations"
           ? {
               id: "resa-1", client_id: "client-1", type_reservation: "journee", statut: "validee",
-              abonnement_id: null, reservation_chiens: H.chienIds.map((chien_id) => ({ chien_id })),
+              abonnement_id: null, box_seul: H.boxSeul, reservation_chiens: H.chienIds.map((chien_id) => ({ chien_id })),
             }
           : null,
         error: null,
@@ -86,6 +87,7 @@ function scenario(chiens: Record<string, unknown>[], cartes: Carte[]) {
 beforeEach(() => {
   H.debits.length = 0;
   H.majResa.length = 0;
+  H.boxSeul = false;
 });
 
 describe("la carte débitée est celle du tarif appliqué", () => {
@@ -131,5 +133,29 @@ describe("la carte débitée est celle du tarif appliqué", () => {
     expect(await consommerAbonnementResa("resa-1", "client-1")).toEqual({ ok: true });
     expect(H.debits).toEqual([{ abonnement_id: "carte-trois", delta: -1 }]);
     expect(H.majResa[0]).toMatchObject({ abonnement_id: "carte-trois", mode_paiement: "abonnement" });
+  });
+});
+
+describe("APP 74 — la case « chien seul dans un box »", () => {
+  it("chien sociable, case cochée → « 1 chien seul », même s'il a aussi une carte sociable", async () => {
+    scenario([chien("a")], [CARTE_SOCIABLE, CARTE_SEUL]);
+    H.boxSeul = true;
+    expect(await consommerAbonnementResa("resa-1", "client-1")).toEqual({ ok: true });
+    expect(H.debits).toEqual([{ abonnement_id: "carte-seul", delta: -1 }]);
+  });
+
+  it("case cochée SANS carte « 1 chien seul » → aucun débit : jamais la carte sociable", async () => {
+    scenario([chien("a")], [CARTE_SOCIABLE]);
+    H.boxSeul = true;
+    const r = await consommerAbonnementResa("resa-1", "client-1");
+    expect(r.error).toBe("Aucune carte disponible pour cette reservation.");
+    expect(H.debits).toEqual([]);
+    expect(H.majResa).toEqual([]);
+  });
+
+  it("non-régression : sans la case, la carte sociable reste celle qui paie", async () => {
+    scenario([chien("a")], [CARTE_SOCIABLE, CARTE_SEUL]);
+    await consommerAbonnementResa("resa-1", "client-1");
+    expect(H.debits).toEqual([{ abonnement_id: "carte-sociable", delta: -1 }]);
   });
 });

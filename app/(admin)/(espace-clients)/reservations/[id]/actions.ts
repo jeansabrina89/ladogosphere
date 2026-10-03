@@ -6,12 +6,12 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { verifierPermission } from "@/src/lib/verifierPermission";
 import { calculerMontant } from "@/src/lib/calculTarif";
 import { estMembreActif } from "@/src/lib/membre";
-import { estPrivatifPourSelection } from "@/src/lib/cohabitation";
+import { estPrivatifReservation, boxSeulProposable } from "@/src/lib/cohabitation";
 import { reglesFacturation, urgenceDerivee } from "@/src/lib/typeSejour";
 import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { factureEmisePourReservation } from "@/src/lib/factureResa";
-import { recalculerTotalEtPaiement, type RecalculResult } from "@/src/lib/prixReservation";
+import { assurerMontantCalcule, recalculerTotalEtPaiement, type RecalculResult } from "@/src/lib/prixReservation";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { idUtilisateurCourant, verifierAdmin } from "@/src/lib/permissions";
 
@@ -81,8 +81,8 @@ export async function enregistrerMontantCalcule(reservationId: string, montant: 
  * dates/heures actuelles (comptage par tranche horaire : nuits + éventuelle
  * garde à la journée), puis recalcule le total dû et le paiement via
  * recalculerTotalEtPaiement. Sans effet pour les types 'journee'/'essai'.
- * Le caractère privatif/partagé est dérivé de "doit_etre_isole" sur les
- * chiens (même valeur par défaut que CalculFacture), car non persisté.
+ * Le caractère privatif/partagé suit la règle unique (APP 74) :
+ * `box_seul` de la réservation OU profil des chiens (estPrivatifReservation).
  * À appeler après toute modif de date_debut, date_fin, heure_arrivee ou
  * heure_depart d'une réservation 'sejour'.
  */
@@ -94,7 +94,7 @@ export async function recalculerMontantSejour(reservationId: string): Promise<Re
     .from("reservations")
     .select(`
       statut, type_reservation, type_sejour, date_debut, date_fin, heure_arrivee, heure_depart,
-      client_id, montant_calcule,
+      client_id, montant_calcule, box_seul,
       clients (membre),
       reservation_chiens (chiens (id, doit_etre_isole))
     `)
@@ -115,9 +115,10 @@ export async function recalculerMontantSejour(reservationId: string): Promise<Re
 
   const chiens = (reservation.reservation_chiens ?? []).map((rc: any) => rc.chiens).filter(Boolean);
   const nb_chiens = chiens.length;
-  const chien_isole = estPrivatifPourSelection(
-    await lireCohabitationChiens(chiens.map((c: any) => c.id))
-  );
+  const chien_isole = estPrivatifReservation({
+    box_seul: (reservation as { box_seul?: boolean | null }).box_seul,
+    selection: await lireCohabitationChiens(chiens.map((c: any) => c.id)),
+  });
   const est_membre = (reservation as any).client_id ? await estMembreActif(supabaseAdmin, (reservation as any).client_id, reservation.date_debut) : false;
 
   // Un type gratuit par défaut ne se voit poser aucun tarif automatique : le
@@ -156,6 +157,78 @@ export async function recalculerMontantSejour(reservationId: string): Promise<Re
   }
 
   const result = await recalculerTotalEtPaiement(reservationId, verif.userId);
+  revalidatePath(`/reservations/${reservationId}`);
+  return result;
+}
+
+/**
+ * APP 74 — la case « 🏠 Chien seul dans un box » de la fiche, ENREGISTRÉE.
+ *
+ * Elle remplace la case « Box privatif » d'avant, qui ne changeait que
+ * l'estimation affichée : rien ne l'enregistrait, et un recalcul après un
+ * changement de dates revenait au profil du chien.
+ *
+ * Même porte qu'une modification de réservation, mêmes refus qu'un prix
+ * (clôturée, facture émise). Le montant se recalcule comme après un
+ * changement de dates : séjour → `recalculerMontantSejour` ; journée → le
+ * calcul de la création (`assurerMontantCalcule`), à partir de zéro. Une
+ * réservation offerte ou gratuite par défaut garde son montant : la case n'a
+ * rien à y facturer.
+ */
+export async function definirBoxSeul(reservationId: string, boxSeul: boolean): Promise<RecalculResult> {
+  const verif = await verifierPermission("perm_reservations_modifier");
+  if (verif.error) return verif;
+
+  const { data: resa, error } = await supabaseAdmin
+    .from("reservations")
+    .select("statut, type_reservation, type_sejour, offerte, box_seul, montant_calcule, reservation_chiens (chien_id)")
+    .eq("id", reservationId)
+    .maybeSingle();
+  if (error || !resa) return { error: "Réservation introuvable." };
+  if (estCloturee(resa.statut)) return { error: "Réservation clôturée : modification impossible." };
+  if (Boolean(resa.box_seul) === boxSeul) return {};
+
+  const refus = await refusSiFactureEmise(reservationId);
+  if (refus) return { error: refus };
+
+  const chienIds = ((resa.reservation_chiens ?? []) as { chien_id: string }[]).map((rc) => rc.chien_id);
+  const selection = await lireCohabitationChiens(chienIds);
+  if (boxSeul && !boxSeulProposable({ type_reservation: resa.type_reservation, selection })) {
+    return { error: "« Chien seul dans un box » ne s'applique qu'à une réservation d'un seul chien sociable, hors journée d'essai." };
+  }
+
+  const { error: errMaj } = await supabaseAdmin
+    .from("reservations")
+    .update({ box_seul: boxSeul })
+    .eq("id", reservationId);
+  if (errMaj) return { error: errMaj.message };
+
+  await tracerEvenement({
+    entite: "reservation", entiteId: reservationId, evenement: "box_seul",
+    avant: { box_seul: Boolean(resa.box_seul) },
+    apres: { box_seul: boxSeul },
+    userId: verif.userId ?? null,
+  });
+
+  let result: RecalculResult = {};
+  if (resa.type_reservation === "sejour") {
+    result = await recalculerMontantSejour(reservationId);
+  } else if (resa.type_reservation === "journee"
+    && !resa.offerte && !reglesFacturation(resa.type_sejour).gratuitParDefaut) {
+    const avant = resa.montant_calcule ?? null;
+    await supabaseAdmin.from("reservations").update({ montant_calcule: 0 }).eq("id", reservationId);
+    const calcul = await assurerMontantCalcule(reservationId, verif.userId ?? null);
+    if (calcul.erreur) return { error: calcul.erreur };
+    if (Number(avant ?? 0) !== Number(calcul.montant ?? 0)) {
+      await tracerEvenement({
+        entite: "reservation", entiteId: reservationId, evenement: "prix_recalcule",
+        avant: { montant_calcule: avant },
+        apres: { montant_calcule: calcul.montant ?? null },
+        userId: verif.userId ?? null,
+      });
+    }
+  }
+
   revalidatePath(`/reservations/${reservationId}`);
   return result;
 }

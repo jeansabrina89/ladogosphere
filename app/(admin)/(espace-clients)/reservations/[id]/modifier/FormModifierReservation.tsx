@@ -25,6 +25,10 @@ export default function FormModifierReservation({ id }: { id: string }) {
   const [typeSejourInitial, setTypeSejourInitial] = useState("pension");
   const [typeSejourChoisi, setTypeSejourChoisi] = useState("pension");
   const [erreur, setErreur] = useState<string | null>(null);
+  // APP 74 — « chien seul dans un box » : enregistré avec le formulaire, et
+  // suivi tout de suite par la suggestion de box (un box VIDE).
+  const [boxSeul, setBoxSeul] = useState(false);
+  const [caseBoxSeul, setCaseBoxSeul] = useState(false);
 
   /**
    * DEUX protections, qui ne couvrent pas le même ensemble.
@@ -49,9 +53,10 @@ export default function FormModifierReservation({ id }: { id: string }) {
     // La réponse est rangée dans une fonction de rappel, comme avant : l'état
     // n'est pas posé en plein effet.
     return appelerApi<{
-      reservation: { box_id?: string | null; type_sejour?: string | null };
+      reservation: { box_id?: string | null; type_sejour?: string | null; box_seul?: boolean | null };
       boxes: { id: string }[];
       peutUrgence?: boolean;
+      boxSeulProposable?: boolean;
     }>(
       "FormModifierReservation.charger",
       `/api/reservations/${id}/details`,
@@ -65,6 +70,8 @@ export default function FormModifierReservation({ id }: { id: string }) {
       setBoxes(r.valeur.boxes);
       setBoxId(r.valeur.reservation?.box_id || "");
       setPeutUrgence(!!r.valeur.peutUrgence);
+      setBoxSeul(r.valeur.reservation?.box_seul === true);
+      setCaseBoxSeul(!!r.valeur.boxSeulProposable);
       const t = typeSejour(r.valeur.reservation?.type_sejour);
       setTypeSejourInitial(t);
       setTypeSejourChoisi(t);
@@ -109,6 +116,7 @@ export default function FormModifierReservation({ id }: { id: string }) {
     const form = e.currentTarget;
     const formData = new FormData(form);
     formData.set("box_id", boxId);
+    if (caseBoxSeul || res.box_seul === true) formData.set("box_seul", boxSeul ? "on" : "off");
 
     const r = await appelerApi(
       "FormModifierReservation.enregistrer",
@@ -181,9 +189,22 @@ export default function FormModifierReservation({ id }: { id: string }) {
               heure_depart={res.heure_depart}
               type_reservation={res.type_reservation}
               reservation_id={id}
+              box_seul={boxSeul}
               onSelectBox={(box_id) => setBoxId(box_id)}
             />
           </div>
+
+          {(caseBoxSeul || res.box_seul === true) && (
+            <div>
+              <label className="flex items-center gap-2 font-semibold cursor-pointer" style={{ color: "#1B2B5E" }}>
+                <input type="checkbox" checked={boxSeul} onChange={e => setBoxSeul(e.target.checked)} />
+                🏠 Chien seul dans un box
+              </label>
+              <p className="text-xs text-gray-500 mt-1 ml-6">
+                Tarif chien seul, carte « 1 chien seul », box entier. Le montant se recalcule à l&apos;enregistrement.
+              </p>
+            </div>
+          )}
 
           {/* Dates */}
           <div className="grid grid-cols-2 gap-4">

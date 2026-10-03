@@ -25,7 +25,8 @@ import {
 import { MESSAGE_ADHESION_A_REGLER } from "@/src/lib/adhesionReservation";
 import { statutEssaiDe, chienReservablePour, messageRefusChien, heureEssaiStandard } from "@/src/lib/journeeEssai";
 import {
-  estPrivatifPourSelection,
+  estPrivatifReservation,
+  boxSeulProposable,
   chiensSeulsDansLeBox,
   selectionMixteRefusee,
   avertissementChienSeul,
@@ -33,6 +34,13 @@ import {
 import Bouton from "@/app/components/ui/Bouton";
 import EtatVide from "@/app/components/ui/EtatVide";
 import { formatPrixClient } from "@/src/lib/prixClient";
+import {
+  LIBELLE_CASE_BOX_SEUL,
+  MENTION_CARTE_CHIEN_SEUL,
+  EXPLICATION_PLUSIEURS_CHIENS,
+  aideBoxSeul,
+  prixBoxSeul,
+} from "@/src/lib/boxSeul";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -356,6 +364,7 @@ export default function TunnelReservation({
   estInterne = false,
   dateOuverture = "",
   horaires = HORAIRES_DEFAUT,
+  aCarteChienSeul = false,
 }: {
   chiens: ChienTunnel[];
   tarifs: TarifLite[];
@@ -374,6 +383,8 @@ export default function TunnelReservation({
   dateOuverture?: string;
   /** Horaires d'accueil réglés (APP 59), avec repli sur ceux d'hier. */
   horaires?: Horaires;
+  /** APP 74 — le client a une carte « 1 chien seul » avec des jours restants. */
+  aCarteChienSeul?: boolean;
 }) {
 
   // Navigation
@@ -404,6 +415,9 @@ export default function TunnelReservation({
   const [dureeRec, setDureeRec] = useState<DureeRec>("1mois");
   const [exclusions, setExclusions] = useState<string[]>([]);
   const [exclusionInput, setExclusionInput] = useState("");
+  // APP 74 — « 🏠 Mon chien seul dans un box ». Une demande, gardée jusqu'à la
+  // validation par l'équipe.
+  const [boxSeulCoche, setBoxSeulCoche] = useState(false);
 
   // Commun
   const [commentaire, setCommentaire] = useState("");
@@ -425,9 +439,15 @@ export default function TunnelReservation({
   // Le calendrier tient compte des chiens choisis : un jour est grisé quand
   // aucun box compatible n'est libre pour EUX (gabarit, isolement).
   const chienIdsPourCalendrier = chienIdsSelectionnes.join(",");
+  // APP 74 — la case demande un box VIDE : le calendrier grise davantage.
+  const boxSeulPourCalendrier = boxSeulCoche && boxSeulProposable({
+    type_reservation: "journee",
+    selection: chiens.filter(c => chienIdsSelectionnes.includes(c.id)),
+  });
   useEffect(() => {
     const params = new URLSearchParams({ annee: String(new Date().getFullYear()) });
     if (chienIdsPourCalendrier) params.set("chien_ids", chienIdsPourCalendrier);
+    if (boxSeulPourCalendrier) params.set("box_seul", "1");
     let annule = false;
     fetch(`/api/dates-indisponibles?${params.toString()}`)
       .then(r => r.json())
@@ -439,7 +459,7 @@ export default function TunnelReservation({
       })
       .catch(() => {});
     return () => { annule = true; };
-  }, [chienIdsPourCalendrier]);
+  }, [chienIdsPourCalendrier, boxSeulPourCalendrier]);
 
   // ─── Valeurs dérivées ───────────────────────────────────────────────────────
 
@@ -542,7 +562,17 @@ export default function TunnelReservation({
   // y compris pour l'essai).
   const chiensEssaiSelectionnes = chiens.filter(c => chienIdsEssai.includes(c.id));
   const selectionPourPrix = branche === "essai" ? chiensEssaiSelectionnes : chiensSelectionnes;
-  const estPrivatif = estPrivatifPourSelection(selectionPourPrix);
+  /*
+   * APP 74 — la case se propose pour UN chien sociable, hors journée d'essai
+   * (et pas pour une fiche du personnel, qui ne paie pas). Elle ne compte que
+   * si elle est proposée : décocher n'est pas nécessaire quand on change de
+   * chien, la règle l'ignore d'elle-même.
+   */
+  const caseBoxSeulProposee = !estInterne && branche === "complete"
+    && boxSeulProposable({ type_reservation: formule ?? "journee", selection: chiensSelectionnes });
+  const boxSeul = caseBoxSeulProposee && boxSeulCoche;
+  const estPrivatif = estPrivatifReservation({ box_seul: boxSeul, selection: selectionPourPrix });
+  const aideCaseBoxSeul = aideBoxSeul(prixBoxSeul(tarifsPourAnnee(new Date().getFullYear())));
 
   // Fiche du personnel, garderie à la journée : le chien vient et repart avec
   // l'employée, il n'y a pas d'horaire à saisir. Les séjours gardent les leurs.
@@ -740,6 +770,7 @@ export default function TunnelReservation({
         heure_depart: heureDepartEnvoyee,
         commentaire_client: commentaire || null,
         conditions_acceptees: conditionsOk,
+        box_seul: boxSeul,
       };
     }
 
@@ -1023,6 +1054,28 @@ export default function TunnelReservation({
           </button>
         </div>
 
+        {caseBoxSeulProposee && (
+          <label style={{ ...S.info, display: "flex", gap: 10, alignItems: "flex-start", marginTop: 16, cursor: "pointer" }}>
+            <input type="checkbox" checked={boxSeulCoche}
+              onChange={e => setBoxSeulCoche(e.target.checked)}
+              style={{ marginTop: 3 }} />
+            <span>
+              <span style={{ fontWeight: 700, display: "block" }}>{LIBELLE_CASE_BOX_SEUL}</span>
+              <span style={{ display: "block", marginTop: 2 }}>{aideCaseBoxSeul}</span>
+              {boxSeulCoche && aCarteChienSeul && formule === "journee" && (
+                <span style={{ display: "block", marginTop: 4, fontWeight: 600, color: "#1F6E5B" }}>
+                  {MENTION_CARTE_CHIEN_SEUL}
+                </span>
+              )}
+            </span>
+          </label>
+        )}
+        {!estInterne && chiensSelectionnes.length > 1 && !estPrivatif && (
+          <p style={{ fontSize: 12, color: "rgba(27,43,94,0.6)", marginTop: 12, lineHeight: 1.5 }}>
+            {EXPLICATION_PLUSIEURS_CHIENS}
+          </p>
+        )}
+
         {renderNavFooter()}
       </>
     );
@@ -1278,6 +1331,8 @@ export default function TunnelReservation({
 
     const captionEstim = branche === "essai"
       ? "Tarif journée d'essai. Le montant définitif est confirmé par notre équipe."
+      : estPrivatif
+      ? "Tarif membre, chien seul dans un box. Le montant définitif est confirmé par notre équipe lors de la validation."
       : "Tarif membre, hébergement partagé. Le montant définitif est confirmé par notre équipe lors de la validation.";
 
     return (
@@ -1303,6 +1358,16 @@ export default function TunnelReservation({
             <p style={{ margin: "0 0 3px", fontSize: 11, color: "rgba(27,43,94,0.45)", textTransform: "uppercase" as const, letterSpacing: "0.5px" }}>Date(s)</p>
             <p style={{ margin: 0, fontWeight: 600, color: "#1B2B5E", fontSize: 15 }}>{datesLabel}</p>
           </div>
+
+          {boxSeul && (
+            <div style={S.recapRow}>
+              <p style={{ margin: "0 0 3px", fontSize: 11, color: "rgba(27,43,94,0.45)", textTransform: "uppercase" as const, letterSpacing: "0.5px" }}>Box</p>
+              <p style={{ margin: 0, fontWeight: 600, color: "#1B2B5E", fontSize: 15 }}>{LIBELLE_CASE_BOX_SEUL}</p>
+              {aCarteChienSeul && formule === "journee" && (
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: "#1F6E5B", fontWeight: 600 }}>{MENTION_CARTE_CHIEN_SEUL}</p>
+              )}
+            </div>
+          )}
 
           {estInterne ? (
             // Fiche du personnel : tout est gratuit, aucun tarif n'est montré.

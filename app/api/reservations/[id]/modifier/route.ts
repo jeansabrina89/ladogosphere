@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { lireCorpsFormulaire } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { recalculerMontantSejour } from "@/app/(admin)/(espace-clients)/reservations/[id]/actions";
+import { definirBoxSeul, recalculerMontantSejour } from "@/app/(admin)/(espace-clients)/reservations/[id]/actions";
 import {
   EVENEMENT_REQUALIFICATION,
   champsTypeSejour,
@@ -69,6 +69,16 @@ export async function POST(
     peutTarifsUrgence: !(await exigerPermissionApi(supabase, "perm_tarifs_urgence")),
   });
   if (refusType) return NextResponse.json({ error: refusType }, { status: 400 });
+
+  // APP 74 — « chien seul dans un box », AVANT tout le reste : ses refus
+  // (facture émise, plusieurs chiens, essai) ne laissent rien d'enregistré à
+  // moitié, et la nouvelle occupation de box, plus bas, la voit déjà — le filet
+  // en base aussi. Même chemin que la case de la fiche : journal et recalcul.
+  const champBoxSeul = formData.get("box_seul");
+  if (champBoxSeul === "on" || champBoxSeul === "off") {
+    const r = await definirBoxSeul(id, champBoxSeul === "on");
+    if (r.error) return NextResponse.json({ error: r.error }, { status: 400 });
+  }
 
   const { error } = await supabaseAdmin
     .from("reservations")
@@ -137,7 +147,7 @@ export async function POST(
       .eq("reservation_id", id);
 
     if (resChiens && resChiens.length > 0) {
-      await supabaseAdmin.from("occupation_boxes").insert(
+      const { error: errOcc } = await supabaseAdmin.from("occupation_boxes").insert(
         resChiens.map((rc) => ({
           box_id,
           chien_id: rc.chien_id,
@@ -146,6 +156,15 @@ export async function POST(
           date_fin,
         }))
       );
+      // Le filet en base a refusé ce box (APP 74 : box déjà pris, ou chien
+      // seul dans son box). La modification est enregistrée, la place non :
+      // on le dit, au lieu de laisser croire que le chien a un box.
+      if (errOcc) {
+        return NextResponse.json(
+          { error: `Modification enregistrée, mais le box n'a pas pu être attribué : ${errOcc.message}` },
+          { status: 409 },
+        );
+      }
     }
   }
 

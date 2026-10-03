@@ -359,6 +359,7 @@ const LIBELLES_PAR_ENTITE: Record<string, Record<string, string>> = {
     box: "Box attribué",
     prix_modifie: "Prix modifié",
     prix_recalcule: "Prix recalculé",
+    box_seul: "Chien seul dans un box",
     offerte: "Offerte",
     offerte_retiree: "N'est plus offerte",
     arrivee: "Arrivée",

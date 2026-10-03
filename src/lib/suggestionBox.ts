@@ -8,7 +8,7 @@ import {
   creneauxTransition,
 } from "@/src/lib/disponibilite-box";
 import { lireHoraires } from "@/src/lib/horairesServeur";
-import { tousPetitsGabarits } from "@/src/lib/cohabitation";
+import { estPrivatifReservation, tousPetitsGabarits } from "@/src/lib/cohabitation";
 
 export type EntreeSuggestion = {
   chien_ids: string[];
@@ -17,6 +17,8 @@ export type EntreeSuggestion = {
   heure_arrivee?: string | null;
   heure_depart?: string | null;
   type_reservation?: string | null;
+  /** APP 74 — la réservation à placer a la case « chien seul dans un box ». */
+  box_seul?: boolean | null;
   /**
    * Inclure les box INTERNES dans les candidats. Faux par défaut : un client ne
    * doit jamais se voir attribuer un box du personnel ou de la pension.
@@ -29,9 +31,37 @@ type LigneOccupation = {
   chien_id: string;
   date_debut: string;
   date_fin: string;
-  reservations: { heure_arrivee: string | null; heure_depart: string | null; type_reservation: string | null } | null;
+  reservations: {
+    heure_arrivee: string | null; heure_depart: string | null; type_reservation: string | null;
+    box_seul?: boolean | null;
+  } | null;
   chiens: { doit_etre_isole: boolean | null; client_id: string | null; categorie_poids: string | null } | null;
 };
+
+/**
+ * APP 74 — la règle unique (`estPrivatifReservation`), côté box.
+ *
+ * Une occupation déjà en place prend le box ENTIER si sa réservation porte
+ * `box_seul` OU si son chien doit être isolé. Le placement demandé, de même :
+ * sa case OU le profil de ses chiens. Avant ce lot, seul « doit être isolé »
+ * comptait, des deux côtés.
+ */
+export function occupationPrendLeBoxEntier(o: Pick<LigneOccupation, "reservations" | "chiens">): boolean {
+  return estPrivatifReservation({
+    box_seul: o.reservations?.box_seul,
+    selection: o.chiens ? [{ doit_etre_isole: o.chiens.doit_etre_isole }] : [],
+  });
+}
+
+export function placementPrendLeBoxEntier(
+  boxSeul: boolean | null | undefined,
+  chiens: { doit_etre_isole: boolean | null }[],
+): boolean {
+  return estPrivatifReservation({
+    box_seul: boxSeul,
+    selection: chiens.map((c) => ({ doit_etre_isole: c.doit_etre_isole })),
+  });
+}
 
 type ChienAPlacer = {
   id: string;
@@ -67,6 +97,7 @@ export async function suggererBox(entree: EntreeSuggestion): Promise<ResultatSug
     chien_ids, date_debut, date_fin,
     heure_arrivee, heure_depart, type_reservation,
     inclureInternes = false,
+    box_seul = false,
   } = entree;
 
   if (!chien_ids?.length || !date_debut || !date_fin) {
@@ -76,7 +107,7 @@ export async function suggererBox(entree: EntreeSuggestion): Promise<ResultatSug
   // 1. Occupations qui chevauchent la période demandée.
   const { data: occupationsRaw } = await supabaseAdmin
     .from("occupation_boxes")
-    .select("box_id, chien_id, date_debut, date_fin, reservations (heure_arrivee, heure_depart, type_reservation), chiens (doit_etre_isole, client_id, categorie_poids)")
+    .select("box_id, chien_id, date_debut, date_fin, reservations (heure_arrivee, heure_depart, type_reservation, box_seul), chiens (doit_etre_isole, client_id, categorie_poids)")
     .lte("date_debut", date_fin)
     .gte("date_fin", date_debut);
 
@@ -85,7 +116,7 @@ export async function suggererBox(entree: EntreeSuggestion): Promise<ResultatSug
     .select("id, doit_etre_isole, client_id, categorie_poids")
     .in("id", chien_ids);
   const chiensAPlacer = (chiensAPlacerInfo ?? []) as ChienAPlacer[];
-  const placementIsole = chiensAPlacer.some((c) => c.doit_etre_isole);
+  const placementIsole = placementPrendLeBoxEntier(box_seul, chiensAPlacer);
 
   const clientIdFamille =
     chiensAPlacer.length > 0 &&
@@ -170,7 +201,7 @@ export async function suggererBox(entree: EntreeSuggestion): Promise<ResultatSug
 
   const boxesUtilisables = tousBoxes.filter((box) => {
     const occupantsBox = boxesOccupes.filter((o) => o.box_id === box.id);
-    const occupantIsole = occupantsBox.some((o) => o.chiens?.doit_etre_isole);
+    const occupantIsole = occupantsBox.some(occupationPrendLeBoxEntier);
     return boxCompatibleAvecIsolement(occupantIsole, occupantsBox.length, placementIsole);
   });
 
@@ -366,8 +397,10 @@ export async function verifierPlaceDisponible(entree: {
   type_reservation?: string | null;
   /** La sélection occupe-t-elle un box entier ? (message adapté) */
   chienSeul?: boolean;
+  /** APP 74 — la case « chien seul dans un box » de la demande. */
+  box_seul?: boolean | null;
 }): Promise<{ ok: true } | { ok: false; date: string; message: string }> {
-  const { chien_ids, date_debut, date_fin, type_reservation, chienSeul = false } = entree;
+  const { chien_ids, date_debut, date_fin, type_reservation, chienSeul = false, box_seul = false } = entree;
   if (chien_ids.length === 0) return { ok: true };
 
   const completes = await datesCompletesPourChiens({
@@ -375,6 +408,7 @@ export async function verifierPlaceDisponible(entree: {
     debut: date_debut,
     fin: date_fin,
     type_reservation,
+    box_seul,
   });
 
   if (completes.length === 0) return { ok: true };
@@ -392,8 +426,10 @@ export async function datesCompletesPourChiens(entree: {
   debut: string;
   fin: string;
   type_reservation?: string | null;
+  /** APP 74 — la case « chien seul dans un box » : le placement prend un box entier. */
+  box_seul?: boolean | null;
 }): Promise<string[]> {
-  const { chien_ids, debut, fin, type_reservation } = entree;
+  const { chien_ids, debut, fin, type_reservation, box_seul = false } = entree;
   if (chien_ids.length === 0) return [];
 
   const { data: chiensInfo } = await supabaseAdmin
@@ -403,7 +439,7 @@ export async function datesCompletesPourChiens(entree: {
   const chiensAPlacer = (chiensInfo ?? []) as ChienAPlacer[];
   if (chiensAPlacer.length === 0) return [];
 
-  const placementIsole = chiensAPlacer.some((c) => c.doit_etre_isole);
+  const placementIsole = placementPrendLeBoxEntier(box_seul, chiensAPlacer);
   const clientIdFamille =
     chiensAPlacer.every((c) => c.client_id === chiensAPlacer[0].client_id)
       ? chiensAPlacer[0].client_id
@@ -420,7 +456,7 @@ export async function datesCompletesPourChiens(entree: {
 
   const { data: occupations } = await supabaseAdmin
     .from("occupation_boxes")
-    .select("box_id, chien_id, date_debut, date_fin, chiens (doit_etre_isole, client_id, categorie_poids)")
+    .select("box_id, chien_id, date_debut, date_fin, reservations (box_seul), chiens (doit_etre_isole, client_id, categorie_poids)")
     .lte("date_debut", fin)
     .gte("date_fin", debut);
   const lignes = (occupations ?? []) as unknown as LigneOccupation[];
@@ -445,7 +481,7 @@ export async function datesCompletesPourChiens(entree: {
       const occupants = lignes.filter(
         (o) => o.box_id === box.id && o.date_debut <= jour && o.date_fin >= jour
       );
-      const occupantIsole = occupants.some((o) => o.chiens?.doit_etre_isole);
+      const occupantIsole = occupants.some(occupationPrendLeBoxEntier);
       if (!boxCompatibleAvecIsolement(occupantIsole, occupants.length, placementIsole)) return false;
 
       const gabarits = [

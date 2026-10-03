@@ -131,6 +131,7 @@ export async function POST(
           box_label: formatBoxLabel(reservation.boxes),
           heure_arrivee: reservation.heure_arrivee,
           heure_depart: reservation.heure_depart,
+          box_seul: reservation.box_seul === true,
         });
       } else if (statut === "annulee") {
         await envoyerEmailReservationAnnulee({

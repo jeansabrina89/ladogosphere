@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import PlanningNavigation from "./PlanningNavigation";
 import BoutonDeplacerChien from "./BoutonDeplacerChien";
 import BoutonMasquerBoxesVides from "./BoutonMasquerBoxesVides";
+import BadgeBoxSeul from "@/app/components/BadgeBoxSeul";
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { aujourdhuiISO } from "@/src/lib/dates";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
@@ -36,6 +37,7 @@ export default async function PlanningPage({
       date_debut,
       date_fin,
       reservation_id,
+      reservations (box_seul),
       chiens (id, nom, race, poids, categorie_poids, sexe, sterilise)
     `)
     .lte("date_debut", dateFin)
@@ -171,6 +173,7 @@ export default async function PlanningPage({
                                   reservation_id={occ.reservation_id}
                                   perm_box={perms.perm_box}
                                 />
+                                <BadgeBoxSeul box_seul={(occ.reservations as { box_seul?: boolean | null } | null)?.box_seul} />
                               </div>
                             ))}
                           </div>

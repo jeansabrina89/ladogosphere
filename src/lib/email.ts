@@ -745,10 +745,25 @@ export async function envoyerMessageLibre(p: {
   });
 }
 
+/** APP 74 — le libellé « box seul » des e-mails de réservation. */
+export const MENTION_BOX_SEUL_EMAIL = "🏠 Box seul — votre chien ne partage pas son box";
+
+/** La ligne du récapitulatif, ou rien si la réservation n'a pas la case. */
+export function ligneBoxSeulEmail(box_seul: boolean | null | undefined): string {
+  if (box_seul !== true) return "";
+  return `
+          <tr>
+            <td style="padding:6px 0; color:#6B7280; font-size:14px;">Box</td>
+            <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${MENTION_BOX_SEUL_EMAIL}</td>
+          </tr>`;
+}
+
 export async function envoyerEmailConfirmationDemande({
-  email, prenom, date_debut, date_fin, type,
+  email, prenom, date_debut, date_fin, type, box_seul,
 }: {
   email: string; prenom: string; date_debut: string; date_fin: string; type: string;
+  /** APP 74 — la demande porte la case « chien seul dans un box ». */
+  box_seul?: boolean | null;
 }) {
   const m = await modeleEmail("confirmation_demande", {
     prenom, date_debut: formatDate(date_debut), date_fin: formatDate(date_fin),
@@ -775,7 +790,7 @@ export async function envoyerEmailConfirmationDemande({
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px;">Départ</td>
             <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${formatDate(date_fin)}</td>
-          </tr>
+          </tr>${ligneBoxSeulEmail(box_seul)}
         </table>
       </div>
 
@@ -793,10 +808,12 @@ export async function envoyerEmailConfirmationDemande({
 }
 
 export async function envoyerEmailReservationValidee({
-  email, prenom, date_debut, date_fin, type, box_label, heure_arrivee, heure_depart,
+  email, prenom, date_debut, date_fin, type, box_label, heure_arrivee, heure_depart, box_seul,
 }: {
   email: string; prenom: string; date_debut: string; date_fin: string;
   type: string; box_label?: string; heure_arrivee?: string; heure_depart?: string;
+  /** APP 74 — la réservation porte la case « chien seul dans un box ». */
+  box_seul?: boolean | null;
 }) {
   // APP 59 — les horaires viennent du réglage, plus du code.
   const horaires = await lireHoraires();
@@ -830,7 +847,7 @@ export async function envoyerEmailReservationValidee({
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px;">Box assigné</td>
             <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${box_label}</td>
-          </tr>` : ""}
+          </tr>` : ""}${ligneBoxSeulEmail(box_seul)}
         </table>
       </div>
 
@@ -1212,10 +1229,12 @@ export async function envoyerEmailResultatEssai({
 }
 
 export async function envoyerEmailRappelVeille({
-  email, prenom, nom_chien, date_debut, heure_arrivee, type,
+  email, prenom, nom_chien, date_debut, heure_arrivee, type, box_seul,
 }: {
   email: string; prenom: string; nom_chien: string;
   date_debut: string; heure_arrivee?: string; type: string;
+  /** APP 74 — la réservation porte la case « chien seul dans un box ». */
+  box_seul?: boolean | null;
 }) {
   const horaires = await lireHoraires();
   const m = await modeleEmail("rappel_veille", {
@@ -1266,7 +1285,7 @@ export async function envoyerEmailRappelVeille({
           <tr>
             <td style="padding:6px 0; color:#6B7280; font-size:14px;">Arrivée</td>
             <td style="padding:6px 0; color:#1B2B5E; font-weight:bold; font-size:14px;">${formatDate(date_debut)}${heure_arrivee ? ` à ${heure_arrivee}` : ""}</td>
-          </tr>
+          </tr>${ligneBoxSeulEmail(box_seul)}
         </table>
       </div>
 

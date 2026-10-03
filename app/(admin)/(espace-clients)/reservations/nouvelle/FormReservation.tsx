@@ -25,6 +25,7 @@ import SelectHeure from "@/app/components/SelectHeure";
 import { ALERTE_JAMAIS_SIGNEES } from "@/src/lib/acceptationsConditionsLogique";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import { statutEssaiDe, chienReservablePour, messageRefusChien } from "@/src/lib/journeeEssai";
+import { boxSeulProposable } from "@/src/lib/cohabitation";
 import {
   MENTION_OCCUPATION_TOUS_TYPES,
   TYPES_SEJOUR,
@@ -37,7 +38,9 @@ type EtatJourneeEssai = { disponible: boolean; heuresPrises: string[]; creneauxL
 type Client = { id: string; prenom: string; nom: string; membre: boolean; aJour: boolean; cotisation_exemptee?: boolean; interne?: boolean;
   /** APP 42 : ce client n'a jamais accepté les conditions de la pension. */
   conditionsManquantes?: boolean };
-type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string; statut_essai: string | null };
+type Chien = { id: string; nom: string; race: string; categorie_poids: string; poids: number; client_id: string; statut_essai: string | null;
+  /** APP 74 — le profil de cohabitation, pour la case « chien seul dans un box ». */
+  doit_etre_isole?: boolean | null; hebergement_autorise?: string | null; famille_uniquement?: boolean | null };
 type Box = { id: string; numero: number; nom?: string | null };
 
 const JOURS_SEMAINE = [
@@ -106,6 +109,8 @@ export default function FormReservation({
   const [boxId, setBoxId] = useState("");
   const [suggestionBox, setSuggestionBox] = useState<{ message: string; raison: string } | null>(null);
   const [chargementSuggestion, setChargementSuggestion] = useState(false);
+  // APP 74 — « chien seul dans un box ».
+  const [boxSeulCoche, setBoxSeulCoche] = useState(false);
 
   // Client combobox
   const [clientId, setClientId] = useState("");
@@ -184,6 +189,9 @@ export default function FormReservation({
   const reservationBloquee = chiensBloquantsSel.length > 0 && !forcer;
   const seulEssaiAutorise = chiensNonValidesSel.length > 0 && chiensRefusesSel.length === 0;
   const tousValidesSel = chiensSelectionnesInfos.length > 0 && chiensNonValidesSel.length === 0;
+  // La case ne vaut que proposée : un chien sociable seul, hors essai.
+  const caseBoxSeul = boxSeulProposable({ type_reservation: type, selection: chiensSelectionnesInfos });
+  const boxSeul = caseBoxSeul && boxSeulCoche;
 
   const clientSelectionne = clients.find(c => c.id === clientId) ?? null;
   const typesOuverts = TYPES_SEJOUR.filter((t) =>
@@ -351,6 +359,7 @@ export default function FormReservation({
             heure_arrivee: heureArrivee,
             heure_depart: heureDepart,
             type_reservation: type,
+            box_seul: boxSeul,
           }),
         });
         const data = await res.json();
@@ -370,7 +379,7 @@ export default function FormReservation({
     // fonction sans retour — on le dit plutôt que de lui passer une promesse.
     const timeout = setTimeout(() => { void chercher(); }, 500);
     return () => clearTimeout(timeout);
-  }, [chiensSelectionnes, dateDebut, dateFin, heureArrivee, heureDepart, type]);
+  }, [chiensSelectionnes, dateDebut, dateFin, heureArrivee, heureDepart, type, boxSeul]);
 
   /**
    * APP 59 — la RÈGLE et le TEXTE sortent du même réglage.
@@ -459,6 +468,7 @@ export default function FormReservation({
         fd.set("heure_depart", heureDepart || "");
         fd.set("type_sejour", typeSejourChoisi);
         fd.set("commentaire_admin", commentaire_admin || "");
+        if (boxSeul) fd.set("box_seul", "on");
         if (forcer) {
           fd.set("forcer", "on");
           fd.set("forcer_raison", forcerRaison);
@@ -502,6 +512,7 @@ export default function FormReservation({
     const form = e.currentTarget;
     const formData = new FormData(form);
     formData.set("box_id", boxId);
+    if (boxSeul) formData.set("box_seul", "on"); else formData.delete("box_seul");
     formData.delete("chien_ids");
     chiensSelectionnes.forEach(id => formData.append("chien_ids", id));
 
@@ -908,6 +919,20 @@ export default function FormReservation({
                     className="w-full border rounded-xl p-3" />
                 )}
               </div>
+            </div>
+          )}
+
+          {/* APP 74 — chien seul dans un box : avant le box, que la suggestion suit. */}
+          {caseBoxSeul && (
+            <div>
+              <label className="flex items-center gap-2 font-semibold cursor-pointer">
+                <input type="checkbox" checked={boxSeulCoche}
+                  onChange={e => setBoxSeulCoche(e.target.checked)} />
+                🏠 Chien seul dans un box
+              </label>
+              <p className="text-xs text-gray-500 mt-1 ml-6">
+                Tarif chien seul, carte « 1 chien seul », box entier : la suggestion cherche un box vide.
+              </p>
             </div>
           )}
 

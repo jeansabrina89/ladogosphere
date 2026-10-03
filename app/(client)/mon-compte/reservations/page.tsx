@@ -87,10 +87,10 @@ export default async function MesReservationsPage({
   const today = new Date().toISOString().split("T")[0];
   // APP 72 — la carte proposée pour une journée est celle de son TARIF (même
   // règle que la consommation) : une seule lecture des chiens pour la liste.
-  type ResaChiens = { id: string; type_reservation: string | null; reservation_chiens: { chien_id: string }[] | null };
+  type ResaChiens = { id: string; type_reservation: string | null; box_seul?: boolean | null; reservation_chiens: { chien_id: string }[] | null };
   const journees = ((reservationsData ?? []) as unknown as ResaChiens[])
     .filter((r) => r.type_reservation === "journee")
-    .map((r) => ({ id: r.id, chienIds: (r.reservation_chiens ?? []).map((rc) => rc.chien_id) }));
+    .map((r) => ({ id: r.id, chienIds: (r.reservation_chiens ?? []).map((rc) => rc.chien_id), boxSeul: r.box_seul }));
   const [coords, soldeAvoir, abos, categoriesCartes] = await Promise.all([
     getCoordonneesPaiement(supabaseAdmin),
     getSoldeAvoir(supabaseAdmin, client.id),

@@ -11,6 +11,7 @@ import { ALERTE_JAMAIS_SIGNEES } from "@/src/lib/acceptationsConditionsLogique";
 import NomClientLien from "@/app/components/NomClientLien";
 import NomChienLien from "@/app/components/NomChienLien";
 import BadgePhotos from "@/app/components/BadgePhotos";
+import BadgeBoxSeul from "@/app/components/BadgeBoxSeul";
 import MessageProprietaire from "@/app/components/MessageProprietaire";
 import PointageFait from "@/app/components/PointageFait";
 import AuteurGeste from "@/app/components/AuteurGeste";
@@ -24,7 +25,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 const SELECT = `
   id, statut, reservation_id, date_arrivee_prevue, date_depart_prevu, date_arrivee_reelle, date_depart_reel,
-  reservations ( type_reservation, heure_arrivee, heure_depart, commentaire_client, clients (id, prenom, nom, photos_ok) ),
+  reservations ( type_reservation, heure_arrivee, heure_depart, commentaire_client, box_seul, clients (id, prenom, nom, photos_ok) ),
   chiens ( id, nom )
 ` as const;
 
@@ -151,6 +152,7 @@ export default async function ChiensDuJourPage({
                           {badge(cc.statut)}
                           <BadgePhotos photos_ok={cc.reservations?.clients?.photos_ok} taille="petite" />
                           <BadgeCommandeARemettre nombre={colis.get(cc.reservations?.clients?.id) ?? 0} taille="petite" />
+                          <BadgeBoxSeul box_seul={cc.reservations?.box_seul} />
                           {sansConditions.has(cc.reservations?.clients?.id ?? "") && (
                             <span title={ALERTE_JAMAIS_SIGNEES} style={{
                               marginLeft: 6, padding: "1px 8px", borderRadius: 999,
@@ -210,6 +212,7 @@ export default async function ChiensDuJourPage({
                           {badge(cc.statut)}
                           <BadgePhotos photos_ok={cc.reservations?.clients?.photos_ok} taille="petite" />
                           <BadgeCommandeARemettre nombre={colis.get(cc.reservations?.clients?.id) ?? 0} taille="petite" />
+                          <BadgeBoxSeul box_seul={cc.reservations?.box_seul} />
                           {sansConditions.has(cc.reservations?.clients?.id ?? "") && (
                             <span title={ALERTE_JAMAIS_SIGNEES} style={{
                               marginLeft: 6, padding: "1px 8px", borderRadius: 999,
@@ -271,6 +274,7 @@ export default async function ChiensDuJourPage({
                           {badge(cc.statut)}
                           <BadgePhotos photos_ok={cc.reservations?.clients?.photos_ok} taille="petite" />
                           <BadgeCommandeARemettre nombre={colis.get(cc.reservations?.clients?.id) ?? 0} taille="petite" />
+                          <BadgeBoxSeul box_seul={cc.reservations?.box_seul} />
                           {sansConditions.has(cc.reservations?.clients?.id ?? "") && (
                             <span title={ALERTE_JAMAIS_SIGNEES} style={{
                               marginLeft: 6, padding: "1px 8px", borderRadius: 999,

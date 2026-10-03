@@ -16,7 +16,7 @@ import { formatDateFR, formatHeure, formatHorodatage, instantUtc } from "@/src/l
 import { formatBoxLabel } from "@/src/lib/boxes";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
 import { estMembreActif } from "@/src/lib/membre";
-import { estPrivatifPourSelection } from "@/src/lib/cohabitation";
+import { estPrivatifPourSelection, estPrivatifReservation, boxSeulProposable } from "@/src/lib/cohabitation";
 import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import BadgeMembre from "@/app/components/BadgeMembre";
 import BoutonOffrir from "./BoutonOffrir";
@@ -176,9 +176,13 @@ export default async function ReservationPage({
     gestesP,
   ]);
 
-  // « Privatif » = un chien isolé, OU un chien « famille uniquement » réservé
-  // sans compagnon du foyer : dans les deux cas il occupe le box entier.
-  const chien_isole = estPrivatifPourSelection(cohabitation);
+  // Le PROFIL : un chien isolé, OU un chien « famille uniquement » réservé
+  // sans compagnon du foyer — dans les deux cas il occupe le box entier.
+  const profilSeul = estPrivatifPourSelection(cohabitation);
+  // APP 74 — la règle unique : la case « box seul » de CETTE réservation, OU
+  // le profil. C'est elle qui fixe le tarif affiché et enregistré.
+  const chien_isole = estPrivatifReservation({ box_seul: res.box_seul, selection: cohabitation });
+  const caseBoxSeul = boxSeulProposable({ type_reservation: res.type_reservation, selection: cohabitation });
 
   /*
    * APP 42 — le repère des conditions. AUCUN BLOCAGE.
@@ -444,6 +448,9 @@ export default async function ReservationPage({
                 reservation={res}
                 nb_chiens={chiens.length}
                 chien_isole={chien_isole}
+                profil_seul={profilSeul}
+                box_seul={res.box_seul === true}
+                box_seul_proposable={caseBoxSeul}
                 est_membre={est_membre}
                 tarifs={tarifs ?? []}
                 montant_actuel={res.montant_final}

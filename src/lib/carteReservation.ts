@@ -1,5 +1,5 @@
 import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
-import { estPrivatifPourSelection } from "@/src/lib/cohabitation";
+import { estPrivatifReservation } from "@/src/lib/cohabitation";
 import { categorieCarteJournee } from "@/src/lib/abonnementsTypes";
 
 /**
@@ -11,14 +11,21 @@ import { categorieCarteJournee } from "@/src/lib/abonnementsTypes";
  * (`estPrivatifPourSelection`) — un chien déclaré « seul », ou un chien
  * « famille uniquement » venu sans compagnon du foyer, occupe le box entier.
  * La carte débitée est donc toujours celle du tarif appliqué.
+ *
+ * APP 74 — et la case « box seul » de la réservation compte, par la règle
+ * unique `estPrivatifReservation` : une journée « chien seul » débite une
+ * carte « 1 chien seul », jamais une carte « 1 chien sociable ».
  */
-export async function categorieCartePourChiens(chienIds: string[]): Promise<string | null> {
+export async function categorieCartePourChiens(
+  chienIds: string[],
+  boxSeul: boolean | null | undefined = false,
+): Promise<string | null> {
   const ids = [...new Set(chienIds.filter(Boolean))];
   if (ids.length === 0) return null;
   const cohabitation = await lireCohabitationChiens(ids);
   return categorieCarteJournee({
     nb_chiens: ids.length,
-    est_privatif: estPrivatifPourSelection(cohabitation),
+    est_privatif: estPrivatifReservation({ box_seul: boxSeul, selection: cohabitation }),
   });
 }
 
@@ -28,7 +35,7 @@ export async function categorieCartePourChiens(chienIds: string[]): Promise<stri
  * par ligne. Clé : l'identifiant de la réservation.
  */
 export async function categoriesCartesPourReservations(
-  reservations: { id: string; chienIds: string[] }[],
+  reservations: { id: string; chienIds: string[]; boxSeul?: boolean | null }[],
 ): Promise<Map<string, string | null>> {
   const tous = [...new Set(reservations.flatMap((r) => r.chienIds).filter(Boolean))];
   const cohabitation = await lireCohabitationChiens(tous);
@@ -41,7 +48,10 @@ export async function categoriesCartesPourReservations(
       r.id,
       ids.length === 0
         ? null
-        : categorieCarteJournee({ nb_chiens: ids.length, est_privatif: estPrivatifPourSelection(selection) }),
+        : categorieCarteJournee({
+            nb_chiens: ids.length,
+            est_privatif: estPrivatifReservation({ box_seul: r.boxSeul, selection }),
+          }),
     );
   }
   return res;

@@ -7,6 +7,9 @@ import { secteurParDefautCompte, type CodePrestation } from "@/src/lib/tvaLogiqu
 import { tvaDeLaPrestation } from "@/src/lib/tva";
 import { recalculerPaiementsDeFacture } from "@/src/lib/paiementReservation";
 import { recalculerResteFacture } from "@/src/lib/comptaFacture";
+import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
+import { estPrivatifReservation } from "@/src/lib/cohabitation";
+import { SUFFIXE_FACTURE_BOX_SEUL } from "@/src/lib/boxSeul";
 
 // La facture est la pièce pivot : elle porte des LIGNES, et c'est l'émission
 // (RPC emettre_facture) qui lui donne son numéro, son échéance et ses écritures.
@@ -14,7 +17,7 @@ import { recalculerResteFacture } from "@/src/lib/comptaFacture";
 // déclenche l'émission au check-out.
 
 const CHAMPS_MONTANT =
-  "id, client_id, type_reservation, date_debut, date_fin, montant_calcule, montant_final, ajustement_manuel, montant_paye";
+  "id, client_id, type_reservation, date_debut, date_fin, montant_calcule, montant_final, ajustement_manuel, montant_paye, box_seul";
 
 type ResaFacturable = {
   id: string;
@@ -26,6 +29,7 @@ type ResaFacturable = {
   montant_final: number | string | null;
   ajustement_manuel: number | string | null;
   montant_paye: number | string | null;
+  box_seul?: boolean | null;
 };
 
 async function chargerResa(reservationId: string): Promise<ResaFacturable | null> {
@@ -91,14 +95,17 @@ export async function lignesDepuisReservation(reservationId: string): Promise<Li
   const resa = await chargerResa(reservationId);
   if (!resa) return [];
 
-  const [{ data: extras }, { data: cotis }, { count: nbChiens }] = await Promise.all([
+  const [{ data: extras }, { data: cotis }, { data: liens }] = await Promise.all([
     supabaseAdmin.from("reservation_extras").select("libelle, montant")
       .eq("reservation_id", reservationId).order("created_at"),
     supabaseAdmin.from("cotisations_membres").select("id, montant")
       .eq("reservation_id", reservationId).eq("statut", "payee").maybeSingle(),
-    supabaseAdmin.from("reservation_chiens").select("id", { count: "exact", head: true })
+    supabaseAdmin.from("reservation_chiens").select("id, chien_id")
       .eq("reservation_id", reservationId),
   ]);
+  const chienIds = ((liens ?? []) as { chien_id?: string | null }[])
+    .map((l) => l.chien_id).filter((id): id is string => !!id);
+  const nbChiens = (liens ?? []).length;
 
   const totalExtras = arrondi((extras ?? []).reduce(
     (s: number, e: { montant: number | string }) => s + Number(e.montant), 0));
@@ -106,8 +113,15 @@ export async function lignesDepuisReservation(reservationId: string): Promise<Li
   const total = arrondi(montantDuReservation(resa));
   const base = arrondi(total - totalExtras - montantAdhesion);
 
-  const n = Math.max(nbChiens ?? 0, 1);
-  const suffixe = ` — ${n} chien${n > 1 ? "s" : ""}`;
+  const n = Math.max(nbChiens, 1);
+  // APP 74 — la règle unique : un box entier (case « chien seul dans un box »
+  // ou profil du chien) se dit sur la facture, à la place du nombre de chiens.
+  const boxEntier = estPrivatifReservation({
+    box_seul: resa.box_seul, selection: await lireCohabitationChiens(chienIds),
+  });
+  const suffixe = boxEntier
+    ? ` — ${SUFFIXE_FACTURE_BOX_SEUL}`
+    : ` — ${n} chien${n > 1 ? "s" : ""}`;
   const estSejour = resa.type_reservation === "sejour";
   const libelle = estSejour
     ? `Séjour du ${jolieDate(resa.date_debut)} au ${jolieDate(resa.date_fin)}${suffixe}`

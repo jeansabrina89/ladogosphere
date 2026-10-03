@@ -60,6 +60,7 @@ export async function GET(req: NextRequest) {
         date_debut: res.date_debut,
         heure_arrivee: res.heure_arrivee,
         type: res.type_reservation,
+        box_seul: res.box_seul === true,
       });
       nbVeille++;
     } catch (e) {

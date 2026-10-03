@@ -102,6 +102,8 @@ export async function GET(req: NextRequest) {
       chien_ids: chienIds,
       debut: debutFenetre,
       fin: finFenetre,
+      // APP 74 — la case « chien seul dans un box » demande un box VIDE.
+      box_seul: searchParams.get("box_seul") === "1",
     });
   }
 

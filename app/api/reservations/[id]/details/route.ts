@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/src/utils/supabase/server";
 import { getProfilePerms } from "@/src/lib/getProfilePerms";
+import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
+import { boxSeulProposable } from "@/src/lib/cohabitation";
 
 export async function GET(
   req: NextRequest,
@@ -31,5 +33,17 @@ export async function GET(
     .eq("actif", true)
     .order("numero");
 
-  return NextResponse.json({ reservation, boxes, peutUrgence: perms.perm_tarifs_urgence });
+  // APP 74 — la case « chien seul dans un box » se propose-t-elle ? Le même
+  // calcul que la fiche et que le serveur qui l'enregistrera.
+  const chienIds = ((reservation?.reservation_chiens ?? []) as { chien_id: string }[]).map((rc) => rc.chien_id);
+  const caseBoxSeul = reservation
+    ? boxSeulProposable({
+        type_reservation: reservation.type_reservation,
+        selection: await lireCohabitationChiens(chienIds),
+      })
+    : false;
+
+  return NextResponse.json({
+    reservation, boxes, peutUrgence: perms.perm_tarifs_urgence, boxSeulProposable: caseBoxSeul,
+  });
 }

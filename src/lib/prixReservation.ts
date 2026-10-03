@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { calculerMontant } from "@/src/lib/calculTarif";
 import { estMembreActif } from "@/src/lib/membre";
-import { estPrivatifPourSelection } from "@/src/lib/cohabitation";
+import { estPrivatifReservation } from "@/src/lib/cohabitation";
 import { lireCohabitationChiens } from "@/src/lib/cohabitationDb";
 import { rafraichirFactureBrouillon } from "@/src/lib/factureResa";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
@@ -142,7 +142,7 @@ export async function assurerMontantCalcule(
     .select(`
       id, statut, type_reservation, offerte, type_sejour,
       date_debut, date_fin, heure_arrivee, heure_depart,
-      montant_calcule, client_id,
+      montant_calcule, client_id, box_seul,
       reservation_chiens (chien_id)
     `)
     .eq("id", reservationId)
@@ -193,7 +193,8 @@ export async function assurerMontantCalcule(
     nb_chiens: chienIds.length,
     est_membre: estMembre,
     est_urgence: urgenceDerivee(resa.type_sejour),
-    est_privatif: estPrivatifPourSelection(cohabitation),
+    // APP 74 — la règle unique : la case « box seul » OU le profil des chiens.
+    est_privatif: estPrivatifReservation({ box_seul: resa.box_seul, selection: cohabitation }),
     date_debut: resa.date_debut,
     date_fin: resa.date_fin,
     heure_arrivee: resa.heure_arrivee,

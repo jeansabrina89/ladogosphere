@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { calculerMontant, compterSejour } from "@/src/lib/calculTarif";
 import { urgenceDerivee } from "@/src/lib/typeSejour";
-import { enregistrerMontantCalcule } from "./actions";
+import { definirBoxSeul, enregistrerMontantCalcule } from "./actions";
 import { messageEcart } from "@/src/lib/facturation";
 
 type Tarif = { categorie: string; membre: boolean; prix: string };
@@ -13,6 +13,9 @@ export default function CalculFacture({
   reservation,
   nb_chiens,
   chien_isole,
+  profil_seul,
+  box_seul,
+  box_seul_proposable,
   est_membre,
   tarifs,
   montant_actuel,
@@ -23,7 +26,14 @@ export default function CalculFacture({
 }: {
   reservation: any;
   nb_chiens: number;
+  /** Tarif « seul » appliqué : la case box_seul OU le profil (règle unique, APP 74). */
   chien_isole?: boolean;
+  /** Le profil des chiens impose le box entier (doit être isolé, famille seul). */
+  profil_seul?: boolean;
+  /** La case « chien seul dans un box » de CETTE réservation, telle qu'enregistrée. */
+  box_seul?: boolean;
+  /** La case se propose-t-elle (un seul chien sociable, hors essai) ? */
+  box_seul_proposable?: boolean;
   est_membre: boolean;
   tarifs: Tarif[];
   montant_actuel: number | null;
@@ -33,7 +43,13 @@ export default function CalculFacture({
   perm_reservations_modifier: boolean;
 }) {
   const router = useRouter();
-  const [est_privatif, setEstPrivatif] = useState(!!chien_isole);
+  /*
+   * APP 74 — plus d'état local : la case « Box privatif » d'avant ne changeait
+   * que l'estimation, rien ne l'enregistrait. Le tarif suit désormais ce qui
+   * est ENREGISTRÉ (box_seul de la réservation, ou profil des chiens).
+   */
+  const est_privatif = !!chien_isole;
+  const [enregistrementCase, setEnregistrementCase] = useState(false);
   const [inclure_cotisation, setInclureCotisation] = useState(cotisation_en_attente ?? false);
   const [sauvegarde, setSauvegarde] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -99,17 +115,31 @@ export default function CalculFacture({
 
       <div className="bg-slate-50 rounded-xl p-4 space-y-3">
 
-        <div className="flex items-center gap-3">
-          <input type="checkbox" id="privatif"
-            checked={est_privatif}
-            disabled={chien_isole || !perm_reservations_modifier}
-            onChange={e => perm_reservations_modifier && setEstPrivatif(e.target.checked)} />
-          <label htmlFor="privatif" className="font-semibold cursor-pointer">
-            Box privatif
-          </label>
-        </div>
+        {(box_seul_proposable || box_seul) && !profil_seul && (
+          <div>
+            <div className="flex items-center gap-3">
+              <input type="checkbox" id="box_seul"
+                checked={!!box_seul}
+                disabled={!perm_reservations_modifier || enregistrementCase}
+                onChange={async (e) => {
+                  if (!perm_reservations_modifier) return;
+                  setEnregistrementCase(true);
+                  const res = await definirBoxSeul(reservation.id, e.target.checked);
+                  setEnregistrementCase(false);
+                  if (res.error) { alert(res.error); return; }
+                  router.refresh();
+                }} />
+              <label htmlFor="box_seul" className="font-semibold cursor-pointer">
+                🏠 Chien seul dans un box
+              </label>
+            </div>
+            <p className="text-xs text-gray-500 mt-1 ml-7">
+              Enregistré avec la réservation : tarif chien seul, carte « 1 chien seul », box entier. Le montant se recalcule.
+            </p>
+          </div>
+        )}
 
-        {chien_isole && (
+        {profil_seul && (
           <p className="text-sm text-red-700 bg-red-50 rounded-xl px-3 py-2">
             🚫🐕 Un chien de cette réservation doit être isolé : tarif privatif appliqué automatiquement.
           </p>

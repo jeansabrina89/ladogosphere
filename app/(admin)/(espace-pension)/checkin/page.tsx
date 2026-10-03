@@ -9,6 +9,7 @@ import NomClientLien from "@/app/components/NomClientLien";
 import NomChienLien from "@/app/components/NomChienLien";
 import MessageProprietaire from "@/app/components/MessageProprietaire";
 import PointageFait from "@/app/components/PointageFait";
+import BadgeBoxSeul from "@/app/components/BadgeBoxSeul";
 import { lireGestesCheckin, type GesteCheckin } from "@/src/lib/journalEvenements";
 
 const SERIF = "Georgia, 'Times New Roman', serif";
@@ -52,6 +53,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: Prom
         date_fin,
         type_reservation,
         commentaire_client,
+        box_seul,
         boxes (numero, nom),
         clients (id, prenom, nom)
       )
@@ -69,6 +71,7 @@ export default async function CheckinPage({ searchParams }: { searchParams: Prom
         date_fin,
         type_reservation,
         commentaire_client,
+        box_seul,
         boxes (numero, nom),
         clients (id, prenom, nom)
       )
@@ -238,6 +241,7 @@ function CarteCheckin({ checkin, action, accent, arrivee, depart }: {
         </div>
         <div className="text-right" style={{ fontSize: "12px", color: "#8A8275" }}>
           <p style={{ margin: 0 }}>{formatBoxLabel(res?.boxes)}</p>
+          {res?.box_seul === true && <p style={{ margin: "2px 0 0" }}><BadgeBoxSeul box_seul={res.box_seul} /></p>}
           <p style={{ margin: "1px 0 0" }}><NomClientLien id={res?.clients?.id} prenom={res?.clients?.prenom} nom={res?.clients?.nom} /></p>
         </div>
       </div>
