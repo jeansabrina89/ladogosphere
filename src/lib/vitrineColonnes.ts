@@ -96,6 +96,33 @@ export const COLONNES_PUBLIQUES_VITRINE = [
   "animaux",
   "especes",
   "types_soin",
+  /**
+   * Ce que le site MET EN AVANT (APP 62) — justifiées une par une dans
+   * `app62_coups_de_coeur_offre_vitrine`.
+   *
+   * `coup_de_coeur` est la sélection choisie par Sabrina ; `nouveaute` dit
+   * qu'une rubrique « Nouveautés » pour tous est en cours. Les `offre_*` sont
+   * la meilleure Action ou Anti-gaspillage en cours POUR TOUS — jamais une
+   * rubrique « membres », qu'un visiteur ne peut pas obtenir — et `offre_prix`
+   * est arrondi comme `prixApplicable` l'arrondit, en double : le site ne doit
+   * pas afficher un prix que la caisse ne prend pas.
+   *
+   * `remise_membre_pourcent` est le taux d'adhésion de la catégorie, NULL pour
+   * un article exclu ; `cree_le`, la date de mise en rayon.
+   *
+   * La table `promotions` reste fermée à anon : seules ces valeurs calculées
+   * sortent. L'APP, elle, ne les lit pas pour calculer : ses prix viennent de
+   * `prixApplicable`, et de nulle part ailleurs.
+   */
+  "coup_de_coeur",
+  "nouveaute",
+  "offre_pourcentage",
+  "offre_nom",
+  "offre_texte",
+  "offre_date_fin",
+  "offre_prix",
+  "remise_membre_pourcent",
+  "cree_le",
 ] as const;
 
 /** Les colonnes servies au public, telles qu'on les demande à PostgREST. */

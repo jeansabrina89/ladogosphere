@@ -317,6 +317,24 @@ export function mentionCumulEvite(prix: PrixApplicable): string | null {
   return `${prix.libelle} s'applique — ${ecartes} ne s'y ajoute${prix.candidats.length > 2 ? "nt" : ""} pas. Le client garde la plus avantageuse.`;
 }
 
+/**
+ * Le taux d'une OFFRE retenue — Action ou Anti-gaspillage — ou null (APP 62).
+ *
+ * La pastille « −20 % » du catalogue le lit ici, dans le résultat de
+ * `prixApplicable` : rien n'est recalculé. Une remise membre retenue n'en
+ * donne pas — c'est une adhésion, pas une offre, et elle se dit déjà par son
+ * libellé.
+ */
+export function pourcentageOffre(prix: PrixApplicable): number | null {
+  if (prix.origine !== "action" && prix.origine !== "anti_gaspillage") return null;
+  return prix.pourcentage;
+}
+
+/** « −20 % », « −7,5 % ». */
+export function pastilleOffre(pourcentage: number): string {
+  return `−${formatPourcentage(pourcentage)} %`;
+}
+
 // ── Le même calcul, côté navigateur ────────────────────────────────────────
 
 /**

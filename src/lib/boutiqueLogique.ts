@@ -593,7 +593,7 @@ const COLONNES_COMMUNES = `
   photo_path, actif, vendable_en_ligne, type_article, delai_fabrication_jours,
   composant, created_at, poids_grammes, expediable, stock_reserve,
   statut_vitrine, date_publication, publier_a_l_entree_stock, date_limite,
-  remise_membre_exclue,
+  remise_membre_exclue, coup_de_coeur,
   disponible_sur_commande, delai_commande_min_jours, delai_commande_max_jours,
   ages, besoins, tailles_chien, gouts, proteines, sans_cereales, monoproteine,
   taille_article, couleurs, matieres, usages_jouet,

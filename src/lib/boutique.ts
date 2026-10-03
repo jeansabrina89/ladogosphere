@@ -53,6 +53,8 @@ export type Article = {
   publier_a_l_entree_stock: boolean;
   date_limite: string | null;
   remise_membre_exclue: boolean;
+  /** APP 62 : mis en avant en haut de la boutique en ligne. */
+  coup_de_coeur: boolean;
   /* APP 26 : ce qui s'achète même à stock zéro. La case seule ne suffit pas —
      il faut aussi un délai, propre à l'article ou hérité du fournisseur. */
   disponible_sur_commande: boolean;

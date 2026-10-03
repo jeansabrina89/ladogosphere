@@ -19,7 +19,7 @@ import { mentionRemiseMembre } from "@/src/lib/venteEnLigneLogique";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { estMembreActif } from "@/src/lib/membre";
 import { contextePrix, prixDe } from "@/src/lib/prix";
-import { mentionDateLimite, rubriquesBoutique } from "@/src/lib/prixLogique";
+import { mentionDateLimite, pourcentageOffre, rubriquesBoutique } from "@/src/lib/prixLogique";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +84,8 @@ export default async function BoutiqueClientPage({
       prix_vente: prix.prixBase,
       prix_final: prix.prixFinal,
       remise_libelle: prix.libelle,
+      // APP 62 : la pastille « −20 % » d'une offre, lue dans le même résultat.
+      offre_pourcentage: pourcentageOffre(prix),
       photo_path: a.photo_path,
       type_article: a.type_article,
       delai_fabrication_jours: a.delai_fabrication_jours,

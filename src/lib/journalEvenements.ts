@@ -278,6 +278,9 @@ const LIBELLES: Record<string, string> = {
   ecriture_manuelle: "Écriture saisie à la main",
   publication_auto_date: "Publié automatiquement à la date prévue",
   publication_auto_stock: "Publié automatiquement à l'entrée de stock",
+  // APP 62 : la section « Coups de cœur du moment » de la boutique en ligne.
+  coup_de_coeur_ajoute: "Mis en coup de cœur",
+  coup_de_coeur_retire: "Retiré des coups de cœur",
   // APP 26. Sans ces deux lignes, le journal afficherait les noms techniques —
   // et c'est justement ce journal qu'on relira dans trois semaines pour dire à
   // une cliente où en est sa commande.

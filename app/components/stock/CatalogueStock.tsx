@@ -22,6 +22,7 @@ import EtatVide from "@/app/components/ui/EtatVide";
 import FiltresArticles from "./FiltresArticles";
 import type { OngletAnimal } from "@/src/lib/listeArticlesAdmin";
 import { LIBELLE_SUR_MESURE } from "@/src/lib/venteEnLigneLogique";
+import { avertissementCoupsDeCoeur, libelleCompteCoupsDeCoeur } from "@/src/lib/coupsDeCoeurLogique";
 
 /**
  * Le catalogue d'un périmètre de stock : les articles du magasin, ou les
@@ -138,6 +139,7 @@ export default function CatalogueStock({
   groupes,
   rayonsOuverts,
   lienOnglet,
+  coupsDeCoeur,
 }: {
   perimetre: PerimetreStock;
   /** Ce qui reste après les filtres de l'écran. */
@@ -176,6 +178,11 @@ export default function CatalogueStock({
   rayonsOuverts?: boolean;
   /** L'adresse d'un onglet, construite par la page : elle seule connaît les filtres. */
   lienOnglet?: (animal: string | null) => string;
+  /**
+   * APP 62 — le nombre de coups de cœur du magasin, à afficher au-dessus de la
+   * liste filtrée. Null ou absent : le filtre n'est pas posé, on ne dit rien.
+   */
+  coupsDeCoeur?: number | null;
 }) {
   const config = configPerimetre(perimetre);
 
@@ -240,6 +247,12 @@ export default function CatalogueStock({
                             {/* La pastille dit ce que l'article MONTRE ; la
                                 mention « retiré » dit s'il existe encore. Deux
                                 questions différentes, deux marques différentes. */}
+                            {a.coup_de_coeur === true && (
+                              <span role="img" aria-label="Coup de cœur" title="Coup de cœur du moment"
+                                style={{ marginLeft: 6, fontSize: 13 }}>
+                                ❤️
+                              </span>
+                            )}
                             <Pastille statut={a.statut_vitrine} actif={a.actif} />
                             <span style={{ display: "block", fontSize: 12, color: sousTexte }}>
                               {a.marque ?? ""}
@@ -402,6 +415,24 @@ export default function CatalogueStock({
           libelleRetires={config.libelleRetires}
           filtrePoids={boutique}
         />
+
+        {typeof coupsDeCoeur === "number" && (
+          /* Un avertissement DOUX : rien n'est bloqué. Au-delà de huit, la
+             section du site s'allonge sur téléphone — Sabrina en décide. */
+          <div role="status" style={{ margin: "0 0 12px" }}>
+            <p style={{ margin: 0, color: marine, fontSize: 15, fontWeight: 700 }}>
+              ❤️ {libelleCompteCoupsDeCoeur(coupsDeCoeur)}
+            </p>
+            {avertissementCoupsDeCoeur(coupsDeCoeur) && (
+              <p style={{
+                margin: "6px 0 0", fontSize: 13.5, fontWeight: 600, color: "#6E5410",
+                backgroundColor: "#F4EAC9", borderRadius: 10, padding: "8px 10px",
+              }}>
+                {avertissementCoupsDeCoeur(coupsDeCoeur)}
+              </p>
+            )}
+          </div>
+        )}
 
         {articles.length === 0 ? (
           <Carte>

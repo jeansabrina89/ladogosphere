@@ -24,6 +24,7 @@ import {
   STATUT_VITRINE_PAR_DEFAUT,
   infoStatutVitrine,
 } from "@/src/lib/statutVitrineLogique";
+import { AIDE_COUP_DE_COEUR, LIBELLE_CASE_COUP_DE_COEUR } from "@/src/lib/coupsDeCoeurLogique";
 
 export type ArticleFormulaire = {
   id: string;
@@ -52,6 +53,8 @@ export type ArticleFormulaire = {
   publier_a_l_entree_stock?: boolean | null;
   date_limite?: string | null;
   remise_membre_exclue?: boolean | null;
+  /** APP 62 : mis en avant en haut de la boutique en ligne. */
+  coup_de_coeur?: boolean | null;
   disponible_sur_commande?: boolean | null;
   delai_commande_min_jours?: number | null;
   delai_commande_max_jours?: number | null;
@@ -609,6 +612,25 @@ export default function FormArticle({
 
         {!atelier && (
           <>
+            {/* APP 62 : la section « Coups de cœur du moment » du site. Le
+                marqueur dit que la case a été MONTRÉE : une fiche d'atelier,
+                qui ne l'affiche pas, ne la remet pas à zéro en s'enregistrant. */}
+            <input type="hidden" name="coup_de_coeur_montre" value="1" />
+            <label htmlFor="coup_de_coeur"
+              style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 15, color: MARINE }}>
+              <input
+                type="checkbox" name="coup_de_coeur" id="coup_de_coeur"
+                defaultChecked={caseCochee(v, "coup_de_coeur", article?.coup_de_coeur ?? false)}
+                style={{ width: 20, height: 20, marginTop: 2, flexShrink: 0 }}
+              />
+              <span>
+                {LIBELLE_CASE_COUP_DE_COEUR}
+                <span style={{ display: "block", fontSize: 12, color: SOUS }}>
+                  {AIDE_COUP_DE_COEUR}
+                </span>
+              </span>
+            </label>
+
             <div>
               <label htmlFor="date_limite" style={etiquette}>Date limite (anti-gaspillage)</label>
               <input

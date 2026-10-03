@@ -59,10 +59,13 @@ export default function FiltresArticles({
      pour deux raisons opposées — vérifier ce qu'elle a coché, et retrouver
      ceux qu'elle a cochés SANS délai, qui ne se commandent donc pas. */
   const [surCommande, setSurCommande] = useState(params.get("surcommande") === "1");
+  /* APP 62 : la sélection que le site met en avant, pour la composer d'un œil. */
+  const [coupsDeCoeur, setCoupsDeCoeur] = useState(params.get("coupdecoeur") === "1");
 
   function appliquer(sur?: {
     seuil?: boolean; inactifs?: boolean; statut?: string;
     sansPoids?: boolean; sansEtiquettes?: boolean; surCommande?: boolean;
+    coupsDeCoeur?: boolean;
   }) {
     const p = new URLSearchParams();
     if (q.trim()) p.set("q", q.trim());
@@ -73,6 +76,7 @@ export default function FiltresArticles({
     if (filtrePoids && (sur?.sansPoids ?? sansPoids)) p.set("sanspoids", "1");
     if (filtrePoids && (sur?.sansEtiquettes ?? sansEtiquettes)) p.set("sansetiquettes", "1");
     if (filtrePoids && (sur?.surCommande ?? surCommande)) p.set("surcommande", "1");
+    if (filtrePoids && (sur?.coupsDeCoeur ?? coupsDeCoeur)) p.set("coupdecoeur", "1");
     const s = sur?.statut ?? statut;
     if (s) p.set("statut", s);
     const qs = p.toString();
@@ -159,6 +163,15 @@ export default function FiltresArticles({
             onClick={() => { setSurCommande(!surCommande); appliquer({ surCommande: !surCommande }); }}
           >
             📥 Sur commande
+          </button>
+        )}
+        {filtrePoids && (
+          <button
+            type="button"
+            style={sBascule(coupsDeCoeur)}
+            onClick={() => { setCoupsDeCoeur(!coupsDeCoeur); appliquer({ coupsDeCoeur: !coupsDeCoeur }); }}
+          >
+            ❤️ Coups de cœur
           </button>
         )}
         {filtrePoids && (

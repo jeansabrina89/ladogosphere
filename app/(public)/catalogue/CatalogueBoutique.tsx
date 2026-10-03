@@ -21,6 +21,7 @@ import {
   phraseDelaiCommande,
 } from "@/src/lib/venteEnLigneLogique";
 import { formatPrixClient } from "@/src/lib/prixClient";
+import { pastilleOffre } from "@/src/lib/prixLogique";
 import { ajouterAuPanier } from "./actions";
 import { ajouter as ajouterLocalement } from "./panierNavigateur";
 
@@ -29,6 +30,8 @@ const SOUS = "rgba(27,43,94,0.55)";
 const VERT = "#1F6E5B";
 const GRENAT = "#8A1F1F";
 const BORDURE = "1px solid rgba(27,43,94,0.12)";
+/** APP 62 : la pastille d'une offre, texte blanc. */
+const ROSE_OFFRE = "#E8847A";
 const CIBLE = 44;
 
 export type ArticleVitrine = {
@@ -61,6 +64,12 @@ export type ArticleVitrine = {
    */
   prix_final: number;
   remise_libelle: string | null;
+  /**
+   * APP 62 — le taux d'une offre retenue (Action ou Anti-gaspillage), pour la
+   * pastille rose. Null sans offre, ou quand c'est la remise membre qui
+   * s'applique. Il vient de `prixApplicable`, comme `prix_final`.
+   */
+  offre_pourcentage?: number | null;
   /** « À écouler avant le 12 octobre », quand la rubrique le justifie. */
   mention_date_limite?: string | null;
   /* Les étiquettes (APP 24-FILTRES) : ce sont les filtres eux-mêmes. Toutes
@@ -288,6 +297,16 @@ export default function CatalogueBoutique({
             </span>
           )}
           {surMesure ? "dès " : ""}{formatPrixClient(surMesure ? Number(a.prix_vente) : a.prix_final)}
+          {remise && typeof a.offre_pourcentage === "number" && (
+            <span style={{
+              display: "inline-block", marginLeft: 8, verticalAlign: "middle",
+              padding: "2px 9px", borderRadius: 999,
+              backgroundColor: ROSE_OFFRE, color: "#FFFFFF",
+              fontSize: 13, fontWeight: 700, whiteSpace: "nowrap",
+            }}>
+              {pastilleOffre(a.offre_pourcentage)}
+            </span>
+          )}
         </p>
 
         {a.remise_libelle && (

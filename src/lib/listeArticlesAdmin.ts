@@ -154,3 +154,15 @@ export function grouperParRayon<T extends ArticleClassable>(articles: T[]): {
 export function rayonsOuverts(p: { filtreActif: boolean; nbRayons: number }): boolean {
   return p.filtreActif || p.nbRayons <= 1;
 }
+
+/**
+ * Combien de coups de cœur le site montrera (APP 62).
+ *
+ * Seuls les articles ACTIFS comptent : un article retiré coché « coup de cœur »
+ * ne sort plus en vitrine, il n'allonge donc pas la section.
+ */
+export function compterCoupsDeCoeur(
+  articles: { actif: boolean; coup_de_coeur?: boolean | null }[],
+): number {
+  return articles.filter((a) => a.actif && a.coup_de_coeur === true).length;
+}

@@ -12,6 +12,7 @@ import {
   grouperParRayon,
   ongletsAnimaux,
   rayonsOuverts,
+  compterCoupsDeCoeur,
 } from "@/src/lib/listeArticlesAdmin";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,8 @@ export default async function ArticlesPage({
   searchParams: Promise<{
     q?: string; categorie?: string; fournisseur?: string; seuil?: string; inactifs?: string;
     statut?: string; sanspoids?: string; sansetiquettes?: string; surcommande?: string;
+    /* APP 62 : les coups de cœur du moment, ceux que le site met en avant. */
+    coupdecoeur?: string;
     /* APP 47 : l'onglet d'animal, combinable avec tous les filtres ci-dessus. */
     animal?: string;
     /* APP 32 : « ART-0057 Paille », posé par la suppression pour le confirmer. */
@@ -54,6 +57,8 @@ export default async function ArticlesPage({
   const seulementSansEtiquettes = params.sansetiquettes === "1";
   // « Sur commande » : ce qui s'achète même à stock zéro (APP 26).
   const seulementSurCommande = params.surcommande === "1";
+  // « Coups de cœur » : la sélection que le site montre en haut de la boutique (APP 62).
+  const seulementCoupsDeCoeur = params.coupdecoeur === "1";
 
   // Sans la gestion, ni prix d'achat ni fournisseur ne quittent la base :
   // le filtrage est dans le SELECT, pas à l'affichage.
@@ -80,6 +85,7 @@ export default async function ArticlesPage({
     if (seulementSansPoids && !manquePoids(a)) return false;
     if (seulementSansEtiquettes && !sansEtiquettes(a)) return false;
     if (seulementSurCommande && a.disponible_sur_commande !== true) return false;
+    if (seulementCoupsDeCoeur && a.coup_de_coeur !== true) return false;
     if (!recherche) return true;
     const cible = `${a.nom} ${a.reference} ${a.marque ?? ""} ${a.code_barres ?? ""}`.toLowerCase();
     return cible.includes(recherche);
@@ -118,7 +124,8 @@ export default async function ArticlesPage({
   // Chercher et replier ne vont pas ensemble : replier cacherait la réponse.
   const filtreActif = Boolean(
     recherche || categorie || fournisseur || statut ||
-    seulementSousSeuil || seulementSansPoids || seulementSansEtiquettes || seulementSurCommande,
+    seulementSousSeuil || seulementSansPoids || seulementSansEtiquettes || seulementSurCommande ||
+    seulementCoupsDeCoeur,
   );
 
   /** L'adresse d'un onglet : tous les filtres en cours, l'animal remplacé. */
@@ -145,6 +152,10 @@ export default async function ArticlesPage({
       lienOnglet={lienOnglet}
       fournisseurs={(fournisseurs ?? []) as { id: string; nom: string }[]}
       gestion={gestion}
+      /* Le compte n'apparaît qu'avec le filtre : c'est là qu'on compose la
+         sélection. Il porte sur TOUT le magasin, pas sur l'onglet ni la
+         recherche — le site montre tous les coups de cœur d'un coup. */
+      coupsDeCoeur={seulementCoupsDeCoeur ? compterCoupsDeCoeur(tous) : null}
       actions={
         gestion ? (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

@@ -41,6 +41,8 @@ import {
   etiquettesDepuisChamps,
 } from "@/src/lib/etiquettesArticles";
 import { lireCoutSaisi } from "@/src/lib/coutMoyen";
+import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { gesteCoupDeCoeur } from "@/src/lib/coupsDeCoeurLogique";
 import {
   BUCKET_PHOTOS_BOUTIQUE,
   REFUS_SUPPRESSION_ARTICLE,
@@ -200,9 +202,11 @@ export async function enregistrerArticle(
   const existant = articleId ? await lireArticle(articleId) : null;
   if (articleId && !existant) return { erreur: "Article introuvable.", valeurs };
 
+  let userId: string | null = null;
   for (const p of new Set(existant ? [voulu, perimetreDeArticle(existant)] : [voulu])) {
     const g = await garde(p);
     if (g.erreur) return { erreur: g.erreur, valeurs };
+    userId = g.userId ?? null;
   }
 
   const nom = String(formData.get("nom") ?? "").trim();
@@ -247,6 +251,13 @@ export async function enregistrerArticle(
     if (!poids.ok) return { erreur: poids.message, champ: "poids_grammes", valeurs };
     envoiPostal.poids_grammes = poids.valeur;
     envoiPostal.expediable = formData.get("expediable") === "on";
+  }
+
+  // APP 62 — le coup de cœur, lui aussi, ne s'écrit que si la case a été
+  // MONTRÉE : une fiche d'atelier ne la porte pas, et ne doit pas l'effacer.
+  const coupDeCoeur: Record<string, unknown> = {};
+  if (formData.get("coup_de_coeur_montre") === "1") {
+    coupDeCoeur.coup_de_coeur = formData.get("coup_de_coeur") === "on";
   }
 
   const champs: Record<string, unknown> = {
@@ -294,7 +305,26 @@ export async function enregistrerArticle(
     delai_commande_min_jours: joursOuNull(formData.get("delai_commande_min_jours")),
     delai_commande_max_jours: joursOuNull(formData.get("delai_commande_max_jours")),
     ...envoiPostal,
+    ...coupDeCoeur,
     ...etiquettes,
+  };
+
+  /**
+   * Le geste au journal — seulement si la case a BOUGÉ. Une fiche enregistrée
+   * dix fois pour une faute de frappe ne fait pas dix lignes « coup de cœur ».
+   */
+  const tracerCoupDeCoeur = async (id: string) => {
+    if (typeof coupDeCoeur.coup_de_coeur !== "boolean") return;
+    const geste = gesteCoupDeCoeur(existant?.coup_de_coeur, coupDeCoeur.coup_de_coeur);
+    if (!geste) return;
+    await tracerEvenement({
+      entite: "article",
+      entiteId: id,
+      evenement: geste,
+      avant: { coup_de_coeur: existant?.coup_de_coeur === true },
+      apres: { coup_de_coeur: coupDeCoeur.coup_de_coeur },
+      userId,
+    });
   };
 
   // Référence laissée vide : la base l'attribue elle-même, sous la forme ART-0001.
@@ -307,6 +337,7 @@ export async function enregistrerArticle(
       .update(champs)
       .eq("id", articleId);
     if (error) return { erreur: messageBase(error), champ: champFautif(error), valeurs };
+    await tracerCoupDeCoeur(articleId);
 
     // Les deux périmètres se rafraîchissent : un article qui change de camp
     // disparaît d'une liste et apparaît dans l'autre.
@@ -321,6 +352,7 @@ export async function enregistrerArticle(
     .select("id")
     .single();
   if (error) return { erreur: messageBase(error), champ: champFautif(error), valeurs };
+  await tracerCoupDeCoeur(data.id as string);
 
   revalider(voulu);
   redirect(`/boutique/articles/${data.id as string}`);

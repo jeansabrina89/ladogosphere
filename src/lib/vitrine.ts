@@ -57,6 +57,17 @@ export type ArticleVitrine = {
   couleurs: string[];
   matieres: string[];
   usages_jouet: string[];
+  /* APP 62 : ce que le SITE met en avant. L'app ne s'en sert pas pour un
+     prix : le sien vient de `prixApplicable`, et de nulle part ailleurs. */
+  coup_de_coeur: boolean;
+  nouveaute: boolean;
+  offre_pourcentage: number | string | null;
+  offre_nom: string | null;
+  offre_texte: string | null;
+  offre_date_fin: string | null;
+  offre_prix: number | string | null;
+  remise_membre_pourcent: number | string | null;
+  cree_le: string;
 };
 
 /** Le catalogue public, rangé par catégorie puis par nom. */
