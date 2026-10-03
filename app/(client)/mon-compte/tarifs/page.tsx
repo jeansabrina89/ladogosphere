@@ -91,22 +91,6 @@ function EnTeteGrille() {
   );
 }
 
-function LigneEssai({ label, prix }: { label: string; prix: string }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "10px 2px",
-        borderBottom: "1px solid rgba(27,43,94,0.07)",
-      }}
-    >
-      <span style={{ fontSize: 14, color: MARINE }}>{label}</span>
-      <span style={{ fontSize: 16, fontWeight: 700, color: MARINE }}>{prix}</span>
-    </div>
-  );
-}
 
 export default async function TarifsClientPage() {
   const supabaseServer = await createSupabaseServerClient();
@@ -160,11 +144,6 @@ export default async function TarifsClientPage() {
 
   const tarifsVides = tarifs.length === 0;
 
-  // Journée d'essai = tarif garderie MEMBRE, selon le nombre de chiens
-  const essai1 = getPrix(tarifs, "journee_partage_1", true);
-  const essai2 = getPrix(tarifs, "journee_partage_2", true);
-  const essai3 = getPrix(tarifs, "journee_partage_3", true);
-
   return (
     <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
@@ -175,114 +154,18 @@ export default async function TarifsClientPage() {
 
         <EnTete
           titre={`🏷️ Tarifs ${annee}`}
-          sousTitre="Tarifs indicatifs — le montant définitif est confirmé par notre équipe lors de la validation de ta demande."
+          sousTitre="Tarifs indicatifs — le montant définitif est confirmé par notre équipe lors de la validation de votre demande."
         />
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-          {estMembre && (
-            <div style={{ backgroundColor: "#DBEFEA", border: "1px solid #4AAEA0", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 20 }}>★</span>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#1F6E5B" }}>
-                {cotisationEnCours
-                  ? `Membre jusqu'au ${formatDateLong(cotisationEnCours.date_fin)} — tu peux réserver séjours et garderie.`
-                  : "Tu es membre — tu peux réserver séjours et garderie."}
-              </p>
-            </div>
-          )}
-
-          {!estMembre && aDemandeEnAttente && aReglerPourReserver && (
-            <div style={{ backgroundColor: "#FBE2DE", border: "1px solid #E8847A", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 20 }}>⭐</span>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#A8453A" }}>
-                Ta demande d&apos;adhésion est en attente de paiement — règle-la pour pouvoir réserver une pension.
-              </p>
-            </div>
-          )}
-
-          {!estMembre && aDemandeEnAttente && !aReglerPourReserver && (
-            <div style={{ backgroundColor: "#F4EAC9", border: "1px solid #C9A84C", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 20 }}>⏳</span>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#6E5410" }}>
-                Ta demande d&apos;adhésion est en cours de traitement par notre équipe.
-              </p>
-            </div>
-          )}
-
-          {peutDemander && (
-            <Carte>
-              <p style={sSecTitre}>{estRenouvellement ? "★ Renouveler mon adhésion" : "★ Devenir membre"}</p>
-              <p style={sSecSous}>
-                {estRenouvellement
-                  ? `Ton adhésion prend fin le ${formatDateLong(cotisationEnCours!.date_fin)}. L'adhésion annuelle de ${formatPrixClient(cotisation || 200)} est obligatoire pour pouvoir réserver (hors journée d'essai).`
-                  : `L'adhésion annuelle de ${formatPrixClient(cotisation || 200)} est obligatoire pour pouvoir réserver (hors journée d'essai).`}
-              </p>
-              <BoutonDemanderAdhesion montant={cotisation} renouvellement={estRenouvellement} />
-            </Carte>
-          )}
-
-          {tarifsVides ? (
-            <Carte>
-              <EtatVide
-                icone="🏷️"
-                titre="Tarifs non encore publiés"
-                message={`Les tarifs ${annee} ne sont pas encore publiés. Contacte-nous pour plus d'informations.`}
-              />
-            </Carte>
-          ) : (
-            <>
-              {/* GARDERIE */}
-              <Carte>
-                <p style={sSecTitre}>☀️ Garderie (journée)</p>
-                <p style={sSecSous}>Tarif par chien, pour une journée.</p>
-                <EnTeteGrille />
-                <LigneGrille label="1 chien" prix={getPrix(tarifs, "journee_partage_1", true)} />
-                <LigneGrille label="2 chiens" prix={getPrix(tarifs, "journee_partage_2", true)} />
-                <LigneGrille label="3 chiens" prix={getPrix(tarifs, "journee_partage_3", true)} />
-                <p style={sNote}>Au-delà de 3 chiens : tarif sur demande.</p>
-              </Carte>
-
-              {/* PENSION */}
-              <Carte>
-                <p style={sSecTitre}>🏠 Pension (par nuit)</p>
-                <p style={sSecSous}>Tarif par chien et par nuit.</p>
-                <EnTeteGrille />
-                <LigneGrille label="1 chien" prix={getPrix(tarifs, "sejour_partage_1", true)} />
-                <LigneGrille label="2 chiens" prix={getPrix(tarifs, "sejour_partage_2", true)} />
-                <LigneGrille label="3 chiens" prix={getPrix(tarifs, "sejour_partage_3", true)} />
-                <p style={sNote}>Au-delà de 3 chiens : tarif sur demande.</p>
-              </Carte>
-
-              {/* JOURNÉE D'ESSAI */}
-              <Carte>
-                <p style={sSecTitre}>🧪 Journée d&apos;essai</p>
-                <p style={sSecSous}>
-                  Obligatoire pour tout nouveau chien avant la première réservation. Facturée au tarif d&apos;une garderie membre, selon le nombre de chiens.
-                </p>
-                <div style={{ backgroundColor: "#F5F0E8", borderRadius: 12, padding: "4px 16px" }}>
-                  <LigneEssai label="1 chien" prix={essai1} />
-                  {essai2 !== "—" && <LigneEssai label="2 chiens" prix={essai2} />}
-                  {essai3 !== "—" && <LigneEssai label="3 chiens" prix={essai3} />}
-                </div>
-                <p style={sNote}>Au-delà de 3 chiens : tarif sur demande.</p>
-              </Carte>
-
-              {/* PRIVATIF */}
-              {(getPrix(tarifs, "journee_privatif", true) !== "—" || getPrix(tarifs, "sejour_privatif", true) !== "—") && (
-                <Carte>
-                  <p style={sSecTitre}>🚪 Hébergement privatif</p>
-                  <p style={sSecSous}>Box réservé exclusivement à ton chien (sur demande).</p>
-                  <EnTeteGrille />
-                  {getPrix(tarifs, "journee_privatif", true) !== "—" && (
-                    <LigneGrille label="Garderie privatif" prix={getPrix(tarifs, "journee_privatif", true)} />
-                  )}
-                  {getPrix(tarifs, "sejour_privatif", true) !== "—" && (
-                    <LigneGrille label="Pension privatif / nuit" prix={getPrix(tarifs, "sejour_privatif", true)} />
-                  )}
-                </Carte>
-              )}
-            </>
-          )}
+          {/*
+            * APP 72 — l'ordre voulu par Sabrina : l'adhésion d'abord (c'est
+            * elle qui ouvre les réservations), puis la journée d'essai et la
+            * garderie, la pension, l'hébergement privatif. L'état de
+            * l'adhésion et le bouton « Devenir membre / Renouveler » suivent
+            * l'encadré, avec leur logique d'avant.
+            */}
 
           {/* ADHÉSION MEMBRE */}
           {cotisation > 0 && (
@@ -297,6 +180,107 @@ export default async function TarifsClientPage() {
                 </span>
               </div>
             </div>
+          )}
+
+          {estMembre && (
+            <div style={{ backgroundColor: "#DBEFEA", border: "1px solid #4AAEA0", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 20 }}>★</span>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#1F6E5B" }}>
+                {cotisationEnCours
+                  ? `Membre jusqu'au ${formatDateLong(cotisationEnCours.date_fin)} — vous pouvez réserver séjours et garderie.`
+                  : "Vous êtes membre — vous pouvez réserver séjours et garderie."}
+              </p>
+            </div>
+          )}
+
+          {!estMembre && aDemandeEnAttente && aReglerPourReserver && (
+            <div style={{ backgroundColor: "#FBE2DE", border: "1px solid #E8847A", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 20 }}>⭐</span>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#A8453A" }}>
+                Votre demande d&apos;adhésion est en attente de paiement — réglez-la pour pouvoir réserver une pension.
+              </p>
+            </div>
+          )}
+
+          {!estMembre && aDemandeEnAttente && !aReglerPourReserver && (
+            <div style={{ backgroundColor: "#F4EAC9", border: "1px solid #C9A84C", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 20 }}>⏳</span>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#6E5410" }}>
+                Votre demande d&apos;adhésion est en cours de traitement par notre équipe.
+              </p>
+            </div>
+          )}
+
+          {peutDemander && (
+            <Carte>
+              <p style={sSecTitre}>{estRenouvellement ? "★ Renouveler mon adhésion" : "★ Devenir membre"}</p>
+              <p style={sSecSous}>
+                {estRenouvellement
+                  ? `Votre adhésion prend fin le ${formatDateLong(cotisationEnCours!.date_fin)}. L'adhésion annuelle de ${formatPrixClient(cotisation || 200)} est obligatoire pour pouvoir réserver (hors journée d'essai).`
+                  : `L'adhésion annuelle de ${formatPrixClient(cotisation || 200)} est obligatoire pour pouvoir réserver (hors journée d'essai).`}
+              </p>
+              <BoutonDemanderAdhesion montant={cotisation} renouvellement={estRenouvellement} />
+            </Carte>
+          )}
+
+          {tarifsVides ? (
+            <Carte>
+              <EtatVide
+                icone="🏷️"
+                titre="Tarifs non encore publiés"
+                message={`Les tarifs ${annee} ne sont pas encore publiés. Contactez-nous pour plus d'informations.`}
+              />
+            </Carte>
+          ) : (
+            <>
+              {/*
+                * APP 72 — UNE carte pour la journée d'essai et la garderie :
+                * elles ont le même prix (calculTarif facture l'essai au tarif
+                * journee_partage_*), et deux cartes identiques faisaient
+                * croire à deux prix.
+                *
+                * Les prix sont ceux d'un GROUPE de chiens, pas d'un chien :
+                * 68.– est le prix de la journée pour deux chiens.
+                */}
+              <Carte>
+                <p style={sSecTitre}>☀️ Journée d&apos;essai et garderie</p>
+                <p style={sSecSous}>
+                  La journée d&apos;essai est obligatoire pour tout nouveau chien avant la première réservation. Elle coûte le même prix qu&apos;une journée de garderie.
+                </p>
+                <p style={sSecSous}>Prix pour la journée, selon le nombre de chiens.</p>
+                <EnTeteGrille />
+                <LigneGrille label="1 chien" prix={getPrix(tarifs, "journee_partage_1", true)} />
+                <LigneGrille label="2 chiens" prix={getPrix(tarifs, "journee_partage_2", true)} />
+                <LigneGrille label="3 chiens" prix={getPrix(tarifs, "journee_partage_3", true)} />
+                <p style={sNote}>Au-delà de 3 chiens : tarif sur demande.</p>
+              </Carte>
+
+              {/* PENSION */}
+              <Carte>
+                <p style={sSecTitre}>🏠 Pension (par nuit)</p>
+                <p style={sSecSous}>Prix par nuit, selon le nombre de chiens.</p>
+                <EnTeteGrille />
+                <LigneGrille label="1 chien" prix={getPrix(tarifs, "sejour_partage_1", true)} />
+                <LigneGrille label="2 chiens" prix={getPrix(tarifs, "sejour_partage_2", true)} />
+                <LigneGrille label="3 chiens" prix={getPrix(tarifs, "sejour_partage_3", true)} />
+                <p style={sNote}>Au-delà de 3 chiens : tarif sur demande.</p>
+              </Carte>
+
+              {/* PRIVATIF */}
+              {(getPrix(tarifs, "journee_privatif", true) !== "—" || getPrix(tarifs, "sejour_privatif", true) !== "—") && (
+                <Carte>
+                  <p style={sSecTitre}>🚪 Hébergement privatif</p>
+                  <p style={sSecSous}>Box réservé à votre chien seul (sur demande).</p>
+                  <EnTeteGrille />
+                  {getPrix(tarifs, "journee_privatif", true) !== "—" && (
+                    <LigneGrille label="Garderie privatif" prix={getPrix(tarifs, "journee_privatif", true)} />
+                  )}
+                  {getPrix(tarifs, "sejour_privatif", true) !== "—" && (
+                    <LigneGrille label="Pension privatif / nuit" prix={getPrix(tarifs, "sejour_privatif", true)} />
+                  )}
+                </Carte>
+              )}
+            </>
           )}
 
         </div>

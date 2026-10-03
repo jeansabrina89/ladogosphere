@@ -61,7 +61,7 @@ export default async function MesChiensPage() {
 
         <EnTete
           titre="🐶 Mes chiens"
-          sousTitre="Les compagnons rattachés à ton compte."
+          sousTitre="Les compagnons rattachés à votre compte."
           action={<Bouton variante="principal" href="/mon-compte/chiens/nouveau">Ajouter un chien</Bouton>}
         />
 
@@ -70,7 +70,7 @@ export default async function MesChiensPage() {
             <EtatVide
               icone="🐾"
               titre="Aucun chien pour l'instant"
-              message="Ajoute ton compagnon pour pouvoir réserver une place."
+              message="Ajoutez votre compagnon pour pouvoir réserver une place."
               action={<Bouton variante="principal" href="/mon-compte/chiens/nouveau">➕ Ajouter mon premier chien</Bouton>}
             />
           </Carte>

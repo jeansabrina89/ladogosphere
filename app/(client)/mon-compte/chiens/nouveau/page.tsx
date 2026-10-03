@@ -26,7 +26,7 @@ export default async function NouveauChienClientPage() {
             <EtatVide
               icone="🐾"
               titre="Profil en cours de création"
-              message="Ton profil est en cours de validation par notre équipe. Reviens dans quelques instants."
+              message="Votre profil est en cours de validation par notre équipe. Revenez dans quelques instants."
               action={<Bouton variante="secondaire" href="/mon-compte">← Retour</Bouton>}
             />
           </Carte>
@@ -50,7 +50,7 @@ export default async function NouveauChienClientPage() {
             🐶 Ajouter un chien
           </h1>
           <p style={{ margin: 0, color: "rgba(27,43,94,0.6)", fontSize: 14 }}>
-            Quelques infos pour créer la fiche de ton compagnon.
+            Quelques infos pour créer la fiche de votre compagnon.
           </p>
         </div>
 

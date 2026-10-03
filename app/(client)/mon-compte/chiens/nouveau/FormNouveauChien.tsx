@@ -60,7 +60,7 @@ export default function FormNouveauChien({ clientId }: { clientId: string }) {
             <div style={sSecNum}>1</div>
             <div>
               <p style={sSecTitre}>Identité</p>
-              <p style={sSecSous}>Qui est ton chien ?</p>
+              <p style={sSecSous}>Qui est votre chien ?</p>
             </div>
           </div>
 

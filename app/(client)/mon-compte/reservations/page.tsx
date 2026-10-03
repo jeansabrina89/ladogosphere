@@ -11,7 +11,7 @@ import FiltresPeriode from "./FiltresPeriode";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { getSoldeAvoir } from "@/src/lib/avoirs";
 import { getAbonnementsClient } from "@/src/lib/abonnementSolde";
-import { categorieJourneePourChiens, type ChienSociabilite } from "@/src/lib/abonnementsTypes";
+import { categoriesCartesPourReservations } from "@/src/lib/carteReservation";
 import EnTete from "@/app/components/ui/EnTete";
 import Carte from "@/app/components/ui/Carte";
 import Bouton from "@/app/components/ui/Bouton";
@@ -80,15 +80,22 @@ export default async function MesReservationsPage({
 
   const { data: reservationsData } = await supabase
     .from("reservations")
-    .select(`*, boxes (numero, nom), reservation_chiens (chiens (nom, doit_etre_isole))`)
+    .select(`*, boxes (numero, nom), reservation_chiens (chien_id, chiens (nom, doit_etre_isole))`)
     .eq("client_id", client.id)
     .order("date_debut", { ascending: false });
 
   const today = new Date().toISOString().split("T")[0];
-  const [coords, soldeAvoir, abos] = await Promise.all([
+  // APP 72 — la carte proposée pour une journée est celle de son TARIF (même
+  // règle que la consommation) : une seule lecture des chiens pour la liste.
+  type ResaChiens = { id: string; type_reservation: string | null; reservation_chiens: { chien_id: string }[] | null };
+  const journees = ((reservationsData ?? []) as unknown as ResaChiens[])
+    .filter((r) => r.type_reservation === "journee")
+    .map((r) => ({ id: r.id, chienIds: (r.reservation_chiens ?? []).map((rc) => rc.chien_id) }));
+  const [coords, soldeAvoir, abos, categoriesCartes] = await Promise.all([
     getCoordonneesPaiement(supabaseAdmin),
     getSoldeAvoir(supabaseAdmin, client.id),
     getAbonnementsClient(client.id),
+    categoriesCartesPourReservations(journees),
   ]);
 
   // Une seule référence de paiement est communiquée au client : le numéro de
@@ -155,7 +162,7 @@ export default async function MesReservationsPage({
           <Link href="/mon-compte" style={sTopnavA}>← Mon compte</Link>
         </div>
 
-        <EnTete titre="📅 Mes réservations" sousTitre="Tes demandes et séjours." />
+        <EnTete titre="📅 Mes réservations" sousTitre="Vos demandes et séjours." />
 
         <div style={{ margin: "0 0 18px" }}>
           <Bouton variante="principal" href="/mon-compte/reservations/nouvelle" icone="➕" pleineLargeur>
@@ -170,7 +177,7 @@ export default async function MesReservationsPage({
             <EtatVide
               icone="📅"
               titre="Aucune réservation ici"
-              message="Aucune réservation ne correspond à ta sélection."
+              message="Aucune réservation ne correspond à votre sélection."
               action={
                 <Bouton variante="principal" href="/mon-compte/reservations/nouvelle" icone="➕">
                   Faire une demande
@@ -184,8 +191,7 @@ export default async function MesReservationsPage({
               const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens?.nom).filter(Boolean) ?? [];
               const resteAPayer = reste(res);
               const montrerPayer = peutPayer(res);
-              const dogs = (res.reservation_chiens ?? []).map((rc: any) => rc.chiens).filter(Boolean) as ChienSociabilite[];
-              const categorieAbo = categorieJourneePourChiens(dogs);
+              const categorieAbo = categoriesCartes.get(res.id) ?? null;
               const abonnementDisponible =
                 res.type_reservation === "journee" && res.statut === "validee" && !res.abonnement_id &&
                 categorieAbo != null && cartesParCategorie.has(categorieAbo);

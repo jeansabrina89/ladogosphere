@@ -57,3 +57,8 @@ mesures/
 # briefs et notes de travail, hors du logiciel — un « git add -A » les a déjà
 # emportés une fois dans un commit (APP 26, rattrapé avant le push)
 Claude outputs/
+
+# fichiers créés par Windows et par la synchronisation kDrive — jamais du logiciel
+kDrive Rescue Folder/
+Desktop.ini
+desktop.ini

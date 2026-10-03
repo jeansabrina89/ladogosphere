@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { estMembreActif } from "@/src/lib/membre";
-import { TYPES_ABONNEMENT, JOURS_PAR_CARTE, JOURS_PAYES, labelAbonnement, cartesEligibles, type ChienSociabilite } from "@/src/lib/abonnementsTypes";
+import { CARTES_EN_VENTE, MENTION_JOURNEE_OFFERTE, labelAbonnement, cartesEligibles, prixCarte, type ChienSociabilite } from "@/src/lib/abonnementsTypes";
 import { getAbonnementsClient, type AbonnementClient } from "@/src/lib/abonnementSolde";
 import { formatDateFR } from "@/src/lib/dates";
 import EnTete from "@/app/components/ui/EnTete";
@@ -151,10 +151,12 @@ export default async function AbonnementsPage() {
           <section style={{ marginBottom: 28 }}>
             <h2 style={h2}>Choisir une formule</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {TYPES_ABONNEMENT.filter((type) => eligibles.includes(type.categorie)).map((type) => {
+              {/* APP 72 — les cartes EN VENTE auxquelles ses chiens donnent droit,
+                  dans l'ordre de vente ; le prix vient du tarif du jour. */}
+              {CARTES_EN_VENTE.filter((type) => eligibles.includes(type.categorie)).map((type) => {
                 const tarifRow = (tarifsRows ?? []).find((t) => t.categorie === type.categorie);
                 if (!tarifRow) return null;
-                const prix = JOURS_PAYES * Number(tarifRow.prix);
+                const prix = prixCarte(tarifRow.prix);
                 return (
                   <Carte key={type.categorie}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
@@ -163,7 +165,7 @@ export default async function AbonnementsPage() {
                           {type.label}
                         </p>
                         <p style={{ ...muted, fontSize: 13, margin: "0 0 6px" }}>
-                          {JOURS_PAR_CARTE} journées ({JOURS_PAYES} payées + 1 offerte)
+                          {MENTION_JOURNEE_OFFERTE}
                         </p>
                         <p style={{ fontWeight: 700, color: MARINE, fontSize: 18, margin: "0 0 10px" }}>
                           {formatPrixClient(prix)}

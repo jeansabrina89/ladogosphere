@@ -630,7 +630,7 @@ export default function TunnelReservation({
 
     if (etape === "chiens") {
       if (chienIdsSelectionnes.length === 0) {
-        setErreur("Sélectionne au moins un chien.");
+        setErreur("Sélectionnez au moins un chien.");
         return;
       }
       // Un chien qui doit être seul ne partage pas son box : la réservation
@@ -659,7 +659,7 @@ export default function TunnelReservation({
     }
 
     if (etape === "decouverte") {
-      if (!dateEssai) { setErreur("Choisis une date."); return; }
+      if (!dateEssai) { setErreur("Choisissez une date."); return; }
       if (estDateInvalide(dateEssai, true)) {
         setErreur(
           joursFeries.includes(dateEssai) ? "Ce jour est férié en Valais."
@@ -669,26 +669,26 @@ export default function TunnelReservation({
         );
         return;
       }
-      if (!heureDepartEssai) { setErreur("Choisis une heure de départ."); return; }
+      if (!heureDepartEssai) { setErreur("Choisissez une heure de départ."); return; }
       setEtape("recap");
       return;
     }
 
     if (etape === "formule") {
-      if (!formule) { setErreur("Choisis une formule."); return; }
+      if (!formule) { setErreur("Choisissez une formule."); return; }
       setEtape("dates");
       return;
     }
 
     if (etape === "dates") {
-      if (!dateArrivee) { setErreur("Choisis une date d'arrivée."); return; }
+      if (!dateArrivee) { setErreur("Choisissez une date d'arrivée."); return; }
       if (formule === "sejour") {
-        if (!dateFin) { setErreur("Choisis une date de départ."); return; }
+        if (!dateFin) { setErreur("Choisissez une date de départ."); return; }
         if (dateFin <= dateArrivee) { setErreur("La date de départ doit être après l'arrivée."); return; }
       }
       if (!heuresMasquees) {
-        if (!heureArrivee) { setErreur("Choisis une heure d'arrivée."); return; }
-        if (!heureDepart) { setErreur("Choisis une heure de départ."); return; }
+        if (!heureArrivee) { setErreur("Choisissez une heure d'arrivée."); return; }
+        if (!heureDepart) { setErreur("Choisissez une heure de départ."); return; }
       }
       setEtape("frequence");
       return;
@@ -696,8 +696,8 @@ export default function TunnelReservation({
 
     if (etape === "frequence") {
       if (modeFreq === "reguliere") {
-        if (!dateDebutRec) { setErreur("Choisis une date de début."); return; }
-        if (occurrencesRegulieres.length === 0) { setErreur("Aucune occurrence générée. Vérifie les paramètres."); return; }
+        if (!dateDebutRec) { setErreur("Choisissez une date de début."); return; }
+        if (occurrencesRegulieres.length === 0) { setErreur("Aucune occurrence générée. Vérifiez les paramètres."); return; }
       }
       setEtape("recap");
       return;
@@ -827,7 +827,7 @@ export default function TunnelReservation({
     return (
       <>
         <p style={S.titre}>Pour quel(s) chien(s) ?</p>
-        <p style={S.sousTitre}>Sélectionne le ou les chiens qui viendront.</p>
+        <p style={S.sousTitre}>Sélectionnez le ou les chiens qui viendront.</p>
         {renderErreur()}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1003,7 +1003,7 @@ export default function TunnelReservation({
     return (
       <>
         <p style={S.titre}>Quelle formule ?</p>
-        <p style={S.sousTitre}>Choisis le type de séjour pour tes chiens.</p>
+        <p style={S.sousTitre}>Choisissez le type de séjour pour vos chiens.</p>
         {renderErreur()}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -1283,7 +1283,7 @@ export default function TunnelReservation({
     return (
       <>
         <p style={S.titre}>Récapitulatif</p>
-        <p style={S.sousTitre}>Vérifie ta demande avant de l&apos;envoyer.</p>
+        <p style={S.sousTitre}>Vérifiez votre demande avant de l&apos;envoyer.</p>
         {renderErreur()}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
@@ -1331,7 +1331,7 @@ export default function TunnelReservation({
           ) : (
             <div style={{ ...S.recapRow, backgroundColor: "#F4EAC9" }}>
               <p style={{ margin: 0, fontSize: 13, color: "#6E5410" }}>
-                💬 Le tarif sera confirmé par notre équipe lors de la validation de ta demande.
+                💬 Le tarif sera confirmé par notre équipe lors de la validation de votre demande.
               </p>
             </div>
           )}

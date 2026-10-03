@@ -36,7 +36,7 @@ export default async function FicheChienClientPage({
             <EtatVide
               icone="🐶"
               titre="Chien introuvable"
-              message="Ce chien n'existe pas ou n'est pas rattaché à ton compte."
+              message="Ce chien n'existe pas ou n'est pas rattaché à votre compte."
               action={<Bouton variante="secondaire" href="/mon-compte/chiens">← Mes chiens</Bouton>}
             />
           </Carte>

@@ -56,7 +56,7 @@ export default function FiltresPeriode() {
           <button onClick={() => appliquer([])} style={sResetLien}>tout afficher</button>
         </p>
       ) : (
-        <p style={sReset}>Toutes tes réservations sont affichées.</p>
+        <p style={sReset}>Toutes vos réservations sont affichées.</p>
       )}
     </>
   );

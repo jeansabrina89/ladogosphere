@@ -5,6 +5,33 @@ type Tarif = {
 };
 
 /**
+ * La catégorie de tarif qui s'applique — LA règle, en un seul endroit.
+ *
+ * Extraite de `resoudrePrixUnitaire` (APP 72) pour que la carte d'abonnement
+ * débitée soit celle du tarif réellement appliqué, et pas une déduction
+ * parallèle : la consommation la lit ici (src/lib/abonnementsTypes.ts).
+ */
+export function cleTarif({
+  type_reservation,
+  nb_chiens,
+  est_urgence,
+  est_privatif,
+}: {
+  type_reservation: string;
+  nb_chiens: number;
+  est_urgence: boolean;
+  est_privatif: boolean;
+}): string {
+  if (est_urgence) {
+    return est_privatif
+      ? "urgence_privatif"
+      : `urgence_partage_${Math.min(nb_chiens, 3)}`;
+  }
+  if (est_privatif) return `${type_reservation}_privatif`;
+  return `${type_reservation}_partage_${Math.min(nb_chiens, 3)}`;
+}
+
+/**
  * Résout le prix unitaire (CHF) pour une catégorie de tarif donnée
  * (type_reservation "sejour" ou "journee", urgence/privatif/nb_chiens).
  *
@@ -27,17 +54,7 @@ export function resoudrePrixUnitaire({
   est_urgence: boolean;
   est_privatif: boolean;
 }): number {
-  let cle = "";
-
-  if (est_urgence) {
-    cle = est_privatif
-      ? "urgence_privatif"
-      : `urgence_partage_${Math.min(nb_chiens, 3)}`;
-  } else if (est_privatif) {
-    cle = `${type_reservation}_privatif`;
-  } else {
-    cle = `${type_reservation}_partage_${Math.min(nb_chiens, 3)}`;
-  }
+  const cle = cleTarif({ type_reservation, nb_chiens, est_urgence, est_privatif });
 
   // Toujours le tarif membre ; repli sur n'importe quel tarif de la catégorie
   // si le tarif membre venait à manquer.

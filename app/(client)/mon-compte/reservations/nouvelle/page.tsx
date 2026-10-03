@@ -73,8 +73,8 @@ export default async function NouvelleDemandeReservationPage() {
             titre={chiens.length === 0 ? "Aucun chien enregistré" : "Réservation impossible"}
             message={
               chiens.length === 0
-                ? "Ajoute d'abord ton chien pour pouvoir réserver une place."
-                : "Tous tes chiens n'ont pas été admis à l'issue de leur journée d'essai. Contacte-nous pour plus d'informations."
+                ? "Ajoutez d'abord votre chien pour pouvoir réserver une place."
+                : "Tous vos chiens n'ont pas été admis à l'issue de leur journée d'essai. Contactez-nous pour plus d'informations."
             }
             action={
               chiens.length === 0

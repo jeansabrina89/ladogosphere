@@ -1,7 +1,7 @@
 import "server-only";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { calculerSolde } from "@/src/lib/abonnementSolde";
-import { categorieJourneePourChiens, type ChienSociabilite } from "@/src/lib/abonnementsTypes";
+import { categorieCartePourChiens } from "@/src/lib/carteReservation";
 import { synchroniserComptaAbonnement } from "@/src/lib/comptaAbonnement";
 import { synchroniserProduitAbonnement } from "@/src/lib/abonnementCompta";
 import { recalculerPaiementReservation } from "@/src/lib/paiementReservation";
@@ -47,7 +47,7 @@ export async function consommerAbonnementResa(
     .from("reservations")
     .select(`
       id, client_id, type_reservation, statut, abonnement_id,
-      reservation_chiens ( chiens ( doit_etre_isole ) )
+      reservation_chiens ( chien_id )
     `)
     .eq("id", reservationId)
     .maybeSingle();
@@ -57,12 +57,18 @@ export async function consommerAbonnementResa(
   if (resa.type_reservation !== "journee") return { error: "Seules les journees peuvent etre reglees par une carte." };
   if (!["en_attente", "validee"].includes(resa.statut)) return { error: "Cette reservation ne peut pas etre reglee par carte." };
 
-  const dogs = (resa.reservation_chiens ?? [])
-    .map((rc) => rc.chiens)
-    .filter(Boolean) as ChienSociabilite[];
-  const categorie = categorieJourneePourChiens(dogs);
+  // APP 72 — la carte du TARIF appliqué : même nombre de chiens, même
+  // « privatif » que le calcul du prix. Avant, seul « doit être isolé »
+  // comptait : un chien « famille uniquement » venu seul, facturé au tarif
+  // box seul, débitait une carte « 1 chien sociable ».
+  const categorie = await categorieCartePourChiens(
+    ((resa.reservation_chiens ?? []) as { chien_id: string }[]).map((rc) => rc.chien_id)
+  );
   if (!categorie) return { error: "Configuration de chiens non prise en charge par les cartes." };
 
+  // « 3 chiens ensemble » ne se vend plus : seule une ANCIENNE carte de cette
+  // catégorie la règle encore. Sans elle, rien n'est débité, et la journée
+  // reste au tarif normal.
   const abo = await trouverAbonnementUtilisable(clientId, categorie);
   if (!abo) return { error: "Aucune carte disponible pour cette reservation." };
 

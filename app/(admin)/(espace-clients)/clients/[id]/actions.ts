@@ -7,7 +7,7 @@ import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import { getSoldeAvoir } from "@/src/lib/avoirs";
 import { verifierPermission } from "@/src/lib/verifierPermission";
-import { labelAbonnement } from "@/src/lib/abonnementsTypes";
+import { labelAbonnement, refusCarte, type ChienSociabilite } from "@/src/lib/abonnementsTypes";
 import { synchroniserComptaAbonnement } from "@/src/lib/comptaAbonnement";
 import { porterAbonnementSurFacture } from "@/src/lib/abonnementFacture";
 import { synchroniserProduitAbonnement } from "@/src/lib/abonnementCompta";
@@ -277,6 +277,21 @@ export async function confirmerPaiementAbonnement(
 
   if (abo.statut === "actif") return { ok: true };
   if (abo.statut !== "en_attente_paiement") return { error: "Carte non confirmable." };
+
+  /*
+   * APP 72 — la vente se conclut ICI : l'équipe ne crée pas de carte, elle
+   * confirme le paiement d'une carte commandée par le client. La règle est
+   * donc la même qu'à l'achat (`refusCarte`) : une carte qui ne se vend plus
+   * (« 3 chiens ensemble ») ou qui ne correspond plus aux chiens du client
+   * ne s'active pas. Une carte DÉJÀ active n'est pas concernée — elle se
+   * consomme jusqu'au bout.
+   */
+  const { data: chiensClient } = await supabaseAdmin
+    .from("chiens")
+    .select("doit_etre_isole, actif")
+    .eq("client_id", abo.client_id);
+  const refus = refusCarte(abo.categorie as string, (chiensClient ?? []) as ChienSociabilite[]);
+  if (refus) return { error: refus };
 
   const today = new Date();
   const datePaiement = today.toISOString().split("T")[0];

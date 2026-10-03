@@ -168,7 +168,7 @@ export default async function MonComptePage() {
         {/* En-tête */}
         <EnTete
           titre={client?.prenom ? `Bonjour ${client.prenom}` : "Bonjour"}
-          sousTitre="Voici un aperçu de ton compte"
+          sousTitre="Voici un aperçu de votre compte"
           action={
             <Bouton variante="principal" href="/mon-compte/reservations/nouvelle">
               Réserver une place
@@ -280,8 +280,8 @@ export default async function MonComptePage() {
               </p>
               <p style={{ fontSize: 13, color: "rgba(27,43,94,0.6)", margin: "0 0 4px" }}>
                 {estRenouvellement
-                  ? `Ton adhésion prend fin le ${formatDateLong(cotisationEnCours!.date_fin)}. L'adhésion annuelle de ${formatPrixClient(montantCotisation)} te donne accès aux réservations de séjours et de garderie.`
-                  : `L'adhésion annuelle de ${formatPrixClient(montantCotisation)} te donne accès aux réservations de séjours et de garderie.`}
+                  ? `Votre adhésion prend fin le ${formatDateLong(cotisationEnCours!.date_fin)}. L'adhésion annuelle de ${formatPrixClient(montantCotisation)} vous donne accès aux réservations de séjours et de garderie.`
+                  : `L'adhésion annuelle de ${formatPrixClient(montantCotisation)} vous donne accès aux réservations de séjours et de garderie.`}
               </p>
               <BoutonDemanderAdhesion montant={montantCotisation} renouvellement={estRenouvellement} />
             </Carte>
@@ -293,7 +293,7 @@ export default async function MonComptePage() {
             <div style={{ backgroundColor: "#F4EAC9", border: "1px solid #C9A84C", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 20 }}>⏳</span>
               <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#6E5410" }}>
-                Ta demande d&apos;adhésion est en cours de traitement par notre équipe.
+                Votre demande d&apos;adhésion est en cours de traitement par notre équipe.
               </p>
             </div>
           </div>
@@ -372,7 +372,7 @@ export default async function MonComptePage() {
               <EtatVide
                 icone="📅"
                 titre="Aucune réservation à venir"
-                message="Réserve une place pour ton chien, on s'occupe du reste."
+                message="Réservez une place pour votre chien, on s'occupe du reste."
                 action={
                   <Bouton variante="principal" href="/mon-compte/reservations/nouvelle">
                     Réserver une place

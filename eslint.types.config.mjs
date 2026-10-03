@@ -41,6 +41,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Le dossier de secours de kDrive : des copies, pas le logiciel. Le
+    // .gitignore ne retient pas ESLint, qui l'aurait lu (187 avertissements
+    // sur le site, APP 72).
+    "kDrive Rescue Folder/**",
   ]),
 ]);
 

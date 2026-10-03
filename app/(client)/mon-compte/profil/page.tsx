@@ -63,7 +63,7 @@ export default async function MonProfilPage() {
           <Link href="/mon-compte" style={{ color: "#1F6E5B", textDecoration: "none", fontWeight: 600, fontSize: 14 }}>← Mon compte</Link>
         </div>
 
-        <EnTete titre="👤 Mon profil" sousTitre="Tes coordonnées et ton contact d'urgence." />
+        <EnTete titre="👤 Mon profil" sousTitre="Vos coordonnées et votre contact d'urgence." />
 
         <form action={actionModifier}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

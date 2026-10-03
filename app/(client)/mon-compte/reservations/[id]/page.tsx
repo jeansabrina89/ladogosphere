@@ -8,7 +8,7 @@ import { formatBoxLabel } from "@/src/lib/boxes";
 import { getMouvementsAvoirReservation, getSoldeAvoir } from "@/src/lib/avoirs";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { trouverAbonnementUtilisable } from "@/src/lib/consommationAbonnement";
-import { categorieJourneePourChiens, type ChienSociabilite } from "@/src/lib/abonnementsTypes";
+import { categorieCartePourChiens } from "@/src/lib/carteReservation";
 import { Wallet } from "lucide-react";
 import BoutonPaiementClient from "../BoutonPaiementClient";
 import BoutonReglerAbonnement from "./BoutonReglerAbonnement";
@@ -81,7 +81,7 @@ export default async function DetailReservationClientPage({
 
   const { data: res } = await supabase
     .from("reservations")
-    .select(`*, boxes (numero, nom), reservation_chiens (chiens (nom, doit_etre_isole)), reservation_extras (id, libelle, montant)`)
+    .select(`*, boxes (numero, nom), reservation_chiens (chien_id, chiens (nom, doit_etre_isole)), reservation_extras (id, libelle, montant)`)
     .eq("id", id)
     .maybeSingle();
 
@@ -107,8 +107,10 @@ export default async function DetailReservationClientPage({
   const resteAPayer = resteRestant(res);
 
   const regleParAbo = !!res.abonnement_id;
-  const dogs = (res.reservation_chiens ?? []).map((rc: any) => rc.chiens).filter(Boolean) as ChienSociabilite[];
-  const categorieAbo = categorieJourneePourChiens(dogs);
+  // APP 72 — la carte du TARIF de cette journée, comme à la consommation.
+  const categorieAbo = res.type_reservation === "journee"
+    ? await categorieCartePourChiens((res.reservation_chiens ?? []).map((rc: any) => rc.chien_id as string))
+    : null;
   const aboUtilisable =
     !regleParAbo && categorieAbo && res.client_id
       ? await trouverAbonnementUtilisable(res.client_id, categorieAbo)
