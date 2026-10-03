@@ -31,75 +31,107 @@ import EtatVide from "@/app/components/ui/EtatVide";
 import BlocConditions from "./BlocConditions";
 import { acceptationsDuClient } from "@/src/lib/acceptationsConditions";
 
+function ficheIntrouvable() {
+  return (
+    <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
+      <div className="max-w-4xl mx-auto">
+        <Carte><EtatVide icone="👤" titre="Client introuvable" /></Carte>
+      </div>
+    </main>
+  );
+}
+
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   await exigerAccesAdmin();
   const perms = await getProfilePerms();
-  // Les acceptations du client : lues UNE fois, servies au bloc et aux repères.
-  const acceptations = await acceptationsDuClient(id);
   const supabase = supabaseAdmin;
-
-  const { data: client } = await supabase
-    .from("clients")
-    .select(`*, chiens (id, nom, race, poids, categorie_poids, sexe, sterilisation)`)
-    .eq("id", id)
-    .single();
-
-  if (!client) {
-    return (
-      <main className="min-h-screen px-4 py-8 md:px-8" style={{ backgroundColor: "#F5F0E8" }}>
-        <div className="max-w-4xl mx-auto">
-          <Carte><EtatVide icone="👤" titre="Client introuvable" /></Carte>
-        </div>
-      </main>
-    );
-  }
-
   const aujourdhui = aujourdhuiISO();
 
-  const { data: cotisations } = await supabase
-    .from("cotisations_membres")
-    .select("*")
-    .eq("client_id", id)
-    .order("date_debut", { ascending: false });
+  /*
+   * APP 70 — UN seul temps, au lieu de treize.
+   *
+   * Après la garde, toutes les lectures de la fiche ne dépendent que de
+   * l'IDENTIFIANT de l'adresse — aucune n'a besoin de la fiche elle-même
+   * (`client.id` vaut `id`, puisque la fiche est lue par `.eq("id", id)`).
+   * Elles partent donc ensemble. Avant, elles partaient l'une après l'autre :
+   * treize allers-retours jusqu'à la base pour ouvrir une fiche.
+   *
+   * Une fiche introuvable s'affiche comme avant ; les lectures parties avec
+   * elle ne servent alors à rien, mais ne montrent rien non plus.
+   *
+   * Un identifiant qui n'est même pas un UUID ne lance AUCUNE lecture : avant,
+   * la fiche échouait sans bruit et la page disait « Client introuvable » ;
+   * lancée en même temps, la lecture des avoirs (qui lève sur une erreur)
+   * aurait fait tomber la page à la place.
+   */
+  const idValide = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  if (!idValide) return ficheIntrouvable();
 
-  const { data: parametre } = await supabase
-    .from("parametres")
-    .select("valeur")
-    .eq("cle", "cotisation_montant")
-    .single();
+  const [
+    // Les acceptations du client : lues UNE fois, servies au bloc et aux repères.
+    acceptations,
+    { data: client },
+    { data: cotisations },
+    { data: parametre },
+    // Cotisation qui fait foi aujourd'hui : la payée en cours, sinon la demande
+    // en attente (la validité est portée par [date_debut, date_fin], plus par l'année).
+    cotisationEnCours,
+    demandeEnAttente,
+    membre_a_jour,
+    mouvementsAvoir,
+    abonnements,
+    { data: reservations },
+    { data: facturesClient },
+    versionsConditions,
+  ] = await Promise.all([
+    acceptationsDuClient(id),
+    supabase
+      .from("clients")
+      .select(`*, chiens (id, nom, race, poids, categorie_poids, sexe, sterilisation)`)
+      .eq("id", id)
+      .single(),
+    supabase
+      .from("cotisations_membres")
+      .select("*")
+      .eq("client_id", id)
+      .order("date_debut", { ascending: false }),
+    supabase
+      .from("parametres")
+      .select("valeur")
+      .eq("cle", "cotisation_montant")
+      .single(),
+    cotisationActive(supabaseAdmin, id, aujourdhui),
+    cotisationEnAttente(supabaseAdmin, id),
+    estMembreActif(supabaseAdmin, id),
+    getMouvementsAvoir(supabaseAdmin, id),
+    getAbonnementsClient(id),
+    supabase
+      .from("reservations")
+      .select(`
+        id, numero, client_id, date_debut, date_fin, type_reservation,
+        statut, statut_paiement, montant_final, montant_calcule, ajustement_manuel, montant_paye,
+        clients (prenom, nom, membre),
+        boxes (numero, nom),
+        reservation_chiens (chiens (id, nom, race, categorie_poids))
+      `)
+      .eq("client_id", id)
+      .order("date_debut", { ascending: false }),
+    supabase
+      .from("factures")
+      .select("id, numero, type, date_facture, date_echeance, montant_total, montant_restant, statut")
+      .eq("client_id", id)
+      .order("date_facture", { ascending: false }),
+    lireVersionsConditions(),
+  ]);
+
+  if (!client) return ficheIntrouvable();
 
   const montantCotisation = parseFloat(parametre?.valeur ?? "200");
-  // Cotisation qui fait foi aujourd'hui : la payée en cours, sinon la demande
-  // en attente (la validité est portée par [date_debut, date_fin], plus par l'année).
-  const cotisationEnCours = await cotisationActive(supabaseAdmin, client.id, aujourdhui);
-  const demandeEnAttente = await cotisationEnAttente(supabaseAdmin, client.id);
   const etatCotisation = etatAdhesion(cotisationEnCours ?? demandeEnAttente);
   const finCotisationEnCours = cotisationEnCours?.date_fin ?? null;
-  const membre_a_jour = client.id ? await estMembreActif(supabaseAdmin, client.id) : false;
-
-  const mouvementsAvoir = await getMouvementsAvoir(supabaseAdmin, id);
   const soldeAvoir = calculerSoldeAvoir(mouvementsAvoir);
-  const abonnements = await getAbonnementsClient(id);
-
-  const { data: reservations } = await supabase
-    .from("reservations")
-    .select(`
-      id, numero, client_id, date_debut, date_fin, type_reservation,
-      statut, statut_paiement, montant_final, montant_calcule, ajustement_manuel, montant_paye,
-      clients (prenom, nom, membre),
-      boxes (numero, nom),
-      reservation_chiens (chiens (id, nom, race, categorie_poids))
-    `)
-    .eq("client_id", id)
-    .order("date_debut", { ascending: false });
   for (const r of (reservations ?? []) as any[]) { if (r.clients) r.clients.aJour = membre_a_jour; }
-
-  const { data: facturesClient } = await supabase
-    .from("factures")
-    .select("id, numero, type, date_facture, date_echeance, montant_total, montant_restant, statut")
-    .eq("client_id", id)
-    .order("date_facture", { ascending: false });
 
   const muted: React.CSSProperties = { color: "rgba(27,43,94,0.6)", fontSize: 14, margin: 0 };
   const h2: React.CSSProperties = { fontFamily: "Georgia, serif", color: "#1B2B5E", fontSize: 18, fontWeight: 700, margin: "0 0 12px" };
@@ -171,7 +203,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
               acceptations={acceptations}
               aujourdhui={aujourdhuiISO()}
               peutSaisir={perms.perm_clients_modifier === true}
-              versions={await lireVersionsConditions()}
+              versions={versionsConditions}
             />
           </Carte>
         </section>

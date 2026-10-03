@@ -39,7 +39,10 @@ export default async function CheckinPage({ searchParams }: { searchParams: Prom
   const jourPrec = decalerJour(dateActive, -1);
   const jourSuiv = decalerJour(dateActive, 1);
 
-  const { data: checkins } = await supabase
+  // APP 70 — arrivées et départs du jour ne dépendent pas l'un de l'autre :
+  // les deux lectures partent ensemble.
+  const [{ data: checkins }, { data: departs }] = await Promise.all([
+  supabase
     .from("checkin_checkout")
     .select(`
       *,
@@ -55,9 +58,8 @@ export default async function CheckinPage({ searchParams }: { searchParams: Prom
     `)
     .gte("date_arrivee_prevue", `${dateActive}T00:00:00`)
     .lte("date_arrivee_prevue", `${dateActive}T23:59:59`)
-    .order("date_arrivee_prevue");
-
-  const { data: departs } = await supabase
+    .order("date_arrivee_prevue"),
+  supabase
     .from("checkin_checkout")
     .select(`
       *,
@@ -73,7 +75,8 @@ export default async function CheckinPage({ searchParams }: { searchParams: Prom
     `)
     .gte("date_depart_prevu", `${dateActive}T00:00:00`)
     .lte("date_depart_prevu", `${dateActive}T23:59:59`)
-    .order("date_depart_prevu");
+    .order("date_depart_prevu"),
+  ]);
 
   const arrivesAttendus = checkins?.filter(c => c.statut === "attendu") ?? [];
   const presents = checkins?.filter(c => c.statut === "arrive") ?? [];

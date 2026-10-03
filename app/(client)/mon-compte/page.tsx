@@ -1,5 +1,5 @@
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
 import { createClient } from "@/src/utils/supabase/server";
+import { utilisateurDeLaRequete } from "@/src/lib/garde";
 import Link from "next/link";
 import { formatDateFR, formatDateLong, aujourdhuiISO } from "@/src/lib/dates";
 import { cotisationActive, cotisationEnAttente } from "@/src/lib/cotisation";
@@ -23,26 +23,63 @@ import { formatPrixClient, formatPrixFacture } from "@/src/lib/prixClient";
 
 export default async function MonComptePage() {
   const supabase = await createClient();
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
+  // Le compte de la requête, lu UNE fois — le layout l'a déjà demandé (APP 70).
+  const user = await utilisateurDeLaRequete();
   if (!user) return null;
-
-  // Ownership via auth_user_id — jamais de client_id venant de l'URL
-  const { data: client } = await supabase
-    .from("clients")
-    .select(`*, chiens (id, nom, statut_essai)`)
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
 
   const aujourd_hui = aujourdhuiISO();
 
-  const { data: reservations } = client
-    ? await supabase
-        .from("reservations")
-        .select(`*, reservation_chiens (chiens (nom))`)
-        .eq("client_id", client.id)
-        .order("date_debut", { ascending: true })
-    : { data: [] };
+  /*
+   * APP 70 — deux temps, et seulement deux.
+   *
+   * 1. La fiche (elle dépend du compte) et le montant de la cotisation (il ne
+   *    dépend de rien) partent ensemble.
+   * 2. Tout ce qui dépend de la fiche part ensuite, ENSEMBLE : réservations,
+   *    dates d'essai, avoir, adhésion. Aucune de ces lectures n'a besoin d'une
+   *    autre. Avant, elles partaient l'une après l'autre — six allers-retours
+   *    jusqu'à la base au lieu d'un.
+   */
+  const [{ data: client }, { data: paramCotis }] = await Promise.all([
+    // Ownership via auth_user_id — jamais de client_id venant de l'URL
+    supabase
+      .from("clients")
+      .select(`*, chiens (id, nom, statut_essai)`)
+      .eq("auth_user_id", user.id)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("parametres")
+      .select("valeur")
+      .eq("cle", "cotisation_montant")
+      .maybeSingle(),
+  ]);
+
+  // Résumé des journées d'essai : uniquement les chiens qui ne sont pas validés.
+  const chiensClient = (client?.chiens ?? []) as { id: string; nom: string; statut_essai: string | null }[];
+  const chiensNonValides = chiensClient.filter((c) => statutEssaiDe(c) !== "valide");
+
+  const [
+    { data: reservations },
+    datesEssai,
+    soldeAvoir,
+    estMembre,
+    cotisationEnCours,
+    demandeEnAttente,
+  ] = await Promise.all([
+    client
+      ? supabase
+          .from("reservations")
+          .select(`*, reservation_chiens (chiens (nom))`)
+          .eq("client_id", client.id)
+          .order("date_debut", { ascending: true })
+      : Promise.resolve({ data: [] }),
+    chiensNonValides.length > 0
+      ? datesEssaiParChien(chiensNonValides.map((c) => c.id))
+      : Promise.resolve(new Map<string, string>()),
+    client ? getSoldeAvoir(supabase, client.id) : Promise.resolve(0),
+    client ? estMembreActif(supabaseAdmin, client.id) : Promise.resolve(false),
+    client ? cotisationActive(supabaseAdmin, client.id, aujourd_hui) : Promise.resolve(null),
+    client ? cotisationEnAttente(supabaseAdmin, client.id) : Promise.resolve(null),
+  ]);
 
   const resAVenir = (reservations ?? []).filter(
     (r: any) =>
@@ -64,17 +101,6 @@ export default async function MonComptePage() {
 
   const nbChiens = client?.chiens?.length ?? 0;
 
-  // Résumé des journées d'essai : uniquement les chiens qui ne sont pas validés.
-  const chiensClient = (client?.chiens ?? []) as { id: string; nom: string; statut_essai: string | null }[];
-  const chiensNonValides = chiensClient.filter((c) => statutEssaiDe(c) !== "valide");
-  const datesEssai = chiensNonValides.length > 0
-    ? await datesEssaiParChien(chiensNonValides.map((c) => c.id))
-    : new Map<string, string>();
-  const soldeAvoir = client ? await getSoldeAvoir(supabase, client.id) : 0;
-
-  const estMembre = client ? await estMembreActif(supabaseAdmin, client.id) : false;
-  const cotisationEnCours = client ? await cotisationActive(supabaseAdmin, client.id, aujourd_hui) : null;
-  const demandeEnAttente = client ? await cotisationEnAttente(supabaseAdmin, client.id) : null;
   const aDemandeEnAttente = !!demandeEnAttente;
   // Adhésion demandable : aucune demande en cours, et soit pas de cotisation
   // active, soit une cotisation qui s'achève dans les 60 jours (renouvellement).
@@ -86,11 +112,6 @@ export default async function MonComptePage() {
   const peutDemander =
     !!client && !estInterne && !aDemandeEnAttente && (!cotisationEnCours || dansFenetreRenouvellement);
   const estRenouvellement = !!cotisationEnCours;
-  const { data: paramCotis } = await supabaseAdmin
-    .from("parametres")
-    .select("valeur")
-    .eq("cle", "cotisation_montant")
-    .maybeSingle();
   const montantCotisation = parseFloat(paramCotis?.valeur ?? "200") || 200;
 
   // Les tuiles viennent du module partagé avec la barre de navigation : une

@@ -211,19 +211,23 @@ export default async function AujourdhuiPage() {
   const acces = await exigerAccesAdmin();
   const jour = aujourdhuiISO();
 
-  const journee = await lireJournee(jour, {
-    isAdmin: acces.isAdmin,
-    perm_encaissements: acces.permissions.perm_encaissements === true,
-    perm_boutique_vente: acces.permissions.perm_boutique_vente === true,
-  });
-
-  const peutPointer = acces.permissions.perm_checkin === true;
-
   // Les prestations des locataires de box : un bloc À PART, après les arrivées
   // et les départs. Ce ne sont pas les mêmes gestes, et leurs chiens ne sont
   // pas dans les box de la pension — les mélanger tromperait sur les deux.
   const peutPrestations = acces.isAdmin || acces.permissions.perm_prestations === true;
-  const prestations = peutPrestations ? await tachesDuJour(jour) : [];
+
+  // APP 70 — la journée et les prestations ne dépendent l'une de l'autre en
+  // rien : elles partent ensemble.
+  const [journee, prestations] = await Promise.all([
+    lireJournee(jour, {
+      isAdmin: acces.isAdmin,
+      perm_encaissements: acces.permissions.perm_encaissements === true,
+      perm_boutique_vente: acces.permissions.perm_boutique_vente === true,
+    }),
+    peutPrestations ? tachesDuJour(jour) : Promise.resolve([]),
+  ]);
+
+  const peutPointer = acces.permissions.perm_checkin === true;
   const prestationsAFaire = prestations.filter((t) => t.statut === "a_faire");
 
   return (

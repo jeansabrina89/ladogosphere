@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { optionsMesure } from '@/src/lib/mesureLectures'
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -33,6 +34,8 @@ export async function proxy(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // Vide hors mesure locale (APP 70).
+      ...optionsMesure(),
       cookies: {
         getAll() {
           return request.cookies.getAll()

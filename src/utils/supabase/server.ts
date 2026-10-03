@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { optionsMesure } from '@/src/lib/mesureLectures'
 
 export async function createClient() {
   const cookieStore = await cookies()
@@ -8,6 +9,8 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // Vide hors mesure locale (APP 70).
+      ...optionsMesure(),
       cookies: {
         getAll() {
           return cookieStore.getAll()

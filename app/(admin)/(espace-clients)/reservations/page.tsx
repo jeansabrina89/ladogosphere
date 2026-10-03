@@ -42,10 +42,17 @@ export default async function ReservationsPage({
   const filtreNonFactures = params.nonfactures === "1";
   const borneDebut = /^\d{4}-\d{2}-\d{2}$/.test(params.debut ?? "") ? params.debut! : null;
   const borneFin = /^\d{4}-\d{2}-\d{2}$/.test(params.fin ?? "") ? params.fin! : null;
-  const idsInternes = await idsFichesInternes();
-  const nbPersonnelAVoir = await compterReservationsPersonnelAVoir();
   const periodeSet = new Set((params.periode ?? "").split(",").filter(Boolean));
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Zurich" });
+
+  /*
+   * APP 70 — le compteur « à voir » ne dépend de rien : il part tout de suite,
+   * et la liste le rejoint (Promise.all plus bas). La liste ne dépend des
+   * fiches internes QUE sous le filtre « Personnel » ; sans lui, elles ne sont
+   * plus lues du tout — elles ne servaient qu'à ce filtre.
+   */
+  const compteurAVoir = compterReservationsPersonnelAVoir();
+  const idsInternes = filtrePersonnel ? await idsFichesInternes() : [];
 
   let query = supabase
     .from("reservations")
@@ -106,7 +113,12 @@ export default async function ReservationsPage({
   }
 
   const { data: reservations } = await query;
-  const idsAJourFacture = await clientsMembresAJour(supabase, ((reservations ?? []) as any[]).map((r) => r.client_id));
+  // L'adhésion des clients listés dépend de la liste ; le compteur, parti
+  // avant elle, la rejoint ici sans la retarder.
+  const [idsAJourFacture, nbPersonnelAVoir] = await Promise.all([
+    clientsMembresAJour(supabase, ((reservations ?? []) as any[]).map((r) => r.client_id)),
+    compteurAVoir,
+  ]);
   for (const r of (reservations ?? []) as any[]) { if (r.clients) r.clients.aJour = idsAJourFacture.has(r.client_id); }
 
   return (

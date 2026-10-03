@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
+import { utilisateurDeLaRequete } from "@/src/lib/garde";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import Bouton from "@/app/components/ui/Bouton";
@@ -12,8 +12,8 @@ import { lireHoraires } from "@/src/lib/horairesServeur";
 
 export default async function NouvelleDemandeReservationPage() {
   const supabase = await createClient();
-  const supabaseServer = await createSupabaseServerClient();
-  const { data: { user } } = await supabaseServer.auth.getUser();
+  // Le compte de la requête, déjà lu par le layout (APP 70).
+  const user = await utilisateurDeLaRequete();
   if (!user) return null;
 
   const { data: client } = await supabase

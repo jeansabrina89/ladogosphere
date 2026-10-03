@@ -80,14 +80,14 @@ export default function SidebarStaff({
       <nav aria-label="Espaces" style={{ flex: 1, overflowY: "auto", padding: "0 8px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {espaces.map((e) => (
-            <a
+            <Link
               key={e.cle}
               href={e.href}
               aria-current={e.cle === cleActive ? "page" : undefined}
               style={lienStyle(e.cle === cleActive)}
             >
               <span>{e.label}</span>
-            </a>
+            </Link>
           ))}
         </div>
       </nav>
@@ -100,10 +100,10 @@ export default function SidebarStaff({
               {personnel.map(({ href, label, badge, exact }) => {
                 const actif = estActif(pathname, href, exact);
                 return (
-                  <a key={href} href={href} aria-current={actif ? "page" : undefined} style={lienStyle(actif)}>
+                  <Link key={href} href={href} aria-current={actif ? "page" : undefined} style={lienStyle(actif)}>
                     <span>{label}</span>
                     {badge ? <span style={{ ...pastilleStyle, marginLeft: "auto" }}>{badge}</span> : null}
-                  </a>
+                  </Link>
                 );
               })}
             </div>
@@ -137,11 +137,11 @@ export default function SidebarStaff({
     const icone = espace > 0 ? label.slice(0, espace) : "";
     const texte = espace > 0 ? label.slice(espace + 1) : label;
     return (
-      <a key={href} href={href} style={{ ...tuileStyle, position: "relative" }}>
+      <Link key={href} href={href} style={{ ...tuileStyle, position: "relative" }}>
         {badge ? <span style={{ ...pastilleStyle, position: "absolute", top: 8, right: 8 }}>{badge}</span> : null}
         <span style={{ fontSize: 24, lineHeight: 1 }} aria-hidden="true">{icone}</span>
         <span style={{ fontSize: 13, fontWeight: 600 }}>{texte}</span>
-      </a>
+      </Link>
     );
   };
 

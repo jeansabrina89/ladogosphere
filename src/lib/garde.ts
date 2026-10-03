@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "../utils/supabase/server";
 import { PERMISSIONS_PERSONNEL, type PermissionPersonnel } from "./permissionsCatalogue";
 
@@ -102,12 +103,53 @@ type ClientSession = Awaited<ReturnType<typeof createClient>>;
  * L'appelant, ou null sans session. Lit le profil avec le client de SESSION
  * (la ligne de son propre profil lui est lisible) : c'est la même lecture que
  * faisaient les gardes historiques.
+ *
+ * ── UNE FOIS PAR REQUÊTE, PAS UNE FOIS PAR APPEL (APP 70) ─────────────────
+ *
+ * Sans client fourni, la lecture passe par `React.cache` : pendant le rendu
+ * d'UNE requête, le layout, la barre de navigation, la page et ses aides
+ * (`getProfilePerms`, `exigerAccesAdmin`) partagent le même `getUser()` et la
+ * même ligne de profil. Avant, chacun refaisait les deux, souvent l'un après
+ * l'autre : quatre allers-retours jusqu'à la base avant la première donnée de
+ * l'écran.
+ *
+ * La sécurité ne change pas : c'est toujours `getUser()`, qui fait revalider
+ * le jeton par Supabase, et le profil est relu à chaque REQUÊTE — désactiver
+ * quelqu'un ferme ses portes au geste suivant, comme avant. Le cache de React
+ * ne survit pas à la requête, et hors d'un rendu serveur (une action, une
+ * route) il ne mémorise rien.
  */
 export async function lireAppelant(client?: ClientSession): Promise<Appelant | null> {
-  const supabase = client ?? (await createClient());
+  if (!client) return lireAppelantDeLaRequete();
+  return lireAppelantAvec(client);
+}
+
+type UtilisateurAuth = { id: string; email?: string | null };
+
+/**
+ * Le compte connecté de la requête, vérifié par `getUser()` — UNE fois par
+ * requête de rendu (APP 70). Pour les écrans qui n'ont besoin que de l'identité
+ * (l'espace client, son layout et ses pages), sans le profil du personnel.
+ */
+export const utilisateurDeLaRequete = cache(async (): Promise<UtilisateurAuth | null> => {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  return user ?? null;
+});
+
+const lireAppelantDeLaRequete = cache(async (): Promise<Appelant | null> => {
+  const user = await utilisateurDeLaRequete();
+  if (!user) return null;
+  return appelantDepuisProfil(await createClient(), user);
+});
+
+async function lireAppelantAvec(supabase: ClientSession): Promise<Appelant | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
+  return appelantDepuisProfil(supabase, user);
+}
 
+async function appelantDepuisProfil(supabase: ClientSession, user: UtilisateurAuth): Promise<Appelant> {
   const { data } = await supabase
     .from("profiles")
     .select(`role, actif, email, ${PERMISSIONS_PERSONNEL.join(", ")}`)

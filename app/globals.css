@@ -37,3 +37,27 @@ body {
     font-family: var(--font-serif);
   }
 }
+
+/*
+ * APP 70 — l'écran de chargement (app/components/EcranChargement.tsx).
+ *
+ * Des blocs crème qui respirent doucement : l'écran a changé tout de suite,
+ * les données arrivent. Une personne qui a demandé moins d'animation dans son
+ * téléphone voit les mêmes blocs, immobiles.
+ */
+@keyframes squelette-respire {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.squelette-bloc {
+  background-color: var(--creme-fonce);
+  border-radius: 14px;
+  animation: squelette-respire 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .squelette-bloc {
+    animation: none;
+  }
+}

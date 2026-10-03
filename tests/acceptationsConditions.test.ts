@@ -363,8 +363,12 @@ describe("le personnel est AVERTI, jamais bloqué", () => {
   });
 
   it("la fiche de la réservation porte le même repère", () => {
-    expect(lire("app/(admin)/(espace-clients)/reservations/[id]/page.tsx"))
-      .toMatch(/repereConditions\(await acceptationsDuClient\(client_id\), "pension", await lireVersionsConditions\(\)\)/);
+    // APP 70 : les deux lectures partent avec les autres (Promise.all) ; le
+    // repère se calcule ensuite, avec les MÊMES lectures et le même type.
+    const src = lire("app/(admin)/(espace-clients)/reservations/[id]/page.tsx");
+    expect(src).toContain("client_id ? acceptationsDuClient(client_id) : Promise.resolve(null)");
+    expect(src).toContain("client_id ? lireVersionsConditions() : Promise.resolve(null)");
+    expect(src).toMatch(/repereConditions\(acceptations!, "pension", versionsConditions!\)/);
   });
 
   it("l'écran des arrivées le porte aussi", () => {

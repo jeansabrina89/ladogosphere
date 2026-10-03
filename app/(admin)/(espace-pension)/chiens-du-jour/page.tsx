@@ -50,6 +50,7 @@ export default async function ChiensDuJourPage({
   searchParams: Promise<{ date?: string }>;
 }) {
   await exigerAccesAdmin();
+  // La même lecture que la garde, partagée dans la requête (APP 70).
   const perms = await getProfilePerms();
   const params = await searchParams;
   const aujourd_hui = aujourdhuiISO();
@@ -92,22 +93,24 @@ export default async function ChiensDuJourPage({
         .reservations?.clients?.id)
       .filter((id): id is string => !!id)
   )];
-  const colis = await clientsAvecCommandeARemettre(clientsDuJour);
-
   /*
-   * APP 42 — les clients qui n'ont JAMAIS accepté les conditions.
+   * APP 70 — les trois lectures qui suivent dépendent des lignes du jour, mais
+   * PAS l'une de l'autre : elles partent ensemble.
    *
-   * Le repère se pose ici parce que c'est ici qu'on croise le client : à
-   * l'arrivée, avec le chien devant soi et un stylo à portée. Le rappeler
-   * ailleurs reviendrait à le rappeler quand on ne peut rien faire.
+   *   · les colis à remettre ;
+   *   · APP 42 — les clients qui n'ont JAMAIS accepté les conditions. Le repère
+   *     se pose ici parce que c'est ici qu'on croise le client : à l'arrivée,
+   *     avec le chien devant soi et un stylo à portée ;
+   *   · qui a pointé l'arrivée et le départ, et à quelle heure.
    */
-  const sansConditions = await clientsSansConditionsPension(clientsDuJour);
-
-  // Qui a pointé l'arrivée et le départ, et à quelle heure.
-  const gestes = await lireGestesCheckin(
-    [...(arrivees ?? []), ...(presents ?? []), ...(departs ?? [])]
-      .map((cc) => (cc as { reservation_id?: string | null }).reservation_id ?? "")
-  );
+  const [colis, sansConditions, gestes] = await Promise.all([
+    clientsAvecCommandeARemettre(clientsDuJour),
+    clientsSansConditionsPension(clientsDuJour),
+    lireGestesCheckin(
+      [...(arrivees ?? []), ...(presents ?? []), ...(departs ?? [])]
+        .map((cc) => (cc as { reservation_id?: string | null }).reservation_id ?? "")
+    ),
+  ]);
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>

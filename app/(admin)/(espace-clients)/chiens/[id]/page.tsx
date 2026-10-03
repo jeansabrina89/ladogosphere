@@ -28,21 +28,24 @@ export default async function ChienPage({
   const supabase = supabaseAdmin;
   const { id } = await params;
 
-  const { data: chien } = await supabase
-    .from("chiens")
-    .select(`*, clients (id, prenom, nom, photos_ok, photos_ok_modifie_le)`)
-    .eq("id", id)
-    .single();
-
-  // Le bucket est prive (S-05) : l URL se signe pour une heure, et la
-  // fonction verifie d abord le droit de voir CE chien.
-  const urlPhoto = (await urlSigneePhotoChien(id)).url;
-
-  const { data: tousChiens } = await supabase
-    .from("chiens")
-    .select("id, nom, race")
-    .eq("actif", true)
-    .order("nom");
+  // APP 70 — la fiche, sa photo et la liste des chiens ne dépendent l'une de
+  // l'autre en rien : les trois lectures partent ensemble.
+  const [{ data: chien }, photo, { data: tousChiens }] = await Promise.all([
+    supabase
+      .from("chiens")
+      .select(`*, clients (id, prenom, nom, photos_ok, photos_ok_modifie_le)`)
+      .eq("id", id)
+      .single(),
+    // Le bucket est prive (S-05) : l URL se signe pour une heure, et la
+    // fonction verifie d abord le droit de voir CE chien.
+    urlSigneePhotoChien(id),
+    supabase
+      .from("chiens")
+      .select("id, nom, race")
+      .eq("actif", true)
+      .order("nom"),
+  ]);
+  const urlPhoto = photo.url;
 
   if (!chien) {
     return (

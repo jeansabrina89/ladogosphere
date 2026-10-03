@@ -1,34 +1,18 @@
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { lireAppelant } from "@/src/lib/garde";
 import NavBarPersonnel from "./NavBarPersonnel";
 import NavBarClient from "./NavBarClient";
 
+/**
+ * La barre de navigation : celle du personnel, ou celle du client.
+ *
+ * Le rôle vient de `lireAppelant()` — la MÊME lecture que la garde de la page,
+ * partagée dans la requête (APP 70). Avant, la barre ouvrait son propre client
+ * et relisait session et profil : deux allers-retours de plus jusqu'à la base,
+ * pour un rôle que la page venait de lire.
+ */
 export default async function NavBarServeur() {
-  const cookieStore = await cookies();
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-      },
-    }
-  );
-
-  const { data: { user } } = await supabase.auth.getUser();
-
-  let role = "client";
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-    role = profile?.role ?? "client";
-  }
+  const appelant = await lireAppelant();
+  const role = appelant?.role ?? "client";
 
   // Admin et employée partagent la même barre : ce qui les distingue, ce sont
   // leurs permissions, pas un menu écrit deux fois.

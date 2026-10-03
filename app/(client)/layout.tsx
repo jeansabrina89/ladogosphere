@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import NavBarClient from "@/app/components/NavBarClient";
-import { createSupabaseServerClient } from "@/src/lib/supabase-server";
+import { utilisateurDeLaRequete } from "@/src/lib/garde";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import CreerProfilPersonnel from "@/app/components/CreerProfilPersonnel";
 import {
@@ -25,8 +26,9 @@ import { catalogueVisible } from "@/src/lib/prestationsLogique";
  *   discret. Sans fiche, on lui propose de la créer ici même.
  */
 export default async function ClientLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // Le compte de la requête, vérifié par getUser — une fois, partagé avec la
+  // page qui le redemande (APP 70).
+  const user = await utilisateurDeLaRequete();
 
   let ficheInterne = false;
   let ficheLocataire = false;
@@ -92,12 +94,12 @@ export default async function ClientLayout({ children }: { children: React.React
           <span>⭐ {BANDEAU_PERSONNEL}</span>
           {/* Deux chemins pour un même retour : le bandeau se lit, la barre se
               cherche. Celui-ci est un lien en toutes lettres, pas un bouton. */}
-          <a
+          <Link
             href={LIEN_ESPACE_PENSION}
             style={{ color: "#6E5410", fontWeight: 700, textDecoration: "underline" }}
           >
             {RETOUR_PENSION_BANDEAU}
-          </a>
+          </Link>
         </div>
       )}
       {children}

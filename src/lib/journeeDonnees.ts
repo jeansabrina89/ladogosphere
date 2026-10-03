@@ -75,47 +75,33 @@ export async function lireJournee(jourISO: string, droits: DroitsJournee): Promi
   const fin = `${jour}T23:59:59Z`;
   const limite = decalerJours(jour, HORIZON_RAPPELS_JOURS);
 
-  const [{ data: arriveesBrutes }, { data: departsBruts }] = await Promise.all([
+  /*
+   * APP 70 — DEUX temps, au lieu de cinq.
+   *
+   * 1. Tout ce qui ne dépend que du JOUR part ensemble : arrivées, départs, et
+   *    les échéances (adhésions, commandes, dépenses, factures), plus la liste
+   *    des justificatifs — lue d'office pour l'admin, la seule à voir les
+   *    dépenses, au lieu d'attendre de savoir s'il y en a.
+   * 2. Ce qui dépend des chiens et des clients DU JOUR part ensuite, ensemble :
+   *    « déjà venus » et colis à remettre.
+   *
+   * Aucune lecture n'a changé de filtre ; seul leur ordre de départ a changé.
+   */
+  const [
+    { data: arriveesBrutes },
+    { data: departsBruts },
+    adhesionsRes,
+    commandesRes,
+    depensesRes,
+    facturesRes,
+    piecesRes,
+  ] = await Promise.all([
     supabaseAdmin.from("checkin_checkout").select(LIGNE)
       .gte("date_arrivee_prevue", debut).lte("date_arrivee_prevue", fin),
     supabaseAdmin.from("checkin_checkout").select(LIGNE)
       .gte("date_depart_prevu", debut).lte("date_depart_prevu", fin),
-  ]);
-
-  const arrivees = ((arriveesBrutes ?? []) as any[]).map(enLigne);
-  const departs = ((departsBruts ?? []) as any[]).map(enLigne);
-
-  const idsChiens = [...new Set(
-    arrivees.map((l) => l.chien?.id).filter((id): id is string => !!id)
-  )];
-  const idsClients = [...new Set(
-    departs.map((l) => l.reservation?.client?.id).filter((id): id is string => !!id)
-  )];
-  const idsDuJour = new Set([...arrivees, ...departs].map((l) => l.id));
-
-  // « 1re fois » : aucun séjour n'a jamais commencé pour ce chien. C'est
-  // l'arrivée RÉELLE qui fait foi, pas la réservation — une réservation
-  // annulée n'a fait venir personne.
-  const dejaVenus: string[] = [];
-  if (idsChiens.length > 0) {
-    const { data } = await supabaseAdmin
-      .from("checkin_checkout")
-      .select("id, chien_id")
-      .in("chien_id", idsChiens)
-      .not("date_arrivee_reelle", "is", null);
-    for (const row of (data ?? []) as any[]) {
-      if (idsDuJour.has(row.id)) continue;
-      if (row.chien_id) dejaVenus.push(row.chien_id as string);
-    }
-  }
-
-  const colis = idsClients.length > 0
-    ? await clientsAvecCommandeARemettre(idsClients)
-    : new Map<string, number>();
-
-  // Les échéances comptables ne sont même pas lues pour qui n'y a pas droit :
-  // une donnée qu'on ne doit pas voir ne doit pas partir de la base.
-  const [adhesionsRes, commandesRes, depensesRes, facturesRes] = await Promise.all([
+    // Les échéances comptables ne sont même pas lues pour qui n'y a pas droit :
+    // une donnée qu'on ne doit pas voir ne doit pas partir de la base.
     droits.isAdmin || droits.perm_encaissements
       ? supabaseAdmin.from("cotisations_membres")
           .select("id, date_fin, clients ( id, prenom, nom )")
@@ -147,15 +133,51 @@ export async function lireJournee(jourISO: string, droits: DroitsJournee): Promi
           .gt("montant_restant", 0)
           .order("date_echeance")
       : Promise.resolve({ data: [] as any[] }),
+    // Les justificatifs : la même requête qu'avant, partie en même temps.
+    droits.isAdmin
+      ? supabaseAdmin.from("pieces").select("entite_id").eq("entite", "depense")
+      : Promise.resolve({ data: [] as any[] }),
   ]);
+
+  const arrivees = ((arriveesBrutes ?? []) as any[]).map(enLigne);
+  const departs = ((departsBruts ?? []) as any[]).map(enLigne);
+
+  const idsChiens = [...new Set(
+    arrivees.map((l) => l.chien?.id).filter((id): id is string => !!id)
+  )];
+  const idsClients = [...new Set(
+    departs.map((l) => l.reservation?.client?.id).filter((id): id is string => !!id)
+  )];
+  const idsDuJour = new Set([...arrivees, ...departs].map((l) => l.id));
+
+  // « 1re fois » : aucun séjour n'a jamais commencé pour ce chien. C'est
+  // l'arrivée RÉELLE qui fait foi, pas la réservation — une réservation
+  // annulée n'a fait venir personne.
+  // Temps 2 : ce qui dépend des chiens et des clients du jour, ensemble.
+  const [dejaVenusRes, colis] = await Promise.all([
+    idsChiens.length > 0
+      ? supabaseAdmin
+          .from("checkin_checkout")
+          .select("id, chien_id")
+          .in("chien_id", idsChiens)
+          .not("date_arrivee_reelle", "is", null)
+      : Promise.resolve({ data: [] as any[] }),
+    idsClients.length > 0
+      ? clientsAvecCommandeARemettre(idsClients)
+      : Promise.resolve(new Map<string, number>()),
+  ]);
+
+  const dejaVenus: string[] = [];
+  for (const row of (dejaVenusRes.data ?? []) as any[]) {
+    if (idsDuJour.has(row.id)) continue;
+    if (row.chien_id) dejaVenus.push(row.chien_id as string);
+  }
 
   // Les justificatifs : une seule requête, puis une différence d'ensembles.
   let depensesSansJustificatif: any[] = [];
   const depenses = (depensesRes.data ?? []) as any[];
   if (depenses.length > 0) {
-    const { data: pieces } = await supabaseAdmin
-      .from("pieces").select("entite_id").eq("entite", "depense");
-    const avecPiece = new Set((pieces ?? []).map((p: any) => p.entite_id as string));
+    const avecPiece = new Set(((piecesRes.data ?? []) as any[]).map((p) => p.entite_id as string));
     depensesSansJustificatif = depenses.filter((d) => !avecPiece.has(d.id));
   }
 

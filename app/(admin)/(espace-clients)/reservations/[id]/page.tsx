@@ -63,59 +63,122 @@ export default async function ReservationPage({
   const supabase = supabaseAdmin;
   const { id } = await params;
 
-  const { data: res } = await supabase
-    .from("reservations")
-    .select(`
-      *,
-      clients (id, prenom, nom, membre, telephone, email, auth_user_id),
-      boxes (numero, nom),
-      reservation_chiens (
-        chiens (id, nom, race, poids, categorie_poids, sexe, sterilisation, doit_etre_isole,
-          statut_essai, journee_essai_resultat_le, journee_essai_resultat_par)
-      ),
-      reservation_extras (id, libelle, montant, created_at)
-    `)
-    .eq("id", id)
-    .single();
-
+  /*
+   * APP 70 — DEUX temps, au lieu de onze.
+   *
+   * 1. Tout ce qui ne dépend que de l'IDENTIFIANT part ensemble : la
+   *    réservation, son historique, ses pointages, les tarifs, les lignes de
+   *    check-in.
+   * 2. Tout ce qui dépend de la RÉSERVATION lue (son client, ses chiens, son
+   *    type) part ensuite, ensemble : colis, auteurs de l'essai, cohabitation,
+   *    adhésion, conditions, profil du client, cotisation, facture émise.
+   *
+   * Aucune lecture n'a changé de filtre. « Réservation introuvable » s'affiche
+   * toujours avant le second temps, qui ne part donc pas pour rien.
+   *
+   * L'historique fait lui-même deux lectures l'une après l'autre : il part
+   * avec le premier temps, mais on ne l'ATTEND qu'avec le second — le second
+   * temps n'a pas à patienter derrière lui.
+   */
   // Tout ce qui est arrivé à cette réservation, et qui l'a fait. Les
   // requalifications de type y figurent, avec leur motif.
-  const [historique, gestesCheckin] = await Promise.all([
-    lireHistoriqueReservation(id),
-    lireGestesCheckin([id]),
+  const historiqueP = lireHistoriqueReservation(id);
+  const gestesP = lireGestesCheckin([id]);
+  // Attendues plus bas : un échec éventuel y sera levé comme avant, mais
+  // Node ne doit pas le croire orphelin entre-temps.
+  historiqueP.catch(() => {});
+  gestesP.catch(() => {});
+
+  const [
+    { data: res },
+    { data: tarifs },
+    { data: checkins },
+  ] = await Promise.all([
+    supabase
+      .from("reservations")
+      .select(`
+        *,
+        clients (id, prenom, nom, membre, telephone, email, auth_user_id),
+        boxes (numero, nom),
+        reservation_chiens (
+          chiens (id, nom, race, poids, categorie_poids, sexe, sterilisation, doit_etre_isole,
+            statut_essai, journee_essai_resultat_le, journee_essai_resultat_par)
+        ),
+        reservation_extras (id, libelle, montant, created_at)
+      `)
+      .eq("id", id)
+      .single(),
+    supabase
+      .from("tarifs")
+      .select("categorie, membre, prix")
+      .eq("actif", true),
+    supabase
+      .from("checkin_checkout")
+      .select("id, statut, chien_id, date_arrivee_reelle, date_depart_reel, chiens (id, nom)")
+      .eq("reservation_id", id)
+      .order("created_at", { ascending: true }),
   ]);
 
-  const { data: tarifs } = await supabase
-    .from("tarifs")
-    .select("categorie, membre, prix")
-    .eq("actif", true);
-
-  const { data: checkins } = await supabase
-    .from("checkin_checkout")
-    .select("id, statut, chien_id, date_arrivee_reelle, date_depart_reel, chiens (id, nom)")
-    .eq("reservation_id", id)
-    .order("created_at", { ascending: true });
-
-  if (!res) return <div>Réservation introuvable</div>;
-
-  // Les commandes de boutique qui attendent ce client : rattachées à CE séjour,
-  // ou simplement à retirer. Le colis part avec le chien, ou pas du tout.
-  const colisEnAttente = await commandesARemettre({ clientId: res.client_id });
+  if (!res) {
+    // Comme avant : l'historique est attendu même ici, et son échec lève.
+    await Promise.all([historiqueP, gestesP]);
+    return <div>Réservation introuvable</div>;
+  }
 
   const chiens = res.reservation_chiens?.map((rc: any) => rc.chiens).filter(Boolean) ?? [];
-  // Journée d'essai : « validé le … par SJ » sous chaque chien.
-  const auteursEssai = res.type_reservation === "essai"
-    ? await lireAuteurs(
-        (chiens as { journee_essai_resultat_par?: string | null }[]).map((c) => c.journee_essai_resultat_par)
-      )
-    : new Map();
+  const client_id = res.clients?.id;
+  const authUserIdClient = (res.clients as any)?.auth_user_id;
+
+  const [
+    // Les commandes de boutique qui attendent ce client : rattachées à CE
+    // séjour, ou simplement à retirer. Le colis part avec le chien, ou pas du tout.
+    colisEnAttente,
+    // Journée d'essai : « validé le … par SJ » sous chaque chien.
+    auteursEssai,
+    cohabitation,
+    est_membre,
+    acceptations,
+    versionsConditions,
+    profPersonnelRes,
+    // Chercher cotisation en attente pour ce client
+    { data: cotisation },
+    // Une facture émise fige le prix : la modifier passe par un avoir.
+    factureEmise,
+    historique,
+    gestesCheckin,
+  ] = await Promise.all([
+    commandesARemettre({ clientId: res.client_id }),
+    res.type_reservation === "essai"
+      ? lireAuteurs(
+          (chiens as { journee_essai_resultat_par?: string | null }[]).map((c) => c.journee_essai_resultat_par)
+        )
+      : Promise.resolve(new Map()),
+    lireCohabitationChiens(chiens.map((c: any) => c.id)),
+    res.clients?.id ? estMembreActif(supabaseAdmin, res.clients.id, res.date_debut) : Promise.resolve(false),
+    client_id ? acceptationsDuClient(client_id) : Promise.resolve(null),
+    client_id ? lireVersionsConditions() : Promise.resolve(null),
+    authUserIdClient
+      ? supabaseAdmin
+          .from("profiles")
+          .select("role")
+          .eq("id", authUserIdClient)
+          .in("role", ["employe", "admin"])
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from("cotisations_membres")
+      .select("*")
+      .eq("client_id", client_id)
+      .eq("statut", "en_attente")
+      .maybeSingle(),
+    factureEmisePourReservation(id),
+    historiqueP,
+    gestesP,
+  ]);
+
   // « Privatif » = un chien isolé, OU un chien « famille uniquement » réservé
   // sans compagnon du foyer : dans les deux cas il occupe le box entier.
-  const chien_isole = estPrivatifPourSelection(
-    await lireCohabitationChiens(chiens.map((c: any) => c.id))
-  );
-  const est_membre = res.clients?.id ? await estMembreActif(supabaseAdmin, res.clients.id, res.date_debut) : false;
-  const client_id = res.clients?.id;
+  const chien_isole = estPrivatifPourSelection(cohabitation);
 
   /*
    * APP 42 — le repère des conditions. AUCUN BLOCAGE.
@@ -126,31 +189,10 @@ export default async function ReservationPage({
    * l'arrivée. Une version périmée se signale aussi, et ne barre pas plus.
    */
   const repereCond = client_id
-    ? repereConditions(await acceptationsDuClient(client_id), "pension", await lireVersionsConditions())
+    ? repereConditions(acceptations!, "pension", versionsConditions!)
     : null;
 
-  const authUserIdClient = (res.clients as any)?.auth_user_id;
-  let clientEstEmploye = false;
-  if (authUserIdClient) {
-    const { data: profPersonnel } = await supabaseAdmin
-      .from("profiles")
-      .select("role")
-      .eq("id", authUserIdClient)
-      .in("role", ["employe", "admin"])
-      .maybeSingle();
-    clientEstEmploye = !!profPersonnel;
-  }
-
-  // Chercher cotisation en attente pour ce client
-  const { data: cotisation } = await supabase
-    .from("cotisations_membres")
-    .select("*")
-    .eq("client_id", client_id)
-    .eq("statut", "en_attente")
-    .maybeSingle();
-
-  // Une facture émise fige le prix : la modifier passe par un avoir.
-  const factureEmise = await factureEmisePourReservation(id);
+  const clientEstEmploye = !!profPersonnelRes.data;
 
   return (
     <main className="min-h-screen p-8" style={{ backgroundColor: "#F5F0E8" }}>

@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/src/lib/supabase-browser";
 // Les entrées viennent du module partagé : le tableau de bord lit la même
@@ -40,7 +41,7 @@ export default function NavBarClient({
       style={{ backgroundColor: "#4AAEA0", borderBottom: "2px solid #3d9690" }}>
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-center justify-between h-16">
-          <a href="/mon-compte" className="flex items-center gap-3">
+          <Link href="/mon-compte" className="flex items-center gap-3">
             <img src="/logo-compact.webp" alt="La Dogosphère"
               className="h-12 w-12 rounded-full object-cover" />
             {/* Avec deux boutons à droite, la ligne du haut manque de 71 px à
@@ -53,20 +54,20 @@ export default function NavBarClient({
             >
               La Dogosphère
             </span>
-          </a>
+          </Link>
           {/* 44 px : c'est la taille d'un pouce, pas celle d'un curseur. */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {personnel && (
               // Clair sur marine : « Déconnexion » reste le seul bouton sombre,
               // donc le seul qui se lise comme définitif.
-              <a href={LIEN_ESPACE_PENSION}
+              <Link href={LIEN_ESPACE_PENSION}
                 className="text-sm px-4 rounded-lg font-semibold whitespace-nowrap inline-flex items-center"
                 style={{ backgroundColor: "#EDE8DF", color: "#1B2B5E", minHeight: 44, textDecoration: "none" }}>
                 {/* Le libellé long dès que la ligne le porte, le court en
                     dessous : il rend 59 px. */}
                 <span className="hidden min-[576px]:inline">{RETOUR_PENSION}</span>
                 <span className="min-[576px]:hidden">{RETOUR_PENSION_COURT}</span>
-              </a>
+              </Link>
             )}
             <button onClick={handleLogout}
               className="text-sm px-4 rounded-lg font-semibold whitespace-nowrap"
@@ -79,7 +80,7 @@ export default function NavBarClient({
           {entreesVisibles({ interne, locataire }).map((entree) => {
             const { href, exact } = entree;
             return (
-            <a key={href} href={href}
+            <Link key={href} href={href}
               className="px-3 rounded-lg text-sm font-medium whitespace-nowrap inline-flex items-center"
               style={{
                 minHeight: 44,
@@ -88,7 +89,7 @@ export default function NavBarClient({
                 fontWeight: isActive(href, exact) ? 700 : 500,
               }}>
               {libelleComplet(entree)}
-            </a>
+            </Link>
             );
           })}
         </div>

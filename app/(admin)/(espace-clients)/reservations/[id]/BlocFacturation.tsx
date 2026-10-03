@@ -39,19 +39,30 @@ export default async function BlocFacturation({
   /** Les outils de tarif (calcul et prix retenu) vivent dans ce même bloc. */
   enfants?: React.ReactNode;
 }) {
-  // Lu à l'instant depuis les factures et le journal : l'écran ne croit pas un
-  // champ enregistré, il refait le compte.
-  const derive = (await lirePaiementsReservations([reservation.id])).get(reservation.id);
+  /*
+   * APP 70 — le compte, les factures du séjour et l'avoir du client ne
+   * dépendent l'un de l'autre en rien : ils partent ensemble. Les versements,
+   * eux, dépendent des factures (ils se cherchent par elles), et leurs auteurs
+   * des versements : ces deux lectures gardent leur ordre.
+   */
+  const [paiementsDerives, { data: liens }, soldeAvoir] = await Promise.all([
+    // Lu à l'instant depuis les factures et le journal : l'écran ne croit pas
+    // un champ enregistré, il refait le compte.
+    lirePaiementsReservations([reservation.id]),
+    // Factures qui portent cette réservation (définitive et acomptes).
+    supabaseAdmin
+      .from("facture_lignes")
+      .select("factures!inner(id, numero, type, statut, date_facture, date_echeance, montant_total, montant_restant)")
+      .eq("reservation_id", reservation.id),
+    reservation.client_id
+      ? getSoldeAvoir(supabaseAdmin, reservation.client_id)
+      : Promise.resolve(0),
+  ]);
+  const derive = paiementsDerives.get(reservation.id);
   const total = derive?.du ?? 0;
   const paye = derive?.paye ?? 0;
   const reste = derive?.reste ?? 0;
   const aujourdhui = new Date().toISOString().split("T")[0];
-
-  // Factures qui portent cette réservation (définitive et acomptes).
-  const { data: liens } = await supabaseAdmin
-    .from("facture_lignes")
-    .select("factures!inner(id, numero, type, statut, date_facture, date_echeance, montant_total, montant_restant)")
-    .eq("reservation_id", reservation.id);
 
   const factures = [...new Map(
     (liens ?? [])
@@ -84,10 +95,6 @@ export default async function BlocFacturation({
   const versements = (paiements ?? []).filter((p) => p.mode !== "rattachement");
   // Qui a encaissé chaque versement.
   const encaisseurs = await lireAuteurs(versements.map((p) => p.created_by as string | null));
-
-  const soldeAvoir = reservation.client_id
-    ? await getSoldeAvoir(supabaseAdmin, reservation.client_id)
-    : 0;
 
   return (
     <div className="bg-white rounded-2xl p-6 mb-6 border" style={{ borderColor: "rgba(27,43,94,0.12)" }}>

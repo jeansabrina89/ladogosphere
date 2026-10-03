@@ -89,6 +89,9 @@ vi.mock("@/src/lib/supabase-server", () => ({
 
 vi.mock("@/src/utils/supabase/server", () => ({
   createClient: async () => ({
+    // APP 70 : le compte se lit par `utilisateurDeLaRequete()` (src/lib/garde.ts),
+    // qui passe par ce même client de session — le même compte qu'au-dessus.
+    auth: { getUser: async () => ({ data: { user: { id: "auth-1" } } }) },
     from: (table: string) =>
       chaine(table === "clients" ? CLIENT : H.reservations),
   }),
