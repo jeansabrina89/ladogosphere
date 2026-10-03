@@ -28,9 +28,15 @@ export function doitRecevoirRappelVeille(r: ReservationRappel, demain: string): 
   return (r.date_debut ?? "").slice(0, 10) === demain.slice(0, 10);
 }
 
-/** « 10:00 » → « 10 h », « 10:30 » → « 10 h 30 ». */
-export function heureLisible(heure: string | null | undefined): string {
-  const courte = heureCourte(heure) ?? HEURE_ESSAI_STANDARD;
+/**
+ * « 10:00 » → « 10 h », « 10:30 » → « 10 h 30 ». Sans heure, celle de l'essai
+ * ordinaire — que l'appelant lit dans le réglage (APP 64).
+ */
+export function heureLisible(
+  heure: string | null | undefined,
+  heureStandard: string = HEURE_ESSAI_STANDARD,
+): string {
+  const courte = heureCourte(heure) ?? heureStandard;
   const [h, m] = courte.split(":");
   const heures = String(Number(h));
   return m && m !== "00" ? `${heures} h ${m}` : `${heures} h`;
@@ -47,9 +53,10 @@ export function heureLisible(heure: string | null | undefined): string {
 export function phrasesRappelVeilleEssai(
   nomChien: string,
   heureArrivee: string | null | undefined,
+  heureStandard: string = HEURE_ESSAI_STANDARD,
 ): [string, string] {
   return [
-    `La journée d'essai de ${nomChien} est demain, à ${heureLisible(heureArrivee)}.`,
+    `La journée d'essai de ${nomChien} est demain, à ${heureLisible(heureArrivee, heureStandard)}.`,
     "Merci d'apporter son carnet de vaccination et, si vous l'avez, ce qu'il mange d'habitude pour la journée.",
   ];
 }

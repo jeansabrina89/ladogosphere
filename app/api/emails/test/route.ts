@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
+import { lireHoraires } from "@/src/lib/horairesServeur";
 import { exigerAdminApi } from "@/src/lib/permissions";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { lirePdfFacture } from "@/src/lib/factureDocument";
@@ -39,7 +40,8 @@ const FICHE_DE_TEST = "7a820aa4-ff87-4261-bf66-072ec2f404c8";
 
 async function rassemblerContexte(destinataire: string): Promise<ContexteEnvoiTest> {
   const maintenant = new Date();
-  const donnees = donneesExemple(maintenant);
+  // Les heures d'exemple suivent les horaires réglés (APP 64).
+  const donnees = donneesExemple(maintenant, await lireHoraires());
 
   const [{ data: fiche }, coordonnees, { data: factures }, { data: commande }, { data: article }] =
     await Promise.all([

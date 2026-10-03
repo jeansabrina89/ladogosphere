@@ -13,6 +13,8 @@
  * elles ne doivent plus être écrites ni interrogées par le code applicatif.
  */
 
+import { HORAIRES_DEFAUT, bornes, heureLongue } from "@/src/lib/horaires";
+
 export const STATUTS_ESSAI = [
   "non_programme",
   "programme",
@@ -61,14 +63,67 @@ export const STATUTS_ESSAI_OCCUPANT = ["en_attente", "validee"] as const;
 export const MESSAGE_DATE_ESSAI_PRISE =
   "Cette date est déjà prise pour une journée d'essai, choisissez-en une autre.";
 
-/** Heure d'arrivée de la journée d'essai ordinaire (le tunnel client la fixe). */
-export const HEURE_ESSAI_STANDARD = "10:00";
+/**
+ * Heure d'arrivée de la journée d'essai ordinaire (le tunnel client la fixe) :
+ * la PREMIÈRE heure du réglage « Journée d'essai — arrivée » (APP 64). Avec le
+ * réglage de départ, 10:00.
+ */
+export function heureEssaiStandard(
+  essaiArrivee: string | null | undefined = HORAIRES_DEFAUT.essaiArrivee,
+): string {
+  return bornes(essaiArrivee, HORAIRES_DEFAUT.essaiArrivee)!.debut;
+}
+
+/** L'heure du réglage de départ, pour qui n'a pas le réglage sous la main. */
+export const HEURE_ESSAI_STANDARD = heureEssaiStandard();
 
 /**
- * Créneaux ouverts à une SECONDE journée d'essai forcée par l'admin :
- * toutes les demi-heures de 9 h 30 à 11 h, sauf 10:00 (déjà l'heure standard).
+ * La plage où l'administration peut FORCER une seconde journée d'essai.
+ *
+ * Ces deux bornes ne sont PAS un horaire d'accueil : c'est la fenêtre que
+ * l'équipe se donne pour caser un deuxième essai autour du premier. Elles
+ * restent écrites ici (APP 64, liste blanche du test de garde), et seule
+ * l'heure EXCLUE suit le réglage.
  */
-export const CRENEAUX_ESSAI_FORCE = ["09:30", "10:30", "11:00"] as const;
+export const PLAGE_ESSAI_FORCE = { debut: "09:30", fin: "11:00" } as const;
+
+/**
+ * Créneaux ouverts à une SECONDE journée d'essai forcée par l'admin : toutes
+ * les demi-heures de la plage, sauf l'heure standard — celle de l'essai
+ * ordinaire, qui suit le réglage. Avec 10:00 : 09:30, 10:30, 11:00.
+ */
+export function creneauxEssaiForce(heureStandard: string = HEURE_ESSAI_STANDARD): string[] {
+  const minutes = (h: string) => Number(h.slice(0, 2)) * 60 + Number(h.slice(3, 5));
+  const res: string[] = [];
+  for (let m = minutes(PLAGE_ESSAI_FORCE.debut); m <= minutes(PLAGE_ESSAI_FORCE.fin); m += 30) {
+    const h = `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+    if (h !== heureStandard) res.push(h);
+  }
+  return res;
+}
+
+export const CRENEAUX_ESSAI_FORCE: readonly string[] = creneauxEssaiForce();
+
+/**
+ * Les deux phrases de la fiche du personnel sur le forçage d'un second essai,
+ * tirées des mêmes créneaux — elles ne peuvent donc plus dire autre chose que
+ * la liste proposée. Avec 10:00 : « 9h30, 10h30 et 11h00 » et « entre 9h30 et
+ * 11h00, hors 10h00 », mot pour mot comme avant APP 64.
+ */
+export function phrasesEssaiForce(heureStandard: string = HEURE_ESSAI_STANDARD): {
+  tousPris: string;
+  aide: string;
+} {
+  const liste = creneauxEssaiForce(heureStandard).map(heureLongue);
+  const enumeration = liste.length <= 1
+    ? liste.join("")
+    : `${liste.slice(0, -1).join(", ")} et ${liste[liste.length - 1]}`;
+  return {
+    tousPris: `Plus aucun créneau disponible ce jour-là (${enumeration} sont pris).`,
+    aide: `Créneaux de 30 minutes entre ${heureLongue(PLAGE_ESSAI_FORCE.debut)} et `
+      + `${heureLongue(PLAGE_ESSAI_FORCE.fin)}, hors ${heureLongue(heureStandard)} et hors créneaux déjà pris.`,
+  };
+}
 
 /**
  * Règle métier (pure) : la pension n'accueille qu'UNE journée d'essai par jour.
@@ -97,9 +152,12 @@ export function heureCourte(heure?: string | null): string | null {
  * Créneaux encore libres pour forcer une seconde journée d'essai, compte tenu
  * des heures déjà occupées par les essais du jour.
  */
-export function creneauxEssaiDisponibles(heuresOccupees: (string | null | undefined)[]): string[] {
+export function creneauxEssaiDisponibles(
+  heuresOccupees: (string | null | undefined)[],
+  heureStandard: string = HEURE_ESSAI_STANDARD,
+): string[] {
   const prises = new Set(heuresOccupees.map(heureCourte).filter(Boolean) as string[]);
-  return CRENEAUX_ESSAI_FORCE.filter((c) => !prises.has(c));
+  return creneauxEssaiForce(heureStandard).filter((c) => !prises.has(c));
 }
 
 export type DecisionReservation = {

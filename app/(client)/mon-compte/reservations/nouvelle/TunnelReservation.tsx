@@ -17,12 +17,13 @@ import {
   creneauxProposes,
   formatHoraire,
   formatHoraireCourt,
+  formatCreneauxCourts,
   creneauTexte,
   heureCourte,
   type Horaires,
 } from "@/src/lib/horaires";
 import { MESSAGE_ADHESION_A_REGLER } from "@/src/lib/adhesionReservation";
-import { statutEssaiDe, chienReservablePour, messageRefusChien } from "@/src/lib/journeeEssai";
+import { statutEssaiDe, chienReservablePour, messageRefusChien, heureEssaiStandard } from "@/src/lib/journeeEssai";
 import {
   estPrivatifPourSelection,
   chiensSeulsDansLeBox,
@@ -454,6 +455,9 @@ export default function TunnelReservation({
   const crDepStd = creneauxProposes(horaires.journeeDepart);
   const crDepSejour = creneauxProposes(horaires.sejour);
   const crDepEssai = creneauxProposes(horaires.essaiDepart);
+  // L'arrivée d'une journée d'essai est FIXE : la première heure du réglage
+  // « Journée d'essai — arrivée » (APP 64). Envoyée, affichée, chiffrée : la même.
+  const heureEssai = heureEssaiStandard(horaires.essaiArrivee);
 
   const aujourdhui = new Date().toISOString().split("T")[0];
   const demain = premiereDateReservable(aujourdhui, dateOuverture);
@@ -549,8 +553,8 @@ export default function TunnelReservation({
    * (APP 59) — sans quoi, le jour où la pension ouvrirait plus tôt, les fiches
    * du personnel seraient les seules à rester à 7h35.
    */
-  const HEURE_ARRIVEE_PERSONNEL = bornes(horaires.journeeArrivee)?.debut ?? "07:35";
-  const HEURE_DEPART_PERSONNEL = bornes(horaires.journeeDepart)?.fin ?? "18:00";
+  const HEURE_ARRIVEE_PERSONNEL = bornes(horaires.journeeArrivee, HORAIRES_DEFAUT.journeeArrivee)!.debut;
+  const HEURE_DEPART_PERSONNEL = bornes(horaires.journeeDepart, HORAIRES_DEFAUT.journeeDepart)!.fin;
   const heureArriveeEnvoyee = heuresMasquees ? HEURE_ARRIVEE_PERSONNEL : (heureArrivee || null);
   const heureDepartEnvoyee = heuresMasquees ? HEURE_DEPART_PERSONNEL : (heureDepart || null);
 
@@ -584,7 +588,7 @@ export default function TunnelReservation({
         est_privatif: estPrivatif,
         date_debut: dateEssai,
         date_fin: dateEssai,
-        heure_arrivee: "10:00",
+        heure_arrivee: heureEssai,
         heure_depart: heureDepartEssai || null,
       });
     } else if (branche === "complete" && formule && chiensSelectionnes.length > 0) {
@@ -717,7 +721,7 @@ export default function TunnelReservation({
         chien_ids: chienIdsEssai,
         type_reservation: "essai",
         occurrences: [{ date_debut: dateEssai, date_fin: dateEssai }],
-        heure_arrivee: "10:00",
+        heure_arrivee: heureEssai,
         heure_depart: heureDepartEssai,
         commentaire_client: commentaire || null,
         conditions_acceptees: conditionsOk,
@@ -969,7 +973,7 @@ export default function TunnelReservation({
             <div>
               <label style={S.label}>Heure d&apos;arrivée</label>
               <div style={{ ...S.input, backgroundColor: "#F5F0E8", color: "rgba(27,43,94,0.5)" }}>
-                10:00 (fixe)
+                {heureEssai} (fixe)
               </div>
             </div>
             <div>
@@ -1084,7 +1088,7 @@ export default function TunnelReservation({
               <label style={S.label}>
                 Heure de départ *
                 <span style={{ fontWeight: 400, fontSize: 11, color: "rgba(27,43,94,0.4)", marginLeft: 4 }}>
-                  {formule === "sejour" ? "(9h–10h ou 17h–18h)" : "(17h–18h)"}
+                  ({formatCreneauxCourts(formule === "sejour" ? horaires.sejour : horaires.journeeDepart)})
                 </span>
               </label>
               <select style={{ ...S.input, appearance: "none" as const }} value={heureDepart}
@@ -1256,7 +1260,7 @@ export default function TunnelReservation({
 
     let datesLabel = "";
     if (branche === "essai") {
-      datesLabel = `${formatDateFR(dateEssai)} • Arrivée 10:00 • Départ ${heureDepartEssai}`;
+      datesLabel = `${formatDateFR(dateEssai)} • Arrivée ${heureEssai} • Départ ${heureDepartEssai}`;
     } else if (modeFreq === "reguliere") {
       const dureeLabel = dureeRec === "1mois" ? "1 mois" : dureeRec === "3mois" ? "3 mois" : "6 mois";
       datesLabel = `À partir du ${formatDateFR(dateDebutRec)} • ${dureeLabel} • ${nbOcc} demande(s)`;

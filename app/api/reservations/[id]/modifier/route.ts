@@ -10,6 +10,8 @@ import {
   typeSejour,
 } from "@/src/lib/typeSejour";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { bornesCheckin, heuresCheckinParDefaut } from "@/src/lib/lignesCheckinLogique";
+import { lireHoraires } from "@/src/lib/horairesServeur";
 import { ecartModificationReservation } from "@/src/lib/journalLogique";
 import { idUtilisateurCourant } from "@/src/lib/permissions";
 import { exigerPermissionApi } from "@/src/lib/apiAuth";
@@ -150,12 +152,11 @@ export async function POST(
   await supabaseAdmin
     .from("checkin_checkout")
     .update({
-      date_arrivee_prevue: heure_arrivee
-        ? `${date_debut}T${heure_arrivee}:00`
-        : `${date_debut}T09:00:00`,
-      date_depart_prevu: heure_depart
-        ? `${date_fin}T${heure_depart}:00`
-        : `${date_fin}T17:00:00`,
+      // Sans heure : le réglage « séjour », par LA fonction du check-in (APP 64).
+      ...bornesCheckin(
+        { date_debut, date_fin, heure_arrivee, heure_depart },
+        heuresCheckinParDefaut((await lireHoraires()).sejour),
+      ),
     })
     .eq("reservation_id", id);
 

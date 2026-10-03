@@ -16,6 +16,7 @@ import {
   fermetureQuiEmpeche,
   type Fermeture,
 } from "@/src/lib/fermeturesPensionLogique";
+import { heureEssaiStandard, phrasesEssaiForce } from "@/src/lib/journeeEssai";
 import { appelerApi } from "@/src/lib/reseau";
 import { useState, useEffect, useRef } from "react";
 import { formatBoxLabel } from "@/src/lib/boxes";
@@ -267,6 +268,8 @@ export default function FormReservation({
   // Journée d'essai à une date déjà prise : bloquée, sauf forçage admin valide.
   const essaiDatePrise = type === "essai" && etatEssai !== null && !etatEssai.disponible;
   const creneauxLibres = etatEssai?.creneauxLibres ?? [];
+  // Les phrases du forçage suivent l'heure de l'essai ordinaire (APP 64).
+  const phrasesForce = phrasesEssaiForce(heureEssaiStandard(horaires.essaiArrivee));
   // Le créneau retenu est dérivé de l'état courant : pas de state à resynchroniser.
   const creneauRetenu =
     creneauForce && creneauxLibres.includes(creneauForce) ? creneauForce : creneauxLibres[0] ?? "";
@@ -1026,7 +1029,7 @@ export default function FormReservation({
                 </p>
               ) : creneauxLibres.length === 0 ? (
                 <p className="text-sm font-semibold" style={{ color: "#A8453A" }}>
-                  Plus aucun créneau disponible ce jour-là (9h30, 10h30 et 11h00 sont pris).
+                  {phrasesForce.tousPris}
                 </p>
               ) : (
                 <>
@@ -1048,7 +1051,7 @@ export default function FormReservation({
                         ))}
                       </select>
                       <p className="text-xs mt-1" style={{ color: "rgba(122,92,0,0.85)" }}>
-                        Créneaux de 30 minutes entre 9h30 et 11h00, hors 10h00 et hors créneaux déjà pris.
+                        {phrasesForce.aide}
                       </p>
                     </div>
                   )}

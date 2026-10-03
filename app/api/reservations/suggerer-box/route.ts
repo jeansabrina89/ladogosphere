@@ -3,7 +3,8 @@ import { lireCorpsJson } from "@/src/lib/corpsRequete";
 import { createClient } from "@/src/utils/supabase/server";
 import { exigerPersonnel } from "@/src/lib/apiAuth";
 import { supabaseAdmin } from "@/src/lib/supabase-admin";
-import { occupationEnConflit, boxCompatibleAvecIsolement, memeFamille, capaciteMaxFamille } from "@/src/lib/disponibilite-box";
+import { occupationEnConflit, boxCompatibleAvecIsolement, memeFamille, capaciteMaxFamille, creneauxTransition } from "@/src/lib/disponibilite-box";
+import { lireHoraires } from "@/src/lib/horairesServeur";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -71,7 +72,9 @@ export async function POST(req: NextRequest) {
   // Exclut les occupations dont le seul jour de chevauchement est une transition
   // autorisée (départ/arrivée le même jour, créneaux compatibles, arrivée pas
   // de type 'journee') — ne s'applique que si les horaires/type de la nouvelle
-  // réservation sont fournis (côté client).
+  // réservation sont fournis (côté client). Les créneaux suivent le réglage
+  // « séjour », lu une fois (APP 64).
+  const creneaux = creneauxTransition((await lireHoraires()).sejour);
   const occupations = (occupationsRaw ?? []).filter((occ: any) =>
     occupationEnConflit(
       {
@@ -81,7 +84,8 @@ export async function POST(req: NextRequest) {
         heure_depart: occ.reservations?.heure_depart,
         type_reservation: occ.reservations?.type_reservation,
       },
-      { date_debut, date_fin, heure_arrivee, heure_depart, type_reservation }
+      { date_debut, date_fin, heure_arrivee, heure_depart, type_reservation },
+      creneaux,
     )
   );
 

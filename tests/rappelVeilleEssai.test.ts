@@ -103,7 +103,11 @@ describe("le cron et le modèle", () => {
     const debut = email.indexOf("export async function envoyerEmailRappelVeille");
     const corps = email.slice(debut, email.indexOf("\n}\n", debut));
     expect(corps).toContain('if (type === "essai")');
-    expect(corps).toContain("phrasesRappelVeilleEssai(nom_chien, heure_arrivee)");
+    // APP 64 : sans heure sur la réservation, c'est celle du RÉGLAGE qui
+    // s'annonce — lue une fois par l'e-mail, passée à la fonction pure.
+    expect(corps).toMatch(
+      /phrasesRappelVeilleEssai\(\s*nom_chien, heure_arrivee, heureEssaiStandard\(horaires\.essaiArrivee\),?\s*\)/,
+    );
     /**
      * APP 60 — la liste « N'oubliez pas » est devenue un BLOC modifiable : ses
      * lignes ont quitté le corps de la fonction pour DEFAUTS_MODELES. Le

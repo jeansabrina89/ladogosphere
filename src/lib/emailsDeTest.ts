@@ -11,6 +11,10 @@
  * et les garde-fous, pour que les tests les lisent sans base de données.
  */
 
+import { HORAIRES_DEFAUT, type Horaires } from "@/src/lib/horaires";
+import { heuresCheckinParDefaut } from "@/src/lib/lignesCheckinLogique";
+import { heureEssaiStandard } from "@/src/lib/journeeEssai";
+
 /**
  * Le journal `emails_envoyes` reçoit ces envois comme les autres. Le préfixe
  * les distingue à jamais d'un vrai message : un relevé, une statistique ou une
@@ -129,8 +133,13 @@ export type DonneesExemple = {
   /** Dans deux semaines : une date crédible, jamais dans le passé. */
   dateDebut: string;
   dateFin: string;
+  /**
+   * Les heures d'exemple viennent du réglage (APP 64) : la première heure du
+   * créneau concerné. Un e-mail de test doit montrer ce que la cliente lirait.
+   */
   heureArrivee: string;
   heureDepart: string;
+  heureArriveeEssai: string;
   typeReservation: string;
   montant: number;
   montantAdhesion: number;
@@ -152,16 +161,18 @@ function isoPlusJours(depuis: Date, jours: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function donneesExemple(maintenant: Date): DonneesExemple {
+export function donneesExemple(maintenant: Date, horaires: Horaires = HORAIRES_DEFAUT): DonneesExemple {
   const debut = isoPlusJours(maintenant, 14);
+  const sejour = heuresCheckinParDefaut(horaires.sejour);
   return {
     prenom: "Sabrina",
     nom: "Jean",
     nomChien: "Pixel",
     dateDebut: debut,
     dateFin: isoPlusJours(maintenant, 17),
-    heureArrivee: "09:00",
-    heureDepart: "17:00",
+    heureArrivee: sejour.arrivee,
+    heureDepart: sejour.depart,
+    heureArriveeEssai: heureEssaiStandard(horaires.essaiArrivee),
     typeReservation: "sejour",
     montant: 240,
     montantAdhesion: 200,

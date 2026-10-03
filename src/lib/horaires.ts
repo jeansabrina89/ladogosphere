@@ -251,6 +251,21 @@ export function formatHoraireCourt(valeur: string | null | undefined, defaut = "
 }
 
 /**
+ * « 9h–10h ou 17h–18h » : CHAQUE créneau en forme abrégée (APP 64).
+ *
+ * À distinguer de `formatHoraireCourt`, qui ne garde que les deux bouts de la
+ * journée (« 9h–18h ») : le libellé du départ d'un séjour doit dire qu'on part
+ * le matin OU le soir, pas « entre 9h et 18h ».
+ */
+export function formatCreneauxCourts(valeur: string | null | undefined, defaut = ""): string {
+  const creneaux = lireCreneaux(valeur) ?? lireCreneaux(defaut);
+  if (creneaux === null) return "";
+  return creneaux
+    .map((c) => (c.debut === c.fin ? heureCourte(c.debut) : `${heureCourte(c.debut)}–${heureCourte(c.fin)}`))
+    .join(" ou ");
+}
+
+/**
  * Le n-ième créneau d'un réglage, réécrit comme un réglage à lui seul, ou "".
  *
  * L'ARRIVÉE d'un séjour ne se fait que le matin, quand le réglage « séjour »

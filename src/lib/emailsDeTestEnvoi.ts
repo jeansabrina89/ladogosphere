@@ -189,7 +189,7 @@ function etapes(c: ContexteEnvoiTest, e: FonctionsEnvoi): Etape[] {
         // La journée d'essai a son propre texte : l'heure, le carnet, le repas.
         await e.envoyerEmailRappelVeille({
           ...commun, nom_chien: d.nomChien, date_debut: d.dateDebut,
-          heure_arrivee: "10:00", type: "essai",
+          heure_arrivee: d.heureArriveeEssai, type: "essai",
         });
         return null;
       },

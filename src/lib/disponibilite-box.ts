@@ -1,8 +1,22 @@
-// Créneaux de transition (réutilisation d'un box le même jour) :
-// - le matin, les arrivées/départs habituels se situent entre 9h et 10h
-// - le soir, les arrivées/départs habituels se situent entre 17h et 18h
-export const CRENEAU_MATIN: [string, string] = ["09:00", "10:00"];
-export const CRENEAU_SOIR: [string, string] = ["17:00", "18:00"];
+import { HORAIRES_DEFAUT, lireCreneaux, type Creneau } from "@/src/lib/horaires";
+
+/**
+ * Créneaux de transition (réutilisation d'un box le même jour).
+ *
+ * Ce sont ceux du réglage « Séjour — arrivée et départ » (Réglages →
+ * Entreprise → Horaires d'accueil, APP 64) : un séjour arrive et part dans ces
+ * créneaux-là, et c'est là qu'un box se libère et se reprend le même jour.
+ * Avec le réglage de départ, ce sont le matin et le soir d'avant ce lot.
+ *
+ * Les fonctions restent PURES : les créneaux sont un paramètre. L'appelant lit
+ * les horaires une fois (`lireHoraires`) et les passe ; sans rien, ce sont
+ * ceux de `HORAIRES_DEFAUT`.
+ */
+export function creneauxTransition(sejour: string | null | undefined = HORAIRES_DEFAUT.sejour): Creneau[] {
+  return lireCreneaux(sejour) ?? lireCreneaux(HORAIRES_DEFAUT.sejour) ?? [];
+}
+
+const CRENEAUX_DEFAUT = creneauxTransition();
 
 export type Periode = {
   date_debut: string;
@@ -17,20 +31,21 @@ function normaliserHeure(heure?: string | null): string | null {
   return heure.slice(0, 5);
 }
 
-function dansCreneau(heure: string, creneau: [string, string]): boolean {
-  return heure >= creneau[0] && heure <= creneau[1];
+function dansCreneau(heure: string, creneau: Creneau): boolean {
+  return heure >= creneau.debut && heure <= creneau.fin;
 }
 
 // Le départ et l'arrivée sont compatibles si le départ précède (ou est égal
-// à) l'arrivée, ou si les deux tombent dans le même créneau habituel (matin
-// ou soir) — auquel cas on ne se fie pas à la minute exacte.
-function horairesCompatibles(heureDepart: string, heureArrivee: string): boolean {
+// à) l'arrivée, ou si les deux tombent dans le MÊME créneau de la liste —
+// auquel cas on ne se fie pas à la minute exacte. Le nombre de créneaux est
+// celui du réglage : deux aujourd'hui (matin et soir), un ou trois demain.
+export function horairesCompatibles(
+  heureDepart: string,
+  heureArrivee: string,
+  creneaux: Creneau[] = CRENEAUX_DEFAUT,
+): boolean {
   if (heureDepart <= heureArrivee) return true;
-
-  return (
-    (dansCreneau(heureDepart, CRENEAU_MATIN) && dansCreneau(heureArrivee, CRENEAU_MATIN)) ||
-    (dansCreneau(heureDepart, CRENEAU_SOIR) && dansCreneau(heureArrivee, CRENEAU_SOIR))
-  );
+  return creneaux.some((c) => dansCreneau(heureDepart, c) && dansCreneau(heureArrivee, c));
 }
 
 // Une transition (départ d'une occupation, arrivée d'une autre, le même jour)
@@ -38,7 +53,8 @@ function horairesCompatibles(heureDepart: string, heureArrivee: string): boolean
 // journée, horaire d'arrivée non fiable) ET si les horaires sont compatibles.
 function transitionAutorisee(
   depart: { heure?: string | null },
-  arrivee: { heure?: string | null; type_reservation?: string | null }
+  arrivee: { heure?: string | null; type_reservation?: string | null },
+  creneaux: Creneau[],
 ): boolean {
   if (!arrivee.type_reservation || arrivee.type_reservation === "journee") return false;
 
@@ -46,7 +62,7 @@ function transitionAutorisee(
   const heureArrivee = normaliserHeure(arrivee.heure);
   if (!heureDepart || !heureArrivee) return false;
 
-  return horairesCompatibles(heureDepart, heureArrivee);
+  return horairesCompatibles(heureDepart, heureArrivee, creneaux);
 }
 
 /**
@@ -105,7 +121,11 @@ export function capaciteMaxFamille(
   return tousPetits ? 4 : 3;
 }
 
-export function occupationEnConflit(occupation: Periode, nouvelle: Periode): boolean {
+export function occupationEnConflit(
+  occupation: Periode,
+  nouvelle: Periode,
+  creneaux: Creneau[] = CRENEAUX_DEFAUT,
+): boolean {
   const debutPartage = occupation.date_debut > nouvelle.date_debut ? occupation.date_debut : nouvelle.date_debut;
   const finPartagee = occupation.date_fin < nouvelle.date_fin ? occupation.date_fin : nouvelle.date_fin;
 
@@ -118,7 +138,8 @@ export function occupationEnConflit(occupation: Periode, nouvelle: Periode): boo
   if (occupation.date_fin === jour && nouvelle.date_debut === jour) {
     if (transitionAutorisee(
       { heure: occupation.heure_depart },
-      { heure: nouvelle.heure_arrivee, type_reservation: nouvelle.type_reservation }
+      { heure: nouvelle.heure_arrivee, type_reservation: nouvelle.type_reservation },
+      creneaux,
     )) {
       return false;
     }
@@ -128,7 +149,8 @@ export function occupationEnConflit(occupation: Periode, nouvelle: Periode): boo
   if (nouvelle.date_fin === jour && occupation.date_debut === jour) {
     if (transitionAutorisee(
       { heure: nouvelle.heure_depart },
-      { heure: occupation.heure_arrivee, type_reservation: occupation.type_reservation }
+      { heure: occupation.heure_arrivee, type_reservation: occupation.type_reservation },
+      creneaux,
     )) {
       return false;
     }

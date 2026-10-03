@@ -77,6 +77,10 @@ export default function FormHoraires({ valeur }: { valeur: Horaires }) {
       <p style={{ margin: "0 0 4px", color: MARINE, fontSize: 16, fontWeight: 700 }}>
         ⏰ Horaires d&apos;accueil
       </p>
+      {/* APP 64 : le site les lit dans la vue `horaires_publics`. */}
+      <p style={{ margin: "0 0 8px", color: SOUS, fontSize: 13.5, lineHeight: 1.5, fontWeight: 600 }}>
+        Ces horaires s&apos;affichent aussi sur le site ladogosphere.ch (mise à jour en quelques minutes).
+      </p>
       <p style={{ margin: "0 0 12px", color: SOUS, fontSize: 13.5, lineHeight: 1.5 }}>
         Une plage s&apos;écrit <code>07:35-10:00</code>. Deux plages dans la même journée se
         séparent par <code> ; </code>. Une heure seule s&apos;écrit <code>10:00</code>.

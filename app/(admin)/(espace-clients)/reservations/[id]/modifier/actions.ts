@@ -8,6 +8,8 @@ import { getAvoirAppliqueReservation } from "@/src/lib/avoirs";
 import { synchroniserComptaResa } from "@/src/lib/comptaResa";
 import { recalculerPaiementReservation } from "@/src/lib/paiementReservation";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
+import { bornesCheckin, heuresCheckinParDefaut } from "@/src/lib/lignesCheckinLogique";
+import { lireHoraires } from "@/src/lib/horairesServeur";
 import { ecartModificationReservation } from "@/src/lib/journalLogique";
 import { recalculerMontantSejour } from "../actions";
 import {
@@ -142,12 +144,11 @@ export async function modifierReservation(id: string, formData: FormData) {
   await supabaseAdmin
     .from("checkin_checkout")
     .update({
-      date_arrivee_prevue: heure_arrivee
-        ? `${date_debut}T${heure_arrivee}:00`
-        : `${date_debut}T09:00:00`,
-      date_depart_prevu: heure_depart
-        ? `${date_fin}T${heure_depart}:00`
-        : `${date_fin}T17:00:00`,
+      // Sans heure : le réglage « séjour », par LA fonction du check-in (APP 64).
+      ...bornesCheckin(
+        { date_debut, date_fin, heure_arrivee, heure_depart },
+        heuresCheckinParDefaut((await lireHoraires()).sejour),
+      ),
     })
     .eq("reservation_id", id);
 

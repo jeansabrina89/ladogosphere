@@ -5,7 +5,9 @@ import {
   boxCompatibleAvecIsolement,
   memeFamille,
   capaciteMaxFamille,
+  creneauxTransition,
 } from "@/src/lib/disponibilite-box";
+import { lireHoraires } from "@/src/lib/horairesServeur";
 import { tousPetitsGabarits } from "@/src/lib/cohabitation";
 
 export type EntreeSuggestion = {
@@ -113,6 +115,9 @@ export async function suggererBox(entree: EntreeSuggestion): Promise<ResultatSug
     return box.capacite_standard || 2;
   };
 
+  // Les créneaux de transition suivent le réglage « séjour », lu une fois (APP 64).
+  const creneaux = creneauxTransition((await lireHoraires()).sejour);
+
   const boxesOccupes = ((occupationsRaw ?? []) as unknown as LigneOccupation[]).filter((occ) =>
     occupationEnConflit(
       {
@@ -122,7 +127,8 @@ export async function suggererBox(entree: EntreeSuggestion): Promise<ResultatSug
         heure_depart: occ.reservations?.heure_depart,
         type_reservation: occ.reservations?.type_reservation,
       },
-      { date_debut, date_fin, heure_arrivee, heure_depart, type_reservation }
+      { date_debut, date_fin, heure_arrivee, heure_depart, type_reservation },
+      creneaux,
     )
   );
 
@@ -250,6 +256,8 @@ export async function boxesInternesLibres(entree: {
     .lte("date_debut", date_fin)
     .gte("date_fin", date_debut);
   const indispo = new Set((indisponibilites ?? []).map((i) => i.box_id));
+  // Les créneaux de transition suivent le réglage « séjour » (APP 64).
+  const creneaux = creneauxTransition((await lireHoraires()).sejour);
 
   const occupes = new Set(
     ((occupations ?? []) as unknown as LigneOccupation[])
@@ -262,7 +270,8 @@ export async function boxesInternesLibres(entree: {
             heure_depart: occ.reservations?.heure_depart,
             type_reservation: occ.reservations?.type_reservation,
           },
-          { date_debut, date_fin, heure_arrivee, heure_depart, type_reservation }
+          { date_debut, date_fin, heure_arrivee, heure_depart, type_reservation },
+          creneaux,
         )
       )
       .map((occ) => occ.box_id)

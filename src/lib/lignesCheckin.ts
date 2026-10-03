@@ -2,8 +2,10 @@ import { supabaseAdmin } from "@/src/lib/supabase-admin";
 import {
   bornesCheckin,
   chiensSansLigne,
+  heuresCheckinParDefaut,
   STATUTS_SANS_CHECKIN,
 } from "@/src/lib/lignesCheckinLogique";
+import { lireHoraires } from "@/src/lib/horairesServeur";
 
 /**
  * Lignes de check-in d’une réservation : une par chien.
@@ -51,7 +53,8 @@ export async function assurerLignesCheckin(
   const manquants = chiensSansLigne(chiens, dejaPointes);
   if (manquants.length === 0) return { creees: 0, existantes: dejaPointes.length };
 
-  const bornes = bornesCheckin(resa);
+  // Sans heure sur la réservation : celles du réglage « séjour » (APP 64).
+  const bornes = bornesCheckin(resa, heuresCheckinParDefaut((await lireHoraires()).sejour));
   const { error } = await supabaseAdmin.from("checkin_checkout").insert(
     manquants.map((chien_id) => ({
       reservation_id: reservationId,

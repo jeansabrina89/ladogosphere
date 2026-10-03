@@ -7,9 +7,10 @@ import {
   creneauxEssaiDisponibles,
   heureCourte,
   STATUTS_ESSAI_OCCUPANT,
-  HEURE_ESSAI_STANDARD,
+  heureEssaiStandard,
   MESSAGE_DATE_ESSAI_PRISE,
 } from "@/src/lib/journeeEssai";
+import { lireHoraires } from "@/src/lib/horairesServeur";
 
 export type EtatJourneeEssai = {
   /** La date accepte-t-elle encore une journée d'essai ordinaire ? */
@@ -40,17 +41,19 @@ export async function etatJourneeEssai(
     .in("statut", STATUTS_ESSAI_OCCUPANT as unknown as string[]);
   if (exclureReservationId) requete = requete.neq("id", exclureReservationId);
 
-  const { data } = await requete;
+  const [{ data }, horaires] = await Promise.all([requete, lireHoraires()]);
+  // L'heure de l'essai ordinaire suit le réglage (APP 64).
+  const standard = heureEssaiStandard(horaires.essaiArrivee);
   const essais = (data ?? []) as { id: string; heure_arrivee: string | null }[];
 
   const heuresPrises = essais
-    .map((e) => heureCourte(e.heure_arrivee) ?? HEURE_ESSAI_STANDARD)
+    .map((e) => heureCourte(e.heure_arrivee) ?? standard)
     .sort();
 
   return {
     disponible: dateEssaiDisponible(essais.length),
     heuresPrises,
-    creneauxLibres: creneauxEssaiDisponibles(heuresPrises),
+    creneauxLibres: creneauxEssaiDisponibles(heuresPrises, standard),
   };
 }
 

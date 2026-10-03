@@ -11,6 +11,7 @@ import {
 } from "@/src/lib/alertesStockLogique";
 import { ajouterJoursISO } from "@/src/lib/cotisationPeriode";
 import { phrasesRappelVeilleEssai } from "@/src/lib/rappelVeilleLogique";
+import { heureEssaiStandard } from "@/src/lib/journeeEssai";
 import { CLE_AVIS_GOOGLE, blocAvisGoogleCorps, ligneAvisGooglePiedDePage } from "@/src/lib/avisGoogle";
 import { texteDepuisHtml } from "@/src/lib/emailTexte";
 import {
@@ -1225,7 +1226,9 @@ export async function envoyerEmailRappelVeille({
   // pour UNE journée. La liste du séjour (nourriture pour toute la durée,
   // médicaments, horaires des séjours) n'a rien à y faire.
   if (type === "essai") {
-    const [quand, quoi] = phrasesRappelVeilleEssai(nom_chien, heure_arrivee);
+    const [quand, quoi] = phrasesRappelVeilleEssai(
+      nom_chien, heure_arrivee, heureEssaiStandard(horaires.essaiArrivee),
+    );
     await envoyerEmail({
       destinataire: email,
       type: "rappel_veille",
