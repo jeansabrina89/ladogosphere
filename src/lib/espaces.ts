@@ -1,5 +1,10 @@
 /**
- * Les neuf espaces de l'application, et ce que chacun montre à qui.
+ * Les dix espaces de l'application, et ce que chacun montre à qui.
+ *
+ * L'ORDRE du tableau est celui de la barre latérale (décision de Sabrina,
+ * 03.10.2026) : Aujourd'hui, Clients, Chiens, Pension, Prestations, Boutique,
+ * Atelier, Comptabilité, Équipe, Réglages. Toutes les navigations le lisent
+ * d'ici — barre latérale, tuiles du téléphone — et un test le fige.
  *
  * Fonction pure, sans base ni requête : c'est elle qui porte la composition des
  * menus, et c'est elle que les tests couvrent. Les écrans ne changent PAS
@@ -78,8 +83,8 @@ export type Ecran = {
 };
 
 export type CleEspace =
-  | "aujourdhui" | "pension" | "prestations" | "clients" | "boutique"
-  | "atelier" | "comptabilite" | "equipe" | "reglages";
+  | "aujourdhui" | "clients" | "chiens" | "pension" | "prestations"
+  | "boutique" | "atelier" | "comptabilite" | "equipe" | "reglages";
 
 export type Espace = {
   cle: CleEspace;
@@ -112,6 +117,42 @@ export const ESPACES: Espace[] = [
     label: "📋 Aujourd'hui",
     exigence: PERSONNEL,
     accueil: { href: "/", label: "📋 Aujourd'hui", exigence: PERSONNEL, exact: true },
+    ecrans: [],
+  },
+  {
+    cle: "clients",
+    label: "👤 Clients",
+    exigence: PERSONNEL,
+    accueil: { href: "/clientele", label: "🏠 Clients", exigence: PERSONNEL, exact: true },
+    ecrans: [
+      { href: "/clients", label: "👤 Clients", exigence: PERSONNEL },
+      // Adhésions et abonnements sont des gestes de comptoir : ils suivent
+      // l'encaissement, pas le travail administratif de facturation.
+      { href: "/adhesions", label: "🎫 Adhésions", exigence: perm("perm_encaissements") },
+      { href: "/abonnements", label: "🎟️ Abonnements", exigence: perm("perm_encaissements") },
+    ],
+  },
+  {
+    /**
+     * APP 71 — les chiens, un espace à part entière (décision de Sabrina,
+     * 03.10.2026). Ils étaient rangés sous Clients ; on les cherche pourtant
+     * pour eux-mêmes — une fiche, une entente, une journée d'essai.
+     *
+     * L'accueil n'est PAS exact : la fiche d'un chien (/chiens/[id]), sa
+     * modification et la création (/chiens/nouveau) allument cet espace.
+     *
+     * « /chiens » est le préfixe de « /chiens-du-jour », qui vit dans la
+     * Pension : l'activation se fait au segment, jamais à la lettre. Un test le
+     * garde — /chiens-du-jour reste à la Pension, jamais aux Chiens.
+     *
+     * Les écrans gardent leur adresse ET leur dossier (le groupe
+     * (espace-clients)) : c'est l'adresse qui désigne l'espace, pas le layout
+     * qui l'enveloppe (voir NavEspace).
+     */
+    cle: "chiens",
+    label: "🐶 Chiens",
+    exigence: PERSONNEL,
+    accueil: { href: "/chiens", label: "🐶 Chiens", exigence: PERSONNEL },
     ecrans: [],
   },
   {
@@ -151,22 +192,6 @@ export const ESPACES: Espace[] = [
       { href: "/prestations/formules", label: "📋 Formules", exigence: ADMIN },
       { href: "/prestations/catalogue", label: "🔖 Catalogue", exigence: ADMIN },
       { href: "/prestations/facturer", label: "🧾 Facturer le mois", exigence: perm("perm_factures") },
-    ],
-  },
-  {
-    cle: "clients",
-    label: "👤 Clients",
-    exigence: PERSONNEL,
-    accueil: { href: "/clientele", label: "🏠 Clients", exigence: PERSONNEL, exact: true },
-    ecrans: [
-      { href: "/clients", label: "👤 Clients", exigence: PERSONNEL },
-      // « /chiens » est le préfixe de « /chiens-du-jour », qui vit dans la
-      // Pension : l'activation se fait au segment, jamais à la lettre.
-      { href: "/chiens", label: "🐶 Chiens", exigence: PERSONNEL },
-      // Adhésions et abonnements sont des gestes de comptoir : ils suivent
-      // l'encaissement, pas le travail administratif de facturation.
-      { href: "/adhesions", label: "🎫 Adhésions", exigence: perm("perm_encaissements") },
-      { href: "/abonnements", label: "🎟️ Abonnements", exigence: perm("perm_encaissements") },
     ],
   },
   {

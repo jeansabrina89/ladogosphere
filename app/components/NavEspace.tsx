@@ -13,7 +13,7 @@ import {
 
 /**
  * Barre secondaire d'un espace — le modèle posé par la boutique en APP 13,
- * devenu commun aux huit espaces.
+ * devenu commun à tous les espaces.
  *
  * Une seule ligne, qui DÉFILE horizontalement plutôt que de s'empiler : à
  * 375 px, sept entrées empilées repousseraient le contenu hors de l'écran.

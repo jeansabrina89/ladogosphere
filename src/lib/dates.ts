@@ -19,11 +19,16 @@ export function formatDateLong(date: string | null | undefined): string {
   });
 }
 
-export function aujourdhuiISO(): string {
+/**
+ * Le jour de Zurich, « AAAA-MM-JJ ». L'instant est un paramètre pour qu'un
+ * test puisse se placer à minuit ou au changement d'heure (APP 71) ; sans
+ * lui, c'est maintenant.
+ */
+export function aujourdhuiISO(maintenant: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Zurich",
     year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(new Date());
+  }).format(maintenant);
 }
 
 /**

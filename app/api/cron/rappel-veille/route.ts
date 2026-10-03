@@ -4,7 +4,7 @@ import { envoyerEmailRappelVeille, envoyerEmailPaiement } from "@/src/lib/email"
 import { factureEmisePourReservation } from "@/src/lib/factureResa";
 import { getCoordonneesPaiement } from "@/src/lib/coordonneesPaiement";
 import { recalculerPaiementsReservations } from "@/src/lib/paiementReservation";
-import { TYPES_RAPPEL_VEILLE, doitRecevoirRappelVeille } from "@/src/lib/rappelVeilleLogique";
+import { TYPES_RAPPEL_VEILLE, datesDuRappel, doitRecevoirRappelVeille } from "@/src/lib/rappelVeilleLogique";
 import { tracerEvenement } from "@/src/lib/journalEvenements";
 import { verifierCron } from "@/src/lib/cron";
 
@@ -13,13 +13,14 @@ export async function GET(req: NextRequest) {
   const refus = await verifierCron(req, "rappel-veille");
   if (refus) return refus;
 
-  const aujourdHui = new Date().toISOString().split("T")[0];
+  // APP 71 — les dates du jour de ZURICH, et non d'UTC : la même fonction que
+  // le cron du matin. L'heure du cron (10:00 UTC) ne change pas.
+  const dates = datesDuRappel();
+  const aujourdHui = dates.aujourdhui;
 
   // ===== Tâche 1 : rappel la veille (SÉJOURS et JOURNÉES D'ESSAI) =====
   // La journée de garderie n'en reçoit pas : elle se réserve souvent la veille.
-  const demain = new Date();
-  demain.setDate(demain.getDate() + 1);
-  const dateDemain = demain.toISOString().split("T")[0];
+  const dateDemain = dates.demain;
 
   const { data: reservations, error } = await supabaseAdmin
     .from("reservations")
@@ -67,9 +68,7 @@ export async function GET(req: NextRequest) {
   }
 
   // ===== Tâche 2 : demande de paiement 14 jours AVANT le début (séjours impayés) =====
-  const cible = new Date();
-  cible.setDate(cible.getDate() + 14);
-  const dateCible = cible.toISOString().split("T")[0];
+  const dateCible = dates.dansQuatorzeJours;
 
   const { data: aFacturer, error: errPay } = await supabaseAdmin
     .from("reservations")

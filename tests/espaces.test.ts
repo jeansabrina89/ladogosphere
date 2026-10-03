@@ -43,20 +43,28 @@ const cles = (d: DroitsNav) => espacesVisibles(d).map((e) => e.cle);
 const labels = (cle: Parameters<typeof entreesEspace>[0], d: DroitsNav) =>
   entreesEspace(cle, d).map((e) => e.label);
 
-describe("les neuf espaces", () => {
-  it("l'administratrice les voit tous, dans l'ordre", () => {
+describe("les dix espaces", () => {
+  it("l'administratrice les voit tous, dans l'ordre décidé par Sabrina (APP 71)", () => {
+    // 📋 Aujourd'hui · 👤 Clients · 🐶 Chiens · 🐾 Pension · 🧹 Prestations ·
+    // 🛍️ Boutique · 🧰 Atelier · 📈 Comptabilité · 👥 Équipe · ⚙️ Réglages
     expect(cles(ADMIN)).toEqual([
-      "aujourdhui", "pension", "prestations", "clients", "boutique",
-      "atelier", "comptabilite", "equipe", "reglages",
+      "aujourdhui", "clients", "chiens", "pension", "prestations",
+      "boutique", "atelier", "comptabilite", "equipe", "reglages",
+    ]);
+    expect(espacesVisibles(ADMIN).map((e) => e.label)).toEqual([
+      "📋 Aujourd'hui", "👤 Clients", "🐶 Chiens", "🐾 Pension", "🧹 Prestations",
+      "🛍️ Boutique", "🧰 Atelier", "📈 Comptabilité", "👥 Équipe", "⚙️ Réglages",
     ]);
   });
 
-  it("neuf entrées, pas vingt-deux : c'est ce qui tient dans 667 px", () => {
-    // Neuf entrées de 46 px font 414 px : avec le logo, « Mon espace » et la
-    // déconnexion, la barre tient encore sans défilement sur un écran de
-    // 667 px. La dixième ne tiendra pas, et il faudra alors regrouper.
-    expect(ESPACES).toHaveLength(9);
-    expect(espacesVisibles(ADMIN)).toHaveLength(9);
+  it("dix entrées, pas vingt-deux", () => {
+    // APP 71 : la dixième est arrivée (🐶 Chiens). Vu au rendu le 3 octobre
+    // 2026 : à 1280 × 667, la barre de l'administratrice tient encore entière,
+    // « Mes chiens » et la déconnexion compris. Plus bas, c'est la liste des
+    // espaces SEULE qui défilerait (overflowY sur la <nav>) : le logo et la
+    // déconnexion restent en place.
+    expect(ESPACES).toHaveLength(10);
+    expect(espacesVisibles(ADMIN)).toHaveLength(10);
   });
 });
 
@@ -65,16 +73,16 @@ describe("ce que voit chaque profil", () => {
     // Comptabilité, Équipe et Réglages sont réservés à l'admin par la porte de
     // l'ESPACE : aucune permission d'employée ne les ouvre.
     expect(cles(COMPLETE)).toEqual([
-      "aujourdhui", "pension", "prestations", "clients", "boutique", "atelier",
+      "aujourdhui", "clients", "chiens", "pension", "prestations", "boutique", "atelier",
     ]);
     for (const ferme of ["comptabilite", "equipe", "reglages"]) {
       expect(cles(COMPLETE), ferme).not.toContain(ferme);
     }
   });
 
-  it("une employée au comptoir : quatre entrées, jamais vingt-deux", () => {
+  it("une employée au comptoir : cinq entrées, jamais vingt-deux", () => {
     // Sans perm_prestations, l'espace des locataires n'existe pas pour elle.
-    expect(cles(COMPTOIR)).toEqual(["aujourdhui", "pension", "clients", "boutique"]);
+    expect(cles(COMPTOIR)).toEqual(["aujourdhui", "clients", "chiens", "pension", "boutique"]);
     expect(cles(COMPTOIR).length).toBeLessThanOrEqual(6);
   });
 
@@ -114,9 +122,9 @@ describe("un espace vide n'apparaît pas", () => {
   });
 
   it("un profil sans aucune permission garde tout de même le quotidien", () => {
-    // Aujourd'hui, Pension et Clients sont ouverts à tout le personnel : une
-    // employée nouvellement créée n'arrive pas sur un écran vide.
-    expect(cles(droits())).toEqual(["aujourdhui", "pension", "clients"]);
+    // Aujourd'hui, Clients, Chiens et Pension sont ouverts à tout le
+    // personnel : une employée nouvellement créée n'arrive pas sur un écran vide.
+    expect(cles(droits())).toEqual(["aujourdhui", "clients", "chiens", "pension"]);
   });
 });
 
@@ -238,7 +246,7 @@ describe("l'entrée allumée", () => {
 
   it("chaque adresse tombe dans le bon espace, au segment le plus précis", () => {
     expect(espaceDuChemin("/chiens-du-jour")).toBe("pension");
-    expect(espaceDuChemin("/chiens/abc")).toBe("clients");
+    expect(espaceDuChemin("/chiens/abc")).toBe("chiens");
     expect(espaceDuChemin("/boutique/caisse")).toBe("boutique");
     expect(espaceDuChemin("/atelier/inventaire")).toBe("atelier");
     // Un écran partagé : la fiche fournisseur est nommée dans deux espaces ;
@@ -283,8 +291,9 @@ describe("la composition corrigée", () => {
   });
 
   it("et les Clients ne gardent que la clientèle", () => {
+    // APP 71 : « 🐶 Chiens » est parti dans son propre espace.
     expect(labels("clients", ADMIN)).toEqual([
-      "🏠 Clients", "👤 Clients", "🐶 Chiens", "🎫 Adhésions", "🎟️ Abonnements",
+      "🏠 Clients", "👤 Clients", "🎫 Adhésions", "🎟️ Abonnements",
     ]);
     expect(labels("clients", ADMIN)).not.toContain("📅 Réservations");
   });
@@ -324,13 +333,13 @@ describe("les quatre profils du parcours", () => {
     perm_checkin: true, perm_encaissements: true, perm_boutique_vente: true,
   } as Partial<DroitsNav>);
 
-  it("l'admin voit les neuf espaces", () => {
-    expect(cles(ADMIN)).toHaveLength(9);
+  it("l'admin voit les dix espaces", () => {
+    expect(cles(ADMIN)).toHaveLength(10);
   });
 
   it("une employée qui encaisse ne voit AUCUNE entrée Comptabilité", () => {
     const encaisse = droits({ perm_encaissements: true });
-    expect(cles(encaisse)).toEqual(["aujourdhui", "pension", "clients"]);
+    expect(cles(encaisse)).toEqual(["aujourdhui", "clients", "chiens", "pension"]);
     // Ni l'espace, ni un seul de ses écrans, où que ce soit.
     const vus = espacesVisibles(encaisse).flatMap((e) => e.entrees.map((x) => x.href));
     for (const compta of [
@@ -350,7 +359,7 @@ describe("les quatre profils du parcours", () => {
 
   it("une vendeuse sans atelier vend, mais ne voit ni Atelier ni sur-mesure", () => {
     expect(cles(VENDEUSE_SANS_ATELIER)).toEqual([
-      "aujourdhui", "pension", "clients", "boutique",
+      "aujourdhui", "clients", "chiens", "pension", "boutique",
     ]);
     expect(cles(VENDEUSE_SANS_ATELIER)).not.toContain("atelier");
 
@@ -363,8 +372,9 @@ describe("les quatre profils du parcours", () => {
   });
 
   it("une employée sans aucune permission garde le quotidien, et rien d'autre", () => {
-    expect(cles(droits())).toEqual(["aujourdhui", "pension", "clients"]);
-    expect(labels("clients", droits())).toEqual(["🏠 Clients", "👤 Clients", "🐶 Chiens"]);
+    expect(cles(droits())).toEqual(["aujourdhui", "clients", "chiens", "pension"]);
+    expect(labels("clients", droits())).toEqual(["🏠 Clients", "👤 Clients"]);
+    expect(labels("chiens", droits())).toEqual(["🐶 Chiens"]);
   });
 });
 
@@ -484,5 +494,75 @@ describe("la comptabilité : tous ses écrans sont dans le menu", () => {
     for (const entree of entreesEspace("comptabilite", ADMIN)) {
       expect(ouvert(entree.exigence, ADMIN), `${entree.href} se refermerait`).toBe(true);
     }
+  });
+});
+
+// ── APP 71 : l'ordre de la barre, et l'espace « Chiens » ───────────────────
+
+describe("APP 71 — l'espace Chiens", () => {
+  /**
+   * Les droits des quatre comptes d'employée actifs, relus en base le
+   * 3 octobre 2026 (lecture seule, sans connexion) : tous les quatre ont
+   * exactement ces trois permissions de navigation, et aucune autre.
+   */
+  const COMPTE_TEST = droits({
+    perm_encaissements: true, perm_boutique_vente: true, perm_prestations: true,
+  });
+
+  it("une employée des comptes de test : même espaces qu'avant, plus Chiens, dans le nouvel ordre", () => {
+    // Avant APP 71 : aujourdhui, pension, prestations, clients, boutique.
+    expect(cles(COMPTE_TEST)).toEqual([
+      "aujourdhui", "clients", "chiens", "pension", "prestations", "boutique",
+    ]);
+  });
+
+  it("et ce qui lui était caché le reste", () => {
+    for (const ferme of ["atelier", "comptabilite", "equipe", "reglages"]) {
+      expect(cles(COMPTE_TEST), ferme).not.toContain(ferme);
+    }
+  });
+
+  it("pour tout profil, l'ordre relatif des espaces est celui de l'admin", () => {
+    const ordre = cles(ADMIN);
+    for (const d of [COMPTE_TEST, COMPLETE, COMPTOIR, SANS_GESTION, BOUTIQUE_SANS_ATELIER, droits()]) {
+      const vus = cles(d);
+      expect(vus).toEqual(ordre.filter((c) => vus.includes(c)));
+    }
+  });
+
+  it("s'ouvre à tout le personnel, comme l'écran /chiens", () => {
+    const chiens = ESPACES.find((e) => e.cle === "chiens")!;
+    expect(chiens.label).toBe("🐶 Chiens");
+    expect(chiens.exigence).toEqual({ type: "personnel" });
+    expect(chiens.accueil).toEqual({ href: "/chiens", label: "🐶 Chiens", exigence: { type: "personnel" } });
+    expect(chiens.accueil.exact).toBeUndefined();
+    expect(chiens.ecrans).toEqual([]);
+  });
+
+  it.each([
+    ["/chiens", "chiens"],
+    ["/chiens/123", "chiens"],
+    ["/chiens/123/modifier", "chiens"],
+    ["/chiens/nouveau", "chiens"],
+    ["/chiens-du-jour", "pension"],
+    ["/chiens-du-jour?date=2026-10-03", "pension"],
+    ["/clients", "clients"],
+    ["/clients/abc-123", "clients"],
+    ["/clients/abc-123/modifier", "clients"],
+    ["/clientele", "clients"],
+  ])("%s → espace « %s »", (chemin, espace) => {
+    expect(espaceDuChemin(chemin)).toBe(espace);
+  });
+
+  it("l'espace Clients ne contient plus /chiens", () => {
+    const clients = ESPACES.find((e) => e.cle === "clients")!;
+    const hrefs = [clients.accueil, ...clients.ecrans].map((e) => e.href);
+    expect(hrefs).not.toContain("/chiens");
+    expect(labels("clients", ADMIN)).not.toContain("🐶 Chiens");
+  });
+
+  it("/chiens n'apparaît qu'une fois dans toute la navigation", () => {
+    const tous = ESPACES.flatMap((e) => [e.accueil, ...e.ecrans]).map((e) => e.href);
+    expect(tous.filter((h) => h === "/chiens")).toHaveLength(1);
   });
 });

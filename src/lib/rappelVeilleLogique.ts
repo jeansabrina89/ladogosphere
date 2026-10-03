@@ -11,6 +11,30 @@
  */
 
 import { HEURE_ESSAI_STANDARD, heureCourte } from "@/src/lib/journeeEssai";
+import { aujourdhuiISO } from "@/src/lib/dates";
+import { ajouterJoursISO } from "@/src/lib/cotisationPeriode";
+
+/**
+ * Les trois dates du cron de la veille, au jour de ZURICH (APP 71).
+ *
+ * Elles étaient prises en UTC (`toISOString`), ce qui tombait juste à
+ * 10:00 UTC — l'heure du cron — mais seulement par chance : lancé à la main
+ * entre minuit et 2 h, heure suisse, le cron aurait visé le mauvais jour.
+ * C'est désormais la même paire de fonctions que le cron du matin :
+ * `aujourdhuiISO` (Europe/Zurich, explicitement) puis `ajouterJoursISO`.
+ */
+export function datesDuRappel(maintenant: Date = new Date()): {
+  aujourdhui: string;
+  demain: string;
+  dansQuatorzeJours: string;
+} {
+  const aujourdhui = aujourdhuiISO(maintenant);
+  return {
+    aujourdhui,
+    demain: ajouterJoursISO(aujourdhui, 1),
+    dansQuatorzeJours: ajouterJoursISO(aujourdhui, 14),
+  };
+}
 
 /** Types de réservation qui reçoivent un rappel la veille. */
 export const TYPES_RAPPEL_VEILLE = ["sejour", "essai"] as const;
